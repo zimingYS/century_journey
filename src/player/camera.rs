@@ -1,6 +1,7 @@
+use crate::player::components::Player;
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
-use crate::player::components::Player;
+use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 #[derive(Component)]
 pub struct FpsCamera{
@@ -39,5 +40,31 @@ pub fn player_look_system(
     // 上下旋转
     if let Ok((mut camera_transform,mut fps_camera)) = camera_query.single_mut() {
         camera_transform.rotate_local_x(-delta.y * 0.0015);
+    }
+}
+
+pub fn convert_mouse_lock_on_startup(
+    mut cursor_options_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
+){
+    let Ok(mut cursor_options) = cursor_options_query.single_mut() else { return };
+
+    cursor_options.grab_mode = CursorGrabMode::Locked;
+    cursor_options.visible = false;
+}
+
+pub fn toggle_mouse_lock_system(
+    mut cursor_options_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>
+){
+    let Ok(mut cursor_options) = cursor_options_query.single_mut() else { return };
+
+    if keyboard_input.just_pressed(KeyCode::Escape){
+        if cursor_options.grab_mode == CursorGrabMode::Locked {
+            cursor_options.visible = true;
+            cursor_options.grab_mode = CursorGrabMode::None;
+        }else {
+            cursor_options.visible = false;
+            cursor_options.grab_mode = CursorGrabMode::Locked;
+        }
     }
 }

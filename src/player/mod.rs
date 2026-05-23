@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::player::camera::player_look_system;
+use crate::player::camera::{convert_mouse_lock_on_startup, player_look_system, toggle_mouse_lock_system};
 use crate::player::systems::movement::player_movement_system;
 
 pub mod components;
@@ -11,10 +11,14 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_systems(Startup,spawn_player)
+            .add_systems(Startup,(
+                spawn_player,
+                convert_mouse_lock_on_startup
+            ))
             .add_systems(Update, (
                 player_look_system,
                 player_movement_system,
+                toggle_mouse_lock_system,
             ));
     }
 }
