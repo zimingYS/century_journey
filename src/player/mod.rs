@@ -32,19 +32,19 @@ fn spawn_player(
     commands.spawn((
         components::Player,
         components::PlayerMovement::default(),
-        Transform::from_xyz(0.0, 0.0, 0.0),
+        Transform::from_xyz(0.0, 70.0, 0.0),
         Visibility::default(),
     )).with_children(|parent| {
         parent.spawn((
             Mesh3d(meshes.add(Capsule3d::default().mesh().build())),
             MeshMaterial3d(materials.add(Color::srgb(0.8, 0.2, 0.2))),
-            Transform::from_xyz(0.0, 1.0, 0.0),
+            Transform::from_xyz(0.0, 71.0, 0.0),
         ));
 
         parent.spawn((
             camera::FpsCamera::default(),
             Camera3d::default(),
-            Transform::from_xyz(0.0, 1.65, 0.0)
+            Transform::from_xyz(0.0, 71.65, 0.0)
         ));
     });
 }

@@ -3,6 +3,7 @@ use bevy::window::WindowResolution;
 use CenturyJourney::core::constant::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use CenturyJourney::player::PlayerPlugin;
 use CenturyJourney::test_setup::setup;
+use CenturyJourney::world::WorldPlugin;
 
 fn main() {
     App::new()
@@ -18,6 +19,7 @@ fn main() {
         }))
         .add_plugins((
             PlayerPlugin,
+            WorldPlugin,
         ))
         .add_systems(Startup,setup)
         .run();

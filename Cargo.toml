@@ -22,6 +22,7 @@ bevy_egui = "0.39.1"
 bevy_kira_audio = "0.25.0"
 # 网络
 bevy_replicon = "0.40.1"
+serde_arrays = "0.2.0"
 
 
 
