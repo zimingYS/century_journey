@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use crate::player::camera::{convert_mouse_lock_on_startup, player_look_system, toggle_mouse_lock_system};
+use crate::player::systems::interaction::voxel_interaction_system;
 use crate::player::systems::movement::player_movement_system;
+use crate::player::systems::raycast::{draw_voxel_highlight_system, update_raycast_system, TargetVoxel};
 
 pub mod components;
 pub mod systems;
@@ -11,6 +13,7 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
+            .init_resource::<TargetVoxel>()
             .add_systems(Startup,(
                 spawn_player,
                 convert_mouse_lock_on_startup
@@ -19,6 +22,9 @@ impl Plugin for PlayerPlugin {
                 player_look_system,
                 player_movement_system,
                 toggle_mouse_lock_system,
+                voxel_interaction_system,
+                draw_voxel_highlight_system,
+                update_raycast_system,
             ));
     }
 }
@@ -38,13 +44,13 @@ fn spawn_player(
         parent.spawn((
             Mesh3d(meshes.add(Capsule3d::default().mesh().build())),
             MeshMaterial3d(materials.add(Color::srgb(0.8, 0.2, 0.2))),
-            Transform::from_xyz(0.0, 71.0, 0.0),
+            Transform::from_xyz(0.0, 1.0, 0.0),
         ));
 
         parent.spawn((
             camera::FpsCamera::default(),
             Camera3d::default(),
-            Transform::from_xyz(0.0, 71.65, 0.0)
+            Transform::from_xyz(0.0, 1.65, 0.0)
         ));
     });
 }
