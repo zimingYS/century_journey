@@ -119,6 +119,11 @@ pub fn build_chunk_mesh_system(
     mut chunk_query:Query<(Entity, &ChunkComponents, &mut ChunkState)>,
     world_storage: Res<WorldStorage>,
 ){
+    let material_handle = materials.add(StandardMaterial {
+        base_color: Color::WHITE,
+        ..default()
+    });
+
     for (chunk_entity, chunk_components, mut state) in &mut chunk_query {
         if *state != ChunkState::DataReady { continue; }
 
@@ -141,6 +146,7 @@ pub fn build_chunk_mesh_system(
         let mut positions: Vec<[f32; 3]> = Vec::new();
         let mut normals: Vec<[f32; 3]> = Vec::new();
         let mut indices: Vec<u32> = Vec::new();
+        let mut colors: Vec<[f32; 4]> = Vec::new();
 
         for x in 0..16{
             for y in 0..16{
@@ -192,6 +198,13 @@ pub fn build_chunk_mesh_system(
                                 normals.push([normal.x, normal.y, normal.z]);
                             }
 
+                            let voxel_type = VoxelType::from_u8(voxel_id);
+                            let color_array = voxel_type.get_voxel_color().to_linear().to_f32_array();
+
+                            for _ in 0..4 {
+                                colors.push(color_array);
+                            }
+
                             // 拼接三角形渲染面
                             indices.extend_from_slice(&[
                                 start_idx + 0, start_idx + 1, start_idx + 2,
@@ -207,18 +220,14 @@ pub fn build_chunk_mesh_system(
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
         mesh.insert_indices(Indices::U32(indices));
 
         let mesh_handle = meshes.add(mesh);
-        let material_handle = materials.add(StandardMaterial{
-                base_color: Color::srgb(0.3, 0.7, 0.9),
-                unlit: true,
-                ..default()
-            });
 
         commands.entity(chunk_entity).insert((
             Mesh3d(mesh_handle),
-            MeshMaterial3d(material_handle),
+            MeshMaterial3d(material_handle.clone()),
         ));
 
         // 标记渲染就绪

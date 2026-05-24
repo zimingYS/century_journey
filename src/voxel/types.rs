@@ -13,3 +13,30 @@ pub enum VoxelType{
     Sand = 6,
     Water = 7,
 }
+
+impl VoxelType{
+    pub fn from_u8(value: u8) -> Self {
+        match value {
+            1 => VoxelType::Grass,
+            2 => VoxelType::Dirt,
+            3 => VoxelType::Stone,
+            4 => VoxelType::Wood,
+            5 => VoxelType::Leaves,
+            6 => VoxelType::Sand,
+            7 => VoxelType::Water,
+            _ => VoxelType::Air,
+        }
+    }
+    pub(crate) fn get_voxel_color (&self) -> Color {
+        match self {
+            VoxelType::Grass => Color::srgb(0.2, 0.8, 0.2),
+            VoxelType::Dirt => Color::srgb(0.6, 0.4, 0.2),
+            VoxelType::Stone => Color::srgb(0.5, 0.5, 0.5),
+            VoxelType::Wood => Color::srgb(0.4, 0.3, 0.2),
+            VoxelType::Leaves => Color::srgb(0.1, 0.6, 0.1),
+            VoxelType::Sand => Color::srgb(0.9, 0.9, 0.6),
+            VoxelType::Water => Color::srgba(0.2, 0.4, 0.9, 0.6),
+            VoxelType::Air => Color::NONE,
+        }
+    }
+}
