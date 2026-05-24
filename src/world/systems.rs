@@ -119,8 +119,18 @@ pub fn build_chunk_mesh_system(
     mut chunk_query:Query<(Entity, &ChunkComponents, &mut ChunkState)>,
     world_storage: Res<WorldStorage>,
 ){
-    let material_handle = materials.add(StandardMaterial {
+    // 实体材质
+    let opaque_material = materials.add(StandardMaterial {
         base_color: Color::WHITE,
+        ..default()
+    });
+
+    // 水体材质
+    let water_material = materials.add(StandardMaterial {
+        base_color: Color::srgba(0.2, 0.5, 0.8, 0.5),
+        alpha_mode: AlphaMode::Blend,
+        perceptual_roughness: 0.2,
+        metallic: 0.1,
         ..default()
     });
 
@@ -143,10 +153,17 @@ pub fn build_chunk_mesh_system(
         *state = ChunkState::GeneratingMesh;
 
         // 存储顶点容器
-        let mut positions: Vec<[f32; 3]> = Vec::new();
-        let mut normals: Vec<[f32; 3]> = Vec::new();
-        let mut indices: Vec<u32> = Vec::new();
-        let mut colors: Vec<[f32; 4]> = Vec::new();
+        // 实体方块容器
+        let mut opaque_positions: Vec<[f32; 3]> = Vec::new();
+        let mut opaque_normals: Vec<[f32; 3]> = Vec::new();
+        let mut opaque_colors: Vec<[f32; 4]> = Vec::new();
+        let mut opaque_indices: Vec<u32> = Vec::new();
+
+        // 透明水体容器
+        let mut water_positions: Vec<[f32; 3]> = Vec::new();
+        let mut water_normals: Vec<[f32; 3]> = Vec::new();
+        let mut water_colors: Vec<[f32; 4]> = Vec::new();
+        let mut water_indices: Vec<u32> = Vec::new();
 
         for x in 0..16{
             for y in 0..16{
@@ -155,6 +172,8 @@ pub fn build_chunk_mesh_system(
 
                     // 是空气则不渲染
                     if voxel_id == VoxelType::Air as u8 { continue; }
+
+                    let current_is_water = voxel_id == VoxelType::Water as u8;
 
                     let local_pos = IVec3::new(x as i32, y as i32, z as i32);
 
@@ -166,7 +185,14 @@ pub fn build_chunk_mesh_system(
                         let is_neighbor_transparent = {
                             // 若隔壁方块在本区块内
                             if let Some(nbr_id) = current_chunk_data.get_voxel_safe(neighbor_local_pos.x, neighbor_local_pos.y, neighbor_local_pos.z) {
-                                nbr_id == VoxelType::Air as u8
+                                let nbr_is_air = nbr_id == VoxelType::Air as u8;
+                                let nbr_is_water = nbr_id == VoxelType::Water as u8;
+
+                                if current_is_water {
+                                    nbr_is_air
+                                } else {
+                                    nbr_is_air || nbr_is_water
+                                }
                             } else {
                                 // 计算隔壁区块的绝对坐标
                                 let neighbor_chunk_pos = current_chunk_pos + dir;
@@ -177,58 +203,87 @@ pub fn build_chunk_mesh_system(
 
                                 if let Some(neighbor_chunk_data) = world_storage.loaded_chunks.get(&neighbor_chunk_pos) {
                                     let nbr_id = neighbor_chunk_data.voxels[ChunkData::xyz_to_index(nbr_local_x, nbr_local_y, nbr_local_z)];
-                                    nbr_id == VoxelType::Air as u8
+                                    let nbr_is_air = nbr_id == VoxelType::Air as u8;
+                                    let nbr_is_water = nbr_id == VoxelType::Water as u8;
+
+                                    if current_is_water { nbr_is_air } else { nbr_is_air || nbr_is_water }
                                 } else {
-                                    true // 边界未加载时，默认渲染
+                                    if current_is_water { false } else { true }
                                 }
                             }
                         };
 
-                        // 若邻居是空气，则渲染与空气相邻面
-                        if is_neighbor_transparent{
-                            // 计算当前网格顶点的基准索引偏置
-                            let start_idx = positions.len() as u32;
-
-                            // 根据当前的方向，生成对应的立方体单面
-                            let face_vertices = get_face_vertices(x as f32, y as f32, z as f32, face_idx);
-                            positions.extend_from_slice(&face_vertices);
-
-                            // 每个顶点分配相同的法线
-                            for _ in 0..4 {
-                                normals.push([normal.x, normal.y, normal.z]);
-                            }
-
+                        if is_neighbor_transparent {
                             let voxel_type = VoxelType::from_u8(voxel_id);
                             let color_array = voxel_type.get_voxel_color().to_linear().to_f32_array();
+                            let face_vertices = get_face_vertices(x as f32, y as f32, z as f32, face_idx);
 
-                            for _ in 0..4 {
-                                colors.push(color_array);
+                            if current_is_water {
+                                // 填充到水面容器
+                                let start_idx = water_positions.len() as u32;
+                                water_positions.extend_from_slice(&face_vertices);
+                                for _ in 0..4 {
+                                    water_normals.push([normal.x, normal.y, normal.z]);
+                                    water_colors.push(color_array);
+                                }
+                                water_indices.extend_from_slice(&[
+                                    start_idx + 0, start_idx + 1, start_idx + 2,
+                                    start_idx + 0, start_idx + 2, start_idx + 3,
+                                ]);
+                            } else {
+                                // 填充到实体方块容器
+                                let start_idx = opaque_positions.len() as u32;
+                                opaque_positions.extend_from_slice(&face_vertices);
+                                for _ in 0..4 {
+                                    opaque_normals.push([normal.x, normal.y, normal.z]);
+                                    opaque_colors.push(color_array);
+                                }
+                                opaque_indices.extend_from_slice(&[
+                                    start_idx + 0, start_idx + 1, start_idx + 2,
+                                    start_idx + 0, start_idx + 2, start_idx + 3,
+                                ]);
                             }
-
-                            // 拼接三角形渲染面
-                            indices.extend_from_slice(&[
-                                start_idx + 0, start_idx + 1, start_idx + 2,
-                                start_idx + 0, start_idx + 2, start_idx + 3,
-                            ]);
                         }
                     }
                 }
             }
         }
 
-        // 打包渲染网格
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-        mesh.insert_indices(Indices::U32(indices));
+        if !opaque_positions.is_empty() {
+            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
+            mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, opaque_positions);
+            mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, opaque_normals);
+            mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, opaque_colors);
+            mesh.insert_indices(Indices::U32(opaque_indices));
 
-        let mesh_handle = meshes.add(mesh);
+            let mesh_handle = meshes.add(mesh);
+            commands.entity(chunk_entity).insert((
+                Mesh3d(mesh_handle),
+                MeshMaterial3d(opaque_material.clone()),
+            ));
+        }
 
-        commands.entity(chunk_entity).insert((
-            Mesh3d(mesh_handle),
-            MeshMaterial3d(material_handle.clone()),
-        ));
+        // 重新构建网格前清除老的水面实体
+        commands.entity(chunk_entity).despawn_related::<Children>();
+
+        if !water_positions.is_empty() {
+            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
+            mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, water_positions);
+            mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, water_normals);
+            mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, water_colors);
+            mesh.insert_indices(Indices::U32(water_indices));
+
+            let water_mesh_handle = meshes.add(mesh);
+
+            commands.entity(chunk_entity).with_children(|parent| {
+                parent.spawn((
+                    Mesh3d(water_mesh_handle),
+                    MeshMaterial3d(water_material.clone()),
+                    Transform::IDENTITY,
+                    Visibility::default(),
+                ));
+            });
+        }
 
         // 标记渲染就绪
         *state = ChunkState::Rendered;

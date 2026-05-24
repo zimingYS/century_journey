@@ -42,15 +42,23 @@ impl TerrainGenerator {
                     let world_y = world_start_y + y as i32;
 
                     let voxel_type = if world_y > target_surface_y {
-                        voxel::types::VoxelType::Air
+                        if world_y <= SEA_LEVEL {
+                            VoxelType::Water
+                        } else {
+                            VoxelType::Air
+                        }
                     }else if world_y == target_surface_y{
-                        if world_y < SEA_LEVEL + 2{
+                        if world_y <= SEA_LEVEL + 2 {
                             VoxelType::Sand
-                        }else {
+                        } else {
                             VoxelType::Grass
                         }
                     } else if world_y > target_surface_y - 4{
-                        VoxelType::Dirt
+                        if target_surface_y <= SEA_LEVEL {
+                            VoxelType::Sand  
+                        } else {
+                            VoxelType::Dirt
+                        }
                     }else {
                         VoxelType::Stone
                     };
