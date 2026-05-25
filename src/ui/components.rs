@@ -14,3 +14,17 @@ pub struct CreativeInventoryMenu;
 pub struct PaletteSlot{
     pub voxel_type: VoxelType,
 }
+
+/// HUD快捷栏(物品栏)
+#[derive(Component)]
+pub struct HudHotbarContainer;
+
+/// HUD快捷栏(物品栏)中的单个物品槽位
+#[derive(Component)]
+pub struct HudHotbarSlot {
+    pub index: usize,
+}
+
+/// HUD快捷栏(物品栏)外的高亮选择框
+#[derive(Component)]
+pub struct HudHotbarSelector;

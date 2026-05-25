@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use crate::ui::hud::crosshair::setup_crosshair;
 
 pub mod components;
 pub mod resources;
@@ -11,9 +10,12 @@ impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) { app
         .init_resource::<resources::inventory_ui_state::InventoryUiState>()
         .add_systems(Startup,(
-            setup_crosshair,
+            hud::crosshair::setup_crosshair,
+            hud::hotbar::spawn_hotbar_ui_system,
         ))
         .add_systems(Update, (
+            hud::hotbar:: update_hotbar_ui_system,
+            hud::hotbar::handle_hotbar_switch_system,
             menu::inventory::toggle_inventory_system,
             menu::inventory::palette_click_system,
         ));
