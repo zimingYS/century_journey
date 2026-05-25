@@ -3,6 +3,7 @@ use crate::player::systems::raycast::{raycast_voxel, TargetVoxel};
 use crate::voxel::types::VoxelType;
 use crate::world::chunk::{ChunkComponents, ChunkState};
 use bevy::prelude::*;
+use crate::ui::resources::inventory_ui_state::InventoryUiState;
 use crate::world::storage::WorldStorage;
 
 pub fn voxel_interaction_system(
@@ -10,7 +11,11 @@ pub fn voxel_interaction_system(
     target_voxel: Res<TargetVoxel>,
     mut world_storage: ResMut<WorldStorage>,
     mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
+    inventory_ui_state: Res<InventoryUiState>,
 ){
+    // 当打开物品栏时不进行破坏和放置操作
+    if inventory_ui_state.is_inventory_open { return; }
+
     let left_click = mouse_button.just_pressed(MouseButton::Left);
     let right_click = mouse_button.just_pressed(MouseButton::Right);
     if !left_click && !right_click { return; }
@@ -20,7 +25,12 @@ pub fn voxel_interaction_system(
         let (target_voxel, next_type) = if left_click {
             (ray_result.hit_pos, VoxelType::Air)
         } else {
-            (ray_result.hit_pos + ray_result.normal, VoxelType::Grass)
+            // 根据快捷栏选中的方块类型放置方块
+            let current_hand_block = inventory_ui_state.hotbar_items[inventory_ui_state.active_hotbar_index];
+
+            if current_hand_block == VoxelType::Air { return; }
+
+            (ray_result.hit_pos + ray_result.normal, current_hand_block)
         };
 
         // 获取击中的方块坐标
