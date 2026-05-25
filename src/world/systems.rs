@@ -140,6 +140,9 @@ pub fn build_chunk_mesh_system(
         let current_chunk_pos = chunk_components.position;
 
         // // 跨区块检查旁边区块是否已生成区块数据
+        // let neighbors_ready = DIRECTIONS.iter()
+        //     .all(|(dir, _)| world_storage.loaded_chunks.contains_key(&(current_chunk_pos + *dir)));
+
         let neighbors_ready = DIRECTIONS.iter()
             .all(|(dir, _)| world_storage.loaded_chunks.contains_key(&(current_chunk_pos + *dir)));
 
