@@ -1,8 +1,10 @@
+use crate::player::systems::raycast::TargetVoxel;
+use bevy::camera::Exposure;
+use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::light::{AtmosphereEnvironmentMapLight, VolumetricFog};
+use bevy::pbr::{Atmosphere, AtmosphereSettings, ScatteringMedium};
+use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
-use crate::player::camera::{convert_mouse_lock_on_startup, player_look_system, toggle_mouse_lock_system};
-use crate::player::systems::interaction::voxel_interaction_system;
-use crate::player::systems::movement::player_movement_system;
-use crate::player::systems::raycast::{draw_voxel_highlight_system, update_raycast_system, TargetVoxel};
 
 pub mod components;
 pub mod systems;
@@ -16,15 +18,15 @@ impl Plugin for PlayerPlugin {
             .init_resource::<TargetVoxel>()
             .add_systems(Startup,(
                 spawn_player,
-                convert_mouse_lock_on_startup
+                camera::convert_mouse_lock_on_startup
             ))
             .add_systems(Update, (
-                player_look_system,
-                player_movement_system,
-                toggle_mouse_lock_system,
-                voxel_interaction_system,
-                draw_voxel_highlight_system,
-                update_raycast_system,
+                camera::player_look_system,
+                systems::movement::player_movement_system,
+                camera::toggle_mouse_lock_system,
+                systems::interaction::voxel_interaction_system,
+                systems::raycast::draw_voxel_highlight_system,
+                systems::raycast::update_raycast_system,
             ));
     }
 }
@@ -33,6 +35,7 @@ fn spawn_player(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
 ) {
     // 生成玩家身体
     commands.spawn((
@@ -50,7 +53,23 @@ fn spawn_player(
         parent.spawn((
             camera::FpsCamera::default(),
             Camera3d::default(),
-            Transform::from_xyz(0.0, 1.65, 0.0)
+            Transform::from_xyz(0.0, 1.65, 0.0),
+
+            // 大气散射
+            Atmosphere::earthlike(scattering_mediums.add(ScatteringMedium::default())),
+            AtmosphereSettings::default(),
+            AtmosphereEnvironmentMapLight::default(),
+
+            // 高曝光补偿
+            Exposure { ..default() },
+            Tonemapping::AcesFitted,
+            Bloom::NATURAL,
+
+            // 开启体积雾
+            VolumetricFog {
+                ambient_intensity: 0.0,
+                ..default()
+            },
         ));
     });
 }
