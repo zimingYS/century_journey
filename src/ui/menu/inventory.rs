@@ -59,7 +59,7 @@ fn spawn_creative_menu_ui(commands: &mut Commands, inventory_ui_state: &Inventor
         // 标题
         parent.spawn((
             Text::new("Creative Inventory"),
-            TextFont { font_size: 20.0, ..default() },
+            TextFont { font_size: FontSize::Px(20.0), ..default() },
             TextColor(Color::WHITE),
             Node { margin: UiRect::bottom(Val::Px(10.0)), ..default() }
         ));

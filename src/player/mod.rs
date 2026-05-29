@@ -1,8 +1,9 @@
 use crate::player::systems::raycast::TargetVoxel;
 use bevy::camera::Exposure;
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::light::{AtmosphereEnvironmentMapLight, VolumetricFog};
-use bevy::pbr::{Atmosphere, AtmosphereSettings, ScatteringMedium};
+use bevy::light::{Atmosphere, AtmosphereEnvironmentMapLight, VolumetricFog};
+use bevy::light::atmosphere::ScatteringMedium;
+use bevy::pbr::AtmosphereSettings;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 
@@ -55,8 +56,7 @@ fn spawn_player(
             Camera3d::default(),
             Transform::from_xyz(0.0, 1.65, 0.0),
 
-            // 大气散射
-            Atmosphere::earthlike(scattering_mediums.add(ScatteringMedium::default())),
+            // 世界大气
             AtmosphereSettings::default(),
             AtmosphereEnvironmentMapLight::default(),
 

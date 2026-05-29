@@ -1,16 +1,31 @@
 use bevy::camera::Exposure;
 use crate::world::sky::component::*;
 use crate::world::time::TimeOfDay;
-use bevy::light::{CascadeShadowConfigBuilder, VolumetricLight};
+use bevy::light::{Atmosphere, CascadeShadowConfigBuilder, VolumetricLight};
+use bevy::light::atmosphere::ScatteringMedium;
+use bevy::pbr::AtmosphereSettings;
 use bevy::prelude::*;
 
-pub fn setup_sky_system(mut commands: Commands) {
+pub fn setup_sky_system(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
+) {
+    // 生成世界大气
+    let earth_medium = scattering_mediums.add(ScatteringMedium::default());
+    commands.spawn((
+        Atmosphere::earth(earth_medium),
+    ));
+
     // 构造级联阴影
     let cascade_shadow_config = CascadeShadowConfigBuilder {
         // 第一个阴影级联的远边界
         first_cascade_far_bound: 16.0,
         // 阴影的最大渲染距离
         maximum_distance: 64.0,
+        // 级联数量
+        num_cascades: 4,
         ..default()
     }
         .build();
@@ -20,7 +35,7 @@ pub fn setup_sky_system(mut commands: Commands) {
         Sun,
         DirectionalLight{
             illuminance: light_consts::lux::RAW_SUNLIGHT,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::IDENTITY,
@@ -35,12 +50,44 @@ pub fn setup_sky_system(mut commands: Commands) {
         DirectionalLight {
             color: Color::srgb(0.8, 0.85, 1.0),
             illuminance: light_consts::lux::FULL_MOON_NIGHT,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::IDENTITY,
         cascade_shadow_config,
     ));
+    // TODO
+    // let quad_mesh = meshes.add(Rectangle::new(15.0, 15.0));
+    //
+    // let sun_material = materials.add(StandardMaterial {
+    //     base_color: Color::srgb(1.0, 1.0, 1.0),
+    //     unlit: true,
+    //     alpha_mode: AlphaMode::Blend,
+    //     cull_mode: None,
+    //     ..default()
+    // });
+    //
+    // let moon_material = materials.add(StandardMaterial {
+    //     base_color: Color::srgb(0.85, 0.88, 0.95),
+    //     unlit: true,
+    //     alpha_mode: AlphaMode::Blend,
+    //     cull_mode: None,
+    //     ..default()
+    // });
+
+    // commands.spawn((
+    //     SunMesh,
+    //     Mesh3d(quad_mesh.clone()),
+    //     MeshMaterial3d(sun_material),
+    //     Transform::default(),
+    // ));
+    //
+    // commands.spawn((
+    //     MoonMesh,
+    //     Mesh3d(quad_mesh),
+    //     MeshMaterial3d(moon_material),
+    //     Transform::default(),
+    // ));
 }
 
 pub fn atmosphere_system(
