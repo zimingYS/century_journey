@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::fs;
 use bevy::asset::RenderAssetUsages;
+use bevy::image::ImageSampler;
 use bevy::prelude::*;
 use bevy::render::render_resource::*;
+use crate::core::constant::TILE_SIZE;
 use crate::core::state::AppState;
 use crate::ui::resources::inventory_ui_state::InventoryUiState;
 use crate::voxel::properties::BlockProperty;
@@ -17,8 +19,10 @@ pub struct BlockRegistry{
     pub texture_layers: HashMap<(u16, usize), u32>,
     /// 不透明材质
     pub opaque_material: Handle<StandardMaterial>,
-    /// 半透明材质
+    /// 镂空材质
     pub cutout_material: Handle<StandardMaterial>,
+    /// 透明材质
+    pub transparent_material: Handle<StandardMaterial>,
 }
 
 impl BlockRegistry{
@@ -139,67 +143,81 @@ pub fn init_block_registry_system(
         current_max_id += 1;
     }
 
-    // 定义贴图尺寸
-    let tile_size = 16;
     let layer_count = unique_paths.len() as u32;
+    let atlas_width = TILE_SIZE * layer_count;
 
-    let atlas_width = tile_size * layer_count;
-    let atlas_height = tile_size;
+    let mut atlas_data = vec![0u8; (atlas_width * TILE_SIZE * 4) as usize];
 
-    // 装载所有纹理贴图
-    let mut atlas_data = vec![255u8; (atlas_width * atlas_height * 4) as usize];
-
-    for (path, &layer_idx) in path_to_layer.iter() {
-        // 拼接路径
+    for (layer_idx, path) in unique_paths.iter().enumerate() {
         let full_path = std::path::Path::new("assets").join(path);
-        // 读取图片
-        if let Ok(img) = image::open(full_path) {
-            let rgba = img.to_rgba8();
-            // 强制缩放图片
-            let resized = image::imageops::resize(&rgba, tile_size, tile_size, image::imageops::FilterType::Nearest);
 
-            // 将散图并排拷贝进长条大图中
-            for y in 0..tile_size {
-                let src_start = (y * tile_size * 4) as usize;
-                let src_end = src_start + (tile_size * 4) as usize;
-
-                // 计算在大图中的像素目标偏移位置
-                let dest_x_offset = layer_idx * tile_size;
-                let dest_start = ((y * atlas_width + dest_x_offset) * 4) as usize;
-
-                atlas_data[dest_start..(dest_start + (tile_size * 4) as usize)]
-                    .copy_from_slice(&resized.as_raw()[src_start..src_end]);
+        // 加载贴图，失败则使用紫黑格占位符
+        let image = match image::open(&full_path) {
+            Ok(img) => img.to_rgba8(),
+            Err(e) => {
+                error!("无法加载贴图 {}: {}", full_path.display(), e);
+                create_missing_texture_placeholder()
             }
-        } else {
-            error!("贴图文件丢失或损坏: {:?}!", path);
+        };
+
+        // 缩放到标准尺寸
+        let resized = image::imageops::resize(
+            &image,
+            TILE_SIZE,
+            TILE_SIZE,
+            image::imageops::FilterType::Nearest
+        );
+
+        for y in 0..TILE_SIZE {
+            let src_start = (y * TILE_SIZE * 4) as usize;
+            let src_end = src_start + (TILE_SIZE * 4) as usize;
+
+            let dest_x_offset = layer_idx as u32 * TILE_SIZE;
+            let dest_start = ((y * atlas_width + dest_x_offset) * 4) as usize;
+
+            atlas_data[dest_start..dest_start + (TILE_SIZE * 4) as usize]
+                .copy_from_slice(&resized.as_raw()[src_start..src_end]);
         }
     }
 
-    // 创建维度纹理
-    let array_image = Image::new(
+    let mut array_image = Image::new(
         Extent3d {
-            width: atlas_width,
-            height: atlas_height,
+            width: TILE_SIZE * layer_count,
+            height: TILE_SIZE,
             depth_or_array_layers: 1,
         },
         TextureDimension::D2,
         atlas_data,
         TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::default(),
+        RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
     );
+
+    array_image.sampler = ImageSampler::nearest();
 
     let texture_handle = images.add(array_image);
 
+    // 不透明材质
     registry.opaque_material = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
         perceptual_roughness: 0.85,
         ..default()
     });
 
+    // 镂空材质
     registry.cutout_material = materials.add(StandardMaterial {
-        base_color_texture: Some(texture_handle),
+        base_color_texture: Some(texture_handle.clone()),
         perceptual_roughness: 0.85,
         alpha_mode: AlphaMode::Mask(0.5),
+        ..default()
+    });
+
+    // 透明混合材质
+    registry.transparent_material = materials.add(StandardMaterial {
+        base_color_texture: Some(texture_handle),
+        base_color: Color::srgba(1.0, 1.0, 1.0, 0.85),
+        perceptual_roughness: 0.2,
+        metallic: 0.05,
+        alpha_mode: AlphaMode::Blend,
         ..default()
     });
 
@@ -217,4 +235,20 @@ pub fn init_block_registry_system(
     next_state.set(AppState::InGame);
 
     info!("[世纪之旅] 核心方块资产注册完毕，游戏状态切入 InGame，正在生成 3D 噪声地形...");
+}
+
+/// 创建紫黑格缺失贴图占位符
+fn create_missing_texture_placeholder() -> image::RgbaImage {
+    let mut img = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
+    for y in 0..TILE_SIZE {
+        for x in 0..TILE_SIZE {
+            let color = if (x / 4 + y / 4) % 2 == 0 {
+                image::Rgba([255, 0, 255, 255]) // 紫色
+            } else {
+                image::Rgba([0, 0, 0, 255]) // 黑色
+            };
+            img.put_pixel(x, y, color);
+        }
+    }
+    img
 }

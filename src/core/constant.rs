@@ -14,3 +14,7 @@ pub const SEA_LEVEL:i32 = 64;
 
 // 背包格子总数
 pub const TOTAL_SLOTS:usize = 36;
+
+// 贴图纹理大小
+pub const TILE_SIZE: u32 = 16;
+pub const TILE_SIZE_F32: f32 = TILE_SIZE as f32;

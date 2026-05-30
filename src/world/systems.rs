@@ -124,42 +124,24 @@ const DIRECTIONS: [(IVec3, Vec3); 6] = [
 pub fn build_chunk_mesh_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    // mut materials: ResMut<Assets<StandardMaterial>>,
     mut chunk_query:Query<(Entity, &ChunkComponents, &mut ChunkState)>,
     registry: Option<Res<BlockRegistry>>,
     world_storage: Res<WorldStorage>,
 ){
     let Some(reg) = registry else { return; };
 
-    // // 实体材质
-    // let opaque_material = materials.add(StandardMaterial {
-    //     base_color: Color::WHITE,
-    //     ..default()
-    // });
-
-    // 水体材质
-    let water_material = materials.add(StandardMaterial {
-        base_color: Color::srgba(0.2, 0.5, 0.8, 0.5),
-        alpha_mode: AlphaMode::Blend,
-        perceptual_roughness: 0.2,
-        metallic: 0.1,
-        ..default()
-    });
-
     let water_id = reg.get_id_by_identifier("century_journey:water").unwrap_or(0);
 
     // 获取当前注册的总贴图数量
-    let total_sheets = (reg.texture_layers.values().copied().max().unwrap_or(0) + 1) as f32;
+    let total_layers = reg.texture_layers.values().map(|&v| v + 1).max().unwrap_or(1);
 
     for (chunk_entity, chunk_components, mut state) in &mut chunk_query {
         if *state != ChunkState::DataReady { continue; }
 
         let current_chunk_pos = chunk_components.position;
 
-        // // 跨区块检查旁边区块是否已生成区块数据
-        // let neighbors_ready = DIRECTIONS.iter()
-        //     .all(|(dir, _)| world_storage.loaded_chunks.contains_key(&(current_chunk_pos + *dir)));
-
+        //跨区块检查旁边区块是否已生成区块数据
         let neighbors_ready = DIRECTIONS.iter()
             .all(|(dir, _)| world_storage.loaded_chunks.contains_key(&(current_chunk_pos + *dir)));
 
@@ -177,20 +159,19 @@ pub fn build_chunk_mesh_system(
         let mut opaque_positions: Vec<[f32; 3]> = Vec::new();
         let mut opaque_normals: Vec<[f32; 3]> = Vec::new();
         let mut opaque_uvs: Vec<[f32; 2]> = Vec::new();
-        let mut opaque_colors: Vec<[f32; 4]> = Vec::new();
         let mut opaque_indices: Vec<u32> = Vec::new();
 
         // 半透明方块容器
         let mut cutout_positions: Vec<[f32; 3]> = Vec::new();
         let mut cutout_normals: Vec<[f32; 3]> = Vec::new();
         let mut cutout_uvs: Vec<[f32; 2]> = Vec::new();
-        let mut cutout_colors: Vec<[f32; 4]> = Vec::new();
         let mut cutout_indices: Vec<u32> = Vec::new();
 
         // 透明水体容器
         let mut water_positions: Vec<[f32; 3]> = Vec::new();
         let mut water_normals: Vec<[f32; 3]> = Vec::new();
         let mut water_colors: Vec<[f32; 4]> = Vec::new();
+        let mut water_uvs: Vec<[f32; 2]> = Vec::new();
         let mut water_indices: Vec<u32> = Vec::new();
 
         for x in 0..16{
@@ -255,6 +236,16 @@ pub fn build_chunk_mesh_system(
                             let face_vertices = get_face_vertices(x as f32, y as f32, z as f32, face_idx);
 
                             if current_is_water {
+                                let layer_id = reg.texture_layers.get(&(voxel_id, face_idx)).copied().unwrap_or(0);
+                                let u0 = layer_id as f32 / total_layers as f32;
+                                let u1 = (layer_id + 1) as f32 / total_layers as f32;
+                                let local_uvs = [
+                                    [u0, 0.0],
+                                    [u1, 0.0],
+                                    [u1, 1.0],
+                                    [u0, 1.0],
+                                ];
+
                                 // 填充到水面容器
                                 let start_idx = water_positions.len() as u32;
                                 water_positions.extend_from_slice(&face_vertices);
@@ -262,32 +253,29 @@ pub fn build_chunk_mesh_system(
                                     water_normals.push([normal.x, normal.y, normal.z]);
                                     water_colors.push(color_array);
                                 }
+                                water_uvs.extend_from_slice(&local_uvs);
                                 water_indices.extend_from_slice(&[
                                     start_idx + 0, start_idx + 1, start_idx + 2,
                                     start_idx + 0, start_idx + 2, start_idx + 3,
                                 ]);
                             } else {
                                 // 填充到实体方块容器
-                                let layer_id = reg.texture_layers.get(&(voxel_id, face_idx)).copied().unwrap_or(0) as f32;
+                                let layer_id = reg.texture_layers.get(&(voxel_id, face_idx)).copied().unwrap_or(0);
+
+                                let u0 = layer_id as f32 / total_layers as f32;
+                                let u1 = (layer_id + 1) as f32 / total_layers as f32;
 
                                 let local_uvs = [
-                                    [0.0, 0.0],
-                                    [1.0, 0.0],
-                                    [1.0, 1.0],
-                                    [0.0, 1.0],
-                                ];
-
-                                let face_uvs: [[f32; 2]; 4] = [
-                                    [(layer_id + local_uvs[0][0]) / total_sheets, local_uvs[0][1]],
-                                    [(layer_id + local_uvs[1][0]) / total_sheets, local_uvs[1][1]],
-                                    [(layer_id + local_uvs[2][0]) / total_sheets, local_uvs[2][1]],
-                                    [(layer_id + local_uvs[3][0]) / total_sheets, local_uvs[3][1]],
+                                    [u0, 0.0],
+                                    [u1, 0.0],
+                                    [u1, 1.0],
+                                    [u0, 1.0],
                                 ];
 
                                 if prop.render_mode == RenderMode::Cutout {
                                     let start_idx = cutout_positions.len() as u32;
                                     cutout_positions.extend_from_slice(&face_vertices);
-                                    cutout_uvs.extend_from_slice(&face_uvs);
+                                    cutout_uvs.extend_from_slice(&local_uvs);
                                     for _ in 0..4 {
                                         cutout_normals.push([normal.x, normal.y, normal.z]);
                                     }
@@ -298,7 +286,7 @@ pub fn build_chunk_mesh_system(
                                 } else {
                                     let start_idx = opaque_positions.len() as u32;
                                     opaque_positions.extend_from_slice(&face_vertices);
-                                    opaque_uvs.extend_from_slice(&face_uvs);
+                                    opaque_uvs.extend_from_slice(&local_uvs);
                                     for _ in 0..4 {
                                         opaque_normals.push([normal.x, normal.y, normal.z]);
                                     }
@@ -336,7 +324,6 @@ pub fn build_chunk_mesh_system(
             mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, cutout_positions);
             mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, cutout_normals);
             mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, cutout_uvs);
-            mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, cutout_colors);
             mesh.insert_indices(Indices::U32(cutout_indices));
 
             let child = commands.spawn((
@@ -354,11 +341,12 @@ pub fn build_chunk_mesh_system(
             mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, water_positions);
             mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, water_normals);
             mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, water_colors);
+            mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, water_uvs);
             mesh.insert_indices(Indices::U32(water_indices));
 
             let child = commands.spawn((
                 Mesh3d(meshes.add(mesh)),
-                MeshMaterial3d(water_material.clone()),
+                MeshMaterial3d(reg.transparent_material.clone()),
                 Transform::IDENTITY,
                 Visibility::default(),
             )).id();
