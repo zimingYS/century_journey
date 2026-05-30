@@ -371,10 +371,10 @@ fn get_face_vertices(x: f32, y: f32, z: f32, face_idx: usize) -> [[f32; 3]; 4] {
     match face_idx {
         0 => [v[2], v[3], v[7], v[6]], // 上 Top
         1 => [v[0], v[1], v[5], v[4]], // 下 Bottom
-        2 => [v[0], v[4], v[7], v[3]], // 左 Left
-        3 => [v[1], v[2], v[6], v[5]], // 右 Right
-        4 => [v[4], v[5], v[6], v[7]], // 前 Front
-        5 => [v[0], v[3], v[2], v[1]], // 后 Back
+        2 => [v[7], v[3], v[0], v[4]], // 左 Left
+        3 => [v[2], v[6], v[5], v[1]], // 右 Right
+        4 => [v[6], v[7], v[4], v[5]], // 前 Front
+        5 => [v[3], v[2], v[1], v[0]], // 后 Back
         _ => unreachable!(),
     }
 }
