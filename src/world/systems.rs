@@ -170,7 +170,6 @@ pub fn build_chunk_mesh_system(
         // 透明水体容器
         let mut water_positions: Vec<[f32; 3]> = Vec::new();
         let mut water_normals: Vec<[f32; 3]> = Vec::new();
-        let mut water_colors: Vec<[f32; 4]> = Vec::new();
         let mut water_uvs: Vec<[f32; 2]> = Vec::new();
         let mut water_indices: Vec<u32> = Vec::new();
 
@@ -251,7 +250,6 @@ pub fn build_chunk_mesh_system(
                                 water_positions.extend_from_slice(&face_vertices);
                                 for _ in 0..4 {
                                     water_normals.push([normal.x, normal.y, normal.z]);
-                                    water_colors.push(color_array);
                                 }
                                 water_uvs.extend_from_slice(&local_uvs);
                                 water_indices.extend_from_slice(&[
@@ -340,7 +338,6 @@ pub fn build_chunk_mesh_system(
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
             mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, water_positions);
             mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, water_normals);
-            mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, water_colors);
             mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, water_uvs);
             mesh.insert_indices(Indices::U32(water_indices));
 
