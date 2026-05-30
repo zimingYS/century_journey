@@ -9,6 +9,7 @@ pub struct UIPlugin;
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) { app
         .init_resource::<resources::inventory_ui_state::InventoryUiState>()
+        .add_plugins(MeshPickingPlugin)
         .add_systems(Startup,(
             hud::crosshair::setup_crosshair,
             hud::hotbar::spawn_hotbar_ui_system,
@@ -17,7 +18,8 @@ impl Plugin for UIPlugin {
             hud::hotbar:: update_hotbar_ui_system,
             hud::hotbar::handle_hotbar_switch_system,
             menu::inventory::toggle_inventory_system,
-            menu::inventory::palette_click_system,
+            // menu::inventory::palette_click_system,
+            // menu::inventory::palette_slot_visual_system,
         ));
     }
 }

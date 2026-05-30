@@ -25,6 +25,12 @@ pub struct HudHotbarSlot {
     pub index: usize,
 }
 
+/// 专门用来标记背包物品栏
+#[derive(Component)]
+pub struct PacksHotbarSlot {
+    pub hotbar_index: usize,
+}
+
 /// HUD快捷栏(物品栏)外的高亮选择框
 #[derive(Component)]
 pub struct HudHotbarSelector;

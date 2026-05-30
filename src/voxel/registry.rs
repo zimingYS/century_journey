@@ -17,6 +17,10 @@ pub struct BlockRegistry{
     pub identifier_to_id: HashMap<String, u16>,
     /// 纹理硬射
     pub texture_layers: HashMap<(u16, usize), u32>,
+    /// 保存基础长条图集纹理
+    pub base_texture: Handle<Image>,
+    /// 保存图集布局句柄
+    pub atlas_layout: Handle<TextureAtlasLayout>,
     /// 不透明材质
     pub opaque_material: Handle<StandardMaterial>,
     /// 镂空材质
@@ -47,6 +51,7 @@ impl BlockRegistry{
 pub fn init_block_registry_system(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
+    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut next_state: ResMut<NextState<AppState>>,
 ){
@@ -195,6 +200,15 @@ pub fn init_block_registry_system(
     array_image.sampler = ImageSampler::nearest();
 
     let texture_handle = images.add(array_image);
+
+    registry.base_texture = texture_handle.clone();
+    registry.atlas_layout = layouts.add(TextureAtlasLayout::from_grid(
+        UVec2::splat(TILE_SIZE),
+        layer_count,
+        1,
+        None,
+        None,
+    ));
 
     // 不透明材质
     registry.opaque_material = materials.add(StandardMaterial {

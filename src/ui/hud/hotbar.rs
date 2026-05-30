@@ -1,6 +1,6 @@
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-use crate::ui::components::{HudHotbarContainer, HudHotbarSlot};
+use crate::ui::components::{HudHotbarContainer, HudHotbarSlot, PacksHotbarSlot, PaletteSlot};
 use crate::ui::resources::inventory_ui_state::InventoryUiState;
 use crate::voxel::registry::BlockRegistry;
 use crate::voxel::types::VoxelType;
@@ -46,32 +46,106 @@ pub fn spawn_hotbar_ui_system(mut commands: Commands){
 pub fn update_hotbar_ui_system(
     registry: Option<Res<BlockRegistry>>,
     inventory_ui_state: Res<InventoryUiState>,
-    mut slot_query: Query<(&HudHotbarSlot, &mut BackgroundColor, &mut BorderColor)>,
+    mut commands: Commands,
+    mut bg_query: Query<&Children>,
+    mut hud_slot_query: Query<(Entity, &HudHotbarSlot, &mut BorderColor), Without<PacksHotbarSlot>>,
+    mut packs_hotbar_query: Query<(Entity, &PacksHotbarSlot, &mut PaletteSlot, &mut BorderColor)>,
+    mut image_node_set: ParamSet<(
+        Query<(&mut ImageNode, &mut BackgroundColor, &mut Node)>, // p0: 处理底部 HUD 槽位自身的纹理
+        Query<(&mut ImageNode, &mut BackgroundColor, &mut Node)>, // p1: 处理背包槽位内部子节点的纹理
+    )>,
 ) {
     let Some(reg) = registry else { return; };
 
-    for (slot, mut bg_color, mut border_color) in &mut slot_query {
+    for (entity, slot, mut border_color) in &mut hud_slot_query {
         let identifier = &inventory_ui_state.hotbar_items[slot.index];
 
-        // 刷新格子内的方块颜色
         if identifier == "century_journey:air" {
-            // 空气显示半透明阴影
-            *bg_color = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3));
-        } else if let Some(prop) = reg.id_to_properties.values().find(|p| &p.identifier == identifier) {
-            // 临时颜色代替（暂定绿色，以后加了UI贴图可以直接在这里换成渲染图标）
-            *bg_color = BackgroundColor(Color::srgb(0.5, 0.7, 0.5));
-        } else {
-            // 未知方块降级为灰色兜底
-            *bg_color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
+            commands.entity(entity).remove::<ImageNode>();
+            // 使用 .p0() 安全读取并修改
+            if let Ok((_, mut bg, _)) = image_node_set.p0().get_mut(entity) {
+                *bg = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3));
+            }
+        } else if let Some(id) = reg.get_id_by_identifier(identifier) {
+            let layer_idx = reg.get_layer(id, 4); // 正面贴图
+
+            // 使用 .p0() 安全读取并修改
+            if let Ok((mut img_node, mut bg, _)) = image_node_set.p0().get_mut(entity) {
+                *bg = BackgroundColor(Color::NONE);
+                img_node.image = reg.base_texture.clone();
+                if let Some(ref mut atlas) = img_node.texture_atlas {
+                    atlas.index = layer_idx as usize;
+                } else {
+                    img_node.texture_atlas = Some(TextureAtlas { layout: reg.atlas_layout.clone(), index: layer_idx as usize });
+                }
+            } else {
+                commands.entity(entity).insert((
+                    ImageNode {
+                        image: reg.base_texture.clone(),
+                        texture_atlas: Some(TextureAtlas { layout: reg.atlas_layout.clone(), index: layer_idx as usize }),
+                        ..default()
+                    },
+                    BackgroundColor(Color::NONE),
+                ));
+            }
         }
 
-        // 刷新高亮框
+
         if slot.index == inventory_ui_state.active_hotbar_index {
-            // 选中格子的边框变成白色凸显
             *border_color = BorderColor::all(Color::srgb(1.0, 1.0, 1.0));
         } else {
-            // 未选中的格子恢复暗色
             *border_color = BorderColor::all(Color::srgb(0.05, 0.05, 0.05));
+        }
+    }
+
+    for (entity, slot, mut palette_slot, mut border_color) in &mut packs_hotbar_query {
+        let identifier = &inventory_ui_state.hotbar_items[slot.hotbar_index];
+
+        // 1. 数据同步
+        if palette_slot.identifier != *identifier {
+            palette_slot.identifier = identifier.clone();
+        }
+
+        // 2. 纹理和节点同步
+        if let Ok(children) = bg_query.get(entity) {
+            for child in children.iter() {
+                if identifier == "century_journey:air" {
+                    commands.entity(child).remove::<ImageNode>();
+                    // 💡 通过 .p1() 访问隔离环境中的修改 Query，规避冲突崩溃
+                    if let Ok((_, mut bg, _)) = image_node_set.p1().get_mut(child) {
+                        *bg = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3));
+                    }
+                } else if let Some(id) = reg.get_id_by_identifier(identifier) {
+                    let layer_idx = reg.get_layer(id, 4);
+
+                    // 💡 通过 .p1() 访问隔离环境中的修改 Query
+                    if let Ok((mut img_node, mut bg, _)) = image_node_set.p1().get_mut(child) {
+                        *bg = BackgroundColor(Color::NONE);
+                        img_node.image = reg.base_texture.clone();
+                        if let Some(ref mut atlas) = img_node.texture_atlas {
+                            atlas.index = layer_idx as usize;
+                        } else {
+                            img_node.texture_atlas = Some(TextureAtlas { layout: reg.atlas_layout.clone(), index: layer_idx as usize });
+                        }
+                    } else {
+                        commands.entity(child).insert((
+                            ImageNode {
+                                image: reg.base_texture.clone(),
+                                texture_atlas: Some(TextureAtlas { layout: reg.atlas_layout.clone(), index: layer_idx as usize }),
+                                ..default()
+                            },
+                            BackgroundColor(Color::NONE),
+                        ));
+                    }
+                }
+            }
+        }
+
+        // 3. 选框联动高亮
+        if slot.hotbar_index == inventory_ui_state.active_hotbar_index {
+            *border_color = BorderColor::all(Color::srgb(0.6, 0.6, 0.6));
+        } else {
+            *border_color = BorderColor::all(Color::srgb(0.15, 0.15, 0.15));
         }
     }
 }
