@@ -1,8 +1,11 @@
 {
   "identifier": "century_journey:leaves",
-  "is_solid": false,
+  "display_name": "树叶",
   "render_mode": "Cutout",
-  "texture_faces": {
-    "top": 5, "bottom": 5, "left": 5, "right": 5, "front": 5, "back": 5
+  "is_solid": false,
+  "light_emission": 0,
+  "hardness": 2.0,
+  "textures": {
+    "top": "textures/blocks/leaves.png"
   }
 }

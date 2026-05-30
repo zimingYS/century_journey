@@ -1,5 +1,6 @@
 {
   "identifier": "century_journey:wood",
+  "display_name": "木头",
   "render_mode": "Opaque",
   "is_solid": true,
   "light_emission": 0,
@@ -7,6 +8,6 @@
   "textures": {
     "top": "textures/blocks/wood_top.png",
     "bottom": "textures/blocks/wood_top.png",
-    "north": "textures/blocks/wood_side.png"
+    "north": "textures/blocks/wood.png"
   }
 }
