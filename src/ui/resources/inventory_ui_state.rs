@@ -8,9 +8,9 @@ pub struct InventoryUiState {
     /// 当前快捷栏选中的格子索引
     pub active_hotbar_index: usize,
     /// 快捷栏绑定的方块数据
-    pub hotbar_items: [VoxelType; 9],
+    pub hotbar_items: [String; 9],
     /// 创造模式背包里所有可以选用的方块合集
-    pub creative_palette: Vec<VoxelType>,
+    pub creative_palette: Vec<String>,
 }
 
 impl Default for InventoryUiState {
@@ -19,15 +19,17 @@ impl Default for InventoryUiState {
             is_inventory_open: false,
             active_hotbar_index: 0,
             hotbar_items: [
-                VoxelType::Grass, VoxelType::Dirt, VoxelType::Stone,
-                VoxelType::Air, VoxelType::Air, VoxelType::Air,
-                VoxelType::Air, VoxelType::Air, VoxelType::Air,
+                "century_journey:grass".to_string(),
+                "century_journey:dirt".to_string(),
+                "century_journey:stone".to_string(),
+                "century_journey:air".to_string(),
+                "century_journey:air".to_string(),
+                "century_journey:air".to_string(),
+                "century_journey:air".to_string(),
+                "century_journey:air".to_string(),
+                "century_journey:air".to_string(),
             ],
-            creative_palette: vec![
-                VoxelType::Grass, VoxelType::Dirt, VoxelType::Stone,
-                VoxelType::Sand, VoxelType::Water, VoxelType::Wood,
-                VoxelType::Leaves,
-            ],
+            creative_palette: Vec::new(),
         }
     }
 }

@@ -150,7 +150,7 @@ fn check_voxel(x: i32, y: i32, z: i32, world_storage: &WorldStorage) -> Option<(
         let voxel_id = chunk_data.voxels[ChunkData::xyz_to_index(local_x, local_y, local_z)];
 
         // 只要不是空气，一律视为“被撞击的实体”
-        if voxel_id != VoxelType::Air as u8 {
+        if voxel_id != VoxelType::Air as u16 {
             return Some((chunk_pos, UVec3::new(local_x as u32, local_y as u32, local_z as u32)));
         }
     }

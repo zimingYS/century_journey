@@ -12,7 +12,7 @@ pub struct CreativeInventoryMenu;
 /// 物品栏内的选择格子
 #[derive(Component)]
 pub struct PaletteSlot{
-    pub voxel_type: VoxelType,
+    pub identifier: String,
 }
 
 /// HUD快捷栏(物品栏)

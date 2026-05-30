@@ -13,29 +13,36 @@ pub struct ChunkComponents {
 #[derive(Resource, Serialize, Deserialize, Clone)]
 pub struct ChunkData {
     #[serde(with = "serde_arrays")]
-    pub voxels: [u8; CHUNK_VOLUME],
+    pub voxels: [u16; CHUNK_VOLUME],
 }
 
 impl ChunkData {
+    /// 创建空白区块
+    pub fn new() -> Self {
+        Self {
+            voxels: [0u16; CHUNK_VOLUME],
+        }
+    }
+
+    /// 扁平化 3D 坐标到一维数组索引
     #[inline]
     pub fn xyz_to_index(x: usize, y: usize, z: usize) -> usize{
         (y * 256) + (z * 16) + x
     }
 
-    pub fn get_voxel(&self, x: usize, y: usize, z: usize) -> VoxelType {
+    pub fn get_voxel(&self, x: usize, y: usize, z: usize) -> u16 {
         let idx = Self::xyz_to_index(x, y, z);
-        let raw_id = self.voxels[idx];
-        unsafe { std::mem::transmute(raw_id) }
+        self.voxels[idx]
     }
 
-    pub fn set_voxel(&mut self, x: usize, y: usize, z: usize, voxel: VoxelType) {
+    pub fn set_voxel(&mut self, x: usize, y: usize, z: usize, voxel_id: u16) {
         let idx = Self::xyz_to_index(x, y, z);
-        self.voxels[idx] = voxel as u8;
+        self.voxels[idx] = voxel_id;
     }
 
     // 安全读取局部方块
-    pub fn get_voxel_safe(&self, x: i32, y: i32, z: i32) -> Option<u8>{
-        if x <0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16{
+    pub fn get_voxel_safe(&self, x: i32, y: i32, z: i32) -> Option<u16> {
+        if x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16 {
             return None;
         }
         let idx = Self::xyz_to_index(x as usize, y as usize, z as usize);

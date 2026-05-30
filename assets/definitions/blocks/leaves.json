@@ -1,0 +1,8 @@
+{
+  "identifier": "century_journey:leaves",
+  "is_solid": false,
+  "render_mode": "Cutout",
+  "texture_faces": {
+    "top": 5, "bottom": 5, "left": 5, "right": 5, "front": 5, "back": 5
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "identifier": "century_journey:grass",
+  "display_name": "草方块",
+  "render_mode": "Opaque",
+  "is_solid": true,
+  "light_emission": 0,
+  "hardness": 1.0,
+  "textures": {
+    "top": "textures/blocks/grass_top.png",
+    "bottom": "textures/blocks/dirt.png"
+  }
+}

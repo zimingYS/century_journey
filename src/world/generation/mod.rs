@@ -2,7 +2,7 @@ pub mod noise;
 
 use bevy::prelude::*;
 use crate::world::chunk::ChunkData;
-use crate::world::generation::noise::TerrainGenerator;
+use crate::world::generation::noise::{GenerationBlockIds, TerrainGenerator};
 
 #[derive(Resource)]
 pub struct WorldGenerator {
@@ -18,7 +18,7 @@ impl WorldGenerator {
         }
     }
 
-    pub fn generate_chunk_data(&self, chunk_pos: IVec3) -> ChunkData {
-        self.generator.generate_chunk(chunk_pos)
+    pub fn generate_chunk_data(&self, chunk_pos: IVec3, block_ids: GenerationBlockIds) -> ChunkData {
+        self.generator.generate_chunk(chunk_pos, block_ids)
     }
 }

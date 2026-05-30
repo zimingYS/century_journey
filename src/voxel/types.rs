@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Reflect)]
-#[repr(u8)]
+#[repr(u16)]
 pub enum VoxelType{
     Air = 0,
     Grass = 1,
@@ -15,7 +15,7 @@ pub enum VoxelType{
 }
 
 impl VoxelType{
-    pub fn from_u8(value: u8) -> Self {
+    pub fn from_u16(value: u16) -> Self {
         match value {
             1 => VoxelType::Grass,
             2 => VoxelType::Dirt,

@@ -1,0 +1,11 @@
+{
+  "identifier": "century_journey:sand",
+  "display_name": "沙子",
+  "render_mode": "Opaque",
+  "is_solid": true,
+  "light_emission": 0,
+  "hardness": 3.0,
+  "textures": {
+    "top": "textures/blocks/sand.png"
+  }
+}

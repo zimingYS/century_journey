@@ -23,7 +23,7 @@ pub fn update_time_system(
     time: Res<Time>,
     mut time_of_day: ResMut<TimeOfDay>,
 ) {
-    let game_seconds_per_real_second = time_of_day.speed * 60.0;
+    let game_seconds_per_real_second = time_of_day.speed;
     time_of_day.current_time += time.delta_secs() * game_seconds_per_real_second / 3600.0;
 
     time_of_day.current_time %= 24.0;

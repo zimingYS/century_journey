@@ -3,17 +3,20 @@ use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use crate::core::constant::TOTAL_SLOTS;
 use crate::ui::components::{CreativeInventoryMenu, PaletteSlot};
 use crate::ui::resources::inventory_ui_state::InventoryUiState;
+use crate::voxel::registry::BlockRegistry;
 use crate::voxel::types::VoxelType;
 
 /// E键打开物品栏
 pub fn toggle_inventory_system(
     mut commands: Commands,
-    keyboard: Res<ButtonInput<KeyCode>>,
     mut inventory_ui_state: ResMut<InventoryUiState>,
     mut cursor_options_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    registry: Option<Res<BlockRegistry>>,
     menu_query: Query<Entity, With<CreativeInventoryMenu>>,
 ){
     if !keyboard.just_pressed(KeyCode::KeyE) { return; }
+    let Some(reg) = registry else { return; };
 
     inventory_ui_state.is_inventory_open = !inventory_ui_state.is_inventory_open;
 
@@ -25,7 +28,7 @@ pub fn toggle_inventory_system(
         cursor_options.visible = true;
 
         // 渲染创造模式物品栏
-        spawn_creative_menu_ui(&mut commands, &inventory_ui_state);
+        spawn_creative_menu_ui(&mut commands, &inventory_ui_state, &reg);
     }else {
         // 关闭背包物品栏
         cursor_options.grab_mode = CursorGrabMode::Locked;
@@ -37,7 +40,11 @@ pub fn toggle_inventory_system(
     }
 }
 
-fn spawn_creative_menu_ui(commands: &mut Commands, inventory_ui_state: &InventoryUiState) {
+fn spawn_creative_menu_ui(
+    commands: &mut Commands,
+    inventory_ui_state: &InventoryUiState,
+    reg: &BlockRegistry,
+) {
     // 外部背景
     commands.spawn((
         CreativeInventoryMenu,
@@ -76,14 +83,16 @@ fn spawn_creative_menu_ui(commands: &mut Commands, inventory_ui_state: &Inventor
             // 生成格子
             for index in 0..TOTAL_SLOTS {
                 // 如果有对应的方块就取出来没有就用空气填充
-                let voxel = inventory_ui_state
+                let identifier = inventory_ui_state
                     .creative_palette
                     .get(index)
-                    .copied()
-                    .unwrap_or(VoxelType::Air);
+                    .cloned()
+                    .unwrap_or_else(|| "century_journey:air".to_string());
+
+                let is_air = identifier == "century_journey:air";
 
                 grid.spawn((
-                    PaletteSlot { voxel_type: voxel },
+                    PaletteSlot { identifier: identifier.clone() },
                     // 让节点能够响应点击
                     Button,
                     Node {
@@ -95,12 +104,14 @@ fn spawn_creative_menu_ui(commands: &mut Commands, inventory_ui_state: &Inventor
                     BackgroundColor(Color::srgb(0.08, 0.08, 0.08)),
                     BorderColor::all(Color::srgb(0.15, 0.15, 0.15)),
                 )).with_children(|slot_node| {
-                    let bg_color = if voxel == VoxelType::Air {
+                    let bg_color = if is_air{
                         // 空气显示阴影空格
                         Color::srgba(0.0, 0.0, 0.0, 0.3)
-                    } else {
-                        // 渲染方块颜色
-                        voxel.get_voxel_color()
+                    } else if let Some(prop) = reg.id_to_properties.values().find(|p| p.identifier == identifier) {
+                        // 临时颜色代替
+                        Color::srgb(0.5, 0.7, 0.5)
+                    }else {
+                        Color::srgb(0.3, 0.3, 0.3)
                     };
 
                     slot_node.spawn((
@@ -126,13 +137,15 @@ pub fn palette_click_system(
 
     for (interaction, slot) in &interaction_query {
         if *interaction == Interaction::Pressed {
-            if slot.voxel_type == VoxelType::Air { continue; }
-            
-            let current_slot = inventory_ui_state.active_hotbar_index;
-            // 将选中的方块类型塞进当前手持的快捷栏格子中
-            inventory_ui_state.hotbar_items[current_slot] = slot.voxel_type;
+            // 如果点的是空气则不处理
+            if slot.identifier == "century_journey:air" { continue; }
 
-            println!("已将持有的格子修改为 -> {:?}", slot.voxel_type);
+            let current_slot_idx = inventory_ui_state.active_hotbar_index;
+
+            // 直接把选中的方块替换到物品栏
+            inventory_ui_state.hotbar_items[current_slot_idx] = slot.identifier.clone();
+
+            info!("快捷栏更新：已将第 {} 格修改为 -> {}", current_slot_idx + 1, slot.identifier);
         }
     }
 }
@@ -140,11 +153,11 @@ pub fn palette_click_system(
 /// 物品槽悬浮高亮反馈
 pub fn palette_slot_visual_system(
     mut interaction_query: Query<
-        (&Interaction, &mut BorderColor, &PaletteSlot),
+        (&Interaction, &mut BorderColor),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut border_color, _slot) in &mut interaction_query {
+    for (interaction, mut border_color) in &mut interaction_query {
         match *interaction {
             // 鼠标悬浮在格子上,边框变成亮白色
             Interaction::Hovered => {

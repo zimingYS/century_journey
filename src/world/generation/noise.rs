@@ -1,12 +1,38 @@
-use bevy::prelude::*;
-use noise::{NoiseFn, Perlin};
 use crate::core::constant::{CHUNK_SIZE, CHUNK_VOLUME, MAP_HEIGHT_SCALE, NOISE_SCALE, SEA_LEVEL};
-use crate::voxel;
+use crate::voxel::registry::BlockRegistry;
 use crate::voxel::types::VoxelType;
 use crate::world::chunk::ChunkData;
+use bevy::prelude::*;
+use noise::{NoiseFn, Perlin};
 
+/// 地形生成器
 pub struct TerrainGenerator {
     perlin: Perlin,
+}
+
+/// 生成地形主要使用的方块缓存
+#[derive(Clone, Copy)]
+pub struct GenerationBlockIds {
+    pub air: u16,
+    pub grass: u16,
+    pub dirt: u16,
+    pub stone: u16,
+    pub sand: u16,
+    pub water: u16,
+}
+
+impl GenerationBlockIds {
+    /// 游戏在调用生成前，从 Bevy 的中央注册表中一次性把名字翻译成数字 ID
+    pub fn from_registry(registry: &BlockRegistry) -> Self {
+        Self {
+            air: 0,
+            grass: registry.get_id_by_identifier("century_journey:grass").unwrap_or(0),
+            dirt:  registry.get_id_by_identifier("century_journey:dirt").unwrap_or(0),
+            stone: registry.get_id_by_identifier("century_journey:stone").unwrap_or(0),
+            sand:  registry.get_id_by_identifier("century_journey:sand").unwrap_or(0),
+            water: registry.get_id_by_identifier("century_journey:water").unwrap_or(0),
+        }
+    }
 }
 
 impl TerrainGenerator {
@@ -17,8 +43,8 @@ impl TerrainGenerator {
     }
 
     // 根据噪声生成方块数据
-    pub fn generate_chunk(&self, chunk_post: IVec3) -> ChunkData{
-        let mut voxels = [0u8; CHUNK_VOLUME];
+    pub fn generate_chunk(&self, chunk_post: IVec3, block_ids: GenerationBlockIds) -> ChunkData{
+        let mut voxels = [0u16; CHUNK_VOLUME];
         let mut chunk_data = ChunkData {voxels};
 
         // 计算当前区块在世界中的坐标偏移量
@@ -41,29 +67,30 @@ impl TerrainGenerator {
                 for y in 0..CHUNK_SIZE {
                     let world_y = world_start_y + y as i32;
 
-                    let voxel_type = if world_y > target_surface_y {
+                    // 根据方块缓存生成对应标签
+                    let voxel_id = if world_y > target_surface_y {
                         if world_y <= SEA_LEVEL {
-                            VoxelType::Water
+                            block_ids.water
                         } else {
-                            VoxelType::Air
+                            block_ids.air
                         }
-                    }else if world_y == target_surface_y{
+                    } else if world_y == target_surface_y {
                         if world_y <= SEA_LEVEL + 2 {
-                            VoxelType::Sand
+                            block_ids.sand
                         } else {
-                            VoxelType::Grass
+                            block_ids.grass
                         }
-                    } else if world_y > target_surface_y - 4{
+                    } else if world_y > target_surface_y - 4 {
                         if target_surface_y <= SEA_LEVEL {
-                            VoxelType::Sand  
+                            block_ids.sand
                         } else {
-                            VoxelType::Dirt
+                            block_ids.dirt
                         }
-                    }else {
-                        VoxelType::Stone
+                    } else {
+                        block_ids.stone
                     };
 
-                    chunk_data.set_voxel(x, y, z, voxel_type);
+                    chunk_data.set_voxel(x, y, z, voxel_id);
                 }
             }
         }

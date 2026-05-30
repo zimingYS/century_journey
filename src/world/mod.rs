@@ -6,6 +6,7 @@ pub mod sky;
 pub mod time;
 
 use bevy::prelude::*;
+use crate::core::state::AppState;
 
 pub struct WorldPlugin;
 
@@ -21,6 +22,6 @@ impl Plugin for WorldPlugin{
                 systems::generate_chunk_data_system,
                 systems::build_chunk_mesh_system,
                 time::update_time_system,
-            ));
+            ).run_if(in_state(AppState::InGame)));
     }
 }

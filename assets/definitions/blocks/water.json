@@ -1,0 +1,11 @@
+{
+  "identifier": "century_journey:water",
+  "display_name": "水方块",
+  "render_mode": "Transparent",
+  "is_solid": false,
+  "light_emission": 0,
+  "hardness": 0.5,
+  "textures": {
+    "top": "textures/blocks/water.png"
+  }
+}

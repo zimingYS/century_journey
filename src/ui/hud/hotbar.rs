@@ -2,6 +2,7 @@ use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use crate::ui::components::{HudHotbarContainer, HudHotbarSlot};
 use crate::ui::resources::inventory_ui_state::InventoryUiState;
+use crate::voxel::registry::BlockRegistry;
 use crate::voxel::types::VoxelType;
 
 pub fn spawn_hotbar_ui_system(mut commands: Commands){
@@ -43,17 +44,25 @@ pub fn spawn_hotbar_ui_system(mut commands: Commands){
 }
 
 pub fn update_hotbar_ui_system(
+    registry: Option<Res<BlockRegistry>>,
     inventory_ui_state: Res<InventoryUiState>,
     mut slot_query: Query<(&HudHotbarSlot, &mut BackgroundColor, &mut BorderColor)>,
 ) {
+    let Some(reg) = registry else { return; };
+
     for (slot, mut bg_color, mut border_color) in &mut slot_query {
-        let voxel_type = inventory_ui_state.hotbar_items[slot.index];
+        let identifier = &inventory_ui_state.hotbar_items[slot.index];
 
         // 刷新格子内的方块颜色
-        if voxel_type == VoxelType::Air {
+        if identifier == "century_journey:air" {
+            // 空气显示半透明阴影
             *bg_color = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3));
+        } else if let Some(prop) = reg.id_to_properties.values().find(|p| &p.identifier == identifier) {
+            // 临时颜色代替（暂定绿色，以后加了UI贴图可以直接在这里换成渲染图标）
+            *bg_color = BackgroundColor(Color::srgb(0.5, 0.7, 0.5));
         } else {
-            *bg_color = BackgroundColor(voxel_type.get_voxel_color());
+            // 未知方块降级为灰色兜底
+            *bg_color = BackgroundColor(Color::srgb(0.3, 0.3, 0.3));
         }
 
         // 刷新高亮框

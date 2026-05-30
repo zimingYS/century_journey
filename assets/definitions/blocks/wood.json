@@ -1,0 +1,12 @@
+{
+  "identifier": "century_journey:wood",
+  "render_mode": "Opaque",
+  "is_solid": true,
+  "light_emission": 0,
+  "hardness": 2.0,
+  "textures": {
+    "top": "textures/blocks/wood_top.png",
+    "bottom": "textures/blocks/wood_top.png",
+    "north": "textures/blocks/wood_side.png"
+  }
+}
