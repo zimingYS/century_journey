@@ -270,40 +270,61 @@ pub fn build_chunk_mesh_system(
             }
         }
 
-        // 清理旧的子实体
+        // 清理旧的子实体（使用 silenced 静默处理已销毁实体，避免竞态报错）
         commands.entity(chunk_entity)
-            .remove::<Mesh3d>()
-            .remove::<MeshMaterial3d<StandardMaterial>>();
-        commands.entity(chunk_entity).despawn_related::<Children>();
+            .queue_silenced(|mut entity: EntityWorldMut| {
+                entity.remove::<Mesh3d>()
+                    .remove::<MeshMaterial3d<StandardMaterial>>();
+            });
+
+        commands.entity(chunk_entity)
+            .queue_silenced(|mut entity: EntityWorldMut| {
+                entity.despawn_related::<Children>();
+            });
 
         // 不透明方块 — 直接挂在区块实体上
         if !opaque_buf.is_empty() {
-            commands.entity(chunk_entity).insert((
-                Mesh3d(meshes.add(opaque_buf.build_mesh())),
-                MeshMaterial3d(reg.opaque_material.clone()),
-            ));
+            let opaque_mesh = meshes.add(opaque_buf.build_mesh());
+            let opaque_mat = reg.opaque_material.clone();
+            commands.entity(chunk_entity)
+                .queue_silenced(move |mut entity: EntityWorldMut| {
+                    entity.insert((
+                        Mesh3d(opaque_mesh),
+                        MeshMaterial3d(opaque_mat),
+                    ));
+                });
         }
 
         // 半透明方块 — 子实体
         if !cutout_buf.is_empty() {
+            let cutout_mesh = meshes.add(cutout_buf.build_mesh());
+            let cutout_mat = reg.cutout_material.clone();
             let child = commands.spawn((
-                Mesh3d(meshes.add(cutout_buf.build_mesh())),
-                MeshMaterial3d(reg.cutout_material.clone()),
+                Mesh3d(cutout_mesh),
+                MeshMaterial3d(cutout_mat),
                 Transform::IDENTITY,
                 Visibility::default(),
             )).id();
-            commands.entity(chunk_entity).add_child(child);
+            commands.entity(chunk_entity)
+                .queue_silenced(move |mut entity: EntityWorldMut| {
+                    entity.add_child(child);
+                });
         }
 
         // 水面 — 子实体
         if !water_buf.is_empty() {
+            let water_mesh = meshes.add(water_buf.build_mesh());
+            let water_mat = reg.transparent_material.clone();
             let child = commands.spawn((
-                Mesh3d(meshes.add(water_buf.build_mesh())),
-                MeshMaterial3d(reg.transparent_material.clone()),
+                Mesh3d(water_mesh),
+                MeshMaterial3d(water_mat),
                 Transform::IDENTITY,
                 Visibility::default(),
             )).id();
-            commands.entity(chunk_entity).add_child(child);
+            commands.entity(chunk_entity)
+                .queue_silenced(move |mut entity: EntityWorldMut| {
+                    entity.add_child(child);
+                });
         }
 
         *state = ChunkState::Rendered;

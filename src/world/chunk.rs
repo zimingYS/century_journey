@@ -9,7 +9,7 @@ pub struct ChunkComponents {
 }
 
 // 存储每个区块的方块
-#[derive(Resource, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ChunkData {
     #[serde(with = "serde_arrays")]
     pub voxels: [u16; CHUNK_VOLUME],

@@ -5,7 +5,7 @@ use crate::ui::components::{CreativeInventoryMenu, PacksHotbarSlot, PaletteSlot}
 use crate::core::state::inventory_ui_state::InventoryUiState;
 use crate::voxel::registry::BlockRegistry;
 
-// 初始化背包 UI 状态
+/// 初始化背包 UI 状态（从 BlockRegistry 提取方块列表）
 pub(crate) fn init_inventory_ui_system(
     mut commands: Commands,
     registry: Res<BlockRegistry>,
@@ -22,7 +22,7 @@ pub(crate) fn init_inventory_ui_system(
     commands.insert_resource(ui_state);
 }
 
-/// E键打开物品栏
+/// E键切换物品栏开关
 pub fn toggle_inventory_system(
     mut commands: Commands,
     mut inventory_ui_state: ResMut<InventoryUiState>,
@@ -30,7 +30,7 @@ pub fn toggle_inventory_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     registry: Option<Res<BlockRegistry>>,
     menu_query: Query<Entity, With<CreativeInventoryMenu>>,
-){
+) {
     if !keyboard.just_pressed(KeyCode::KeyE) { return; }
     let Some(reg) = registry else { return; };
 
@@ -39,29 +39,25 @@ pub fn toggle_inventory_system(
     let Ok(mut cursor_options) = cursor_options_query.single_mut() else { return; };
 
     if inventory_ui_state.is_inventory_open {
-        // 打开背包物品栏
         cursor_options.grab_mode = CursorGrabMode::None;
         cursor_options.visible = true;
-
-        // 渲染创造模式物品栏
         spawn_creative_menu_ui(&mut commands, &inventory_ui_state, &reg);
-    }else {
-        // 关闭背包物品栏
+    } else {
         cursor_options.grab_mode = CursorGrabMode::Locked;
         cursor_options.visible = false;
 
         for entity in &menu_query {
-            commands.entity(entity).despawn();
+            commands.entity(entity).queue_silenced(|e: EntityWorldMut| { e.despawn(); });
         }
     }
 }
 
+/// 构建完整的创造模式物品栏 UI
 fn spawn_creative_menu_ui(
     commands: &mut Commands,
     inventory_ui_state: &InventoryUiState,
     reg: &BlockRegistry,
 ) {
-    // 外部背景
     commands.spawn((
         CreativeInventoryMenu,
         Node {
@@ -75,17 +71,16 @@ fn spawn_creative_menu_ui(
             border: UiRect::all(Val::Px(2.0)),
             ..default()
         },
-        // 半透明黑灰色背景
         if inventory_ui_state.is_inventory_open { Visibility::Inherited } else { Visibility::Hidden },
-        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.85)),
-        BorderColor::all(Color::srgb(0.05, 0.05, 0.05)),
+        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.75)),
+        BorderColor::all(Color::srgb(0.2, 0.2, 0.2)),
     )).with_children(|parent| {
         // 标题
         parent.spawn((
             Text::new("Creative Inventory"),
             TextFont { font_size: FontSize::Px(20.0), ..default() },
             TextColor(Color::WHITE),
-            Node { margin: UiRect::bottom(Val::Px(10.0)), ..default() }
+            Node { margin: UiRect::bottom(Val::Px(10.0)), ..default() },
         ));
 
         // 物品网格
@@ -97,18 +92,13 @@ fn spawn_creative_menu_ui(
             width: Val::Percent(100.0),
             ..default()
         }).with_children(|grid| {
-            // 生成格子
             for index in 0..TOTAL_SLOTS {
-                // 硬射物品栏
                 let is_hotbar_row = index >= 27;
-                let hotbar_idx = if index >= 27 { index - 27 } else { 0 };
+                let hotbar_idx = if is_hotbar_row { index - 27 } else { 0 };
 
                 let identifier = if is_hotbar_row {
-                    // 映射到快捷栏的 0..9 索引
                     inventory_ui_state.hotbar_items[hotbar_idx].clone()
                 } else {
-                    // 常规创造模式物品池
-                    // 如果有对应的方块就取出来没有就用空气填充
                     inventory_ui_state
                         .creative_palette
                         .get(index)
@@ -116,76 +106,91 @@ fn spawn_creative_menu_ui(
                         .unwrap_or_else(|| "century_journey:air".to_string())
                 };
 
-                let is_air = identifier == "century_journey:air";
-
-                let mut entity_commands =grid.spawn((
-                    PaletteSlot { identifier: identifier.clone() },
-                    // 让节点能够响应点击
-                    Button,
-                    Node {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        border: UiRect::all(Val::Px(2.0)),
-                        ..default()
-                    },
-                    Pickable::default(),
-                    BackgroundColor(Color::srgb(0.08, 0.08, 0.08)),
-                    BorderColor::all(Color::srgb(0.15, 0.15, 0.15)),
-                ));
-
-                if is_hotbar_row {
-                    entity_commands.insert(PacksHotbarSlot { hotbar_index: hotbar_idx });
-                }
-
-                entity_commands
-                .observe(|trigger: On<Pointer<Over>>, mut query: Query<&mut BorderColor>| {
-                    if let Ok(mut border) = query.get_mut(trigger.entity) {
-                        *border = BorderColor::all(Color::srgb(0.9, 0.9, 0.2));
-                    }
-                })
-                .observe(|trigger: On<Pointer<Out>>, mut query: Query<&mut BorderColor>| {
-                    if let Ok(mut border) = query.get_mut(trigger.entity) {
-                        *border = BorderColor::all(Color::srgb(0.15, 0.15, 0.15));
-                    }
-                })
-                .observe(move |trigger: On<Pointer<Click>>, mut query: Query<&mut PaletteSlot>, mut ui_state: ResMut<InventoryUiState>| {
-                    if let Ok(slot) = query.get(trigger.entity) {
-                        if let Some(hotbar_idx) = index.checked_sub(27) {
-                            // 如果点的是背包底部的快捷栏，则清空该格子
-                            ui_state.hotbar_items[hotbar_idx] = "century_journey:air".to_string();
-                            info!("快捷栏更新：已清空第 {} 格", hotbar_idx + 1);
-                        } else {
-                            // 如果点的是上方的创造物品池，则替换到当前选中的快捷栏
-                            if slot.identifier == "century_journey:air" { return; }
-                            let current_slot_idx = ui_state.active_hotbar_index;
-                            ui_state.hotbar_items[current_slot_idx] = slot.identifier.clone();
-                            info!("快捷栏更新：已将第 {} 格修改为 -> {}", current_slot_idx + 1, slot.identifier);
-                        }
-                    }
-                })
-                .with_children(|slot_node| {
-                    if is_air {
-                        slot_node.spawn((
-                            Node { width: Val::Percent(100.0), height: Val::Percent(100.0), ..default() },
-                            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
-                        ));
-                    } else if let Some(id) = reg.get_id_by_identifier(&identifier) {
-                        // 非空气方块:利用ImageNode结合TextureAtlas切割出对应的方块正面纹理
-                        let layer_idx = reg.get_layer(id, 4); // 4代表正面
-                        slot_node.spawn((
-                            ImageNode {
-                                image: reg.base_texture.clone(),
-                                texture_atlas: Some(TextureAtlas {
-                                    layout: reg.atlas_layout.clone(),
-                                    index: layer_idx as usize,
-                                }),
-                                ..default()
-                            },
-                            Node { width: Val::Percent(100.0), height: Val::Percent(100.0), ..default() },
-                        ));
-                    }
-                });
+                spawn_palette_slot(grid, index, identifier, is_hotbar_row, hotbar_idx, reg);
             }
         });
     });
+}
+
+/// 生成单个物品格子（含纹理 + 悬停/点击事件）
+fn spawn_palette_slot(
+    grid: &mut ChildSpawnerCommands,
+    index: usize,
+    identifier: String,
+    is_hotbar_row: bool,
+    hotbar_idx: usize,
+    reg: &BlockRegistry,
+) {
+    let mut entity_commands = grid.spawn((
+        PaletteSlot { identifier: identifier.clone() },
+        Button,
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            border: UiRect::all(Val::Px(2.0)),
+            ..default()
+        },
+        Pickable::default(),
+        BackgroundColor(Color::srgba(0.05, 0.05, 0.05, 0.6)),
+        BorderColor::all(Color::srgb(0.15, 0.15, 0.15)),
+    ));
+
+    if is_hotbar_row {
+        entity_commands.insert(PacksHotbarSlot { hotbar_index: hotbar_idx });
+    }
+
+    entity_commands
+        .observe(|trigger: On<Pointer<Over>>, mut query: Query<&mut BorderColor>| {
+            if let Ok(mut border) = query.get_mut(trigger.entity) {
+                *border = BorderColor::all(Color::srgb(0.9, 0.9, 0.2));
+            }
+        })
+        .observe(|trigger: On<Pointer<Out>>, mut query: Query<&mut BorderColor>| {
+            if let Ok(mut border) = query.get_mut(trigger.entity) {
+                *border = BorderColor::all(Color::srgb(0.15, 0.15, 0.15));
+            }
+        })
+        .observe(move |trigger: On<Pointer<Click>>, mut query: Query<&mut PaletteSlot>, mut ui_state: ResMut<InventoryUiState>| {
+            if let Ok(slot) = query.get_mut(trigger.entity) {
+                if let Some(hotbar_idx) = index.checked_sub(27) {
+                    ui_state.hotbar_items[hotbar_idx] = "century_journey:air".to_string();
+                    info!("快捷栏更新：已清空第 {} 格", hotbar_idx + 1);
+                } else {
+                    if slot.identifier == "century_journey:air" { return; }
+                    let current_slot_idx = ui_state.active_hotbar_index;
+                    ui_state.hotbar_items[current_slot_idx] = slot.identifier.clone();
+                    info!("快捷栏更新：已将第 {} 格修改为 -> {}", current_slot_idx + 1, slot.identifier);
+                }
+            }
+        })
+        .with_children(|slot_node| {
+            spawn_slot_icon(slot_node, &identifier, reg);
+        });
+}
+
+/// 在格子节点内生成方块图标（空气显示暗色占位，其他显示纹理）
+fn spawn_slot_icon(
+    slot_node: &mut ChildSpawnerCommands,
+    identifier: &str,
+    reg: &BlockRegistry,
+) {
+    if identifier == "century_journey:air" {
+        slot_node.spawn((
+            Node { width: Val::Percent(100.0), height: Val::Percent(100.0), ..default() },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3)),
+        ));
+    } else if let Some(id) = reg.get_id_by_identifier(identifier) {
+        let layer_idx = reg.get_layer(id, 4);
+        slot_node.spawn((
+            ImageNode {
+                image: reg.base_texture.clone(),
+                texture_atlas: Some(TextureAtlas {
+                    layout: reg.atlas_layout.clone(),
+                    index: layer_idx as usize,
+                }),
+                ..default()
+            },
+            Node { width: Val::Percent(100.0), height: Val::Percent(100.0), ..default() },
+        ));
+    }
 }
