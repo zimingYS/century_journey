@@ -78,9 +78,9 @@ pub fn manage_chunks_system(
     // 获取玩家位置
     let player_pos = player_transform.translation;
     let size_f32 = CHUNK_SIZE as f32;
+
     // 玩家视野半径
     let render_distance = 8;
-
     let data_distance = render_distance + 1;
 
     // 将玩家的世界绝对坐标 (x, y, z) 换算为世界区块坐标 (IVec3)
@@ -103,8 +103,7 @@ pub fn manage_chunks_system(
                 expected_chunks.insert(chunk_pos);
 
                 // 检测坐标是否存在数据
-                if !world_storage.loaded_chunks.contains_key(&chunk_pos)
-                    && !world_storage.chunk_entities.contains_key(&chunk_pos)
+                if !world_storage.chunk_entities.contains_key(&chunk_pos)
                 {
                     if spawned >= max_spawn_per_frame { continue; }
                     spawned += 1;
@@ -134,7 +133,7 @@ pub fn manage_chunks_system(
             commands.entity(entity).despawn();
             world_storage.chunk_entities.remove(&pos);
             // todo!("这边要加上保存到本地存档功能");
-            world_storage.loaded_chunks.remove(&pos);
+            // world_storage.loaded_chunks.remove(&pos);
         }
     }
 }
@@ -164,6 +163,14 @@ pub fn generate_chunk_data_system(
 
         // 获取该区块在世界网格中的 IVec3 坐标
         let chunk_pos = chunk_components.position;
+
+        // 若已存在数据则跳过生成，直接标记为 DataReady
+        if world_storage.loaded_chunks.contains_key(&chunk_pos) {
+            *state = ChunkState::DataReady;
+            generated += 1;
+            continue;
+        }
+        
         // 调用生成器计算出方块数据
         let chunk_data = world_generator.generate_chunk_data(chunk_pos, block_ids);
         // 将计算好的方块数据存入世界存储器中

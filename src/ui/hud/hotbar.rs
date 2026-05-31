@@ -67,7 +67,7 @@ fn apply_slot_texture(
             *bg = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3));
         }
     } else if let Some(id) = registry.get_id_by_identifier(identifier) {
-        let layer_idx = registry.get_layer(id, 4); // 正面贴图
+        let layer_idx = registry.get_layer(id, 4);
 
         if let Ok((mut img_node, mut bg, _)) = image_node_query.get_mut(entity) {
             *bg = BackgroundColor(Color::NONE);

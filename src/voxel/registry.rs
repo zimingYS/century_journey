@@ -11,7 +11,9 @@ pub struct BlockRegistry{
     pub id_to_properties: HashMap<u16, BlockProperty>,
     /// 通过唯一名标识进行查找动态ID
     pub identifier_to_id: HashMap<String, u16>,
-    /// 纹理硬射
+    /// 反向映射：通过动态ID查找唯一名标识
+    pub id_to_identifier: HashMap<u16, String>,
+    /// 纹理映射
     pub texture_layers: HashMap<(u16, usize), u32>,
     /// 保存基础长条图集纹理
     pub base_texture: Handle<Image>,
@@ -34,6 +36,11 @@ impl BlockRegistry{
     /// 通过字符串唯一标识获取运行时数字 ID
     pub fn get_id_by_identifier(&self, identifier: &str) -> Option<u16> {
         self.identifier_to_id.get(identifier).copied()
+    }
+
+    /// 通过动态ID获取字符串唯一标识
+    pub fn get_identifier_by_id(&self, id: u16) -> Option<&str> {
+        self.id_to_identifier.get(&id).map(|s| s.as_str())
     }
 
     /// 查询某个方块对应的某个面在 GPU 纹理数组中的 Layer 索引
@@ -129,9 +136,10 @@ fn register_blocks(
 
         // 注册方块标识符
         registry.identifier_to_id.insert(air_block.identifier.clone(), 0);
+        // 注册反向映射
+        registry.id_to_identifier.insert(0, air_block.identifier.clone());
 
         // 为空气方块6个面分配纹理层
-        // 因为纹理中已经为空气创造了透明贴图纹理，所以可以直接使用
         for face_idx in 0..6 {
             let path = air_block.textures.get_face_texture(face_idx);
             let layer_id = path_to_layer.get(path).copied().unwrap_or(0);
@@ -140,7 +148,6 @@ fn register_blocks(
         registry.id_to_properties.insert(0, air_block);
     } else {
         // 缺少空气方块直接崩溃
-        // 若空气数据没有读取，说明资源存在严重缺失
         panic!("严重错误：在 assets/definitions/blocks/ 中未找到 air.json！");
     }
 
@@ -153,6 +160,8 @@ fn register_blocks(
 
         // 注册标识符与ID映射
         registry.identifier_to_id.insert(block.identifier.clone(), assigned_id);
+        // 注册反向映射
+        registry.id_to_identifier.insert(assigned_id, block.identifier.clone());
 
         // 为当前方块的6个面设置纹理层
         for face_idx in 0..6 {

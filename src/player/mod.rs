@@ -20,6 +20,7 @@ impl Plugin for PlayerPlugin {
                 camera::toggle_mouse_lock_system,
                 camera::setup_player_camera_system,
                 systems::movement::player_movement_system,
+                systems::gravity::player_gravity_system,
                 systems::interaction::voxel_interaction_system,
                 systems::raycast::draw_voxel_highlight_system,
                 systems::raycast::update_raycast_system,
@@ -33,6 +34,8 @@ fn spawn_player(
     // 生成玩家身体
     commands.spawn((
         components::Player,
+        components::PlayerGravity::default(),
+        components::PlayerCollider::default(),
         components::PlayerMovement::default(),
         Transform::from_xyz(0.0, 70.0, 0.0),
         Visibility::default(),
