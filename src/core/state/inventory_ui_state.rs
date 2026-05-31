@@ -1,5 +1,4 @@
 use bevy::prelude::Resource;
-use crate::voxel::types::VoxelType;
 
 #[derive(Resource, Debug)]
 pub struct InventoryUiState {

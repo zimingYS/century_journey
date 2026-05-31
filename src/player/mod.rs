@@ -1,6 +1,4 @@
-use crate::player::components::PlayerCamera;
 use crate::player::systems::raycast::TargetVoxel;
-use bevy::light::atmosphere::ScatteringMedium;
 use bevy::prelude::*;
 
 pub mod components;
@@ -19,8 +17,9 @@ impl Plugin for PlayerPlugin {
             ))
             .add_systems(Update, (
                 camera::player_look_system,
-                systems::movement::player_movement_system,
                 camera::toggle_mouse_lock_system,
+                camera::setup_player_camera_system,
+                systems::movement::player_movement_system,
                 systems::interaction::voxel_interaction_system,
                 systems::raycast::draw_voxel_highlight_system,
                 systems::raycast::update_raycast_system,
@@ -30,9 +29,6 @@ impl Plugin for PlayerPlugin {
 
 fn spawn_player(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
 ) {
     // 生成玩家身体
     commands.spawn((
@@ -42,7 +38,6 @@ fn spawn_player(
         Visibility::default(),
     )).with_children(|parent| {
         parent.spawn((
-            PlayerCamera,
             camera::FpsCamera::default(),
             Camera3d::default(),
             Transform::from_xyz(0.0, 1.65, 0.0),

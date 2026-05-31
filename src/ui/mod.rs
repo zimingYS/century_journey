@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use crate::core::input_block::InputBlocked;
-use crate::core::state::AppState;
+use crate::core::state::app_state::AppState;
+use crate::core::state::inventory_ui_state::InventoryUiState;
 
 pub mod components;
 pub mod resources;
@@ -10,8 +11,6 @@ pub mod menu;
 pub struct UIPlugin;
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) { app
-        .init_resource::<resources::inventory_ui_state::InventoryUiState>()
-        .init_resource::<InputBlocked>()
         .add_plugins(MeshPickingPlugin)
         .add_systems(OnEnter(AppState::InGame),
             menu::inventory::init_inventory_ui_system,
@@ -30,7 +29,7 @@ impl Plugin for UIPlugin {
 }
 
 fn sync_input_blocked_system(
-    inventory_ui_state: Res<resources::inventory_ui_state::InventoryUiState>,
+    inventory_ui_state: Res<InventoryUiState>,
     mut input_blocked: ResMut<InputBlocked>,
 ) {
     input_blocked.0 = inventory_ui_state.is_inventory_open;

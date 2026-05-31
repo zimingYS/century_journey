@@ -3,7 +3,7 @@ use crate::world::chunk::{ChunkComponents, ChunkState};
 use bevy::prelude::*;
 use crate::core::constant::world::CHUNK_SIZE;
 use crate::core::input_block::InputBlocked;
-use crate::ui::resources::inventory_ui_state::InventoryUiState;
+use crate::core::state::inventory_ui_state::InventoryUiState;
 use crate::voxel::registry::BlockRegistry;
 use crate::world::storage::WorldStorage;
 

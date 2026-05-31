@@ -1,10 +1,8 @@
-use bevy::ecs::event::Trigger;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use crate::core::constant::ui::TOTAL_SLOTS;
 use crate::ui::components::{CreativeInventoryMenu, PacksHotbarSlot, PaletteSlot};
-use crate::ui::resources;
-use crate::ui::resources::inventory_ui_state::InventoryUiState;
+use crate::core::state::inventory_ui_state::InventoryUiState;
 use crate::voxel::registry::BlockRegistry;
 
 // 初始化背包 UI 状态

@@ -1,9 +1,8 @@
+use crate::core::state::inventory_ui_state::InventoryUiState;
+use crate::ui::components::{HudHotbarContainer, HudHotbarSlot, PacksHotbarSlot, PaletteSlot};
+use crate::voxel::registry::BlockRegistry;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-use crate::ui::components::{HudHotbarContainer, HudHotbarSlot, PacksHotbarSlot, PaletteSlot};
-use crate::ui::resources::inventory_ui_state::InventoryUiState;
-use crate::voxel::registry::BlockRegistry;
-use crate::voxel::types::VoxelType;
 
 pub fn spawn_hotbar_ui_system(mut commands: Commands){
     commands.spawn((

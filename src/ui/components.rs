@@ -1,5 +1,4 @@
 use bevy::prelude::Component;
-use crate::voxel::types::VoxelType;
 
 /// 十字准心组件
 #[derive(Component)]

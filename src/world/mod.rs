@@ -6,7 +6,7 @@ pub mod sky;
 pub mod time;
 
 use bevy::prelude::*;
-use crate::core::state::AppState;
+use crate::core::state::app_state::AppState;
 
 pub struct WorldPlugin;
 

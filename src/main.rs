@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 use CenturyJourney::core::constant::window::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
-use CenturyJourney::core::state::AppState;
+use CenturyJourney::core::CorePlugin;
 use CenturyJourney::player::PlayerPlugin;
 use CenturyJourney::test_setup::setup;
 use CenturyJourney::ui::UIPlugin;
@@ -20,8 +20,8 @@ fn main() {
             }),
             ..default()
         }))
-        .init_state::<AppState>()
         .add_plugins((
+            CorePlugin,
             VoxelPlugin,
             PlayerPlugin,
             WorldPlugin,

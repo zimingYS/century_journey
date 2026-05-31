@@ -1,6 +1,11 @@
+use bevy::camera::Exposure;
+use bevy::core_pipeline::tonemapping::Tonemapping;
 use crate::player::components::Player;
 use crate::core::input_block::InputBlocked;
 use bevy::input::mouse::MouseMotion;
+use bevy::light::{AtmosphereEnvironmentMapLight, VolumetricFog};
+use bevy::pbr::AtmosphereSettings;
+use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
@@ -16,6 +21,22 @@ impl Default for FpsCamera{
             mouse_sensitivity: 0.015,
             pitch: 0.0,
         }
+    }
+}
+
+pub fn setup_player_camera_system(
+    mut query: Query<Entity, Added<FpsCamera>>,
+    mut commands: Commands,
+) {
+    for entity in &mut query {
+        commands.entity(entity).insert((
+            AtmosphereSettings::default(),
+            AtmosphereEnvironmentMapLight::default(),
+            Exposure { ..default() },
+            Tonemapping::AcesFitted,
+            Bloom::NATURAL,
+            VolumetricFog { ambient_intensity: 0.0, ..default() },
+        ));
     }
 }
 

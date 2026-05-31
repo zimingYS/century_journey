@@ -1,9 +1,9 @@
 use bevy::prelude::*;
-use crate::core::state::AppState;
+use crate::core::state::app_state::AppState;
 
 pub mod registry;
-pub mod types;
 pub mod properties;
+pub mod texture_atlas;
 
 pub struct VoxelPlugin;
 
