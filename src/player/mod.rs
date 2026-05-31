@@ -1,10 +1,6 @@
+use crate::player::components::PlayerCamera;
 use crate::player::systems::raycast::TargetVoxel;
-use bevy::camera::Exposure;
-use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::light::{Atmosphere, AtmosphereEnvironmentMapLight, VolumetricFog};
 use bevy::light::atmosphere::ScatteringMedium;
-use bevy::pbr::AtmosphereSettings;
-use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 
 pub mod components;
@@ -46,30 +42,10 @@ fn spawn_player(
         Visibility::default(),
     )).with_children(|parent| {
         parent.spawn((
-            Mesh3d(meshes.add(Capsule3d::default().mesh().build())),
-            MeshMaterial3d(materials.add(Color::srgb(0.8, 0.2, 0.2))),
-            Transform::from_xyz(0.0, 1.0, 0.0),
-        ));
-
-        parent.spawn((
+            PlayerCamera,
             camera::FpsCamera::default(),
             Camera3d::default(),
             Transform::from_xyz(0.0, 1.65, 0.0),
-
-            // 世界大气
-            AtmosphereSettings::default(),
-            AtmosphereEnvironmentMapLight::default(),
-
-            // 高曝光补偿
-            Exposure { ..default() },
-            Tonemapping::AcesFitted,
-            Bloom::NATURAL,
-
-            // 开启体积雾
-            VolumetricFog {
-                ambient_intensity: 0.0,
-                ..default()
-            },
         ));
     });
 }

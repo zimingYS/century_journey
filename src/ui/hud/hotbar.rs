@@ -62,14 +62,12 @@ pub fn update_hotbar_ui_system(
 
         if identifier == "century_journey:air" {
             commands.entity(entity).remove::<ImageNode>();
-            // 使用 .p0() 安全读取并修改
             if let Ok((_, mut bg, _)) = image_node_set.p0().get_mut(entity) {
                 *bg = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3));
             }
         } else if let Some(id) = reg.get_id_by_identifier(identifier) {
             let layer_idx = reg.get_layer(id, 4); // 正面贴图
 
-            // 使用 .p0() 安全读取并修改
             if let Ok((mut img_node, mut bg, _)) = image_node_set.p0().get_mut(entity) {
                 *bg = BackgroundColor(Color::NONE);
                 img_node.image = reg.base_texture.clone();
@@ -101,24 +99,24 @@ pub fn update_hotbar_ui_system(
     for (entity, slot, mut palette_slot, mut border_color) in &mut packs_hotbar_query {
         let identifier = &inventory_ui_state.hotbar_items[slot.hotbar_index];
 
-        // 1. 数据同步
+        // 数据同步
         if palette_slot.identifier != *identifier {
             palette_slot.identifier = identifier.clone();
         }
 
-        // 2. 纹理和节点同步
+        // 纹理和节点同步
         if let Ok(children) = bg_query.get(entity) {
             for child in children.iter() {
                 if identifier == "century_journey:air" {
                     commands.entity(child).remove::<ImageNode>();
-                    // 💡 通过 .p1() 访问隔离环境中的修改 Query，规避冲突崩溃
+                    // 访问隔离环境中的修改 Query，规避冲突崩溃
                     if let Ok((_, mut bg, _)) = image_node_set.p1().get_mut(child) {
                         *bg = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.3));
                     }
                 } else if let Some(id) = reg.get_id_by_identifier(identifier) {
                     let layer_idx = reg.get_layer(id, 4);
 
-                    // 💡 通过 .p1() 访问隔离环境中的修改 Query
+                    //  访问隔离环境中的修改 Query
                     if let Ok((mut img_node, mut bg, _)) = image_node_set.p1().get_mut(child) {
                         *bg = BackgroundColor(Color::NONE);
                         img_node.image = reg.base_texture.clone();
@@ -141,7 +139,7 @@ pub fn update_hotbar_ui_system(
             }
         }
 
-        // 3. 选框联动高亮
+        // 选框联动高亮
         if slot.hotbar_index == inventory_ui_state.active_hotbar_index {
             *border_color = BorderColor::all(Color::srgb(0.6, 0.6, 0.6));
         } else {

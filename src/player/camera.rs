@@ -1,8 +1,8 @@
 use crate::player::components::Player;
+use crate::core::input_block::InputBlocked;
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
-use crate::ui::resources::inventory_ui_state::InventoryUiState;
 
 #[derive(Component)]
 pub struct FpsCamera{
@@ -23,9 +23,9 @@ pub fn player_look_system(
     mut mouse_motion: MessageReader<MouseMotion>,
     mut player_query: Query<&mut Transform, With<Player>>,
     mut camera_query: Query<(&mut Transform,&mut FpsCamera),Without<Player>>,
-    inventory_ui_state: Res<InventoryUiState>,
+    input_blocked: Res<InputBlocked>,
 ){
-    if inventory_ui_state.is_inventory_open { return; }
+    if input_blocked.0 { return; }
 
     let mut delta = Vec2::ZERO;
     for event in mouse_motion.read(){

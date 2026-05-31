@@ -1,7 +1,6 @@
+use crate::core::constant::world::CHUNK_VOLUME;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use crate::core::constant::CHUNK_VOLUME;
-use crate::voxel::types::VoxelType;
 
 // 标记渲染的方块实体属于哪个区块
 #[derive(Component)]

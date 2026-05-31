@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::core::constant::CHUNK_SIZE;
+use crate::core::constant::world::CHUNK_SIZE;
 use crate::voxel::types::VoxelType;
 use crate::world::chunk::ChunkData;
 use crate::world::storage::WorldStorage;

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
-use CenturyJourney::core::constant::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
+use CenturyJourney::core::constant::window::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use CenturyJourney::core::state::AppState;
 use CenturyJourney::player::PlayerPlugin;
 use CenturyJourney::test_setup::setup;

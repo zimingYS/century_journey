@@ -1,10 +1,28 @@
 use bevy::ecs::event::Trigger;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
-use crate::core::constant::TOTAL_SLOTS;
+use crate::core::constant::ui::TOTAL_SLOTS;
 use crate::ui::components::{CreativeInventoryMenu, PacksHotbarSlot, PaletteSlot};
+use crate::ui::resources;
 use crate::ui::resources::inventory_ui_state::InventoryUiState;
 use crate::voxel::registry::BlockRegistry;
+
+// 初始化背包 UI 状态
+pub(crate) fn init_inventory_ui_system(
+    mut commands: Commands,
+    registry: Res<BlockRegistry>,
+) {
+    let mut ui_state = InventoryUiState::default();
+
+    for identifier in registry.identifier_to_id.keys() {
+        if identifier != "century_journey:air" {
+            ui_state.creative_palette.push(identifier.clone());
+        }
+    }
+    ui_state.creative_palette.sort();
+
+    commands.insert_resource(ui_state);
+}
 
 /// E键打开物品栏
 pub fn toggle_inventory_system(

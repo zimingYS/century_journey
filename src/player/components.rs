@@ -4,6 +4,9 @@ use bevy::prelude::*;
 pub struct Player;
 
 #[derive(Component)]
+pub struct PlayerCamera;
+
+#[derive(Component)]
 pub struct PlayerMovement{
     pub movement_speed: f32,
     pub sprint_factor: f32,

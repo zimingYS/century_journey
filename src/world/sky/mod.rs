@@ -12,6 +12,7 @@ impl Plugin for SkyPlugin {
         ))
         .add_systems(Update,(
             system::atmosphere_system,
+            system::setup_player_camera_system,
         ));
     }
 }

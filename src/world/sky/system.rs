@@ -1,10 +1,30 @@
 use bevy::camera::Exposure;
+use bevy::core_pipeline::tonemapping::Tonemapping;
 use crate::world::sky::component::*;
 use crate::world::time::TimeOfDay;
-use bevy::light::{Atmosphere, CascadeShadowConfigBuilder, VolumetricLight};
+use bevy::light::{Atmosphere, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, VolumetricFog, VolumetricLight};
 use bevy::light::atmosphere::ScatteringMedium;
 use bevy::pbr::AtmosphereSettings;
+use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
+use crate::player::components::PlayerCamera;
+
+pub fn setup_player_camera_system(
+    mut query: Query<Entity, Added<PlayerCamera>>,
+    mut commands: Commands,
+    mut scattering_mediums: ResMut<Assets<bevy::light::atmosphere::ScatteringMedium>>,
+) {
+    for entity in &mut query {
+        commands.entity(entity).insert((
+            AtmosphereSettings::default(),
+            AtmosphereEnvironmentMapLight::default(),
+            Exposure { ..default() },
+            Tonemapping::AcesFitted,
+            Bloom::NATURAL,
+            VolumetricFog { ambient_intensity: 0.0, ..default() },
+        ));
+    }
+}
 
 pub fn setup_sky_system(
     mut commands: Commands,

@@ -1,9 +1,8 @@
-use crate::core::constant::{CHUNK_SIZE, CHUNK_VOLUME, MAP_HEIGHT_SCALE, NOISE_SCALE, SEA_LEVEL};
 use crate::voxel::registry::BlockRegistry;
-use crate::voxel::types::VoxelType;
 use crate::world::chunk::ChunkData;
 use bevy::prelude::*;
 use noise::{NoiseFn, Perlin};
+use crate::core::constant::world::{CHUNK_SIZE, CHUNK_VOLUME, MAP_HEIGHT_SCALE, NOISE_SCALE, SEA_LEVEL};
 
 /// 地形生成器
 pub struct TerrainGenerator {

@@ -1,16 +1,68 @@
-use std::collections::HashSet;
-use bevy::asset::RenderAssetUsages;
-use bevy::mesh::{Indices, PrimitiveTopology};
-use bevy::prelude::*;
-use crate::core::constant::CHUNK_SIZE;
 use crate::player::components::Player;
 use crate::voxel::properties::RenderMode;
 use crate::voxel::registry::BlockRegistry;
-use crate::voxel::types::VoxelType;
 use crate::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::world::generation::noise::GenerationBlockIds;
 use crate::world::generation::WorldGenerator;
 use crate::world::storage::WorldStorage;
+use bevy::asset::RenderAssetUsages;
+use bevy::mesh::{Indices, PrimitiveTopology};
+use bevy::prelude::*;
+use std::collections::HashSet;
+use crate::core::constant::world::CHUNK_SIZE;
+
+/// 单个渲染通道的顶点缓冲区
+struct MeshBuffer {
+    positions: Vec<[f32; 3]>,
+    normals: Vec<[f32; 3]>,
+    uvs: Vec<[f32; 2]>,
+    indices: Vec<u32>,
+}
+
+impl MeshBuffer {
+    fn new() -> Self {
+        Self {
+            positions: Vec::new(),
+            normals: Vec::new(),
+            uvs: Vec::new(),
+            indices: Vec::new(),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.positions.is_empty()
+    }
+
+    /// 向缓冲区追加一个面的 4 个顶点
+    fn append_face(
+        &mut self,
+        face_vertices: &[[f32; 3]; 4],
+        normal: Vec3,
+        uvs: &[[f32; 2]; 4],
+    ) {
+        let start_idx = self.positions.len() as u32;
+        self.positions.extend_from_slice(face_vertices);
+        for _ in 0..4 {
+            self.normals.push([normal.x, normal.y, normal.z]);
+        }
+        self.uvs.extend_from_slice(uvs);
+        self.indices.extend_from_slice(&[
+            start_idx, start_idx + 1, start_idx + 2,
+            start_idx, start_idx + 2, start_idx + 3,
+        ]);
+    }
+
+    /// 从缓冲区生成 Bevy Mesh
+    fn build_mesh(&self) -> Mesh {
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions.clone());
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals.clone());
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs.clone());
+        mesh.insert_indices(Indices::U32(self.indices.clone()));
+        mesh
+    }
+}
+
 
 /// 区块加载与卸载调度
 pub fn manage_chunks_system(
@@ -40,6 +92,9 @@ pub fn manage_chunks_system(
     // 记录这一帧应该存在的所有区块坐标
     let mut expected_chunks = HashSet::new();
 
+    let mut spawned = 0u32;
+    let max_spawn_per_frame = 16;
+
     // 加载范围内的区块
     for x in -data_distance..=data_distance {
         for y in -data_distance..=data_distance {
@@ -51,6 +106,8 @@ pub fn manage_chunks_system(
                 if !world_storage.loaded_chunks.contains_key(&chunk_pos)
                     && !world_storage.chunk_entities.contains_key(&chunk_pos)
                 {
+                    if spawned >= max_spawn_per_frame { continue; }
+                    spawned += 1;
                     // 生成区块，标记初始状态
                     let entity = commands.spawn((
                         ChunkComponents { position: chunk_pos },
@@ -94,10 +151,16 @@ pub fn generate_chunk_data_system(
     // 计算出噪声内循环所需的动态ID
     let block_ids = GenerationBlockIds::from_registry(&reg);
 
+    // 每帧对多渲染的区块数
+    let mut generated = 0u32;
+    let max_per_frame = 16;
+
     for (chunk_components, mut state) in &mut chunk_query {
         if *state != ChunkState::GeneratingData {
             continue;
         }
+
+        if generated >= max_per_frame { break; }
 
         // 获取该区块在世界网格中的 IVec3 坐标
         let chunk_pos = chunk_components.position;
@@ -107,6 +170,7 @@ pub fn generate_chunk_data_system(
         world_storage.loaded_chunks.insert(chunk_pos, chunk_data);
         // 激活下一个状态
         *state = ChunkState::DataReady;
+        generated += 1;
     }
 }
 
@@ -124,208 +188,106 @@ const DIRECTIONS: [(IVec3, Vec3); 6] = [
 pub fn build_chunk_mesh_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    // mut materials: ResMut<Assets<StandardMaterial>>,
-    mut chunk_query:Query<(Entity, &ChunkComponents, &mut ChunkState)>,
+    mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
     registry: Option<Res<BlockRegistry>>,
     world_storage: Res<WorldStorage>,
-){
+) {
     let Some(reg) = registry else { return; };
 
     let water_id = reg.get_id_by_identifier("century_journey:water").unwrap_or(0);
-
-    // 获取当前注册的总贴图数量
     let total_layers = reg.texture_layers.values().map(|&v| v + 1).max().unwrap_or(1);
 
+    let mut built = 0u32;
+    let max_per_frame = 8;
+
     for (chunk_entity, chunk_components, mut state) in &mut chunk_query {
+        if !world_storage.chunk_entities.contains_key(&chunk_components.position) {
+            continue;
+        }
+
         if *state != ChunkState::DataReady { continue; }
+
+        if built >= max_per_frame { break; }
 
         let current_chunk_pos = chunk_components.position;
 
-        //跨区块检查旁边区块是否已生成区块数据
+        // 跨区块检查邻居区块是否已生成数据
         let neighbors_ready = DIRECTIONS.iter()
             .all(|(dir, _)| world_storage.loaded_chunks.contains_key(&(current_chunk_pos + *dir)));
-
         if !neighbors_ready { continue; }
 
-        // 获取当前区块数据
         let Some(current_chunk_data) = world_storage.loaded_chunks.get(&current_chunk_pos)
-            else { continue; };
+        else { continue; };
 
-        // 改变区块状态
         *state = ChunkState::GeneratingMesh;
 
-        // 存储顶点容器
-        // 实体方块容器
-        let mut opaque_positions: Vec<[f32; 3]> = Vec::new();
-        let mut opaque_normals: Vec<[f32; 3]> = Vec::new();
-        let mut opaque_uvs: Vec<[f32; 2]> = Vec::new();
-        let mut opaque_indices: Vec<u32> = Vec::new();
+        // 三通道缓冲区
+        let mut opaque_buf = MeshBuffer::new();
+        let mut cutout_buf = MeshBuffer::new();
+        let mut water_buf = MeshBuffer::new();
 
-        // 半透明方块容器
-        let mut cutout_positions: Vec<[f32; 3]> = Vec::new();
-        let mut cutout_normals: Vec<[f32; 3]> = Vec::new();
-        let mut cutout_uvs: Vec<[f32; 2]> = Vec::new();
-        let mut cutout_indices: Vec<u32> = Vec::new();
-
-        // 透明水体容器
-        let mut water_positions: Vec<[f32; 3]> = Vec::new();
-        let mut water_normals: Vec<[f32; 3]> = Vec::new();
-        let mut water_uvs: Vec<[f32; 2]> = Vec::new();
-        let mut water_indices: Vec<u32> = Vec::new();
-
-        for x in 0..16{
-            for y in 0..16{
-                for z in 0..16{
+        for x in 0..CHUNK_SIZE {
+            for y in 0..CHUNK_SIZE {
+                for z in 0..CHUNK_SIZE {
                     let voxel_id = current_chunk_data.get_voxel(x, y, z);
-
-                    // 是空气则不渲染
                     if voxel_id == 0 { continue; }
 
                     let current_is_water = voxel_id == water_id;
                     let local_pos = IVec3::new(x as i32, y as i32, z as i32);
-
-                    // 提取方块核心属性数据
                     let Some(prop) = reg.get(voxel_id) else { continue; };
 
-                    for face_idx in 0..6{
+                    for face_idx in 0..6 {
                         let (dir, normal) = DIRECTIONS[face_idx];
                         let neighbor_local_pos = local_pos + dir;
 
-                        // 跨区块判断隔壁方块是否为空气
-                        let is_neighbor_transparent = {
-                            // 若隔壁方块在本区块内
-                            if let Some(nbr_id) = current_chunk_data.get_voxel_safe(neighbor_local_pos.x, neighbor_local_pos.y, neighbor_local_pos.z) {
-
-                                if nbr_id == 0 {
-                                    true
-                                } else if current_is_water {
-                                    false
-                                }else {
-                                    let nbr_is_solid = reg.get(nbr_id).map(|p| p.is_solid).unwrap_or(true);
-                                    !nbr_is_solid || nbr_id == water_id
-                                }
-                            } else {
-                                // 计算隔壁区块的绝对坐标
-                                let neighbor_chunk_pos = current_chunk_pos + dir;
-                                // 换算出邻居在它自己区块内部的局部坐标
-                                let nbr_local_x = neighbor_local_pos.x.rem_euclid(16) as usize;
-                                let nbr_local_y = neighbor_local_pos.y.rem_euclid(16) as usize;
-                                let nbr_local_z = neighbor_local_pos.z.rem_euclid(16) as usize;
-
-                                if let Some(neighbor_chunk_data) = world_storage.loaded_chunks.get(&neighbor_chunk_pos) {
-                                    let nbr_id = neighbor_chunk_data.get_voxel(nbr_local_x, nbr_local_y, nbr_local_z);
-                                    if nbr_id == 0 {
-                                        true
-                                    } else if current_is_water {
-                                        false
-                                    } else {
-                                        let nbr_is_solid = reg.get(nbr_id).map(|p| p.is_solid).unwrap_or(true);
-                                        !nbr_is_solid || nbr_id == water_id
-                                    }
-                                } else {
-                                    // 未渲染加载出来的无邻居区块边界：水面闭合，实体暴露
-                                    !current_is_water
-                                }
-                            }
+                        // 面剔除判断（统一逻辑，不再重复）
+                        let is_visible = match get_neighbor_voxel_id(
+                            neighbor_local_pos,
+                            current_chunk_data,
+                            current_chunk_pos,
+                            &world_storage,
+                            dir,
+                        ) {
+                            Some(nbr_id) => is_face_visible(current_is_water, nbr_id, &*reg),
+                            None => !current_is_water, // 未加载的邻居区块边界
                         };
 
-                        if is_neighbor_transparent {
-                            let voxel_type = VoxelType::from_u16(voxel_id);
-                            let color_array = voxel_type.get_voxel_color().to_linear().to_f32_array();
-                            let face_vertices = get_face_vertices(x as f32, y as f32, z as f32, face_idx);
+                        if !is_visible { continue; }
 
-                            if current_is_water {
-                                let layer_id = reg.texture_layers.get(&(voxel_id, face_idx)).copied().unwrap_or(0);
-                                let u0 = layer_id as f32 / total_layers as f32;
-                                let u1 = (layer_id + 1) as f32 / total_layers as f32;
-                                let local_uvs = [
-                                    [u0, 0.0],
-                                    [u1, 0.0],
-                                    [u1, 1.0],
-                                    [u0, 1.0],
-                                ];
+                        let face_vertices = get_face_vertices(x as f32, y as f32, z as f32, face_idx);
+                        let layer_id = reg.texture_layers.get(&(voxel_id, face_idx)).copied().unwrap_or(0);
+                        let uvs = compute_face_uvs(layer_id, total_layers);
 
-                                // 填充到水面容器
-                                let start_idx = water_positions.len() as u32;
-                                water_positions.extend_from_slice(&face_vertices);
-                                for _ in 0..4 {
-                                    water_normals.push([normal.x, normal.y, normal.z]);
-                                }
-                                water_uvs.extend_from_slice(&local_uvs);
-                                water_indices.extend_from_slice(&[
-                                    start_idx + 0, start_idx + 1, start_idx + 2,
-                                    start_idx + 0, start_idx + 2, start_idx + 3,
-                                ]);
-                            } else {
-                                // 填充到实体方块容器
-                                let layer_id = reg.texture_layers.get(&(voxel_id, face_idx)).copied().unwrap_or(0);
-
-                                let u0 = layer_id as f32 / total_layers as f32;
-                                let u1 = (layer_id + 1) as f32 / total_layers as f32;
-
-                                let local_uvs = [
-                                    [u0, 0.0],
-                                    [u1, 0.0],
-                                    [u1, 1.0],
-                                    [u0, 1.0],
-                                ];
-
-                                if prop.render_mode == RenderMode::Cutout {
-                                    let start_idx = cutout_positions.len() as u32;
-                                    cutout_positions.extend_from_slice(&face_vertices);
-                                    cutout_uvs.extend_from_slice(&local_uvs);
-                                    for _ in 0..4 {
-                                        cutout_normals.push([normal.x, normal.y, normal.z]);
-                                    }
-                                    cutout_indices.extend_from_slice(&[
-                                        start_idx + 0, start_idx + 1, start_idx + 2,
-                                        start_idx + 0, start_idx + 2, start_idx + 3,
-                                    ]);
-                                } else {
-                                    let start_idx = opaque_positions.len() as u32;
-                                    opaque_positions.extend_from_slice(&face_vertices);
-                                    opaque_uvs.extend_from_slice(&local_uvs);
-                                    for _ in 0..4 {
-                                        opaque_normals.push([normal.x, normal.y, normal.z]);
-                                    }
-                                    opaque_indices.extend_from_slice(&[
-                                        start_idx + 0, start_idx + 1, start_idx + 2,
-                                        start_idx + 0, start_idx + 2, start_idx + 3,
-                                    ]);
-                                }
-                            }
+                        if current_is_water {
+                            water_buf.append_face(&face_vertices, normal, &uvs);
+                        } else if prop.render_mode == RenderMode::Cutout {
+                            cutout_buf.append_face(&face_vertices, normal, &uvs);
+                        } else {
+                            opaque_buf.append_face(&face_vertices, normal, &uvs);
                         }
                     }
                 }
             }
         }
 
-        if !opaque_positions.is_empty() {
-            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
-            mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, opaque_positions);
-            mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, opaque_normals);
-            mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, opaque_uvs);
-            mesh.insert_indices(Indices::U32(opaque_indices));
+        // 清理旧的子实体
+        commands.entity(chunk_entity)
+            .remove::<Mesh3d>()
+            .remove::<MeshMaterial3d<StandardMaterial>>();
+        commands.entity(chunk_entity).despawn_related::<Children>();
 
+        // 不透明方块 — 直接挂在区块实体上
+        if !opaque_buf.is_empty() {
             commands.entity(chunk_entity).insert((
-                Mesh3d(meshes.add(mesh)),
+                Mesh3d(meshes.add(opaque_buf.build_mesh())),
                 MeshMaterial3d(reg.opaque_material.clone()),
             ));
         }
 
-        // 清理旧的老材质实体
-        commands.entity(chunk_entity).despawn_related::<Children>();
-
-        // 半透明方块
-        if !cutout_positions.is_empty() {
-            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
-            mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, cutout_positions);
-            mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, cutout_normals);
-            mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, cutout_uvs);
-            mesh.insert_indices(Indices::U32(cutout_indices));
-
+        // 半透明方块 — 子实体
+        if !cutout_buf.is_empty() {
             let child = commands.spawn((
-                Mesh3d(meshes.add(mesh)),
+                Mesh3d(meshes.add(cutout_buf.build_mesh())),
                 MeshMaterial3d(reg.cutout_material.clone()),
                 Transform::IDENTITY,
                 Visibility::default(),
@@ -333,16 +295,10 @@ pub fn build_chunk_mesh_system(
             commands.entity(chunk_entity).add_child(child);
         }
 
-        // 水面
-        if !water_positions.is_empty() {
-            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
-            mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, water_positions);
-            mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, water_normals);
-            mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, water_uvs);
-            mesh.insert_indices(Indices::U32(water_indices));
-
+        // 水面 — 子实体
+        if !water_buf.is_empty() {
             let child = commands.spawn((
-                Mesh3d(meshes.add(mesh)),
+                Mesh3d(meshes.add(water_buf.build_mesh())),
                 MeshMaterial3d(reg.transparent_material.clone()),
                 Transform::IDENTITY,
                 Visibility::default(),
@@ -350,9 +306,68 @@ pub fn build_chunk_mesh_system(
             commands.entity(chunk_entity).add_child(child);
         }
 
-        // 标记渲染就绪
         *state = ChunkState::Rendered;
+        built += 1;
     }
+}
+
+/// 判断某个面是否需要渲染（邻居是否透明）
+fn is_face_visible(
+    current_is_water: bool,
+    neighbor_voxel_id: u16,
+    registry: &BlockRegistry,
+) -> bool {
+    if neighbor_voxel_id == 0 {
+        // 空气不渲染
+        return true;
+    }
+    if current_is_water {
+        // 水旁边不渲染水面
+        return false;
+    }
+    let nbr_is_solid = registry.get(neighbor_voxel_id).map(|p| p.is_solid).unwrap_or(true);
+    !nbr_is_solid || neighbor_voxel_id == registry.get_id_by_identifier("century_journey:water").unwrap_or(0)
+}
+
+/// 获取邻居方块的ID
+fn get_neighbor_voxel_id(
+    neighbor_local_pos: IVec3,
+    current_chunk_data: &ChunkData,
+    current_chunk_pos: IVec3,
+    world_storage: &WorldStorage,
+    dir: IVec3,
+) -> Option<u16> {
+    // 先尝试在本区块内查找
+    if let Some(nbr_id) = current_chunk_data.get_voxel_safe(
+        neighbor_local_pos.x,
+        neighbor_local_pos.y,
+        neighbor_local_pos.z,
+    ) {
+        return Some(nbr_id);
+    }
+    // 跨区块查找
+    let neighbor_chunk_pos = current_chunk_pos + dir;
+    let nbr_local_x = neighbor_local_pos.x.rem_euclid(CHUNK_SIZE as i32) as usize;
+    let nbr_local_y = neighbor_local_pos.y.rem_euclid(CHUNK_SIZE as i32) as usize;
+    let nbr_local_z = neighbor_local_pos.z.rem_euclid(CHUNK_SIZE as i32) as usize;
+
+    world_storage
+        .loaded_chunks
+        .get(&neighbor_chunk_pos)
+        .map(|data| data.get_voxel(nbr_local_x, nbr_local_y, nbr_local_z))
+}
+
+
+/// 计算某个面在图集中的 UV 坐标
+fn compute_face_uvs(layer_id: u32, total_layers: u32) -> [[f32; 2]; 4] {
+    let u0 = layer_id as f32 / total_layers as f32;
+    let u1 = (layer_id + 1) as f32 / total_layers as f32;
+    [
+        [u0, 0.0],
+        [u1, 0.0],
+        [u1, 1.0],
+        [u0, 1.0],
+    ]
 }
 
 /// 计算方块局部坐标和面索引

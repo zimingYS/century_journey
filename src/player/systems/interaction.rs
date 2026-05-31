@@ -1,8 +1,8 @@
-use crate::core::constant::CHUNK_SIZE;
 use crate::player::systems::raycast::{raycast_voxel, TargetVoxel};
-use crate::voxel::types::VoxelType;
 use crate::world::chunk::{ChunkComponents, ChunkState};
 use bevy::prelude::*;
+use crate::core::constant::world::CHUNK_SIZE;
+use crate::core::input_block::InputBlocked;
 use crate::ui::resources::inventory_ui_state::InventoryUiState;
 use crate::voxel::registry::BlockRegistry;
 use crate::world::storage::WorldStorage;
@@ -10,15 +10,15 @@ use crate::world::storage::WorldStorage;
 pub fn voxel_interaction_system(
     target_voxel: Res<TargetVoxel>,
     registry: Option<Res<BlockRegistry>>,
+    input_blocked: Res<InputBlocked>,
     inventory_ui_state: Res<InventoryUiState>,
     mouse_button: Res<ButtonInput<MouseButton>>,
-    mut commands: Commands,
     mut world_storage: ResMut<WorldStorage>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
 ){
     let Some(reg) = registry else { return; };
     // 当打开物品栏时不进行破坏和放置操作
-    if inventory_ui_state.is_inventory_open { return; }
+    if input_blocked.0 { return; }
 
     let left_click = mouse_button.just_pressed(MouseButton::Left);
     let right_click = mouse_button.just_pressed(MouseButton::Right);
@@ -55,14 +55,15 @@ pub fn voxel_interaction_system(
             chunk_data.set_voxel(local_x, local_y, local_z, next_voxel_id);
 
             let mut dirty_chunks = vec![chunk_pos];
+            let max_idx = CHUNK_SIZE - 1;
 
             // 若修改的方块在区块边缘，把相邻区块也标记为脏
             if local_y == 0 { dirty_chunks.push(chunk_pos + IVec3::new(0, -1, 0)); }
-            if local_y == 15 { dirty_chunks.push(chunk_pos + IVec3::new(0, 1, 0)); }
+            if local_y == max_idx { dirty_chunks.push(chunk_pos + IVec3::new(0, 1, 0)); }
             if local_x == 0 { dirty_chunks.push(chunk_pos + IVec3::new(-1, 0, 0)); }
-            if local_x == 15 { dirty_chunks.push(chunk_pos + IVec3::new(1, 0, 0)); }
+            if local_x == max_idx { dirty_chunks.push(chunk_pos + IVec3::new(1, 0, 0)); }
             if local_z == 0 { dirty_chunks.push(chunk_pos + IVec3::new(0, 0, -1)); }
-            if local_z == 15 { dirty_chunks.push(chunk_pos + IVec3::new(0, 0, 1)); }
+            if local_z == max_idx { dirty_chunks.push(chunk_pos + IVec3::new(0, 0, 1)); }
 
             // 重新渲染当前区块
             for (entity, chunk_comp, mut state) in &mut chunk_query {
