@@ -10,6 +10,9 @@ use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use std::collections::HashSet;
 use crate::core::constant::world::CHUNK_SIZE;
+use crate::world::save;
+use crate::world::save::format::SavedChunk;
+use crate::world::save::system::{SaveConfig, SaveQueue};
 
 /// 单个渲染通道的顶点缓冲区
 struct MeshBuffer {
@@ -67,9 +70,11 @@ impl MeshBuffer {
 /// 区块加载与卸载调度
 pub fn manage_chunks_system(
     mut commands: Commands,
+    mut save_queue: ResMut<SaveQueue>,
     mut world_storage: ResMut<WorldStorage>,
     chunk_query: Query<(Entity, &ChunkComponents)>,
     player_query: Query<&Transform, With<Player>>,
+    save_config: Res<SaveConfig>,
 ){
     let Ok(player_transform) = player_query.single() else {
         return;
@@ -130,20 +135,39 @@ pub fn manage_chunks_system(
         let pos = chunk_components.position;
 
         if !expected_chunks.contains(&pos) {
-            commands.entity(entity).despawn();
+            // 保存区块数据到存档（在移除数据之前）
+            if save_config.save_on_unload {
+                if let Some(chunk_data) = world_storage.loaded_chunks.get(&pos) {
+                    save_queue.queue.push_back(SavedChunk {
+                        position: pos,
+                        data: chunk_data.clone(),
+                        modified_time: 0.0,
+                    });
+                }
+            }
+
+            // 移除实体映射和方块数据
             world_storage.chunk_entities.remove(&pos);
-            // todo!("这边要加上保存到本地存档功能");
-            // world_storage.loaded_chunks.remove(&pos);
+            world_storage.loaded_chunks.remove(&pos);
+
+            // 销毁实体（用 queue_silenced 静默处理已销毁实体，避免竞态报错）
+            commands.entity(entity)
+                .queue_silenced(|mut entity: EntityWorldMut| {
+                    entity.despawn();
+                });
         }
     }
 }
 
 /// 生成区块内方块数据
 pub fn generate_chunk_data_system(
+    mut commands: Commands,
+    save_config: Res<SaveConfig>,
     registry: Option<Res<BlockRegistry>>,
     world_generator: Res<WorldGenerator>,
+    block_registry: Res<BlockRegistry>,
     mut world_storage: ResMut<WorldStorage>,
-    mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
+    mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
 ){
     let Some(reg) = registry else { return; };
 
@@ -154,8 +178,8 @@ pub fn generate_chunk_data_system(
     let mut generated = 0u32;
     let max_per_frame = 16;
 
-    for (chunk_components, mut state) in &mut chunk_query {
-        if *state != ChunkState::GeneratingData {
+    for (entity, chunk_components,mut chunk_state) in &mut chunk_query {
+        if *chunk_state != ChunkState::GeneratingData {
             continue;
         }
 
@@ -166,9 +190,33 @@ pub fn generate_chunk_data_system(
 
         // 若已存在数据则跳过生成，直接标记为 DataReady
         if world_storage.loaded_chunks.contains_key(&chunk_pos) {
-            *state = ChunkState::DataReady;
+            *chunk_state = ChunkState::DataReady;
             generated += 1;
             continue;
+        }
+
+        // 优先从存档加载区块数据
+        if let Some(mut saved) = save::system::try_load_chunk_from_disk(
+            &save_config.world_name,
+            chunk_pos,
+        ) {
+            // 从level.dat加载ID映射表进行重映射
+            if let Ok(level_data) = save::level::load_level(&save_config.world_name) {
+                save::level::remap_chunk_block_ids(
+                    &mut saved.data,
+                    &level_data.block_id_map,
+                    &block_registry,
+                );
+            }
+
+            world_storage.loaded_chunks.insert(chunk_pos, saved.data);
+            commands.entity(entity).insert(ChunkState::DataReady);
+            continue;
+        }
+
+        // 磁盘上没有，走噪声生成
+        if generated >= max_per_frame {
+            break;
         }
         
         // 调用生成器计算出方块数据
@@ -176,7 +224,7 @@ pub fn generate_chunk_data_system(
         // 将计算好的方块数据存入世界存储器中
         world_storage.loaded_chunks.insert(chunk_pos, chunk_data);
         // 激活下一个状态
-        *state = ChunkState::DataReady;
+        *chunk_state = ChunkState::DataReady;
         generated += 1;
     }
 }

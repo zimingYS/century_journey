@@ -4,6 +4,7 @@ pub mod generation;
 pub mod systems;
 pub mod sky;
 pub mod time;
+pub mod save;
 
 use bevy::prelude::*;
 use crate::core::state::app_state::AppState;
@@ -17,6 +18,7 @@ impl Plugin for WorldPlugin{
             .insert_resource(generation::WorldGenerator::new(12345))
             .insert_resource(time::TimeOfDay::default())
             .add_plugins(sky::SkyPlugin)
+            .add_plugins(save::SaveLoadPlugin)
             .add_systems(Update,(
                 systems::manage_chunks_system,
                 systems::generate_chunk_data_system,

@@ -47,6 +47,36 @@ impl BlockRegistry{
     pub fn get_layer(&self, id: u16, face_idx: usize) -> u32 {
         *self.texture_layers.get(&(id, face_idx)).unwrap_or(&0)
     }
+
+    /// 构建保存存档的ID映射表(将动态ID转换为方块标识符)
+    pub fn build_save_id_map(&self) -> Vec<(u16, String)> {
+        // self.blocks: HashMap<String, BlockProperty>
+        // BlockProperty.runtime_id: u16 (#[serde(skip)])
+        let mut map: Vec<(u16, String)> = self
+            .id_to_identifier
+            .iter()
+            .map(|(&id, name)| (id, name.clone()))
+            .collect();
+        map.sort_by_key(|(id, _)| *id);
+        map
+    }
+
+    /// 构建读取存档的动态ID(将标识符重新读取为对应动态ID的方块)
+    pub fn build_id_remap_table(
+        &self,
+        saved_map: &[(u16, String)],
+    ) -> HashMap<u16, u16> {
+        let mut remap = HashMap::new();
+
+        for (saved_id, identifier) in saved_map {
+            if let Some(&current_id) = self.identifier_to_id.get(identifier) {
+                remap.insert(*saved_id, current_id);
+            }
+            // 如果标识符在当前注册表中不存在，不添加映射
+            // 加载时未映射的 ID 会被替换为空气
+        }
+        remap
+    }
 }
 
 
