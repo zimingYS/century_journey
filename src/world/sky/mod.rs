@@ -1,5 +1,6 @@
 pub mod components;
 pub mod systems;
+pub mod texture;
 
 use bevy::prelude::*;
 
@@ -12,6 +13,8 @@ impl Plugin for SkyPlugin {
         ))
         .add_systems(Update,(
             systems::atmosphere_system,
+            systems::celestial_mesh_system,
+            systems::stars_visibility_system,
         ));
     }
 }
