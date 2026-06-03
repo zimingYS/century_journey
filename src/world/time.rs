@@ -12,7 +12,7 @@ pub struct TimeOfDay {
 impl Default for TimeOfDay {
     fn default() -> Self {
         Self {
-            current_time: 24.0,
+            current_time: 8.0,
             speed: 60.0,
         }
     }
