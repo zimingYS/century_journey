@@ -56,7 +56,7 @@ pub fn save_load_keybind_system(
             &save_config.world_name,
             &world_storage,
             &block_registry,
-            world_generator.seed as u64, // TODO: 从 WorldGenerator 获取
+            world_generator.seed as u64,
             spawn_pos,
             time_of_day.current_time,
         ) {
