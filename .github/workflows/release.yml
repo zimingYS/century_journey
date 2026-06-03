@@ -1,0 +1,64 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release
+
+      - name: Package
+        run: |
+          mkdir release
+          copy target\release\CenturyJourney.exe release\
+          if exist assets xcopy assets release\assets\ /E /I /Y
+          powershell Compress-Archive -Path release\* -DestinationPath CenturyJourney-Windows.zip
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: CenturyJourney-Windows.zip
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release
+
+      - name: Package
+        run: |
+          mkdir -p release
+          cp target/release/CenturyJourney release/
+          cp -r assets release/ 2>/dev/null || true
+          zip -r CenturyJourney-Linux.zip release/
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: CenturyJourney-Linux.zip
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release
+
+      - name: Package
+        run: |
+          mkdir -p release
+          cp target/release/CenturyJourney release/
+          cp -r assets release/ 2>/dev/null || true
+          zip -r CenturyJourney-Mac.zip release/
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: CenturyJourney-Mac.zip
