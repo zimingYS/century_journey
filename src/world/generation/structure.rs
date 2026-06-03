@@ -4,14 +4,13 @@ use crate::world::chunk::ChunkData;
 use crate::world::generation::biome::BiomeRegistry;
 use crate::world::generation::context::ChunkGenContext;
 use crate::world::generation::noise::GenerationBlockIds;
-use crate::world::storage::WorldStorage;
+use crate::world::storage::{PendingVoxel, WorldStorage};
 
 /// 结构生成器 — 在地形生成后放置树木、矿脉等
 pub struct StructureGenerator;
 
 impl StructureGenerator {
     /// 在已生成的区块上放置结构
-    /// 注意：跨区块边界的结构需要写入相邻区块（后续实现）
     pub fn generate_structures(
         chunk_data: &mut ChunkData,
         ctx: &ChunkGenContext,
@@ -75,36 +74,43 @@ impl StructureGenerator {
         block_ids: &GenerationBlockIds,
         world_storage: &mut WorldStorage,
     ) {
-        let trunk_height = 4;
+        let hash = simple_hash(base_world_x, base_world_z, 114514,);
+
+        let trunk_height = 4 + (hash % 3) as i32;
+        let crown_radius = 2 + ((hash >> 8) % 2) as i32;
+        let crown_center_y = base_world_y + trunk_height + 1;
 
         // 树干
         for dy in 1..=trunk_height {
-            let world_y = base_world_y + dy;
+            let wy = base_world_y + dy;
             set_voxel_world_aware(
-                chunk_data, chunk_pos,
-                base_world_x, world_y, base_world_z,
-                block_ids.wood, world_storage,
+                chunk_data,
+                chunk_pos,
+                base_world_x,
+                wy,
+                base_world_z,
+                block_ids.wood,
+                world_storage,
             );
         }
 
-        // 树冠（球形，中心在树顶 + 1）
-        let crown_center_y = base_world_y + trunk_height + 1;
-        let crown_radius = 2;
-
+        // 树冠
         for dx in -crown_radius..=crown_radius {
             for dy in -crown_radius..=crown_radius {
                 for dz in -crown_radius..=crown_radius {
-                    let dist_sq = dx * dx + dy * dy + dz * dz;
-                    if dist_sq > crown_radius * crown_radius { continue; }
+                    let dist_sq = dx*dx + dy*dy + dz*dz;
+                    if dist_sq > crown_radius*crown_radius { continue; }
 
                     let wx = base_world_x + dx;
                     let wy = crown_center_y + dy;
                     let wz = base_world_z + dz;
 
                     set_voxel_world_aware(
-                        chunk_data, chunk_pos,
+                        chunk_data,
+                        chunk_pos,
                         wx, wy, wz,
-                        block_ids.leaves, world_storage,
+                        block_ids.leaves,
+                        world_storage,
                     );
                 }
             }
@@ -112,7 +118,7 @@ impl StructureGenerator {
     }
 }
 
-/// 简单确定性哈希（同一坐标+种子 → 同一值）
+/// 简单确定性哈希
 fn simple_hash(x: i32, z: i32, seed: u32) -> u32 {
     use std::num::Wrapping;
     let mut h = Wrapping(seed as u32);
@@ -148,11 +154,30 @@ fn set_voxel_world_aware(
         }
     } else {
         // 相邻区块
-        if let Some(neighbor) = world_storage.loaded_chunks.get_mut(&target_chunk) {
+        if let Some(neighbor) =
+            world_storage.loaded_chunks.get_mut(&target_chunk)
+        {
             if neighbor.get_voxel(local_x, local_y, local_z) == 0 {
-                neighbor.set_voxel(local_x, local_y, local_z, block_id);
+                neighbor.set_voxel(
+                    local_x,
+                    local_y,
+                    local_z,
+                    block_id,
+                );
             }
+        } else {
+            // 进行延迟写入
+            world_storage
+                .pending_writes
+                .writes
+                .entry(target_chunk)
+                .or_default()
+                .push(PendingVoxel {
+                    local_x,
+                    local_y,
+                    local_z,
+                    block_id,
+                });
         }
-        // 相邻区块尚未加载时，跳过
     }
 }

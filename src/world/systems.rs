@@ -229,7 +229,10 @@ pub fn generate_chunk_data_system(
         }
         
         // 调用生成器计算出方块数据
-        let chunk_data = world_generator.generate_chunk_data(chunk_pos, block_ids, &mut *world_storage);
+        let mut chunk_data = world_generator.generate_chunk_data(chunk_pos, block_ids, &mut *world_storage);
+
+        apply_pending_writes(chunk_pos, &mut chunk_data, &mut world_storage);
+
         // 将计算好的方块数据存入世界存储器中
         world_storage.loaded_chunks.insert(chunk_pos, chunk_data);
         // 激活下一个状态
@@ -476,5 +479,20 @@ fn get_face_vertices(x: f32, y: f32, z: f32, face_idx: usize) -> [[f32; 3]; 4] {
         4 => [v[6], v[7], v[4], v[5]], // 前 Front
         5 => [v[3], v[2], v[1], v[0]], // 后 Back
         _ => unreachable!(),
+    }
+}
+
+// 延迟写入
+fn apply_pending_writes(
+    chunk_pos: IVec3,
+    chunk: &mut ChunkData,
+    storage: &mut WorldStorage,
+) {
+    if let Some(writes) = storage.pending_writes.writes.remove(&chunk_pos) {
+        for write in writes {
+            if chunk.get_voxel(write.local_x, write.local_y, write.local_z) == 0 {
+                chunk.set_voxel(write.local_x, write.local_y, write.local_z, write.block_id);
+            }
+        }
     }
 }

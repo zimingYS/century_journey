@@ -11,4 +11,21 @@ pub struct WorldStorage {
     pub chunk_entities: HashMap<IVec3, Entity>,
     /// 每个区块最后修改时间
     pub chunk_modified_times: HashMap<IVec3, f64>,
+    /// 待处理的方块写入队列
+    pub pending_writes: PendingVoxelWrites,
+}
+
+/// 待处理的方块写入队列
+#[derive(Default)]
+pub struct PendingVoxelWrites {
+    /// 该区块内所有待修改的方块列表
+    pub writes: HashMap<IVec3, Vec<PendingVoxel>>,
+}
+
+/// 单个待处理的方块
+pub struct PendingVoxel {
+    pub local_x: usize,
+    pub local_y: usize,
+    pub local_z: usize,
+    pub block_id: u16,
 }
