@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use crate::core::constant::world::CHUNK_SIZE;
 use crate::core::input_block::InputBlocked;
 use crate::core::state::inventory_ui_state::InventoryUiState;
+use crate::player::components::Player;
 use crate::voxel::behavior::{get_voxel_at_world, set_voxel_at_world};
 use crate::voxel::event::{BlockBreakEvent, BlockInteractEvent, BlockPlaceEvent};
 use crate::voxel::registry::BlockRegistry;
@@ -16,6 +17,7 @@ pub fn voxel_interaction_system(
     input_blocked: Res<InputBlocked>,
     inventory_ui_state: Res<InventoryUiState>,
     mouse_button: Res<ButtonInput<MouseButton>>,
+    player_query: Query<Entity, With<Player>>,
     mut world_storage: ResMut<WorldStorage>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
     mut break_events: MessageWriter<BlockBreakEvent>,
@@ -23,10 +25,12 @@ pub fn voxel_interaction_system(
     mut interact_events: MessageWriter<BlockInteractEvent>,
     mut sound_events: MessageWriter<BlockSoundEvent>,
     mut commands: Commands,
-){
+) {
     let Some(reg) = registry else { return; };
     // 当打开物品栏时不进行破坏和放置操作
     if input_blocked.0 { return; }
+
+    let player_entity = player_query.single().ok();
 
     let left_click = mouse_button.just_pressed(MouseButton::Left);
     let right_click = mouse_button.just_pressed(MouseButton::Right);
@@ -50,7 +54,7 @@ pub fn voxel_interaction_system(
             break_events.write(BlockBreakEvent {
                 world_pos: hit_pos,
                 block_id: hit_id,
-                breaker: None, // TODO: 传入玩家实体
+                breaker: player_entity,
             });
 
             // 发送音效事件
@@ -63,7 +67,7 @@ pub fn voxel_interaction_system(
             });
 
             // 标记脏区块
-            mark_dirty_chunks(hit_pos, &mut chunk_query);
+            mark_dirty_chunks(hit_pos, &mut chunk_query, &mut world_storage);
         } else {
             let hit_pos = ray_result.hit_pos;
             let hit_id = get_voxel_at_world(hit_pos, &world_storage);
@@ -76,7 +80,7 @@ pub fn voxel_interaction_system(
                         world_pos: hit_pos,
                         block_id: hit_id,
                         face_normal: ray_result.normal,
-                        interactor: None,
+                        interactor: player_entity,
                     });
 
                     // 调用方块行为
@@ -122,7 +126,7 @@ pub fn voxel_interaction_system(
                 world_pos: place_pos,
                 block_id,
                 face_normal: ray_result.normal,
-                placer: None,
+                placer: player_entity,
             });
 
             // 发送音效
@@ -134,65 +138,29 @@ pub fn voxel_interaction_system(
                 volume: prop.map(|p| p.sound.place_volume).unwrap_or(1.0),
             });
 
-            mark_dirty_chunks(place_pos, &mut chunk_query);
+            mark_dirty_chunks(place_pos, &mut chunk_query, &mut world_storage);
         };
-
-        // // 获取击中的方块坐标
-        // let chunk_pos = IVec3::new(
-        //     target_pos.x.div_euclid(CHUNK_SIZE as i32),
-        //     target_pos.y.div_euclid(CHUNK_SIZE as i32),
-        //     target_pos.z.div_euclid(CHUNK_SIZE as i32),
-        // );
-        //
-        // // 换算局部坐标
-        // let local_x = target_pos.x.rem_euclid(CHUNK_SIZE as i32) as usize;
-        // let local_y = target_pos.y.rem_euclid(CHUNK_SIZE as i32) as usize;
-        // let local_z = target_pos.z.rem_euclid(CHUNK_SIZE as i32) as usize;
-        //
-        // if let Some(chunk_data) = world_storage.loaded_chunks.get_mut(&chunk_pos) {
-        //     chunk_data.set_voxel(local_x, local_y, local_z, next_voxel_id);
-        //
-        //     let mut dirty_chunks = vec![chunk_pos];
-        //     let max_idx = CHUNK_SIZE - 1;
-        //
-        //     // 若修改的方块在区块边缘，把相邻区块也标记为脏
-        //     if local_y == 0 { dirty_chunks.push(chunk_pos + IVec3::new(0, -1, 0)); }
-        //     if local_y == max_idx { dirty_chunks.push(chunk_pos + IVec3::new(0, 1, 0)); }
-        //     if local_x == 0 { dirty_chunks.push(chunk_pos + IVec3::new(-1, 0, 0)); }
-        //     if local_x == max_idx { dirty_chunks.push(chunk_pos + IVec3::new(1, 0, 0)); }
-        //     if local_z == 0 { dirty_chunks.push(chunk_pos + IVec3::new(0, 0, -1)); }
-        //     if local_z == max_idx { dirty_chunks.push(chunk_pos + IVec3::new(0, 0, 1)); }
-        //
-        //     // 重新渲染当前区块
-        //     for (entity, chunk_comp, mut state) in &mut chunk_query {
-        //         if dirty_chunks.contains(&chunk_comp.position) {
-        //             // commands.entity(entity)
-        //             //     .remove::<Mesh3d>()
-        //             //     .remove::<MeshMaterial3d<StandardMaterial>>();
-        //             //
-        //             // commands.entity(entity).despawn_children();
-        //
-        //             *state = ChunkState::DataReady;
-        //         }
-        //     }
-        //
-        //     info!(
-        //         "方块更新：坐标 {:?}, 物理ID变更为: {}, 触发了 {} 个相关区块网格同步重构。",
-        //         target_pos, next_voxel_id, dirty_chunks.len()
-        //     );
-        }
     }
-
+}
 
 fn mark_dirty_chunks(
     target_pos: IVec3,
     chunk_query: &mut Query<(Entity, &ChunkComponents, &mut ChunkState)>,
+    world_storage: &mut WorldStorage,
 ) {
     let chunk_pos = IVec3::new(
         target_pos.x.div_euclid(CHUNK_SIZE as i32),
         target_pos.y.div_euclid(CHUNK_SIZE as i32),
         target_pos.z.div_euclid(CHUNK_SIZE as i32),
     );
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs_f64();
+
+    // 记录当前区块修改时间
+    world_storage.chunk_modified_times.insert(chunk_pos, now);
 
     let local_x = target_pos.x.rem_euclid(CHUNK_SIZE as i32) as usize;
     let local_y = target_pos.y.rem_euclid(CHUNK_SIZE as i32) as usize;
@@ -207,6 +175,11 @@ fn mark_dirty_chunks(
     if local_x == max_idx { dirty_chunks.push(chunk_pos + IVec3::new(1, 0, 0)); }
     if local_z == 0 { dirty_chunks.push(chunk_pos + IVec3::new(0, 0, -1)); }
     if local_z == max_idx { dirty_chunks.push(chunk_pos + IVec3::new(0, 0, 1)); }
+
+    // 边缘相邻区块也记录修改时间
+    for &dirty_pos in &dirty_chunks {
+        world_storage.chunk_modified_times.insert(dirty_pos, now);
+    }
 
     for (_, chunk_comp, mut state) in chunk_query.iter_mut() {
         if dirty_chunks.contains(&chunk_comp.position) {

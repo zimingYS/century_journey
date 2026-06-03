@@ -6,6 +6,7 @@ use crate::world::generation::context::ChunkGenContext;
 use crate::world::generation::noise::{GenerationBlockIds, NoiseSampler};
 use crate::world::generation::structure::StructureGenerator;
 use crate::world::generation::terrain::TerrainGenerator;
+use crate::world::storage::WorldStorage;
 
 /// 生成管线阶段
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,6 +50,7 @@ impl GenerationPipeline {
         &self,
         chunk_pos: IVec3,
         block_ids: GenerationBlockIds,
+        world_storage: &mut WorldStorage,
     ) -> ChunkData {
         // 采样上下文（气候 + 群系）
         let ctx = TerrainGenerator::sample_context(
@@ -72,6 +74,7 @@ impl GenerationPipeline {
             &block_ids,
             &self.biome_registry,
             self.seed,
+            world_storage,
         );
 
         // 后处理（洞穴等，后续实现）
@@ -88,6 +91,7 @@ impl GenerationPipeline {
         from_stage: GenerationStage,
         context: Option<ChunkGenContext>,
         chunk_data: Option<ChunkData>,
+        world_storage: &mut WorldStorage,
     ) -> (Option<ChunkData>, ChunkGenContext, GenerationStage) {
         match from_stage {
             GenerationStage::ClimateAndBiome => {
@@ -110,7 +114,7 @@ impl GenerationPipeline {
                 let mut data = chunk_data.expect("Structure stage requires chunk_data");
                 let ctx = context.expect("Structure stage requires context");
                 StructureGenerator::generate_structures(
-                    &mut data, &ctx, &block_ids, &self.biome_registry, self.seed,
+                    &mut data, &ctx, &block_ids, &self.biome_registry, self.seed, world_storage,
                 );
                 (Some(data), ctx, GenerationStage::PostProcess)
             }

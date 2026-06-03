@@ -43,7 +43,7 @@ fn spawn_player(
         parent.spawn((
             camera::FpsCamera::default(),
             Camera3d::default(),
-            Transform::from_xyz(0.0, 1.65, 0.0),
+            Transform::from_xyz(0.0, 0.75, 0.0),
         ));
     });
 }

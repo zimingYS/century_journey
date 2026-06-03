@@ -209,6 +209,12 @@ pub fn save_entire_world(
     // 保存世界数据到 level.dat
     level::save_level(world_name, seed, spawn_pos, time_of_day, block_registry)?;
 
+    // 获取当前时间戳
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs_f64();
+
     // 批量保存所有区块
     let chunks: Vec<SavedChunk> = world_storage
         .loaded_chunks
@@ -216,7 +222,11 @@ pub fn save_entire_world(
         .map(|(pos, data)| SavedChunk {
             position: *pos,
             data: data.clone(),
-            modified_time: 0.0, // TODO: 追踪修改时间
+            modified_time: world_storage
+                .chunk_modified_times
+                .get(pos)
+                .copied()
+                .unwrap_or(now),
         })
         .collect();
 

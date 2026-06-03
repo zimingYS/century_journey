@@ -138,10 +138,18 @@ pub fn manage_chunks_system(
             // 保存区块数据到存档（在移除数据之前）
             if save_config.save_on_unload {
                 if let Some(chunk_data) = world_storage.loaded_chunks.get(&pos) {
+                    let now = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs_f64();
                     save_queue.queue.push_back(SavedChunk {
                         position: pos,
                         data: chunk_data.clone(),
-                        modified_time: 0.0,
+                        modified_time: world_storage
+                            .chunk_modified_times
+                            .get(&pos)
+                            .copied()
+                            .unwrap_or(now),
                     });
                 }
             }
@@ -149,6 +157,7 @@ pub fn manage_chunks_system(
             // 移除实体映射和方块数据
             world_storage.chunk_entities.remove(&pos);
             world_storage.loaded_chunks.remove(&pos);
+            world_storage.chunk_modified_times.remove(&pos);
 
             // 销毁实体（用 queue_silenced 静默处理已销毁实体，避免竞态报错）
             commands.entity(entity)
@@ -220,7 +229,7 @@ pub fn generate_chunk_data_system(
         }
         
         // 调用生成器计算出方块数据
-        let chunk_data = world_generator.generate_chunk_data(chunk_pos, block_ids);
+        let chunk_data = world_generator.generate_chunk_data(chunk_pos, block_ids, &mut *world_storage);
         // 将计算好的方块数据存入世界存储器中
         world_storage.loaded_chunks.insert(chunk_pos, chunk_data);
         // 激活下一个状态

@@ -47,6 +47,7 @@ pub fn save_load_keybind_system(
     save_config: Res<SaveConfig>,
     time_of_day: Res<crate::world::time::TimeOfDay>,
     player_query: Query<&Transform, With<Player>>,
+    world_generator: Res<crate::world::generation::WorldGenerator>,
 ) {
     // F5 — 保存
     if keyboard.just_pressed(KeyCode::F5) {
@@ -55,7 +56,7 @@ pub fn save_load_keybind_system(
             &save_config.world_name,
             &world_storage,
             &block_registry,
-            12345, // TODO: 从 WorldGenerator 获取
+            world_generator.seed as u64, // TODO: 从 WorldGenerator 获取
             spawn_pos,
             time_of_day.current_time,
         ) {

@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+use crate::world::generation::climate::SeasonResource;
+use crate::world::generation::WorldGenerator;
 
 /// 世界时间
 #[derive(Resource)]
@@ -77,9 +79,15 @@ pub enum TimePhase {
 pub fn update_time_system(
     time: Res<Time>,
     mut time_of_day: ResMut<TimeOfDay>,
+    season_resource: Res<SeasonResource>,
+    mut world_generator: ResMut<WorldGenerator>,
 ) {
     let game_seconds_per_real_second = time_of_day.speed;
     time_of_day.current_time += time.delta_secs() * game_seconds_per_real_second / 3600.0;
 
     time_of_day.current_time %= 24.0;
+
+    // 更新季节
+    let season = season_resource.current_season(time_of_day.current_time);
+    world_generator.update_season(season);
 }

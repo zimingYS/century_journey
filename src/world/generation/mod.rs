@@ -10,6 +10,7 @@ use bevy::prelude::*;
 use crate::world::chunk::ChunkData;
 use crate::world::generation::noise::GenerationBlockIds;
 use crate::world::generation::pipeline::GenerationPipeline;
+use crate::world::storage::WorldStorage;
 
 #[derive(Resource)]
 pub struct WorldGenerator {
@@ -26,8 +27,8 @@ impl WorldGenerator {
     }
 
     /// 生成区块数据
-    pub fn generate_chunk_data(&self, chunk_pos: IVec3, block_ids: GenerationBlockIds) -> ChunkData {
-        self.pipeline.generate_chunk(chunk_pos, block_ids)
+    pub fn generate_chunk_data(&self, chunk_pos: IVec3, block_ids: GenerationBlockIds , world_storage: &mut WorldStorage,) -> ChunkData {
+        self.pipeline.generate_chunk(chunk_pos, block_ids, world_storage)
     }
 
     /// 更新季节

@@ -1,3 +1,4 @@
+use bevy::prelude::*;
 use noise::{NoiseFn, Perlin, Seedable};
 use serde::{Serialize, Deserialize};
 
@@ -37,9 +38,8 @@ pub enum Season {
 impl Season {
     /// 从世界时间获取当前季节
     pub fn from_time(time_of_day: f32) -> Self {
-        // 后续可由专门的 SeasonResource 管理
-        let _ = time_of_day;
-        Self::Spring
+        let season_res = SeasonResource::default();
+        season_res.current_season(time_of_day)
     }
 
     /// 季节对温度的偏移 (-1.0 ~ 1.0)
@@ -106,5 +106,37 @@ impl ClimateSampler {
         let seasonal = self.current_season.humidity_offset()
             * self.config.season_humidity_amplitude;
         (base + seasonal).clamp(0.0, 1.0)
+    }
+}
+
+#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
+pub struct SeasonResource {
+    /// 一个季节持续多少游戏日
+    /// （默认12天一个季度,对应2天一个节气）
+    pub days_per_season: f32,
+}
+
+impl Default for SeasonResource {
+    fn default() -> Self {
+        Self {
+            days_per_season: 12.0,
+        }
+    }
+}
+
+impl SeasonResource {
+    /// 从世界时间（天数）计算当前季节
+    pub fn current_season(&self, time_of_day: f32) -> Season {
+        const SECONDS_PER_DAY: f32 = 1440.0;
+        let total_days = time_of_day / SECONDS_PER_DAY;
+        let day_in_year = total_days % (self.days_per_season * 4.0);
+        let season_progress = day_in_year / self.days_per_season;
+
+        match season_progress as u32 % 4 {
+            0 => Season::Spring,
+            1 => Season::Summer,
+            2 => Season::Autumn,
+            _ => Season::Winter,
+        }
     }
 }

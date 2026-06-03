@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::core::constant::world::CHUNK_SIZE;
+use crate::voxel::registry::BlockRegistry;
 use crate::world::storage::WorldStorage;
 
 /// 定义方块对各种事件的响应
@@ -104,7 +105,9 @@ pub fn set_voxel_at_world(world_pos: IVec3, block_id: u16, world_storage: &mut W
     }
 }
 
-pub fn is_solid(block_id: u16, _world_storage: &WorldStorage) -> bool {
-    // TODO: 通过 BlockRegistry 查询
-    block_id != 0
+pub fn is_solid(block_id: u16, block_registry: &BlockRegistry) -> bool {
+    block_registry
+        .get(block_id)
+        .map(|p| p.is_solid)
+        .unwrap_or(false)
 }

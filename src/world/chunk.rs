@@ -2,13 +2,13 @@ use crate::core::constant::world::CHUNK_VOLUME;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-// 标记渲染的方块实体属于哪个区块
+/// 标记渲染的方块实体属于哪个区块
 #[derive(Component)]
 pub struct ChunkComponents {
     pub position: IVec3,
 }
 
-// 存储每个区块的方块
+/// 存储每个区块的方块
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ChunkData {
     #[serde(with = "serde_arrays")]
@@ -39,7 +39,7 @@ impl ChunkData {
         self.voxels[idx] = voxel_id;
     }
 
-    // 安全读取局部方块
+    /// 安全读取局部方块
     pub fn get_voxel_safe(&self, x: i32, y: i32, z: i32) -> Option<u16> {
         if x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16 {
             return None;
@@ -49,7 +49,7 @@ impl ChunkData {
     }
 }
 
-// 标记区块状态
+/// 标记区块状态
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChunkState {
     /// 等待或正在进行计算地形噪点数据

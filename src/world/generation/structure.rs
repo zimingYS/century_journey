@@ -4,6 +4,7 @@ use crate::world::chunk::ChunkData;
 use crate::world::generation::biome::BiomeRegistry;
 use crate::world::generation::context::ChunkGenContext;
 use crate::world::generation::noise::GenerationBlockIds;
+use crate::world::storage::WorldStorage;
 
 /// 结构生成器 — 在地形生成后放置树木、矿脉等
 pub struct StructureGenerator;
@@ -17,6 +18,7 @@ impl StructureGenerator {
         block_ids: &GenerationBlockIds,
         biome_registry: &BiomeRegistry,
         seed: u32,
+        world_storage: &mut WorldStorage,
     ) {
         // 使用确定性随机（基于世界坐标和种子）
         for x in 0..CHUNK_SIZE {
@@ -44,7 +46,20 @@ impl StructureGenerator {
                         continue;
                     }
 
-                    Self::place_tree(chunk_data, x, local_surface_y, z, block_ids);
+                    // 转换为世界坐标
+                    let base_world_x = col.world_x;
+                    let base_world_y = col.base_height;
+                    let base_world_z = col.world_z;
+
+                    Self::place_tree(
+                        chunk_data,
+                        ctx.chunk_pos,
+                        base_world_x,
+                        base_world_y,
+                        base_world_z,
+                        block_ids,
+                        world_storage,
+                    );
                 }
             }
         }
@@ -53,22 +68,27 @@ impl StructureGenerator {
     /// 放置一棵简单的树
     fn place_tree(
         chunk_data: &mut ChunkData,
-        base_x: usize,
-        base_y: i32,
-        base_z: usize,
+        chunk_pos: IVec3,
+        base_world_x: i32,
+        base_world_y: i32,
+        base_world_z: i32,
         block_ids: &GenerationBlockIds,
+        world_storage: &mut WorldStorage,
     ) {
         let trunk_height = 4;
 
         // 树干
         for dy in 1..=trunk_height {
-            let y = (base_y + dy) as usize;
-            if y >= CHUNK_SIZE { break; }
-            chunk_data.set_voxel(base_x, y, base_z, block_ids.wood);
+            let world_y = base_world_y + dy;
+            set_voxel_world_aware(
+                chunk_data, chunk_pos,
+                base_world_x, world_y, base_world_z,
+                block_ids.wood, world_storage,
+            );
         }
 
         // 树冠（球形，中心在树顶 + 1）
-        let crown_center_y = (base_y + trunk_height + 1) as i32;
+        let crown_center_y = base_world_y + trunk_height + 1;
         let crown_radius = 2;
 
         for dx in -crown_radius..=crown_radius {
@@ -77,18 +97,15 @@ impl StructureGenerator {
                     let dist_sq = dx * dx + dy * dy + dz * dz;
                     if dist_sq > crown_radius * crown_radius { continue; }
 
-                    let lx = base_x as i32 + dx;
-                    let ly = crown_center_y + dy;
-                    let lz = base_z as i32 + dz;
+                    let wx = base_world_x + dx;
+                    let wy = crown_center_y + dy;
+                    let wz = base_world_z + dz;
 
-                    if lx < 0 || lx >= CHUNK_SIZE as i32 { continue; }
-                    if ly < 0 || ly >= CHUNK_SIZE as i32 { continue; }
-                    if lz < 0 || lz >= CHUNK_SIZE as i32 { continue; }
-
-                    let current = chunk_data.get_voxel(lx as usize, ly as usize, lz as usize);
-                    if current == block_ids.air {
-                        chunk_data.set_voxel(lx as usize, ly as usize, lz as usize, block_ids.leaves);
-                    }
+                    set_voxel_world_aware(
+                        chunk_data, chunk_pos,
+                        wx, wy, wz,
+                        block_ids.leaves, world_storage,
+                    );
                 }
             }
         }
@@ -103,4 +120,39 @@ fn simple_hash(x: i32, z: i32, seed: u32) -> u32 {
     h ^= Wrapping(z as u32).0.wrapping_mul(0x1f83d9ab);
     h ^= h >> 16;
     h.0
+}
+
+// 设置方块
+fn set_voxel_world_aware(
+    chunk_data: &mut ChunkData,
+    current_chunk_pos: IVec3,
+    world_x: i32,
+    world_y: i32,
+    world_z: i32,
+    block_id: u16,
+    world_storage: &mut WorldStorage,
+) {
+    let target_chunk = IVec3::new(
+        world_x.div_euclid(CHUNK_SIZE as i32),
+        world_y.div_euclid(CHUNK_SIZE as i32),
+        world_z.div_euclid(CHUNK_SIZE as i32),
+    );
+    let local_x = world_x.rem_euclid(CHUNK_SIZE as i32) as usize;
+    let local_y = world_y.rem_euclid(CHUNK_SIZE as i32) as usize;
+    let local_z = world_z.rem_euclid(CHUNK_SIZE as i32) as usize;
+
+    if target_chunk == current_chunk_pos {
+        // 当前区块
+        if chunk_data.get_voxel(local_x, local_y, local_z) == 0 {
+            chunk_data.set_voxel(local_x, local_y, local_z, block_id);
+        }
+    } else {
+        // 相邻区块
+        if let Some(neighbor) = world_storage.loaded_chunks.get_mut(&target_chunk) {
+            if neighbor.get_voxel(local_x, local_y, local_z) == 0 {
+                neighbor.set_voxel(local_x, local_y, local_z, block_id);
+            }
+        }
+        // 相邻区块尚未加载时，跳过
+    }
 }

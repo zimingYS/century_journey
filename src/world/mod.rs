@@ -17,6 +17,7 @@ impl Plugin for WorldPlugin{
             .init_resource::<storage::WorldStorage>()
             .insert_resource(generation::WorldGenerator::new(12345))
             .insert_resource(time::TimeOfDay::default())
+            .init_resource::<generation::climate::SeasonResource>()
             .add_plugins(sky::SkyPlugin)
             .add_plugins(save::SaveLoadPlugin)
             .add_systems(Update,(

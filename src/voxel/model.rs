@@ -39,7 +39,7 @@ pub struct CustomFace {
     pub ambient_occlusion: f32,
 }
 
-// 方块模型与纹理的绑定配置
+/// 方块模型与纹理的绑定配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockModelConfig {
     /// 方块使用的模型
