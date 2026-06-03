@@ -52,10 +52,16 @@ impl ChunkData {
 /// 标记区块状态
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChunkState {
-    /// 等待或正在进行计算地形噪点数据
-    GeneratingData,
-    /// 方块数据计算完毕，等待生成3D网络
-    DataReady,
+    /// 空区块
+    Empty,
+    /// 初始状态，正在生成地形基础地形数据
+    GeneratingTerrain,
+    /// 基础地形生成完成，等待进入结构生成阶段
+    TerrainReady,
+    /// 生成结构
+    GeneratingStructure,
+    /// 结构生成完毕
+    StructureReady,
     /// 正在计算3D顶点
     GeneratingMesh,
     /// 正在渲染

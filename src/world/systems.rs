@@ -1,18 +1,19 @@
+use crate::core::constant::world::CHUNK_SIZE;
 use crate::player::components::Player;
 use crate::voxel::properties::RenderMode;
 use crate::voxel::registry::BlockRegistry;
 use crate::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::world::generation::noise::GenerationBlockIds;
+use crate::world::generation::structure::StructureGenerator;
 use crate::world::generation::WorldGenerator;
+use crate::world::save;
+use crate::world::save::format::SavedChunk;
+use crate::world::save::system::{SaveConfig, SaveQueue};
 use crate::world::storage::WorldStorage;
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use std::collections::HashSet;
-use crate::core::constant::world::CHUNK_SIZE;
-use crate::world::save;
-use crate::world::save::format::SavedChunk;
-use crate::world::save::system::{SaveConfig, SaveQueue};
 
 /// 单个渲染通道的顶点缓冲区
 struct MeshBuffer {
@@ -115,7 +116,7 @@ pub fn manage_chunks_system(
                     // 生成区块，标记初始状态
                     let entity = commands.spawn((
                         ChunkComponents { position: chunk_pos },
-                        ChunkState::GeneratingData,
+                        ChunkState::Empty,
                         Transform::from_translation(Vec3::new(
                             (chunk_pos.x * CHUNK_SIZE as i32) as f32,
                             (chunk_pos.y * CHUNK_SIZE as i32) as f32,
@@ -188,7 +189,7 @@ pub fn generate_chunk_data_system(
     let max_per_frame = 16;
 
     for (entity, chunk_components,mut chunk_state) in &mut chunk_query {
-        if *chunk_state != ChunkState::GeneratingData {
+        if *chunk_state != ChunkState::Empty && *chunk_state != ChunkState::GeneratingTerrain {
             continue;
         }
 
@@ -199,7 +200,7 @@ pub fn generate_chunk_data_system(
 
         // 若已存在数据则跳过生成，直接标记为 DataReady
         if world_storage.loaded_chunks.contains_key(&chunk_pos) {
-            *chunk_state = ChunkState::DataReady;
+            *chunk_state = ChunkState::TerrainReady;
             generated += 1;
             continue;
         }
@@ -219,25 +220,57 @@ pub fn generate_chunk_data_system(
             }
 
             world_storage.loaded_chunks.insert(chunk_pos, saved.data);
-            commands.entity(entity).insert(ChunkState::DataReady);
+            commands.entity(entity).insert(ChunkState::TerrainReady);
             continue;
-        }
-
-        // 磁盘上没有，走噪声生成
-        if generated >= max_per_frame {
-            break;
         }
         
         // 调用生成器计算出方块数据
-        let mut chunk_data = world_generator.generate_chunk_data(chunk_pos, block_ids, &mut *world_storage);
+        let mut chunk_data = world_generator.generate_chunk_data(chunk_pos, block_ids);
 
         apply_pending_writes(chunk_pos, &mut chunk_data, &mut world_storage);
 
         // 将计算好的方块数据存入世界存储器中
         world_storage.loaded_chunks.insert(chunk_pos, chunk_data);
         // 激活下一个状态
-        *chunk_state = ChunkState::DataReady;
+        *chunk_state = ChunkState::TerrainReady;
         generated += 1;
+    }
+}
+
+pub fn generate_structures_system(
+    mut world_storage: ResMut<WorldStorage>,
+    mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
+    block_registry: Res<BlockRegistry>,
+    seed: Res<WorldGenerator>,
+) {
+    for (chunk_components, mut state) in &mut chunk_query {
+        if *state != ChunkState::TerrainReady && *state != ChunkState::GeneratingStructure {
+            continue;
+        }
+
+        *state = ChunkState::GeneratingStructure;
+
+
+        let chunk_pos = chunk_components.position;
+        let ctx = crate::world::generation::terrain::TerrainGenerator::sample_context(
+            &seed.pipeline.noise_sampler,
+            &seed.pipeline.climate_sampler,
+            &seed.pipeline.biome_registry,
+            chunk_pos,
+        );
+
+        let block_ids = GenerationBlockIds::from_registry(&block_registry);
+
+        StructureGenerator::generate_structures_world_aware(
+            chunk_pos,
+            &ctx,
+            &block_ids,
+            &seed.pipeline.biome_registry,
+            seed.seed,
+            &mut world_storage,
+        );
+
+        *state = ChunkState::StructureReady;
     }
 }
 
@@ -272,7 +305,7 @@ pub fn build_chunk_mesh_system(
             continue;
         }
 
-        if *state != ChunkState::DataReady { continue; }
+        if *state != ChunkState::StructureReady { continue; }
 
         if built >= max_per_frame { break; }
 

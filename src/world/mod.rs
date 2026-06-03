@@ -20,9 +20,11 @@ impl Plugin for WorldPlugin{
             .init_resource::<generation::climate::SeasonResource>()
             .add_plugins(sky::SkyPlugin)
             .add_plugins(save::SaveLoadPlugin)
+
             .add_systems(Update,(
                 systems::manage_chunks_system,
                 systems::generate_chunk_data_system,
+                systems::generate_structures_system,
                 systems::build_chunk_mesh_system,
                 time::update_time_system,
             ).chain().run_if(in_state(AppState::InGame)));

@@ -183,7 +183,7 @@ fn mark_dirty_chunks(
 
     for (_, chunk_comp, mut state) in chunk_query.iter_mut() {
         if dirty_chunks.contains(&chunk_comp.position) {
-            *state = ChunkState::DataReady;
+            *state = ChunkState::StructureReady;
         }
     }
 }

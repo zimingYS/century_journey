@@ -45,14 +45,13 @@ impl GenerationPipeline {
         }
     }
 
-    /// 一键生成：执行完整管线
+    /// 生成区块地形
     pub fn generate_chunk(
         &self,
         chunk_pos: IVec3,
         block_ids: GenerationBlockIds,
-        world_storage: &mut WorldStorage,
     ) -> ChunkData {
-        // 采样上下文（气候 + 群系）
+        // 采样气候和群系
         let ctx = TerrainGenerator::sample_context(
             &self.noise_sampler,
             &self.climate_sampler,
@@ -61,26 +60,7 @@ impl GenerationPipeline {
         );
 
         // 生成地形
-        let mut chunk_data = TerrainGenerator::generate_terrain(
-            &ctx,
-            &block_ids,
-            &self.biome_registry,
-        );
-
-        // 放置结构
-        StructureGenerator::generate_structures(
-            &mut chunk_data,
-            &ctx,
-            &block_ids,
-            &self.biome_registry,
-            self.seed,
-            world_storage,
-        );
-
-        // 后处理（洞穴等，后续实现）
-        // self.post_process(&mut chunk_data, &ctx, chunk_pos);
-
-        chunk_data
+        TerrainGenerator::generate_terrain(&ctx, &block_ids, &self.biome_registry)
     }
 
     /// 分阶段生成：允许逐帧执行，减少卡顿
@@ -111,11 +91,8 @@ impl GenerationPipeline {
                 (Some(data), ctx, GenerationStage::Structure)
             }
             GenerationStage::Structure => {
-                let mut data = chunk_data.expect("Structure stage requires chunk_data");
+                let data = chunk_data.expect("Structure stage requires chunk_data");
                 let ctx = context.expect("Structure stage requires context");
-                StructureGenerator::generate_structures(
-                    &mut data, &ctx, &block_ids, &self.biome_registry, self.seed, world_storage,
-                );
                 (Some(data), ctx, GenerationStage::PostProcess)
             }
             GenerationStage::PostProcess => {

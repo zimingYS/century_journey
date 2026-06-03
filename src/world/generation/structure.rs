@@ -1,72 +1,68 @@
-use bevy::prelude::*;
 use crate::core::constant::world::CHUNK_SIZE;
-use crate::world::chunk::ChunkData;
 use crate::world::generation::biome::BiomeRegistry;
 use crate::world::generation::context::ChunkGenContext;
 use crate::world::generation::noise::GenerationBlockIds;
 use crate::world::storage::{PendingVoxel, WorldStorage};
+use bevy::prelude::*;
 
 /// 结构生成器 — 在地形生成后放置树木、矿脉等
 pub struct StructureGenerator;
 
 impl StructureGenerator {
     /// 在已生成的区块上放置结构
-    pub fn generate_structures(
-        chunk_data: &mut ChunkData,
+    pub fn generate_structures_world_aware(
+        chunk_pos: IVec3,
         ctx: &ChunkGenContext,
         block_ids: &GenerationBlockIds,
         biome_registry: &BiomeRegistry,
         seed: u32,
         world_storage: &mut WorldStorage,
     ) {
-        // 使用确定性随机（基于世界坐标和种子）
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
                 let col = ctx.get_column(x, z);
                 let biome = biome_registry.get(col.biome_index).unwrap();
 
-                // 根据树木密度决定是否放树
                 if biome.tree_density <= 0.0 { continue; }
 
-                // 确定性哈希：同一位置总是产生相同结果
                 let hash = simple_hash(col.world_x, col.world_z, seed);
                 let chance = (hash & 0xFFFF) as f32 / 65536.0;
+                if chance >= biome.tree_density { continue; }
 
-                if chance < biome.tree_density {
-                    let local_surface_y = col.base_height - ctx.chunk_pos.y * CHUNK_SIZE as i32;
+                let base_world_x = col.world_x;
+                let base_world_y = col.base_height;
+                let base_world_z = col.world_z;
 
-                    if local_surface_y < 0 || local_surface_y >= CHUNK_SIZE as i32 {
-                        continue;
-                    }
+                // 必须已经存在区块数据
+                let Some(surface_id) = Self::get_world_voxel(
+                    base_world_x,
+                    base_world_y,
+                    base_world_z,
+                    world_storage,
+                ) else {
+                    continue;
+                };
 
-                    // 只在表面是草地上放树
-                    let surface_id = chunk_data.get_voxel(x, local_surface_y as usize, z);
-                    if surface_id != block_ids.grass {
-                        continue;
-                    }
-
-                    // 转换为世界坐标
-                    let base_world_x = col.world_x;
-                    let base_world_y = col.base_height;
-                    let base_world_z = col.world_z;
-
-                    Self::place_tree(
-                        chunk_data,
-                        ctx.chunk_pos,
-                        base_world_x,
-                        base_world_y,
-                        base_world_z,
-                        block_ids,
-                        world_storage,
-                    );
+                // 只允许草地生成树
+                if surface_id != block_ids.grass {
+                    continue;
                 }
+
+                Self::place_tree_world_aware(
+                    chunk_pos,
+                    base_world_x,
+                    base_world_y,
+                    base_world_z,
+                    block_ids,
+                    world_storage,
+                );
             }
         }
     }
 
+
     /// 放置一棵简单的树
-    fn place_tree(
-        chunk_data: &mut ChunkData,
+    fn place_tree_world_aware(
         chunk_pos: IVec3,
         base_world_x: i32,
         base_world_y: i32,
@@ -74,8 +70,7 @@ impl StructureGenerator {
         block_ids: &GenerationBlockIds,
         world_storage: &mut WorldStorage,
     ) {
-        let hash = simple_hash(base_world_x, base_world_z, 114514,);
-
+        let hash = simple_hash(base_world_x, base_world_z, 114514);
         let trunk_height = 4 + (hash % 3) as i32;
         let crown_radius = 2 + ((hash >> 8) % 2) as i32;
         let crown_center_y = base_world_y + trunk_height + 1;
@@ -84,7 +79,6 @@ impl StructureGenerator {
         for dy in 1..=trunk_height {
             let wy = base_world_y + dy;
             set_voxel_world_aware(
-                chunk_data,
                 chunk_pos,
                 base_world_x,
                 wy,
@@ -98,23 +92,43 @@ impl StructureGenerator {
         for dx in -crown_radius..=crown_radius {
             for dy in -crown_radius..=crown_radius {
                 for dz in -crown_radius..=crown_radius {
-                    let dist_sq = dx*dx + dy*dy + dz*dz;
-                    if dist_sq > crown_radius*crown_radius { continue; }
-
+                    if dx*dx + dy*dy + dz*dz > crown_radius*crown_radius { continue; }
                     let wx = base_world_x + dx;
                     let wy = crown_center_y + dy;
                     let wz = base_world_z + dz;
-
                     set_voxel_world_aware(
-                        chunk_data,
                         chunk_pos,
-                        wx, wy, wz,
+                        wx,
+                        wy,
+                        wz,
                         block_ids.leaves,
                         world_storage,
                     );
                 }
             }
         }
+    }
+
+    pub fn get_world_voxel(
+        world_x: i32,
+        world_y: i32,
+        world_z: i32,
+        world_storage: &WorldStorage,
+    ) -> Option<u16> {
+        let chunk_pos = IVec3::new(
+            world_x.div_euclid(CHUNK_SIZE as i32),
+            world_y.div_euclid(CHUNK_SIZE as i32),
+            world_z.div_euclid(CHUNK_SIZE as i32),
+        );
+
+        let local_x = world_x.rem_euclid(CHUNK_SIZE as i32) as usize;
+        let local_y = world_y.rem_euclid(CHUNK_SIZE as i32) as usize;
+        let local_z = world_z.rem_euclid(CHUNK_SIZE as i32) as usize;
+
+        world_storage
+            .loaded_chunks
+            .get(&chunk_pos)
+            .map(|chunk| chunk.get_voxel(local_x, local_y, local_z))
     }
 }
 
@@ -129,44 +143,40 @@ fn simple_hash(x: i32, z: i32, seed: u32) -> u32 {
 }
 
 // 设置方块
-fn set_voxel_world_aware(
-    chunk_data: &mut ChunkData,
-    current_chunk_pos: IVec3,
+pub fn set_voxel_world_aware(
+    base_chunk_pos: IVec3,
     world_x: i32,
     world_y: i32,
     world_z: i32,
     block_id: u16,
     world_storage: &mut WorldStorage,
 ) {
+    // 计算目标区块坐标
     let target_chunk = IVec3::new(
         world_x.div_euclid(CHUNK_SIZE as i32),
         world_y.div_euclid(CHUNK_SIZE as i32),
         world_z.div_euclid(CHUNK_SIZE as i32),
     );
+
     let local_x = world_x.rem_euclid(CHUNK_SIZE as i32) as usize;
     let local_y = world_y.rem_euclid(CHUNK_SIZE as i32) as usize;
     let local_z = world_z.rem_euclid(CHUNK_SIZE as i32) as usize;
 
-    if target_chunk == current_chunk_pos {
-        // 当前区块
-        if chunk_data.get_voxel(local_x, local_y, local_z) == 0 {
-            chunk_data.set_voxel(local_x, local_y, local_z, block_id);
+    if target_chunk == base_chunk_pos {
+        // 当前区块直接写入
+        if let Some(chunk_data) = world_storage.loaded_chunks.get_mut(&target_chunk) {
+            if chunk_data.get_voxel(local_x, local_y, local_z) == 0 {
+                chunk_data.set_voxel(local_x, local_y, local_z, block_id);
+            }
         }
     } else {
-        // 相邻区块
-        if let Some(neighbor) =
-            world_storage.loaded_chunks.get_mut(&target_chunk)
-        {
+        // 跨区块写入
+        if let Some(neighbor) = world_storage.loaded_chunks.get_mut(&target_chunk) {
             if neighbor.get_voxel(local_x, local_y, local_z) == 0 {
-                neighbor.set_voxel(
-                    local_x,
-                    local_y,
-                    local_z,
-                    block_id,
-                );
+                neighbor.set_voxel(local_x, local_y, local_z, block_id);
             }
         } else {
-            // 进行延迟写入
+            // 目标区块未加载，加入延迟写入队列
             world_storage
                 .pending_writes
                 .writes

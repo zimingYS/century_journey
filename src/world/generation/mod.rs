@@ -15,7 +15,7 @@ use crate::world::storage::WorldStorage;
 #[derive(Resource)]
 pub struct WorldGenerator {
     pub seed: u32,
-    pipeline: GenerationPipeline,
+    pub(crate) pipeline: GenerationPipeline,
 }
 
 impl WorldGenerator {
@@ -27,8 +27,8 @@ impl WorldGenerator {
     }
 
     /// 生成区块数据
-    pub fn generate_chunk_data(&self, chunk_pos: IVec3, block_ids: GenerationBlockIds , world_storage: &mut WorldStorage,) -> ChunkData {
-        self.pipeline.generate_chunk(chunk_pos, block_ids, world_storage)
+    pub fn generate_chunk_data(&self, chunk_pos: IVec3, block_ids: GenerationBlockIds, ) -> ChunkData {
+        self.pipeline.generate_chunk(chunk_pos, block_ids)
     }
 
     /// 更新季节

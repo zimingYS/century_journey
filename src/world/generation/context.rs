@@ -1,5 +1,6 @@
 use bevy::prelude::*;
-use crate::core::constant::world::CHUNK_SIZE;
+use crate::core::constant::world::{CHUNK_SIZE, SEA_LEVEL};
+use crate::world::generation::biome::BiomeRegistry;
 
 /// 区块内单个坐标(每列)共享的上下文
 #[derive(Debug,Clone)]
@@ -18,6 +19,22 @@ pub struct ColumnContext{
     pub base_height: i32,
     /// 地形粗糙度（影响山丘起伏）
     pub roughness: f64,
+}
+
+/// 是否允许生成树
+/// 用于树木生成检测
+impl ColumnContext {
+    pub fn can_spawn_tree(
+        &self,
+        biome_registry: &BiomeRegistry,
+    ) -> bool {
+        let biome =
+            biome_registry.get(self.biome_index)
+                .unwrap();
+
+        self.base_height > SEA_LEVEL + 2
+            && biome.tree_density > 0.0
+    }
 }
 
 /// 整个区块的生成上下文
