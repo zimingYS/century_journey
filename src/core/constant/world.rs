@@ -38,3 +38,20 @@ pub const CHUNK_RAW_SIZE: usize = 4096 * 2;
 
 // 每帧最多处理 N 个区块
 pub const MAX_SAVE_PER_FRAME: usize = 4;
+
+/*
+    气候与生物群系
+*/
+/// 温度噪声缩放
+pub const TEMPERATURE_NOISE_SCALE: f64 = 0.001;
+/// 湿度噪声缩放
+pub const HUMIDITY_NOISE_SCALE: f64 = 0.0015;
+/// 生物群系过渡平滑半径（区块数）
+pub const BIOME_BLEND_RADIUS: i32 = 2;
+/// 结构生成种子偏移
+pub const STRUCTURE_SEED_OFFSET: u32 = 7919;
+
+/// 全局噪声缩放 — 所有群系共用，保证跨区块连续
+pub const GLOBAL_TERRAIN_SCALE: f64 = 0.005;
+pub const GLOBAL_DETAIL_SCALE: f64 = 0.02;
+pub const GLOBAL_ROUGHNESS_SCALE: f64 = 0.01;
