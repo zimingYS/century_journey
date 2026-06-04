@@ -8,39 +8,109 @@ on:
 permissions:
   contents: write
 
+env:
+  APP_NAME: CenturyJourney
+
 jobs:
   build-windows:
+    name: Windows
     runs-on: windows-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release
+
+      - name: Build
+        run: cargo build --release
 
       - name: Package
+        shell: pwsh
         run: |
-          mkdir release
-          copy target\release\CenturyJourney.exe release\
-          if exist assets xcopy assets release\assets\ /E /I /Y
-          powershell Compress-Archive -Path release\* -DestinationPath CenturyJourney-Windows.zip
+          New-Item -ItemType Directory -Force -Path release
 
-      - uses: softprops/action-gh-release@v2
+          Copy-Item target/release/${env:APP_NAME}.exe release/
+
+          if (Test-Path assets) {
+              Copy-Item assets release/assets -Recurse
+          }
+
+          Compress-Archive `
+              -Path release/* `
+              -DestinationPath ${env:APP_NAME}-Windows.zip
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v2
         with:
-          files: CenturyJourney-Windows.zip
+          files: |
+            CenturyJourney-Windows.zip
 
-  build-macos:
-    runs-on: macos-latest
+  build-linux:
+    name: Linux
+    runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libasound2-dev \
+            libudev-dev
+
+      - name: Build
+        run: cargo build --release
 
       - name: Package
         run: |
           mkdir -p release
-          cp target/release/CenturyJourney release/
-          cp -r assets release/ 2>/dev/null || true
-          zip -r CenturyJourney-Mac.zip release/
 
-      - uses: softprops/action-gh-release@v2
+          cp target/release/$APP_NAME release/
+
+          if [ -d assets ]; then
+            cp -r assets release/
+          fi
+
+          cd release
+          zip -r ../${APP_NAME}-Linux.zip .
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v2
         with:
-          files: CenturyJourney-Mac.zip
+          files: |
+            CenturyJourney-Linux.zip
+
+  build-macos:
+    name: macOS
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Package
+        run: |
+          mkdir -p release
+
+          cp target/release/$APP_NAME release/
+
+          if [ -d assets ]; then
+            cp -r assets release/
+          fi
+
+          cd release
+          zip -r ../${APP_NAME}-macOS.zip .
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            CenturyJourney-macOS.zip
