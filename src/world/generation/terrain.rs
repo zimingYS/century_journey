@@ -25,6 +25,9 @@ impl TerrainGenerator {
         // 扩展一圈以包含邻居边界，使平滑核能真正跨区块采样
         const PADDED: usize = CHUNK_SIZE + 2;
         let mut raw_heights = [[0.0f64; PADDED]; PADDED];
+
+        let mut cached_temperature = [[0.0f64; PADDED]; PADDED];
+        let mut cached_humidity = [[0.0f64; PADDED]; PADDED];
         
         for x in 0..PADDED {
             for z in 0..PADDED {
@@ -35,6 +38,8 @@ impl TerrainGenerator {
                 // 采样气候
                 let temperature = climate_sampler.sample_temperature(world_x, world_z);
                 let humidity = climate_sampler.sample_humidity(world_x, world_z);
+                cached_temperature[x][z] = temperature;
+                cached_humidity[x][z] = humidity;
 
                 let blended = biome_registry.blend_terrain_params(temperature, humidity);
 
@@ -72,8 +77,8 @@ impl TerrainGenerator {
                 let world_x = world_start_x + x as i32;
                 let world_z = world_start_z + z as i32;
 
-                let temperature = climate_sampler.sample_temperature(world_x, world_z);
-                let humidity = climate_sampler.sample_humidity(world_x, world_z);
+                let temperature = cached_temperature[x + 1][z + 1];
+                let humidity = cached_humidity[x + 1][z + 1];
 
                 // 主要群系（用于 surface_block、tree_density 等）
                 let biome_index = biome_registry.select_biome(temperature, humidity);

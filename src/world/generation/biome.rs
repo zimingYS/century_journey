@@ -49,7 +49,7 @@ impl Default for BiomeTerrainParams {
 }
 
 /// 生物群系注册表
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone)]
 pub struct BiomeRegistry {
     /// 所有生物群系定义
     pub biomes: Vec<BiomeDefinition>,

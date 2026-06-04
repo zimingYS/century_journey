@@ -65,9 +65,10 @@ impl Season {
 
 /// 气候采样器 — 从世界坐标采样温度/湿度
 pub struct ClimateSampler {
-    temperature_noise: Perlin,
-    humidity_noise: Perlin,
-    config: ClimateConfig,
+    pub seed: u32,
+    pub temperature_noise: Perlin,
+    pub humidity_noise: Perlin,
+    pub config: ClimateConfig,
     /// 当前季节（可动态更新）
     pub current_season: Season,
 }
@@ -75,6 +76,7 @@ pub struct ClimateSampler {
 impl ClimateSampler {
     pub fn new(seed: u32, config: ClimateConfig) -> Self {
         Self {
+            seed,
             temperature_noise: Perlin::new(seed).set_seed(seed),
             humidity_noise: Perlin::new(seed).set_seed(seed.wrapping_add(1000)),
             config,
@@ -106,6 +108,14 @@ impl ClimateSampler {
         let seasonal = self.current_season.humidity_offset()
             * self.config.season_humidity_amplitude;
         (base + seasonal).clamp(0.0, 1.0)
+    }
+}
+
+impl Clone for ClimateSampler {
+    fn clone(&self) -> Self {
+        let mut new = Self::new(self.seed, self.config.clone());
+        new.current_season = self.current_season;
+        new
     }
 }
 

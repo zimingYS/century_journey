@@ -24,6 +24,7 @@ pub enum GenerationStage {
 }
 
 /// 生成管线 — 组合所有生成阶段
+#[derive(Clone)]
 pub struct GenerationPipeline {
     pub noise_sampler: NoiseSampler,
     pub climate_sampler: ClimateSampler,
@@ -61,6 +62,15 @@ impl GenerationPipeline {
 
         // 生成地形
         TerrainGenerator::generate_terrain(&ctx, &block_ids, &self.biome_registry)
+    }
+
+    /// 根据种子、气候、当前季节与生物群系注册表重建世界生成
+    pub fn rebuild_from_seed(seed: u32, climate_config: ClimateConfig, current_season: crate::world::generation::climate::Season, biome_registry: BiomeRegistry) -> Self {
+        let mut pipeline = Self::new(seed);
+        pipeline.climate_sampler = ClimateSampler::new(seed, climate_config);
+        pipeline.climate_sampler.current_season = current_season;
+        pipeline.biome_registry = biome_registry;
+        pipeline
     }
 
     /// 分阶段生成：允许逐帧执行，减少卡顿

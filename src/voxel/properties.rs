@@ -90,7 +90,7 @@ fn default_light_transmission() -> f32 {
 }
 
 /// 方块渲染归类
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum RenderMode{
     /// 普通不透明方块
     Opaque,
