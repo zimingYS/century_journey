@@ -1,0 +1,11 @@
+{
+  "identifier": "century_journey:ice",
+  "display_name": "冰",
+  "render_mode": "Opaque",
+  "is_solid": true,
+  "light_emission": 0,
+  "hardness": 1.0,
+  "textures": {
+    "top": "textures/blocks/ice.png"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "identifier": "century_journey:snow",
+  "display_name": "雪",
+  "render_mode": "Opaque",
+  "is_solid": true,
+  "light_emission": 0,
+  "hardness": 1.0,
+  "textures": {
+    "top": "textures/blocks/snow.png"
+  }
+}

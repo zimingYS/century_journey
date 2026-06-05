@@ -7,6 +7,8 @@ use crate::world::generation::WorldGenerator;
 pub struct TimeOfDay {
     /// 当前世界时间
     pub current_time: f32,
+    /// 累计经过的游戏小时数，用于季节等长期计时
+    pub total_elapsed_hours: f32,
     /// 时间流逝速度
     pub speed: f32,
 }
@@ -15,6 +17,7 @@ impl Default for TimeOfDay {
     fn default() -> Self {
         Self {
             current_time: 8.0,
+            total_elapsed_hours: 0.0,
             speed: 60.0,
         }
     }
@@ -82,12 +85,16 @@ pub fn update_time_system(
     season_resource: Res<SeasonResource>,
     mut world_generator: ResMut<WorldGenerator>,
 ) {
+    // 计算时间流逝速度
+    // 在此项目中一个游戏日对应显示24分钟。
     let game_seconds_per_real_second = time_of_day.speed;
-    time_of_day.current_time += time.delta_secs() * game_seconds_per_real_second / 3600.0;
-
+    let delta_hours = time.delta_secs() * game_seconds_per_real_second / 3600.0;
+    
+    time_of_day.current_time += delta_hours;
+    time_of_day.total_elapsed_hours += delta_hours;
     time_of_day.current_time %= 24.0;
 
     // 更新季节
-    let season = season_resource.current_season(time_of_day.current_time);
+    let season = season_resource.current_season(time_of_day.total_elapsed_hours);
     world_generator.update_season(season);
 }

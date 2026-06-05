@@ -1,4 +1,4 @@
-use crate::core::constant::world::CHUNK_VOLUME;
+use crate::core::constant::world::{CHUNK_SIZE, CHUNK_VOLUME};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -26,7 +26,7 @@ impl ChunkData {
     /// 扁平化 3D 坐标到一维数组索引
     #[inline]
     pub fn xyz_to_index(x: usize, y: usize, z: usize) -> usize{
-        (y * 256) + (z * 16) + x
+        (y * CHUNK_SIZE * CHUNK_SIZE) + (z * CHUNK_SIZE) + x
     }
 
     pub fn get_voxel(&self, x: usize, y: usize, z: usize) -> u16 {
@@ -41,7 +41,7 @@ impl ChunkData {
 
     /// 安全读取局部方块
     pub fn get_voxel_safe(&self, x: i32, y: i32, z: i32) -> Option<u16> {
-        if x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16 {
+        if x < 0 || x >= CHUNK_SIZE as i32 || y < 0 || y >= CHUNK_SIZE as i32 || z < 0 || z >= CHUNK_SIZE as i32 {
             return None;
         }
         let idx = Self::xyz_to_index(x as usize, y as usize, z as usize);

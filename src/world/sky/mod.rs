@@ -3,6 +3,7 @@ pub mod systems;
 pub mod texture;
 
 use bevy::prelude::*;
+use crate::core::state::app_state::AppState;
 
 pub struct SkyPlugin;
 
@@ -15,6 +16,6 @@ impl Plugin for SkyPlugin {
             systems::atmosphere_system,
             systems::celestial_mesh_system,
             systems::stars_visibility_system,
-        ));
+        ).run_if(in_state(AppState::InGame)));
     }
 }

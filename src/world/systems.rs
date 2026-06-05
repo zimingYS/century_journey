@@ -139,7 +139,7 @@ impl BlockInfoSnapshot {
 
         for (&id, prop) in &registry.id_to_properties {
             is_solid[id as usize] = prop.is_solid;
-            render_modes[id as usize] = prop.render_mode.clone();
+            render_modes[id as usize] = prop.render_mode;
         }
 
         Self {
@@ -442,6 +442,13 @@ pub fn spawn_mesh_build_tasks(
 ) {
     let Some(reg) = registry else { return; };
 
+    // 扫描有无待处理区块
+    let ready_count = chunk_query.iter()
+        .filter(|(_, c, s)| **s == ChunkState::StructureReady
+            && world_storage.chunk_entities.contains_key(&c.position))
+        .count();
+    if ready_count == 0 { return; }
+
     let block_info = BlockInfoSnapshot::from_registry(&reg);
 
     let mut spawned = 0u32;
@@ -675,40 +682,6 @@ pub fn receive_mesh_results(
     }
 }
 
-fn is_face_visible(
-    current_is_water: bool,
-    neighbor_voxel_id: u16,
-    registry: &BlockRegistry,
-) -> bool {
-    if neighbor_voxel_id == 0 { return true; }
-    if current_is_water { return false; }
-    let nbr_is_solid = registry.get(neighbor_voxel_id).map(|p| p.is_solid).unwrap_or(true);
-    !nbr_is_solid || neighbor_voxel_id == registry.get_id_by_identifier("century_journey:water").unwrap_or(0)
-}
-
-fn get_neighbor_voxel_id(
-    neighbor_local_pos: IVec3,
-    current_chunk_data: &ChunkData,
-    current_chunk_pos: IVec3,
-    world_storage: &WorldStorage,
-    dir: IVec3,
-) -> Option<u16> {
-    if let Some(nbr_id) = current_chunk_data.get_voxel_safe(
-        neighbor_local_pos.x,
-        neighbor_local_pos.y,
-        neighbor_local_pos.z,
-    ) {
-        return Some(nbr_id);
-    }
-    let neighbor_chunk_pos = current_chunk_pos + dir;
-    let nbr_local_x = neighbor_local_pos.x.rem_euclid(CHUNK_SIZE as i32) as usize;
-    let nbr_local_y = neighbor_local_pos.y.rem_euclid(CHUNK_SIZE as i32) as usize;
-    let nbr_local_z = neighbor_local_pos.z.rem_euclid(CHUNK_SIZE as i32) as usize;
-    world_storage
-        .loaded_chunks
-        .get(&neighbor_chunk_pos)
-        .map(|data| data.get_voxel(nbr_local_x, nbr_local_y, nbr_local_z))
-}
 
 /// 计算某个面在图集中的 UV 坐标
 fn compute_face_uvs(layer_id: u32, total_layers: u32) -> [[f32; 2]; 4] {

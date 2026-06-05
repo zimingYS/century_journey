@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use noise::{NoiseFn, Perlin, Seedable};
 use serde::{Serialize, Deserialize};
+use crate::core::constant::world::HOURS_PER_DAY;
 
 /// 气候配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,9 +137,8 @@ impl Default for SeasonResource {
 
 impl SeasonResource {
     /// 从世界时间（天数）计算当前季节
-    pub fn current_season(&self, time_of_day: f32) -> Season {
-        const SECONDS_PER_DAY: f32 = 1440.0;
-        let total_days = time_of_day / SECONDS_PER_DAY;
+    pub fn current_season(&self, total_elapsed_hours: f32) -> Season {
+        let total_days = total_elapsed_hours / HOURS_PER_DAY;
         let day_in_year = total_days % (self.days_per_season * 4.0);
         let season_progress = day_in_year / self.days_per_season;
 

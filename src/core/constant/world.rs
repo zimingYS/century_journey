@@ -50,6 +50,10 @@ pub const HUMIDITY_NOISE_SCALE: f64 = 0.0015;
 pub const BIOME_BLEND_RADIUS: i32 = 2;
 /// 结构生成种子偏移
 pub const STRUCTURE_SEED_OFFSET: u32 = 7919;
+/// 一天对应的现实秒数
+pub const SECONDS_PER_DAY: f32 = 1440.0;
+/// 一天对应的游戏小时数
+pub const HOURS_PER_DAY: f32 = 1440.0;
 
 /// 全局噪声缩放 — 所有群系共用，保证跨区块连续
 pub const GLOBAL_TERRAIN_SCALE: f64 = 0.005;
