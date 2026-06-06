@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use bevy::prelude::*;
 use crate::core::constant::world::*;
 use crate::voxel::properties::RenderMode;
@@ -52,12 +53,13 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
                         continue;
                     }
 
-                    let texture_layer = block_info.texture_layers.get(&(voxel_id, face_idx)).copied().unwrap_or(0);
+                    let texture_layer = block_info.get_texture_layer(voxel_id, face_idx);
+
+                    let idx = voxel_id as usize;
                     let buffer_idx = if current_is_water { 2u8 } else {
-                        match block_info.render_modes.get(voxel_id as usize).copied().unwrap_or(RenderMode::Opaque) {
-                            RenderMode::Cutout => 1,
-                            _ => 0,
-                        }
+                        if idx < block_info.render_modes.len()
+                            && block_info.render_modes[idx] == RenderMode::Cutout
+                        { 1 } else { 0 }
                     };
 
                     mask[my][mx] = texture_layer * 4 + buffer_idx as u32 + 1;
@@ -255,7 +257,7 @@ fn get_merged_face_data(
 fn get_neighbor_voxel_id_snapshot(
     neighbor_local_pos: IVec3,
     current_chunk_data: &ChunkData,
-    neighbors: &[Option<ChunkData>; 6],
+    neighbors: &[Option<Arc<ChunkData>>; 6],
     dir: IVec3,
 ) -> Option<u16> {
     if let Some(nbr_id) = current_chunk_data.get_voxel_safe(
@@ -264,11 +266,11 @@ fn get_neighbor_voxel_id_snapshot(
         return Some(nbr_id);
     }
     let face_idx = DIRECTIONS.iter().position(|(d, _)| *d == dir)?;
-    let neighbor_chunk_data = neighbors[face_idx].as_ref()?;
+    let neighbor_chunk = neighbors[face_idx].as_deref()?;
     let nx = neighbor_local_pos.x.rem_euclid(CHUNK_SIZE as i32) as usize;
     let ny = neighbor_local_pos.y.rem_euclid(CHUNK_SIZE as i32) as usize;
     let nz = neighbor_local_pos.z.rem_euclid(CHUNK_SIZE as i32) as usize;
-    Some(neighbor_chunk_data.get_voxel(nx, ny, nz))
+    Some(neighbor_chunk.get_voxel(nx, ny, nz))
 }
 
 /// 判断某个面是否需要渲染

@@ -86,7 +86,7 @@ impl ClimateSampler {
     }
 
     /// 采样某点的温度 (0.0=极寒, 1.0=极热)
-    pub fn sample_temperature(&self, world_x: i32, world_z: i32) -> f64 {
+    pub fn sample_temperature_with_season(&self, world_x: i32, world_z: i32, season: Season) -> f64 {
         let raw = self.temperature_noise.get([
             world_x as f64 * self.config.temperature_scale,
             world_z as f64 * self.config.temperature_scale,
@@ -94,21 +94,27 @@ impl ClimateSampler {
         // 原始 Perlin 输出大约 -1.0 ~ 1.0，映射到 0.0 ~ 1.0
         let base = (raw + 1.0) * 0.5;
         // 叠加季节偏移
-        let seasonal = self.current_season.temperature_offset()
-            * self.config.season_temperature_amplitude;
+        let seasonal = season.temperature_offset() * self.config.season_temperature_amplitude;
         (base + seasonal).clamp(0.0, 1.0)
     }
 
     /// 采样某点的湿度 (0.0=极干, 1.0=极湿)
-    pub fn sample_humidity(&self, world_x: i32, world_z: i32) -> f64 {
+    pub fn sample_humidity_with_season(&self, world_x: i32, world_z: i32, season: Season) -> f64 {
         let raw = self.humidity_noise.get([
             world_x as f64 * self.config.humidity_scale,
             world_z as f64 * self.config.humidity_scale,
         ]);
         let base = (raw + 1.0) * 0.5;
-        let seasonal = self.current_season.humidity_offset()
-            * self.config.season_humidity_amplitude;
+        let seasonal = season.humidity_offset() * self.config.season_humidity_amplitude;
         (base + seasonal).clamp(0.0, 1.0)
+    }
+
+    pub fn sample_temperature(&self, world_x: i32, world_z: i32) -> f64 {
+        self.sample_temperature_with_season(world_x, world_z, self.current_season)
+    }
+
+    pub fn sample_humidity(&self, world_x: i32, world_z: i32) -> f64 {
+        self.sample_humidity_with_season(world_x, world_z, self.current_season)
     }
 }
 

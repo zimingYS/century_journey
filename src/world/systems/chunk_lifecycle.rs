@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use crate::core::constant::world::*;
@@ -88,7 +89,7 @@ pub fn manage_chunks_system(
                         .as_secs_f64();
                     save_queue.queue.push_back(SavedChunk {
                         position: pos,
-                        data: chunk_data.clone(),
+                        data:  chunk_data.as_ref().clone(),
                         modified_time: world_storage.chunk_modified_times.get(&pos).copied().unwrap_or(now),
                     });
                 }
@@ -131,7 +132,7 @@ pub fn spawn_terrain_gen_tasks(
                 save::level::remap_chunk_block_ids(&mut saved.data, &level_data.block_id_map, &block_registry);
             }
             let _placeholder_ctx = ChunkGenContext::new(chunk_pos);
-            world_storage.loaded_chunks.insert(chunk_pos, saved.data);
+            world_storage.loaded_chunks.insert(chunk_pos, Arc::from(saved.data));
             *chunk_state = ChunkState::TerrainReady;
             spawned += 1;
             continue;
@@ -139,25 +140,22 @@ pub fn spawn_terrain_gen_tasks(
 
         let sender = channel.sender.clone();
         let block_ids = cached_ids.0;
-        let seed = world_generator.seed;
-        let climate_config = world_generator.pipeline.climate_sampler.config.clone();
+        let biome_registry = Arc::clone(&world_generator.shared_biome);
+        let noise_sampler = Arc::clone(&world_generator.shared_noise);
+        let climate_sampler = Arc::clone(&world_generator.shared_climate);
         let current_season = world_generator.pipeline.climate_sampler.current_season;
-        let biome_registry = world_generator.pipeline.biome_registry.clone();
 
         AsyncComputeTaskPool::get().spawn(async move {
-            let pipeline = crate::world::generation::pipeline::GenerationPipeline::rebuild_from_seed(
-                seed, climate_config, current_season, biome_registry,
-            );
-
             let ctx = crate::world::generation::terrain::TerrainGenerator::sample_context(
-                &pipeline.noise_sampler,
-                &pipeline.climate_sampler,
-                &pipeline.biome_registry,
+                &noise_sampler,
+                &climate_sampler,
+                current_season,
+                &biome_registry,
                 chunk_pos,
             );
 
             let chunk_data = crate::world::generation::terrain::TerrainGenerator::generate_terrain(
-                &ctx, &block_ids, &pipeline.biome_registry,
+                &ctx, &block_ids, &biome_registry,
             );
             let _ = sender.send(TerrainGenResult { chunk_pos, chunk_data, gen_context: ctx });
         }).detach();
@@ -185,7 +183,7 @@ pub fn receive_terrain_results(
         let gen_ctx = result.gen_context;
 
         apply_pending_writes(chunk_pos, &mut chunk_data, &mut world_storage);
-        world_storage.loaded_chunks.insert(chunk_pos, chunk_data);
+        world_storage.loaded_chunks.insert(chunk_pos, Arc::from(chunk_data));
         world_storage.gen_contexts.insert(chunk_pos, gen_ctx);
 
         for (chunk_components, mut chunk_state) in &mut chunk_query {
@@ -223,6 +221,7 @@ pub fn generate_structures_system(
                 crate::world::generation::terrain::TerrainGenerator::sample_context(
                     &world_generator.pipeline.noise_sampler,
                     &world_generator.pipeline.climate_sampler,
+                    world_generator.pipeline.climate_sampler.current_season,
                     &world_generator.pipeline.biome_registry,
                     chunk_pos,
                 )
@@ -233,7 +232,7 @@ pub fn generate_structures_system(
         for (dir, _) in &DIRECTIONS {
             let nbr_pos = chunk_pos + *dir;
             if let Some(data) = world_storage.loaded_chunks.get(&nbr_pos).cloned() {
-                neighbor_data.insert(nbr_pos, data);
+                neighbor_data.insert(nbr_pos, data.as_ref().clone());
             }
         }
 
@@ -247,7 +246,7 @@ pub fn generate_structures_system(
             let mut temp_storage = crate::world::storage::WorldStorage::default();
             temp_storage.loaded_chunks.insert(chunk_pos, chunk_data);
             for (pos, data) in neighbor_data {
-                temp_storage.loaded_chunks.insert(pos, data);
+                temp_storage.loaded_chunks.insert(pos, Arc::from(data));
             }
 
             StructureGenerator::generate_structures_world_aware(
@@ -255,8 +254,11 @@ pub fn generate_structures_system(
             );
 
             // 收集所有被修改的区块
-            let modified_chunks: Vec<(IVec3, ChunkData)> =
-                temp_storage.loaded_chunks.into_iter().collect();
+            let modified_chunks: Vec<(IVec3, ChunkData)> = temp_storage
+                .loaded_chunks
+                .into_iter()
+                .map(|(pos, arc)| (pos, Arc::unwrap_or_clone(arc)))
+                .collect();
 
             let _ = sender.send(StructureGenResult { chunk_pos, modified_chunks });
         }).detach();
@@ -282,12 +284,12 @@ pub fn receive_structure_results(
         for (pos, data) in result.modified_chunks {
             if let Some(existing) = world_storage.loaded_chunks.get_mut(&pos) {
                 // 只覆盖非空区块的变更（结构可能写入了邻居区块的树冠）
-                *existing = data;
+                *existing = Arc::from(data);
             } else {
                 // 邻居区块还未加载到 loaded_chunks，暂存为 pending_writes
                 // 或直接插入（如果该区块实体已存在但数据尚未就绪）
                 if world_storage.chunk_entities.contains_key(&pos) {
-                    world_storage.loaded_chunks.insert(pos, data);
+                    world_storage.loaded_chunks.insert(pos, Arc::from(data));
                 }
             }
         }

@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::sync::Arc;
 use bevy::prelude::*;
 use bincode::Options;
 use crate::core::constant::world::*;
@@ -167,7 +168,7 @@ pub fn process_load_queue_system(
 
         world_storage
             .loaded_chunks
-            .insert(saved.position, chunk_data);
+            .insert(saved.position, Arc::from(chunk_data));
 
         loaded += 1;
     }
@@ -221,7 +222,7 @@ pub fn save_entire_world(
         .iter()
         .map(|(pos, data)| SavedChunk {
             position: *pos,
-            data: data.clone(),
+            data: data.as_ref().clone(),
             modified_time: world_storage
                 .chunk_modified_times
                 .get(pos)
@@ -282,7 +283,7 @@ pub fn load_entire_world(
                                             );
                                             storage
                                                 .loaded_chunks
-                                                .insert(saved.position, saved.data);
+                                                .insert(saved.position, Arc::from(saved.data));
                                         }
                                     }
                                 }

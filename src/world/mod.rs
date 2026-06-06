@@ -24,9 +24,15 @@ impl Plugin for WorldPlugin{
             .init_resource::<systems::MeshBuildChannel>()
             .init_resource::<systems::StructureGenChannel>()
             .init_resource::<systems::PlayerChunkCache>()
+            .init_resource::<systems::CachedBlockInfo>()
             .add_plugins(sky::SkyPlugin)
             .add_plugins(save::SaveLoadPlugin)
-
+            .add_systems(
+                Update,
+                systems::rebuild_block_info_snapshot
+                    .before(systems::spawn_mesh_build_tasks)
+                    .run_if(in_state(AppState::InGame)),
+            )
             .add_systems(Update,(
                 systems::manage_chunks_system,
                 systems::spawn_terrain_gen_tasks,

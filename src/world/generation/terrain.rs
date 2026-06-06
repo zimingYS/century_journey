@@ -3,6 +3,7 @@ use noise::NoiseFn;
 use crate::core::constant::world::*;
 use crate::world::chunk::ChunkData;
 use crate::world::generation::biome::BiomeRegistry;
+use crate::world::generation::climate::{ClimateSampler, Season};
 use crate::world::generation::context::ChunkGenContext;
 use crate::world::generation::noise::{GenerationBlockIds, NoiseSampler};
 
@@ -13,7 +14,8 @@ impl TerrainGenerator {
     /// 生成区块的气候/群系上下文
     pub fn sample_context(
         noise_sampler: &NoiseSampler,
-        climate_sampler: &crate::world::generation::climate::ClimateSampler,
+        climate_sampler: &ClimateSampler,
+        season: Season,
         biome_registry: &BiomeRegistry,
         chunk_pos: IVec3,
     ) -> ChunkGenContext {
@@ -36,8 +38,8 @@ impl TerrainGenerator {
                 let world_z = world_start_z + z as i32 - 1;
 
                 // 采样气候
-                let temperature = climate_sampler.sample_temperature(world_x, world_z);
-                let humidity = climate_sampler.sample_humidity(world_x, world_z);
+                let temperature = climate_sampler.sample_temperature_with_season(world_x, world_z, season);
+                let humidity = climate_sampler.sample_humidity_with_season(world_x, world_z, season);
                 cached_temperature[x][z] = temperature;
                 cached_humidity[x][z] = humidity;
 

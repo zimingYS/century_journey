@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use bevy::prelude::*;
 use crate::core::constant::world::CHUNK_SIZE;
 use crate::voxel::registry::BlockRegistry;
@@ -100,7 +101,8 @@ pub fn set_voxel_at_world(world_pos: IVec3, block_id: u16, world_storage: &mut W
     let local_y = world_pos.y.rem_euclid(CHUNK_SIZE as i32) as usize;
     let local_z = world_pos.z.rem_euclid(CHUNK_SIZE as i32) as usize;
 
-    if let Some(chunk_data) = world_storage.loaded_chunks.get_mut(&chunk_pos) {
+    if let Some(arc) = world_storage.loaded_chunks.get_mut(&chunk_pos) {
+        let chunk_data = Arc::make_mut(arc);
         chunk_data.set_voxel(local_x, local_y, local_z, block_id);
     }
 }

@@ -22,11 +22,15 @@ pub struct MeshBufferData {
 
 impl MeshBufferData {
     pub fn new() -> Self {
+        Self::with_capacity(512)
+    }
+
+    pub fn with_capacity(estimated_faces: usize) -> Self {
         Self {
-            positions: Vec::new(),
-            normals: Vec::new(),
-            uvs: Vec::new(),
-            indices: Vec::new(),
+            positions: Vec::with_capacity(estimated_faces * 4),
+            normals: Vec::with_capacity(estimated_faces * 4),
+            uvs: Vec::with_capacity(estimated_faces * 4),
+            indices: Vec::with_capacity(estimated_faces * 6),
         }
     }
 

@@ -6,23 +6,33 @@ pub mod terrain;
 pub mod structure;
 pub mod pipeline;
 
-use bevy::prelude::*;
 use crate::world::chunk::ChunkData;
-use crate::world::generation::noise::GenerationBlockIds;
+use crate::world::generation::biome::BiomeRegistry;
+use crate::world::generation::climate::ClimateSampler;
+use crate::world::generation::noise::{GenerationBlockIds, NoiseSampler};
 use crate::world::generation::pipeline::GenerationPipeline;
-use crate::world::storage::WorldStorage;
+use bevy::prelude::*;
+use std::sync::Arc;
 
 #[derive(Resource)]
 pub struct WorldGenerator {
     pub seed: u32,
-    pub(crate) pipeline: GenerationPipeline,
+    pub pipeline: GenerationPipeline,
+    pub shared_noise: Arc<NoiseSampler>,
+    pub shared_climate: Arc<ClimateSampler>,
+    pub shared_biome: Arc<BiomeRegistry>,
 }
 
 impl WorldGenerator {
     pub fn new(seed: u32) -> Self {
+        let pipeline = GenerationPipeline::new(seed);
+
         Self {
             seed,
-            pipeline: GenerationPipeline::new(seed),
+            shared_noise: Arc::new(pipeline.noise_sampler.clone()),
+            shared_climate: Arc::new(pipeline.climate_sampler.clone()),
+            shared_biome: Arc::new(pipeline.biome_registry.clone()),
+            pipeline,
         }
     }
 

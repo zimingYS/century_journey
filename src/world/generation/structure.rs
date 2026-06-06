@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::core::constant::world::CHUNK_SIZE;
 use crate::world::generation::biome::BiomeRegistry;
 use crate::world::generation::context::ChunkGenContext;
@@ -164,14 +165,16 @@ pub fn set_voxel_world_aware(
 
     if target_chunk == base_chunk_pos {
         // 当前区块直接写入
-        if let Some(chunk_data) = world_storage.loaded_chunks.get_mut(&target_chunk) {
+        if let Some(arc) = world_storage.loaded_chunks.get_mut(&target_chunk) {
+            let chunk_data = Arc::make_mut(arc);
             if chunk_data.get_voxel(local_x, local_y, local_z) == 0 {
                 chunk_data.set_voxel(local_x, local_y, local_z, block_id);
             }
         }
     } else {
         // 跨区块写入
-        if let Some(neighbor) = world_storage.loaded_chunks.get_mut(&target_chunk) {
+        if let Some(arc) = world_storage.loaded_chunks.get_mut(&target_chunk)  {
+            let neighbor = Arc::make_mut(arc);
             if neighbor.get_voxel(local_x, local_y, local_z) == 0 {
                 neighbor.set_voxel(local_x, local_y, local_z, block_id);
             }

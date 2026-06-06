@@ -56,6 +56,7 @@ impl GenerationPipeline {
         let ctx = TerrainGenerator::sample_context(
             &self.noise_sampler,
             &self.climate_sampler,
+            self.climate_sampler.current_season,
             &self.biome_registry,
             chunk_pos,
         );
@@ -88,6 +89,7 @@ impl GenerationPipeline {
                 let ctx = TerrainGenerator::sample_context(
                     &self.noise_sampler,
                     &self.climate_sampler,
+                    self.climate_sampler.current_season,
                     &self.biome_registry,
                     chunk_pos,
                 );

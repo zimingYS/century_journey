@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::sync::{mpsc, Mutex};
+use std::sync::{mpsc, Arc, Mutex};
 use bevy::prelude::*;
 use crate::voxel::properties::RenderMode;
 use crate::voxel::registry::BlockRegistry;
@@ -77,13 +77,14 @@ pub struct PlayerChunkCache {
 }
 
 /// 方块信息查找表
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct BlockInfoSnapshot {
     pub is_solid: Vec<bool>,
     pub render_modes: Vec<RenderMode>,
-    pub texture_layers: std::collections::HashMap<(u16, usize), u32>,
+    pub texture_layers: Box<[u32]>,
     pub water_id: u16,
     pub total_layers: u32,
+    pub max_id: u16,
 }
 
 impl BlockInfoSnapshot {
@@ -100,14 +101,44 @@ impl BlockInfoSnapshot {
             render_modes[id as usize] = prop.render_mode;
         }
 
-        Self { is_solid, render_modes, texture_layers: registry.texture_layers.clone(), water_id, total_layers }
+        let layer_count = (max_id as usize + 1) * 6;
+        let mut flat_layers = vec![0u32; layer_count].into_boxed_slice();
+        for (&(id, face), &layer) in &registry.texture_layers {
+            let idx = id as usize * 6 + face;
+            if idx < layer_count {
+                flat_layers[idx] = layer;
+            }
+        }
+
+        Self {
+            is_solid,
+            render_modes,
+            texture_layers: flat_layers,
+            water_id,
+            total_layers,
+            max_id,
+        }
+    }
+
+    #[inline]
+    pub fn get_texture_layer(&self, voxel_id: u16, face_idx: usize) -> u32 {
+        let idx = voxel_id as usize * 6 + face_idx;
+        if idx < self.texture_layers.len() {
+            self.texture_layers[idx]
+        } else {
+            0
+        }
     }
 }
+
+/// 缓存BlockInfoSnapshot资源
+#[derive(Resource,Default , Clone)]
+pub struct CachedBlockInfo(pub BlockInfoSnapshot);
 
 /// 单个区块的 Mesh 构建输入快照
 pub struct MeshBuildInput {
     pub chunk_pos: IVec3,
-    pub current_data: ChunkData,
-    pub neighbors: [Option<ChunkData>; 6],
+    pub current_data: Arc<ChunkData>,
+    pub neighbors: [Option<Arc<ChunkData>>; 6],
     pub block_info: BlockInfoSnapshot,
 }

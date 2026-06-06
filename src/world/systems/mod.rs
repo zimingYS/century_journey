@@ -8,7 +8,7 @@ pub use channel::{
     TerrainGenChannel, TerrainGenResult,
     MeshBuildChannel, MeshBuildResult,
     PlayerChunkCache, BlockInfoSnapshot, MeshBuildInput,
-    StructureGenChannel
+    StructureGenChannel, CachedBlockInfo
 };
 pub use mesh_buffer::{DIRECTIONS, MeshBufferData};
 pub use chunk_lifecycle::{
@@ -21,5 +21,6 @@ pub use chunk_lifecycle::{
 pub use mesh_lifecycle::{
     spawn_mesh_build_tasks,
     receive_mesh_results,
+    rebuild_block_info_snapshot
 };
 pub use greedy_mesh::build_greedy_mesh;

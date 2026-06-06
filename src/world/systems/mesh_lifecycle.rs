@@ -1,16 +1,30 @@
+use std::sync::Arc;
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use crate::core::constant::world::*;
 use crate::voxel::registry::BlockRegistry;
 use crate::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::world::storage::WorldStorage;
-use crate::world::systems::{build_greedy_mesh, BlockInfoSnapshot, MeshBuildChannel, MeshBuildInput, DIRECTIONS};
+use crate::world::systems::{build_greedy_mesh, BlockInfoSnapshot, CachedBlockInfo, MeshBuildChannel, MeshBuildInput, DIRECTIONS};
+
+/// 在BlockRegistry变化时重建缓存的系统
+pub fn rebuild_block_info_snapshot(
+    registry: Res<BlockRegistry>,
+    mut cached: ResMut<CachedBlockInfo>,
+) {
+    // 自动处理
+    if registry.is_changed() {
+        cached.0 = BlockInfoSnapshot::from_registry(&registry);
+    }
+}
+
 
 /// Mesh 构建派发
 pub fn spawn_mesh_build_tasks(
     channel: Res<MeshBuildChannel>,
     registry: Option<Res<BlockRegistry>>,
     world_storage: Res<WorldStorage>,
+    cached_block_info: Res<CachedBlockInfo>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
 ) {
     let Some(reg) = registry else { return };
@@ -21,7 +35,7 @@ pub fn spawn_mesh_build_tasks(
         .count();
     if ready_count == 0 { return; }
 
-    let block_info = BlockInfoSnapshot::from_registry(&reg);
+    let block_info = cached_block_info.0.clone();
     let mut spawned = 0u32;
 
     for (_chunk_entity, chunk_components, mut state) in &mut chunk_query {
@@ -37,9 +51,9 @@ pub fn spawn_mesh_build_tasks(
 
         let Some(current_chunk_data) = world_storage.loaded_chunks.get(&current_chunk_pos) else { continue };
 
-        let current_data = current_chunk_data.clone();
-        let neighbors: [Option<ChunkData>; 6] = DIRECTIONS.map(|(dir, _)| {
-            world_storage.loaded_chunks.get(&(current_chunk_pos + dir)).cloned()
+        let current_data = Arc::clone(current_chunk_data);
+        let neighbors: [Option<Arc<ChunkData>>; 6] = DIRECTIONS.map(|(dir, _)| {
+            world_storage.loaded_chunks.get(&(current_chunk_pos + dir)).map(Arc::clone)
         });
 
         let sender = channel.sender.clone();
@@ -66,6 +80,7 @@ pub fn receive_mesh_results(
     mut meshes: ResMut<Assets<Mesh>>,
     channel: Res<MeshBuildChannel>,
     registry: Option<Res<BlockRegistry>>,
+    world_storage: Res<WorldStorage>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
 ) {
     let Some(reg) = registry else { return };
@@ -80,12 +95,15 @@ pub fn receive_mesh_results(
         let Ok(result) = receiver.try_recv() else { break };
         received += 1;
 
-        let Some((chunk_entity, _, mut state)) = chunk_query
-            .iter_mut()
-            .find(|(_, c, _)| c.position == result.chunk_pos)
-        else { continue };
-
-        if *state != ChunkState::GeneratingMesh { continue; }
+        let Some(&chunk_entity) = world_storage.chunk_entities.get(&result.chunk_pos) else {
+            continue;
+        };
+        let Ok((_entity, _components, mut state)) = chunk_query.get_mut(chunk_entity) else {
+            continue;
+        };
+        if *state != ChunkState::GeneratingMesh {
+            continue;
+        }
 
         // 清除旧 Mesh
         commands.entity(chunk_entity)
