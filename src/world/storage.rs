@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use bevy::prelude::*;
 use crate::world::chunk::ChunkData;
+use crate::world::generation::context::ChunkGenContext;
 
 /// 存储世界数据
 #[derive(Resource , Default)]
@@ -13,6 +14,8 @@ pub struct WorldStorage {
     pub chunk_modified_times: HashMap<IVec3, f64>,
     /// 待处理的方块写入队列
     pub pending_writes: PendingVoxelWrites,
+    /// 缓存区块的生成上下文，供结构生成复用，避免重复噪声采样
+    pub gen_contexts: HashMap<IVec3, ChunkGenContext>,
 }
 
 /// 待处理的方块写入队列

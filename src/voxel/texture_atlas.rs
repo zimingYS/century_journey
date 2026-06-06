@@ -8,6 +8,7 @@ use bevy::pbr::StandardMaterial;
 use bevy::prelude::default;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use crate::core::constant::texture::TILE_SIZE;
+use crate::core::constant::world::CHUNK_SIZE;
 use crate::voxel::registry::BlockRegistry;
 
 /// 构建纹理图集
@@ -20,10 +21,15 @@ pub fn build_texture_atlas(
 ) {
     // 获取纹理层数量，计算图集总宽度
     let layer_count = unique_paths.len() as u32;
-    let atlas_width = TILE_SIZE * layer_count;
 
-    // 创建空的图集像素数据
-    let mut atlas_data = vec![0u8; (atlas_width * TILE_SIZE * 4) as usize];
+    // 平铺式图集尺寸
+    let atlas_width = CHUNK_SIZE as u32 * TILE_SIZE;
+    let atlas_height = layer_count * CHUNK_SIZE as u32 * TILE_SIZE;
+
+    // 分配像素缓冲区
+    let pixel_count = atlas_width * atlas_height;
+    let data_len = pixel_count as usize * 4;
+    let mut atlas_data = vec![0u8; data_len];
 
     // 遍历所有唯一贴图路径，依次绘制到纹理图集对应图层位置
     for (layer_idx, path) in unique_paths.iter().enumerate() {
@@ -44,23 +50,34 @@ pub fn build_texture_atlas(
             &image, TILE_SIZE, TILE_SIZE,
             image::imageops::FilterType::Nearest,
         );
+        let src_pixels = resized.as_raw();
+
+        // 层起始行
+        let layer_pixel_y_start = layer_idx as u32 * CHUNK_SIZE as u32 * TILE_SIZE;
 
         // 将缩放后的贴图像素数据复制到图集对应图层区域
-        for y in 0..TILE_SIZE {
-            let src_start = (y * TILE_SIZE * 4) as usize;
-            let src_end = src_start + (TILE_SIZE * 4) as usize;
-            let dest_x_offset = layer_idx as u32 * TILE_SIZE;
-            let dest_start = ((y * atlas_width + dest_x_offset) * 4) as usize;
-            atlas_data[dest_start..dest_start + (TILE_SIZE * 4) as usize]
-                .copy_from_slice(&resized.as_raw()[src_start..src_end]);
+        for tile_y in 0..CHUNK_SIZE as u32 {
+            for tile_x in 0..CHUNK_SIZE as u32 {
+                for row in 0..TILE_SIZE {
+                    let dest_x = tile_x * TILE_SIZE;
+                    let dest_y = layer_pixel_y_start + tile_y * TILE_SIZE + row;
+
+                    let src_start = (row * TILE_SIZE * 4) as usize;
+                    let src_end = src_start + (TILE_SIZE * 4) as usize;
+                    let dest_start = ((dest_y * atlas_width + dest_x) * 4) as usize;
+
+                    atlas_data[dest_start..dest_start + (TILE_SIZE * 4) as usize]
+                        .copy_from_slice(&src_pixels[src_start..src_end]);
+                }
+            }
         }
     }
 
     // 创建纹理图集图像
     let mut array_image = Image::new(
         Extent3d {
-            width: TILE_SIZE * layer_count,
-            height: TILE_SIZE,
+            width: atlas_width,
+            height: atlas_height,
             depth_or_array_layers: 1,
         },
         TextureDimension::D2,
@@ -68,15 +85,21 @@ pub fn build_texture_atlas(
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
     );
+
     // 设置像素风格采样
     array_image.sampler = ImageSampler::nearest();
 
     // 将生成的图集添加到资源管理器，保存到方块注册表
     let texture_handle = images.add(array_image);
     registry.base_texture = texture_handle.clone();
-    // 创建并保存纹理图集布局（按网格划分每个贴图）
+
+    // 创建并保存纹理图集布局
     registry.atlas_layout = layouts.add(TextureAtlasLayout::from_grid(
-        UVec2::splat(TILE_SIZE), layer_count, 1, None, None,
+        UVec2::splat(TILE_SIZE),
+        CHUNK_SIZE as u32,
+        layer_count * CHUNK_SIZE as u32,
+        None,
+        None,
     ));
 
     // 创建不透明方块材质

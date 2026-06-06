@@ -8,6 +8,20 @@ pub const MAP_HEIGHT_SCALE: f64 = 32.0;
 pub const SEA_LEVEL: i32 = 64;
 pub const RENDER_DISTANCE: i32 = 8;
 pub const DATA_DISTANCE: i32 = RENDER_DISTANCE + 1;
+/// 每帧最多生成区块实体数
+pub const MAX_SPAWN_PER_FRAME: u32 = 4;
+/// 每帧最多派发地形任务数
+pub const MAX_TERRAIN_TASKS_PER_FRAME: u32 = 4;
+/// 每帧最多派发 Mesh 构建任务数
+pub const MAX_MESH_TASKS_PER_FRAME: u32 = 4;
+/// 接收结果每帧最多处理数量
+pub const MAX_TERRAIN_RECEIVE_PER_FRAME: usize = 4;
+pub const MAX_MESH_RECEIVE_PER_FRAME: usize = 4;
+/// 结构生成每帧时间预算 (ms)
+pub const STRUCTURE_BUDGET_MS: f64 = 2.0;
+/// 面分组为空时的哨兵值
+pub const FACE_NONE: u32 = u32::MAX;
+
 
 /*
     保存读取世界
