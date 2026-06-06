@@ -45,72 +45,73 @@ jobs:
           files: |
             CenturyJourney-Windows.zip
 
-  build-linux:
-    name: Linux
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            pkg-config \
-            libasound2-dev \
-            libudev-dev
-
-      - name: Build
-        run: cargo build --release
-
-      - name: Package
-        run: |
-          mkdir -p release
-
-          cp target/release/$APP_NAME release/
-
-          if [ -d assets ]; then
-            cp -r assets release/
-          fi
-
-          cd release
-          zip -r ../${APP_NAME}-Linux.zip .
-
-      - name: Upload Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            CenturyJourney-Linux.zip
-
-  build-macos:
-    name: macOS
-    runs-on: macos-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Build
-        run: cargo build --release
-
-      - name: Package
-        run: |
-          mkdir -p release
-
-          cp target/release/$APP_NAME release/
-
-          if [ -d assets ]; then
-            cp -r assets release/
-          fi
-
-          cd release
-          zip -r ../${APP_NAME}-macOS.zip .
-
-      - name: Upload Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            CenturyJourney-macOS.zip
+#最初开发阶段暂停多平台支持
+#  build-linux:
+#    name: Linux
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      - uses: actions/checkout@v4
+#
+#      - uses: dtolnay/rust-toolchain@stable
+#
+#      - name: Install Dependencies
+#        run: |
+#          sudo apt-get update
+#          sudo apt-get install -y \
+#            pkg-config \
+#            libasound2-dev \
+#            libudev-dev
+#
+#      - name: Build
+#        run: cargo build --release
+#
+#      - name: Package
+#        run: |
+#          mkdir -p release
+#
+#          cp target/release/$APP_NAME release/
+#
+#          if [ -d assets ]; then
+#            cp -r assets release/
+#          fi
+#
+#          cd release
+#          zip -r ../${APP_NAME}-Linux.zip .
+#
+#      - name: Upload Release
+#        uses: softprops/action-gh-release@v2
+#        with:
+#          files: |
+#            CenturyJourney-Linux.zip
+#
+#  build-macos:
+#    name: macOS
+#    runs-on: macos-latest
+#
+#    steps:
+#      - uses: actions/checkout@v4
+#
+#      - uses: dtolnay/rust-toolchain@stable
+#
+#      - name: Build
+#        run: cargo build --release
+#
+#      - name: Package
+#        run: |
+#          mkdir -p release
+#
+#          cp target/release/$APP_NAME release/
+#
+#          if [ -d assets ]; then
+#            cp -r assets release/
+#          fi
+#
+#          cd release
+#          zip -r ../${APP_NAME}-macOS.zip .
+#
+#      - name: Upload Release
+#        uses: softprops/action-gh-release@v2
+#        with:
+#          files: |
+#            CenturyJourney-macOS.zip
