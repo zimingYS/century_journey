@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use bevy::prelude::*;
 use bincode::Options;
@@ -11,6 +11,16 @@ use crate::world::save::level;
 use crate::world::save::region::RegionManager;
 use crate::world::storage::WorldStorage;
 use crate::world::time::TimeOfDay;
+
+/// 缓存的 block_id 重映射表
+#[derive(Resource, Clone)]
+pub struct CachedBlockIdRemap(pub HashMap<u16, u16>);
+
+impl Default for CachedBlockIdRemap {
+    fn default() -> Self {
+        Self(HashMap::new())
+    }
+}
 
 /// 保存配置
 #[derive(Resource, Clone, Debug)]
@@ -296,4 +306,25 @@ pub fn load_entire_world(
     }
 
     Ok((storage, level))
+}
+
+/// 构建重映射表
+pub fn cache_level_data_on_enter(
+    save_config: Res<SaveConfig>,
+    block_registry: Res<BlockRegistry>,
+    mut cached_remap: ResMut<CachedBlockIdRemap>,
+) {
+    match level::load_level(&save_config.world_name) {
+        Ok(level_data) => {
+            cached_remap.0 = block_registry.build_id_remap_table(&level_data.block_id_map);
+            log::info!(
+                "[存档] level.dat 已缓存，block_id_map 含 {} 条记录",
+                level_data.block_id_map.len()
+            );
+        }
+        Err(_) => {
+            // 新存档没有 level.dat，正常
+            log::info!("[存档] 未找到 level.dat，将使用纯生成模式");
+        }
+    }
 }

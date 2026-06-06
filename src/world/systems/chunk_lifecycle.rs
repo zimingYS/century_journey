@@ -11,8 +11,9 @@ use crate::world::generation::noise::CachedBlockIds;
 use crate::world::generation::structure::StructureGenerator;
 use crate::world::generation::WorldGenerator;
 use crate::world::save;
-use crate::world::save::format::SavedChunk;
-use crate::world::save::system::{SaveConfig, SaveQueue};
+use crate::world::save::format::{chunk_to_region_pos, SavedChunk};
+use crate::world::save::region::RegionManager;
+use crate::world::save::system::{CachedBlockIdRemap, SaveConfig, SaveQueue};
 use crate::world::storage::WorldStorage;
 use crate::world::systems::{PlayerChunkCache, TerrainGenChannel, TerrainGenResult, DIRECTIONS};
 use crate::world::systems::channel::{StructureGenChannel, StructureGenResult};
@@ -105,11 +106,12 @@ pub fn manage_chunks_system(
 
 /// 地形生成派发
 pub fn spawn_terrain_gen_tasks(
-    block_registry: Res<BlockRegistry>,
+    // block_registry: Res<BlockRegistry>,
     channel: Res<TerrainGenChannel>,
     world_generator: Res<WorldGenerator>,
     cached_ids: Res<CachedBlockIds>,
     save_config: Res<SaveConfig>,
+    cached_remap: Res<CachedBlockIdRemap>,
     mut world_storage: ResMut<WorldStorage>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
 ) {
@@ -127,18 +129,9 @@ pub fn spawn_terrain_gen_tasks(
             continue;
         }
 
-        if let Some(mut saved) = save::system::try_load_chunk_from_disk(&save_config.world_name, chunk_pos) {
-            if let Ok(level_data) = save::level::load_level(&save_config.world_name) {
-                save::level::remap_chunk_block_ids(&mut saved.data, &level_data.block_id_map, &block_registry);
-            }
-            let _placeholder_ctx = ChunkGenContext::new(chunk_pos);
-            world_storage.loaded_chunks.insert(chunk_pos, Arc::from(saved.data));
-            *chunk_state = ChunkState::TerrainReady;
-            spawned += 1;
-            continue;
-        }
-
         let sender = channel.sender.clone();
+        let world_name = save_config.world_name.clone();
+        let remap = cached_remap.0.clone();
         let block_ids = cached_ids.0;
         let biome_registry = Arc::clone(&world_generator.shared_biome);
         let noise_sampler = Arc::clone(&world_generator.shared_noise);
@@ -146,18 +139,40 @@ pub fn spawn_terrain_gen_tasks(
         let current_season = world_generator.pipeline.climate_sampler.current_season;
 
         AsyncComputeTaskPool::get().spawn(async move {
-            let ctx = crate::world::generation::terrain::TerrainGenerator::sample_context(
-                &noise_sampler,
-                &climate_sampler,
-                current_season,
-                &biome_registry,
-                chunk_pos,
-            );
-
-            let chunk_data = crate::world::generation::terrain::TerrainGenerator::generate_terrain(
-                &ctx, &block_ids, &biome_registry,
-            );
-            let _ = sender.send(TerrainGenResult { chunk_pos, chunk_data, gen_context: ctx });
+            match RegionManager::read_chunk(&world_name, chunk_pos) {
+                Ok(Some(mut saved)) => {
+                    // 只在有映射表时才重映射
+                    if !remap.is_empty() {
+                        for voxel in saved.data.voxels.iter_mut() {
+                            if let Some(&new_id) = remap.get(voxel) {
+                                *voxel = new_id;
+                            } else if *voxel != 0 {
+                                *voxel = 0;
+                            }
+                        }
+                    }
+                    // 重映射已在上面完成,直接发送
+                    let _ = sender.send(TerrainGenResult {
+                        chunk_pos,
+                        chunk_data: saved.data,
+                        gen_context: ChunkGenContext::new(chunk_pos),
+                    });
+                }
+                _ => {
+                    // 磁盘未命中 → 程序化生成
+                    let ctx = crate::world::generation::terrain::TerrainGenerator::sample_context(
+                        &noise_sampler,
+                        &climate_sampler,
+                        current_season,
+                        &biome_registry,
+                        chunk_pos,
+                    );
+                    let chunk_data = crate::world::generation::terrain::TerrainGenerator::generate_terrain(
+                        &ctx, &block_ids, &biome_registry,
+                    );
+                    let _ = sender.send(TerrainGenResult { chunk_pos, chunk_data, gen_context: ctx });
+                }
+            }
         }).detach();
 
         *chunk_state = ChunkState::GeneratingTerrain;
@@ -184,7 +199,9 @@ pub fn receive_terrain_results(
 
         apply_pending_writes(chunk_pos, &mut chunk_data, &mut world_storage);
         world_storage.loaded_chunks.insert(chunk_pos, Arc::from(chunk_data));
-        world_storage.gen_contexts.insert(chunk_pos, gen_ctx);
+        if !gen_ctx.columns.is_empty() {
+            world_storage.gen_contexts.insert(chunk_pos, gen_ctx);
+        }
 
         for (chunk_components, mut chunk_state) in &mut chunk_query {
             if chunk_components.position == chunk_pos && *chunk_state == ChunkState::GeneratingTerrain {

@@ -120,37 +120,52 @@ impl TerrainGenerator {
         block_ids: &GenerationBlockIds,
         biome_registry: &BiomeRegistry,
     ) -> ChunkData {
-        let mut voxels = [0u16; CHUNK_VOLUME];
-        let mut chunk_data = ChunkData { voxels };
+        let mut chunk_data = ChunkData { voxels: [0u16; CHUNK_VOLUME] };
         let world_start_y = ctx.chunk_pos.y * CHUNK_SIZE as i32;
+
+        struct ColCache {
+            target_surface_y: i32,
+            surface_id: u16,
+            subsurface_id: u16,
+            beach_id: u16,
+        }
+
+        let col_cache: Vec<ColCache> = ctx.columns.iter().map(|col| {
+            let biome = biome_registry.get(col.biome_index).unwrap();
+            ColCache {
+                target_surface_y: col.base_height,
+                surface_id: block_ids.resolve_block_id(&biome.surface_block),
+                subsurface_id: block_ids.resolve_block_id(&biome.subsurface_block),
+                beach_id: block_ids.resolve_block_id(&biome.beach_block),
+            }
+        }).collect();
+
 
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
-                let col = ctx.get_column(x, z);
-                let target_surface_y = col.base_height;
-                let biome = biome_registry.get(col.biome_index).unwrap();
-
-                let surface_id = block_ids.resolve_block_id(&biome.surface_block);
-                let subsurface_id = block_ids.resolve_block_id(&biome.subsurface_block);
-                let beach_id = block_ids.resolve_block_id(&biome.beach_block);
+                let cache = &col_cache[x * CHUNK_SIZE + z];
+                let target = cache.target_surface_y;
+                let surface_id = cache.surface_id;
+                let subsurface_id = cache.subsurface_id;
+                let beach_id = cache.beach_id;
 
                 for y in 0..CHUNK_SIZE {
                     let world_y = world_start_y + y as i32;
 
-                    let voxel_id = if world_y > target_surface_y {
+                    let voxel_id = if world_y > target {
                         if world_y <= SEA_LEVEL {
                             block_ids.water
                         } else {
                             block_ids.air
                         }
-                    } else if world_y == target_surface_y {
+                    } else if world_y == target {
                         if world_y <= SEA_LEVEL + 2 {
                             beach_id
                         } else {
                             surface_id
                         }
-                    } else if world_y > target_surface_y - 4 {
-                        if target_surface_y <= SEA_LEVEL {
+                    } else if world_y > target - 4 {
+                        if target <= SEA_LEVEL {
                             beach_id
                         } else {
                             subsurface_id

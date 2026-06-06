@@ -7,7 +7,7 @@ use bevy::prelude::*;
 use crate::core::state::app_state::AppState;
 use crate::player::components::Player;
 use crate::voxel::registry::BlockRegistry;
-use crate::world::save::system::{AutoSaveTimer, LoadQueue, SaveConfig, SaveQueue};
+use crate::world::save::system::{AutoSaveTimer, CachedBlockIdRemap, LoadQueue, SaveConfig, SaveQueue};
 use crate::world::storage::WorldStorage;
 
 pub struct SaveLoadPlugin;
@@ -18,6 +18,8 @@ impl Plugin for SaveLoadPlugin {
         .insert_resource(SaveQueue::default())
         .insert_resource(LoadQueue::default())
         .init_resource::<AutoSaveTimer>()
+        .init_resource::<CachedBlockIdRemap>()
+        .add_systems(OnEnter(AppState::InGame), system::cache_level_data_on_enter)
         .add_systems(
             PostUpdate,
             (

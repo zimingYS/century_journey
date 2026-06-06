@@ -77,3 +77,9 @@ pub const HOURS_PER_DAY: f32 = 1440.0;
 pub const GLOBAL_TERRAIN_SCALE: f64 = 0.005;
 pub const GLOBAL_DETAIL_SCALE: f64 = 0.02;
 pub const GLOBAL_ROUGHNESS_SCALE: f64 = 0.01;
+
+/// 气候稀疏采样分辨率 — 温度/湿度 scale≈0.001，极低频率，大幅降采样无损
+pub const CLIMATE_SPARSE: usize = 4;
+
+/// 地形噪声稀疏采样分辨率 — scale 0.005~0.02，stride≈2 足够精细
+pub const TERRAIN_SPARSE: usize = 9;
