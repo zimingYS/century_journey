@@ -22,6 +22,7 @@ impl Plugin for WorldPlugin{
             .init_resource::<generation::climate::SeasonResource>()
             .init_resource::<systems::TerrainGenChannel>()
             .init_resource::<systems::MeshBuildChannel>()
+            .init_resource::<systems::StructureGenChannel>()
             .init_resource::<systems::PlayerChunkCache>()
             .add_plugins(sky::SkyPlugin)
             .add_plugins(save::SaveLoadPlugin)
@@ -31,6 +32,7 @@ impl Plugin for WorldPlugin{
                 systems::spawn_terrain_gen_tasks,
                 systems::receive_terrain_results,
                 systems::generate_structures_system,
+                systems::receive_structure_results,
                 systems::spawn_mesh_build_tasks,
                 systems::receive_mesh_results,
                 time::update_time_system,

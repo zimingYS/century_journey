@@ -27,6 +27,26 @@ impl Default for TerrainGenChannel {
     }
 }
 
+/// 结构生成异步任务的结果
+pub struct StructureGenResult {
+    pub chunk_pos: IVec3,
+    /// 所有被结构生成修改的区块（含邻居的跨区块写入）
+    pub modified_chunks: Vec<(IVec3, ChunkData)>,
+}
+
+#[derive(Resource)]
+pub struct StructureGenChannel {
+    pub sender: mpsc::Sender<StructureGenResult>,
+    pub receiver: Mutex<mpsc::Receiver<StructureGenResult>>,
+}
+
+impl Default for StructureGenChannel {
+    fn default() -> Self {
+        let (sender, receiver) = mpsc::channel();
+        Self { sender, receiver: Mutex::new(receiver) }
+    }
+}
+
 /// Mesh 构建异步任务的结果
 pub struct MeshBuildResult {
     pub chunk_pos: IVec3,

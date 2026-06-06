@@ -13,14 +13,18 @@ pub const MAX_SPAWN_PER_FRAME: u32 = 4;
 /// 每帧最多派发地形任务数
 pub const MAX_TERRAIN_TASKS_PER_FRAME: u32 = 4;
 /// 每帧最多派发 Mesh 构建任务数
-pub const MAX_MESH_TASKS_PER_FRAME: u32 = 4;
+pub const MAX_MESH_TASKS_PER_FRAME: u32 = 16;
 /// 接收结果每帧最多处理数量
 pub const MAX_TERRAIN_RECEIVE_PER_FRAME: usize = 4;
-pub const MAX_MESH_RECEIVE_PER_FRAME: usize = 4;
+pub const MAX_MESH_RECEIVE_PER_FRAME: usize = 16;
 /// 结构生成每帧时间预算 (ms)
 pub const STRUCTURE_BUDGET_MS: f64 = 2.0;
 /// 面分组为空时的哨兵值
 pub const FACE_NONE: u32 = u32::MAX;
+/// 每帧最多派发结构生成任务数
+pub const MAX_STRUCTURE_TASKS_PER_FRAME: u32 = 4;
+/// 每帧最多接收结构生成结果数
+pub const MAX_STRUCTURE_RECEIVE_PER_FRAME: usize = 4;
 
 
 /*

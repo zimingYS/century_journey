@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use crate::core::constant::world::*;
@@ -13,7 +13,8 @@ use crate::world::save;
 use crate::world::save::format::SavedChunk;
 use crate::world::save::system::{SaveConfig, SaveQueue};
 use crate::world::storage::WorldStorage;
-use crate::world::systems::{PlayerChunkCache, TerrainGenChannel, TerrainGenResult};
+use crate::world::systems::{PlayerChunkCache, TerrainGenChannel, TerrainGenResult, DIRECTIONS};
+use crate::world::systems::channel::{StructureGenChannel, StructureGenResult};
 
 /// 区块加载与卸载调度
 pub fn manage_chunks_system(
@@ -115,7 +116,7 @@ pub fn spawn_terrain_gen_tasks(
 
     for (_entity, chunk_components, mut chunk_state) in &mut chunk_query {
         if *chunk_state != ChunkState::Empty { continue; }
-        if spawned >= MAX_TERRAIN_TASKS_PER_FRAME { break; }  // ← 修复：不再硬编码 16
+        if spawned >= MAX_TERRAIN_TASKS_PER_FRAME { break; }
 
         let chunk_pos = chunk_components.position;
 
@@ -147,13 +148,17 @@ pub fn spawn_terrain_gen_tasks(
             let pipeline = crate::world::generation::pipeline::GenerationPipeline::rebuild_from_seed(
                 seed, climate_config, current_season, biome_registry,
             );
+
             let ctx = crate::world::generation::terrain::TerrainGenerator::sample_context(
                 &pipeline.noise_sampler,
                 &pipeline.climate_sampler,
                 &pipeline.biome_registry,
                 chunk_pos,
             );
-            let chunk_data = pipeline.generate_chunk(chunk_pos, block_ids);
+
+            let chunk_data = crate::world::generation::terrain::TerrainGenerator::generate_terrain(
+                &ctx, &block_ids, &pipeline.biome_registry,
+            );
             let _ = sender.send(TerrainGenResult { chunk_pos, chunk_data, gen_context: ctx });
         }).detach();
 
@@ -193,37 +198,111 @@ pub fn receive_terrain_results(
 
 /// 结构生成（主线程，有严格时间预算）
 pub fn generate_structures_system(
-    mut world_storage: ResMut<WorldStorage>,
-    mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
-    seed: Res<WorldGenerator>,
+    world_storage: Res<WorldStorage>,
+    channel: Res<StructureGenChannel>,
+    world_generator: Res<WorldGenerator>,
     cached_ids: Res<CachedBlockIds>,
+    mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
 ) {
-    let budget = std::time::Instant::now();
+    let mut spawned = 0u32;
 
-    for (chunk_components, mut state) in &mut chunk_query {
-        if *state != ChunkState::TerrainReady { continue; }
-        if budget.elapsed().as_secs_f64() * 1000.0 > STRUCTURE_BUDGET_MS { break; }
+    for (chunk_components, mut chunk_state) in &mut chunk_query {
+        if *chunk_state != ChunkState::TerrainReady { continue; }
+        if spawned >= MAX_STRUCTURE_TASKS_PER_FRAME { break; }
 
-        *state = ChunkState::GeneratingStructure;
         let chunk_pos = chunk_components.position;
 
-        let ctx = if let Some(cached_ctx) = world_storage.gen_contexts.remove(&chunk_pos) {
-            cached_ctx
-        } else {
-            crate::world::generation::terrain::TerrainGenerator::sample_context(
-                &seed.pipeline.noise_sampler,
-                &seed.pipeline.climate_sampler,
-                &seed.pipeline.biome_registry,
-                chunk_pos,
-            )
+        // 取当前区块数据
+        let Some(chunk_data) = world_storage.loaded_chunks.get(&chunk_pos).cloned() else {
+            continue;
         };
 
-        StructureGenerator::generate_structures_world_aware(
-            chunk_pos, &ctx, &cached_ids.0,
-            &seed.pipeline.biome_registry, seed.seed, &mut world_storage,
-        );
+        // 取生成上下文（有缓存用缓存，没有就现场采样）
+        let ctx = world_storage.gen_contexts.get(&chunk_pos).cloned()
+            .unwrap_or_else(|| {
+                crate::world::generation::terrain::TerrainGenerator::sample_context(
+                    &world_generator.pipeline.noise_sampler,
+                    &world_generator.pipeline.climate_sampler,
+                    &world_generator.pipeline.biome_registry,
+                    chunk_pos,
+                )
+            });
 
-        *state = ChunkState::StructureReady;
+        // 收集邻居数据（跨区块树冠写入需要）
+        let mut neighbor_data: HashMap<IVec3, ChunkData> = HashMap::new();
+        for (dir, _) in &DIRECTIONS {
+            let nbr_pos = chunk_pos + *dir;
+            if let Some(data) = world_storage.loaded_chunks.get(&nbr_pos).cloned() {
+                neighbor_data.insert(nbr_pos, data);
+            }
+        }
+
+        let sender = channel.sender.clone();
+        let block_ids = cached_ids.0;
+        let biome_registry = world_generator.pipeline.biome_registry.clone();
+        let seed = world_generator.seed;
+
+        AsyncComputeTaskPool::get().spawn(async move {
+            // 构建临时 WorldStorage，复用现有 generate_structures_world_aware
+            let mut temp_storage = crate::world::storage::WorldStorage::default();
+            temp_storage.loaded_chunks.insert(chunk_pos, chunk_data);
+            for (pos, data) in neighbor_data {
+                temp_storage.loaded_chunks.insert(pos, data);
+            }
+
+            StructureGenerator::generate_structures_world_aware(
+                chunk_pos, &ctx, &block_ids, &biome_registry, seed, &mut temp_storage,
+            );
+
+            // 收集所有被修改的区块
+            let modified_chunks: Vec<(IVec3, ChunkData)> =
+                temp_storage.loaded_chunks.into_iter().collect();
+
+            let _ = sender.send(StructureGenResult { chunk_pos, modified_chunks });
+        }).detach();
+
+        *chunk_state = ChunkState::GeneratingStructure;
+        spawned += 1;
+    }
+}
+
+pub fn receive_structure_results(
+    mut world_storage: ResMut<WorldStorage>,
+    channel: Res<StructureGenChannel>,
+    mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
+) {
+    let receiver = channel.receiver.lock().unwrap();
+    let mut received = 0usize;
+
+    while received < MAX_STRUCTURE_RECEIVE_PER_FRAME {
+        let Ok(result) = receiver.try_recv() else { break };
+        received += 1;
+
+        // 合并异步任务中修改的所有区块数据
+        for (pos, data) in result.modified_chunks {
+            if let Some(existing) = world_storage.loaded_chunks.get_mut(&pos) {
+                // 只覆盖非空区块的变更（结构可能写入了邻居区块的树冠）
+                *existing = data;
+            } else {
+                // 邻居区块还未加载到 loaded_chunks，暂存为 pending_writes
+                // 或直接插入（如果该区块实体已存在但数据尚未就绪）
+                if world_storage.chunk_entities.contains_key(&pos) {
+                    world_storage.loaded_chunks.insert(pos, data);
+                }
+            }
+        }
+
+        // 清除已使用的生成上下文缓存
+        world_storage.gen_contexts.remove(&result.chunk_pos);
+
+        // 更新区块状态
+        for (chunk_components, mut chunk_state) in &mut chunk_query {
+            if chunk_components.position == result.chunk_pos
+                && *chunk_state == ChunkState::GeneratingStructure
+            {
+                *chunk_state = ChunkState::StructureReady;
+            }
+        }
     }
 }
 
