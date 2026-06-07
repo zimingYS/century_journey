@@ -44,8 +44,8 @@ impl StructureGenerator {
                     continue;
                 };
 
-                // 只允许草地生成树
-                if surface_id != block_ids.grass {
+                // 只允许符合标签的方块上生成树
+                if !block_ids.is_tree_plantable(surface_id) {
                     continue;
                 }
 

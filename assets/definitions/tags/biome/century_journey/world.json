@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "century_journey:plains",
+    "century_journey:forest",
+    "century_journey:desert",
+    "century_journey:snowy_mountains",
+    "century_journey:tundra",
+    "century_journey:ocean"
+  ]
+}

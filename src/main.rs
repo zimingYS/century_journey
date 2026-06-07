@@ -3,6 +3,7 @@ use bevy::window::WindowResolution;
 use CenturyJourney::core::constant::window::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use CenturyJourney::core::CorePlugin;
 use CenturyJourney::player::PlayerPlugin;
+use CenturyJourney::tag::TagPlugin;
 use CenturyJourney::test_setup::setup;
 use CenturyJourney::ui::UIPlugin;
 use CenturyJourney::voxel::VoxelPlugin;
@@ -23,6 +24,7 @@ fn main() {
         .add_plugins((
             CorePlugin,
             VoxelPlugin,
+            TagPlugin,
             PlayerPlugin,
             WorldPlugin,
             UIPlugin,

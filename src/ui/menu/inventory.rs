@@ -2,16 +2,19 @@ use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use crate::core::constant::ui::TOTAL_SLOTS;
 use crate::ui::components::{CreativeInventoryMenu, PacksHotbarSlot, PaletteSlot};
-use crate::core::state::inventory_ui_state::InventoryUiState;
+use crate::core::state::inventory_ui_state::{InventoryTagCategory, InventoryUiState};
+use crate::tag::registry::TagRegistry;
 use crate::voxel::registry::BlockRegistry;
 
 /// 初始化背包 UI 状态（从 BlockRegistry 提取方块列表）
-pub(crate) fn init_inventory_ui_system(
+pub fn init_inventory_ui_system(
     mut commands: Commands,
     registry: Res<BlockRegistry>,
+    tag_registry: Option<Res<TagRegistry>>,
 ) {
     let mut ui_state = InventoryUiState::default();
 
+    // 收集所有非空气方块
     for identifier in registry.identifier_to_id.keys() {
         if identifier != "century_journey:air" {
             ui_state.creative_palette.push(identifier.clone());
@@ -19,7 +22,48 @@ pub(crate) fn init_inventory_ui_system(
     }
     ui_state.creative_palette.sort();
 
+    // 从标签系统构建分类
+    if let Some(tags) = tag_registry {
+        build_tag_categories(&mut ui_state, &tags);
+    }
+
     commands.insert_resource(ui_state);
+}
+
+/// 从标签注册表构建背包分类
+fn build_tag_categories(ui_state: &mut InventoryUiState, tag_registry: &TagRegistry) {
+    // 定义要显示的分类标签
+    let category_defs = [
+        ("自然方块", "century_journey:natural"),
+        ("木质类", "century_journey:wood_like"),
+        ("透明方块", "century_journey:transparent"),
+    ];
+
+    for (display_name, tag_full) in category_defs {
+        let tag_id = crate::tag::identifier::TagId::from_full(tag_full);
+
+        if let Some(tag_id) = tag_id {
+            let entries = tag_registry.get_block_tag_entries(&tag_id);
+            if entries.is_empty() { continue; }
+
+            let mut items: Vec<String> = entries
+                .into_iter()
+                .filter(|id| id != "century_journey:air")
+                .collect();
+            items.sort();
+
+            ui_state.tag_categories.push(InventoryTagCategory {
+                display_name: display_name.to_string(),
+                tag_full: tag_full.to_string(),
+                items,
+            });
+        }
+    }
+
+    log::info!(
+        "[物品栏] 已创建 {} 个标签分类",
+        ui_state.tag_categories.len()
+    );
 }
 
 /// E键切换物品栏开关
@@ -50,6 +94,24 @@ pub fn toggle_inventory_system(
             commands.entity(entity).queue_silenced(|e: EntityWorldMut| { e.despawn(); });
         }
     }
+}
+
+/// 检测分类切换并重建物品网格
+pub fn category_changed_system(
+    inventory_ui_state: Res<InventoryUiState>,
+    menu_query: Query<Entity, With<CreativeInventoryMenu>>,
+    mut commands: Commands,
+    registry: Res<BlockRegistry>,
+) {
+    if !inventory_ui_state.is_inventory_open { return; }
+    if !inventory_ui_state.is_changed() { return; }
+
+    // 仅在分类索引改变时重建
+    // 先移除旧菜单，再创建新菜单
+    for entity in &menu_query {
+        commands.entity(entity).queue_silenced(|e: EntityWorldMut| { e.despawn(); });
+    }
+    spawn_creative_menu_ui(&mut commands, &inventory_ui_state, &registry);
 }
 
 /// 构建完整的创造模式物品栏 UI
@@ -83,36 +145,90 @@ fn spawn_creative_menu_ui(
             Node { margin: UiRect::bottom(Val::Px(10.0)), ..default() },
         ));
 
+        // ── 分类标签页行 ──
+        parent.spawn(Node {
+            flex_direction: FlexDirection::Row,
+            column_gap: Val::Px(4.0),
+            margin: UiRect::bottom(Val::Px(8.0)),
+            ..default()
+        }).with_children(|tabs| {
+            // 全部标签
+            let is_active = inventory_ui_state.active_category_index == 0;
+            spawn_category_tab(tabs, "全部", 0, is_active);
+
+            // 各标签分类
+            for (idx, category) in inventory_ui_state.tag_categories.iter().enumerate() {
+                let is_active = inventory_ui_state.active_category_index == idx + 1;
+                spawn_category_tab(tabs, &category.display_name, idx + 1, is_active);
+            }
+        });
+
         // 物品网格
+        let display_items = inventory_ui_state.current_category_items();
         parent.spawn(Node {
             display: Display::Grid,
             grid_template_columns: RepeatedGridTrack::flex(9, 1.0),
             grid_auto_rows: GridTrack::px(50.0),
             row_gap: Val::Px(4.0),
             width: Val::Percent(100.0),
+            overflow: Overflow::scroll_y(),
             ..default()
         }).with_children(|grid| {
-            for index in 0..TOTAL_SLOTS {
-                let is_hotbar_row = index >= 27;
-                let hotbar_idx = if is_hotbar_row { index - 27 } else { 0 };
+            // 上方为分类内容
+            for (index, identifier) in display_items.iter().enumerate() {
+                spawn_palette_slot(
+                    grid, index, identifier.clone(), false, 0, reg,
+                );
+            }
 
-                let identifier = if is_hotbar_row {
-                    inventory_ui_state.hotbar_items[hotbar_idx].clone()
-                } else {
-                    inventory_ui_state
-                        .creative_palette
-                        .get(index)
-                        .cloned()
-                        .unwrap_or_else(|| "century_journey:air".to_string())
-                };
-
-                spawn_palette_slot(grid, index, identifier, is_hotbar_row, hotbar_idx, reg);
+            // 分隔后显示快捷栏行
+            for hotbar_idx in 0..9 {
+                let identifier = inventory_ui_state.hotbar_items[hotbar_idx].clone();
+                spawn_palette_slot(
+                    grid, 27 + hotbar_idx, identifier, true, hotbar_idx, reg,
+                );
             }
         });
     });
 }
 
-/// 生成单个物品格子（含纹理 + 悬停/点击事件）
+/// 生成分类标签按钮
+fn spawn_category_tab(
+    parent: &mut ChildSpawnerCommands,
+    label: &str,
+    category_index: usize,
+    is_active: bool,
+) {
+    let bg_color = if is_active {
+        Color::srgba(0.3, 0.3, 0.8, 0.8)
+    } else {
+        Color::srgba(0.2, 0.2, 0.2, 0.6)
+    };
+
+    parent.spawn((
+        Button,
+        Node {
+            padding: UiRect::horizontal(Val::Px(8.0)),
+            border: UiRect::all(Val::Px(1.0)),
+            ..default()
+        },
+        BackgroundColor(bg_color),
+        BorderColor::all(Color::srgb(0.4, 0.4, 0.4)),
+    ))
+        .observe(move |trigger: On<Pointer<Click>>, mut ui_state: ResMut<InventoryUiState>| {
+            ui_state.active_category_index = category_index;
+            let _ = trigger.entity; // 消除未使用警告
+        })
+        .with_children(|btn| {
+            btn.spawn((
+                Text::new(label),
+                TextFont { font_size: FontSize::Px(14.0), ..default() },
+                TextColor(Color::WHITE),
+            ));
+        });
+}
+
+/// 生成单个物品格子
 fn spawn_palette_slot(
     grid: &mut ChildSpawnerCommands,
     index: usize,
@@ -168,7 +284,7 @@ fn spawn_palette_slot(
         });
 }
 
-/// 在格子节点内生成方块图标（空气显示暗色占位，其他显示纹理）
+/// 在格子节点内生成方块图标
 fn spawn_slot_icon(
     slot_node: &mut ChildSpawnerCommands,
     identifier: &str,

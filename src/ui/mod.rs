@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use crate::core::input_block::InputBlocked;
 use crate::core::state::app_state::AppState;
 use crate::core::state::inventory_ui_state::InventoryUiState;
+use crate::ui::menu::inventory::category_changed_system;
 
 pub mod components;
 pub mod resources;
@@ -19,6 +20,7 @@ impl Plugin for UIPlugin {
             hud::crosshair::setup_crosshair,
             hud::hotbar::spawn_hotbar_ui_system,
         ))
+        .add_systems(Update, category_changed_system.run_if(resource_changed::<InventoryUiState>))
         .add_systems(Update, (
             hud::hotbar:: update_hotbar_ui_system,
             hud::hotbar::handle_hotbar_switch_system,

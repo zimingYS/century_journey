@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    "century_journey:grass",
+    "century_journey:dirt",
+    "century_journey:sand",
+    "century_journey:snow",
+    "century_journey:stone",
+    "century_journey:ice",
+    "century_journey:leaves",
+    "century_journey:wood"
+  ]
+}

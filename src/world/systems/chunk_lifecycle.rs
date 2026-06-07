@@ -104,7 +104,6 @@ pub fn manage_chunks_system(
 
 /// 地形生成派发
 pub fn spawn_terrain_gen_tasks(
-    // block_registry: Res<BlockRegistry>,
     channel: Res<TerrainGenChannel>,
     world_generator: Res<WorldGenerator>,
     cached_ids: Res<CachedBlockIds>,
@@ -130,7 +129,7 @@ pub fn spawn_terrain_gen_tasks(
         let sender = channel.sender.clone();
         let world_name = save_config.world_name.clone();
         let remap = cached_remap.0.clone();
-        let block_ids = cached_ids.0;
+        let block_ids = cached_ids.0.clone();
         let biome_registry = Arc::clone(&world_generator.shared_biome);
         let noise_sampler = Arc::clone(&world_generator.shared_noise);
         let climate_sampler = Arc::clone(&world_generator.shared_climate);
@@ -252,7 +251,7 @@ pub fn generate_structures_system(
         }
 
         let sender = channel.sender.clone();
-        let block_ids = cached_ids.0;
+        let block_ids = cached_ids.0.clone();
         let biome_registry = world_generator.pipeline.biome_registry.clone();
         let seed = world_generator.seed;
 

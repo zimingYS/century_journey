@@ -8,6 +8,8 @@ pub mod save;
 
 use bevy::prelude::*;
 use crate::core::state::app_state::AppState;
+use crate::tag;
+use crate::tag::cache::CachedTagCache;
 use crate::voxel::registry::BlockRegistry;
 use crate::world::generation::noise::CachedBlockIds;
 
@@ -49,9 +51,17 @@ impl Plugin for WorldPlugin{
 
 fn cache_block_ids_system(
     registry: Res<BlockRegistry>,
+    cached_tag_cache: Option<Res<CachedTagCache>>,
     mut commands: Commands,
 ) {
-    commands.insert_resource(CachedBlockIds(
-        generation::noise::GenerationBlockIds::from_registry(&registry)
-    ));
+    let block_ids = if let Some(ref cache) = cached_tag_cache {
+        generation::noise::GenerationBlockIds::from_registry(&registry, &cache.0)
+    } else {
+        log::warn!("[世界] CachedTagCache 尚未初始化，使用空标签缓存");
+        generation::noise::GenerationBlockIds::from_registry(
+            &registry,
+            &tag::cache::TagCache::default(),
+        )
+    };
+    commands.insert_resource(CachedBlockIds(block_ids));
 }

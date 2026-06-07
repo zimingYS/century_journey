@@ -1,7 +1,9 @@
+use std::collections::HashSet;
 use crate::core::constant::world::*;
 use crate::voxel::registry::BlockRegistry;
 use bevy::prelude::*;
 use noise::{NoiseFn, Perlin};
+use crate::tag::cache::TagCache;
 use crate::world::generation::biome::BiomeRegistry;
 use crate::world::generation::climate::{ClimateSampler, Season};
 use crate::world::generation::context::{ChunkGenContext, ColumnContext};
@@ -153,7 +155,7 @@ impl TerrainGenerator {
 }
 
 /// 生成地形主要使用的方块缓存
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct GenerationBlockIds {
     pub air: u16,
     pub grass: u16,
@@ -164,11 +166,17 @@ pub struct GenerationBlockIds {
     pub snow: u16,
     pub leaves: u16,
     pub wood: u16,
+    /// 可种树地表方块ID集合
+    pub tree_plantable_ids: HashSet<u16>,
+    /// 自然方块ID集合
+    pub natural_ids: HashSet<u16>,
+    /// 可替换方块ID集合
+    pub overworld_replaceable_ids: HashSet<u16>,
 }
 
 impl GenerationBlockIds {
     /// 游戏在调用生成前，从 Bevy 的中央注册表中一次性把名字翻译成数字 ID
-    pub fn from_registry(registry: &BlockRegistry) -> Self {
+    pub fn from_registry(registry: &BlockRegistry , tag_cache: &TagCache) -> Self {
         Self {
             air: 0,
             grass: registry.get_id_by_identifier("century_journey:grass").unwrap_or(0),
@@ -179,14 +187,46 @@ impl GenerationBlockIds {
             snow:  registry.get_id_by_identifier("century_journey:snow").unwrap_or(0),
             leaves: registry.get_id_by_identifier("century_journey:leaves").unwrap_or(0),
             wood:  registry.get_id_by_identifier("century_journey:wood").unwrap_or(0),
+            tree_plantable_ids: tag_cache
+                .get_block_tag_ids("century_journey:tree_plantable")
+                .cloned()
+                .unwrap_or_else(|| {
+                    // 标签不存在时回退：默认只有草方块可种树
+                    let mut set = HashSet::new();
+                    if let Some(id) = registry.get_id_by_identifier("century_journey:grass") {
+                        set.insert(id);
+                    }
+                    set
+                }),
+            natural_ids: tag_cache
+                .get_block_tag_ids("century_journey:natural")
+                .cloned()
+                .unwrap_or_default(),
+            overworld_replaceable_ids: tag_cache
+                .get_block_tag_ids("century_journey:overworld_replaceable")
+                .cloned()
+                .unwrap_or_default(),
         }
     }
 
+    /// 查询方块是否可在该地表种树
+    pub fn is_tree_plantable(&self, block_id: u16) -> bool {
+        self.tree_plantable_ids.contains(&block_id)
+    }
+
+    /// 查询方块是否为自然方块
+    pub fn is_natural(&self, block_id: u16) -> bool {
+        self.natural_ids.contains(&block_id)
+    }
+
+    /// 查询方块是否可被主世界替换
+    pub fn is_overworld_replaceable(&self, block_id: u16) -> bool {
+        self.overworld_replaceable_ids.contains(&block_id)
+    }
+
     /// 从方块标识符解析到ID
-    /// 缓存了常用方块，未缓存的回注册表查
+    #[deprecated(note = "请使用标签查询替代硬编码标识符匹配")]
     pub fn resolve_block_id(&self, _identifier: &str) -> u16 {
-        // 这里用简单的匹配，因为 GenerationBlockIds 没有存 BlockRegistry 引用
-        // 实际使用时，如果群系的方块不在缓存中，需要从 registry 获取
         match _identifier {
             "century_journey:grass" => self.grass,
             "century_journey:dirt" => self.dirt,
@@ -196,13 +236,13 @@ impl GenerationBlockIds {
             "century_journey:snow" => self.snow,
             "century_journey:leaves" => self.leaves,
             "century_journey:wood" => self.wood,
-            _ => self.grass, // 未知方块回退到草方块
+            _ => self.grass,
         }
     }
 }
 
 /// 缓存方块ID资源，避免每帧重建
-#[derive(Resource, Clone, Copy)]
+#[derive(Resource, Clone)]
 pub struct CachedBlockIds(pub GenerationBlockIds);
 
 /// 多层噪声采样器

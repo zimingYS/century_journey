@@ -1,21 +1,23 @@
-use crate::player::systems::raycast::{raycast_voxel, TargetVoxel};
-use crate::world::chunk::{ChunkComponents, ChunkState};
-use bevy::prelude::*;
 use crate::core::constant::world::CHUNK_SIZE;
 use crate::core::input_block::InputBlocked;
 use crate::core::state::inventory_ui_state::InventoryUiState;
 use crate::player::components::Player;
+use crate::player::systems::raycast::TargetVoxel;
+use crate::tag::cache::CachedTagCache;
 use crate::voxel::behavior::{get_voxel_at_world, set_voxel_at_world};
 use crate::voxel::event::{BlockBreakEvent, BlockInteractEvent, BlockPlaceEvent};
 use crate::voxel::registry::BlockRegistry;
 use crate::voxel::sound::{BlockSoundEvent, SoundAction};
+use crate::world::chunk::{ChunkComponents, ChunkState};
 use crate::world::storage::WorldStorage;
+use bevy::prelude::*;
 
 pub fn voxel_interaction_system(
     target_voxel: Res<TargetVoxel>,
     registry: Option<Res<BlockRegistry>>,
     input_blocked: Res<InputBlocked>,
     inventory_ui_state: Res<InventoryUiState>,
+    tag_cache: Option<Res<CachedTagCache>>,
     mouse_button: Res<ButtonInput<MouseButton>>,
     player_query: Query<Entity, With<Player>>,
     mut world_storage: ResMut<WorldStorage>,
@@ -42,6 +44,15 @@ pub fn voxel_interaction_system(
             // 左键破坏
             let hit_pos = ray_result.hit_pos;
             let hit_id = get_voxel_at_world(hit_pos, &world_storage);
+
+            // 检查不可破坏方块
+            if tag_cache
+                .as_ref()
+                .map_or(false, |tc| tc.0.is_block_in_tag(hit_id, "century_journey:unbreakable"))
+            {
+                return;
+            }
+
 
             // 调用方块行为
             let behavior = reg.get_behavior_by_id(hit_id);
@@ -103,8 +114,20 @@ pub fn voxel_interaction_system(
                 }
             }
 
-            // 右键放置：从快捷栏里拿出当前手持方块的名称串唯一标识
+            // 右键放置
             let place_pos = hit_pos + ray_result.normal;
+            //检查放置目标是否可替换
+            let existing_id = get_voxel_at_world(place_pos, &world_storage);
+            if existing_id != 0 {
+                // 目标位置已有方块，只有可替换的才允许覆盖
+                if tag_cache
+                    .as_ref()
+                    .map_or(true, |tc| !tc.0.is_block_in_tag(existing_id, "century_journey:overworld_replaceable"))
+                {
+                    return;
+                }
+            }
+
             let current_hand_identifier = &inventory_ui_state.hotbar_items[inventory_ui_state.active_hotbar_index];
             // 翻译成运行时对应的动态ID
             let Some(block_id) = reg.get_id_by_identifier(current_hand_identifier) else { return; };
