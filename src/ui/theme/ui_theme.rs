@@ -108,7 +108,7 @@ impl Default for UiTheme {
             creative_hotbar_h:    80.0,
             creative_hotbar_slot: 52.0,
 
-            grid_columns:      8,
+            grid_columns:      9,
             grid_padding:       10.0,
 
             title_font_size:   24.0,

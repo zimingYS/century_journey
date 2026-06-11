@@ -13,10 +13,7 @@ use crate::ui::components::{
 use crate::ui::resources::ui_font::UiFont;
 use crate::ui::theme::category_theme::CategoryTheme;
 use crate::ui::theme::ui_theme::UiTheme;
-use crate::ui::widgets::slot::{
-    spawn_slot_with_item, sync_slot_icon, CategoryTab, CreativeSearchInput,
-    InventorySlot, SlotKind, SlotVisual,
-};
+use crate::ui::widgets::slot::{spawn_slot_with_item, sync_slot_icon, CategoryTab, CreativeSearchInput, InventorySlot, SearchInputState, SlotKind, SlotVisual};
 use crate::ui::widgets::tab::spawn_category_tab;
 use crate::voxel::registry::BlockRegistry;
 
@@ -221,12 +218,13 @@ fn build_hotbar_panel(root: &mut ChildSpawnerCommands, theme: &UiTheme) {
 /// 切换物品栏状态
 pub fn toggle_creative_inventory_system(
     keyboard: Res<ButtonInput<KeyCode>>,
+    search_state: Res<SearchInputState>,
     mut state: ResMut<InventoryState>,
     mut cursor_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
 ) {
-    if !keyboard.just_pressed(KeyCode::KeyE) {
-        return;
-    }
+    if !keyboard.just_pressed(KeyCode::KeyE) { return; }
+    if search_state.active { return; }
+
     state.toggle();
 
     let Ok(mut cursor) = cursor_query.single_mut() else { return };

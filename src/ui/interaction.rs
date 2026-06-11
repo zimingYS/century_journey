@@ -135,10 +135,11 @@ pub fn cancel_drag_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut inventory: ResMut<InventoryState>,
+    search_state: Res<SearchInputState>,
 ) {
-    if !inventory.opened {
-        return;
-    }
+    if !inventory.opened { return; }
+    if search_state.active { return; }
+
     if keyboard.just_pressed(KeyCode::Escape) || mouse.just_pressed(MouseButton::Right) {
         inventory.cursor.clear();
     }
@@ -213,7 +214,8 @@ pub fn search_escape_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut search_state: ResMut<SearchInputState>,
 ) {
-    if keyboard.just_pressed(KeyCode::Escape) {
+    if keyboard.just_pressed(KeyCode::Escape) || keyboard.just_pressed(KeyCode::Enter)
+    {
         search_state.active = false;
     }
 }

@@ -2,6 +2,7 @@ use crate::player::components::{Player, PlayerCollider, PlayerGravity, PlayerMov
 use bevy::prelude::*;
 use crate::core::constant::player::STEP_HEIGHT;
 use crate::player::systems::collision::check_collision_at;
+use crate::ui::widgets::slot::SearchInputState;
 use crate::voxel::registry::BlockRegistry;
 use crate::world::storage::WorldStorage;
 
@@ -10,8 +11,10 @@ pub fn player_movement_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     registry: Option<Res<BlockRegistry>>,
     world_storage: Res<WorldStorage>,
+    search_state: Res<SearchInputState>,
     mut query: Query<(&mut Transform, &PlayerCollider, &PlayerMovement, &mut PlayerGravity), With<Player>>,
 ){
+    if search_state.active { return; }
     let Some(reg) = registry else { return };
     let dt = time.delta_secs();
 

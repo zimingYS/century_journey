@@ -3,9 +3,7 @@ use crate::inventory::item::id::ItemId;
 use crate::inventory::state::InventoryState;
 use crate::ui::components::{HudHotbarContainer, HudRoot};
 use crate::ui::theme::ui_theme::UiTheme;
-use crate::ui::widgets::slot::{
-    spawn_empty_slot, sync_slot_icon, InventorySlot, SlotKind, SlotVisual,
-};
+use crate::ui::widgets::slot::{spawn_empty_slot, sync_slot_icon, InventorySlot, SearchInputState, SlotKind, SlotVisual};
 use crate::voxel::registry::BlockRegistry;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
@@ -95,12 +93,11 @@ pub fn hud_hotbar_visual_sync_system(
 /// 数字键/滚轮切换快捷栏
 pub fn handle_hotbar_switch_system(
     keyboard: Res<ButtonInput<KeyCode>>,
+    search_state: Res<SearchInputState>,
     mut mouse_wheel: MessageReader<MouseWheel>,
     mut state: ResMut<InventoryState>,
 ) {
-    if state.opened {
-        return;
-    }
+    if state.opened || search_state.active { return; }
 
     let num_keys = [
         (KeyCode::Digit1, 0), (KeyCode::Digit2, 1), (KeyCode::Digit3, 2),
