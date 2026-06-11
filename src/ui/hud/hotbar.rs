@@ -3,12 +3,14 @@ use crate::inventory::item::id::ItemId;
 use crate::inventory::state::InventoryState;
 use crate::ui::components::{HudHotbarContainer, HudRoot};
 use crate::ui::theme::ui_theme::UiTheme;
-use crate::ui::widgets::slot::{apply_item_texture, spawn_empty_slot, InventorySlot, SlotKind};
+use crate::ui::widgets::slot::{
+    spawn_empty_slot, sync_slot_icon, InventorySlot, SlotKind, SlotVisual,
+};
 use crate::voxel::registry::BlockRegistry;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
-/// 生成快捷栏UI
+/// 生成HUD快捷栏
 pub fn spawn_hotbar_ui_system(mut commands: Commands, theme: Res<UiTheme>) {
     commands.spawn((
         HudRoot,
@@ -36,30 +38,36 @@ pub fn spawn_hotbar_ui_system(mut commands: Commands, theme: Res<UiTheme>) {
     });
 }
 
-/// 更新快捷栏纹理并选中高亮
-pub fn update_hotbar_ui_system(
-    block_registry: Option<Res<BlockRegistry>>,
+/// HUD快捷栏视觉同步
+pub fn hud_hotbar_visual_sync_system(
     state: Res<InventoryState>,
+    block_registry: Option<Res<BlockRegistry>>,
     mut commands: Commands,
     slot_query: Query<(Entity, &InventorySlot)>,
+    mut slot_visual_query: Query<&mut SlotVisual>,
     children_query: Query<&Children>,
-    mut image_node_query: Query<(&mut ImageNode, &mut BackgroundColor)>,
     mut border_query: Query<(&InventorySlot, &mut BorderColor)>,
     theme: Res<UiTheme>,
+    mut last_hotbar: Local<Vec<ItemId>>,
 ) {
-    let Some(reg) = block_registry else { return; };
+    let Some(reg) = block_registry.as_ref() else { return };
+    let current: Vec<ItemId> = state.hotbar.items.to_vec();
 
-    // 更新快捷栏格子纹理
+    // 热栏未变则跳过
+    if *last_hotbar == current { return; }
+    *last_hotbar = current.clone();
+
+    // 原地更新图标 + 回写 SlotVisual
     for (entity, slot) in &slot_query {
         if slot.kind != SlotKind::Hotbar { continue; }
-        let item_id = state.hotbar.items.get(slot.index)
-            .cloned()
-            .unwrap_or(ItemId::air());
+        let item = current.get(slot.index).cloned().unwrap_or(ItemId::air());
 
-        apply_item_texture(
-            &mut commands, entity, &item_id, reg.as_ref(),
-            &children_query, &mut image_node_query,
-        );
+        if let Ok(mut visual) = slot_visual_query.get_mut(entity) {
+            if visual.item != item {
+                sync_slot_icon(&mut commands, entity, &item, reg, &children_query);
+                visual.item = item;       
+            }
+        }
     }
 
     // 更新选中边框
@@ -81,7 +89,9 @@ pub fn handle_hotbar_switch_system(
     mut mouse_wheel: MessageReader<MouseWheel>,
     mut state: ResMut<InventoryState>,
 ) {
-    if state.opened { return; }
+    if state.opened {
+        return;
+    }
 
     let num_keys = [
         (KeyCode::Digit1, 0), (KeyCode::Digit2, 1), (KeyCode::Digit3, 2),
@@ -96,7 +106,10 @@ pub fn handle_hotbar_switch_system(
     }
 
     for event in mouse_wheel.read() {
-        if event.y > 0.0 { state.hotbar.select_prev(); }
-        else { state.hotbar.select_next(); }
+        if event.y > 0.0 {
+            state.hotbar.select_prev();
+        } else {
+            state.hotbar.select_next();
+        }
     }
 }
