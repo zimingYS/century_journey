@@ -1,35 +1,48 @@
 use bevy::prelude::Component;
 
+// ━━ HUD ━━
 /// 十字准心组件
 #[derive(Component)]
 pub struct Crosshair;
-
-/// 创造模式背包物品栏组件
+/// 处理HUD的根节点
 #[derive(Component)]
-pub struct CreativeInventoryMenu;
-
-/// 物品栏内的选择格子
-#[derive(Component)]
-pub struct PaletteSlot{
-    pub identifier: String,
-}
-
+pub struct HudRoot;
 /// HUD快捷栏(物品栏)
 #[derive(Component)]
 pub struct HudHotbarContainer;
-
-/// HUD快捷栏(物品栏)中的单个物品槽位
-#[derive(Component)]
-pub struct HudHotbarSlot {
-    pub index: usize,
-}
-
-/// 专门用来标记背包物品栏
-#[derive(Component)]
-pub struct PacksHotbarSlot {
-    pub hotbar_index: usize,
-}
-
 /// HUD快捷栏(物品栏)外的高亮选择框
 #[derive(Component)]
 pub struct HudHotbarSelector;
+
+// ━━ 创造模式物品栏 ━━
+/// 创造模式物品栏显示根目录
+#[derive(Component)]
+pub struct CreativeInventoryOverlay;
+/// 创造模式物品栏UI
+#[derive(Component)]
+pub struct CreativeInventoryRoot;
+/// 创造模式物品栏分类标签面板组件
+#[derive(Component)]
+pub struct CreativeCategoryPanel;
+/// 创造模式物品栏物品网格组件
+#[derive(Component)]
+pub struct CreativeItemGrid;
+/// 创造模式物品栏最近使用物品面板组件
+#[derive(Component)]
+pub struct CreativeRecentPanel;
+/// 创造模式物品栏搜索框组件
+#[derive(Component)]
+pub struct CreativeSearchBox;
+/// 创造模式快捷栏
+#[derive(Component)]
+pub struct CreativeHotbarPanel;
+
+// ━━ 鼠标悬浮 ━━
+#[derive(Component)]
+pub struct CursorItemIcon;
+
+// ━━ 未来扩展 ━━
+// #[derive(Component)] pub struct SurvivalRoot;
+// #[derive(Component)] pub struct HealthBar;
+// #[derive(Component)] pub struct HungerBar;
+// #[derive(Component)] pub struct ContainerRoot;

@@ -5,3 +5,4 @@ pub mod voxel;
 pub mod world;
 pub mod ui;
 pub mod tag;
+pub mod inventory;

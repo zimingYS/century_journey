@@ -1,6 +1,5 @@
 pub mod window;
 pub mod world;
-pub mod ui;
 pub mod texture;
 pub mod player;
 pub mod sky;

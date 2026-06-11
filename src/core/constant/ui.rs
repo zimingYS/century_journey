@@ -1,1 +1,0 @@
-pub const TOTAL_SLOTS: usize = 36;

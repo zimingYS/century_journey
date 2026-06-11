@@ -1,6 +1,6 @@
 use crate::core::constant::world::CHUNK_SIZE;
 use crate::core::input_block::InputBlocked;
-use crate::core::state::inventory_ui_state::InventoryUiState;
+use crate::inventory::state::InventoryState;
 use crate::player::components::Player;
 use crate::player::systems::raycast::TargetVoxel;
 use crate::tag::cache::CachedTagCache;
@@ -16,7 +16,7 @@ pub fn voxel_interaction_system(
     target_voxel: Res<TargetVoxel>,
     registry: Option<Res<BlockRegistry>>,
     input_blocked: Res<InputBlocked>,
-    inventory_ui_state: Res<InventoryUiState>,
+    inventory_state: Res<InventoryState>,
     tag_cache: Option<Res<CachedTagCache>>,
     mouse_button: Res<ButtonInput<MouseButton>>,
     player_query: Query<Entity, With<Player>>,
@@ -128,7 +128,8 @@ pub fn voxel_interaction_system(
                 }
             }
 
-            let current_hand_identifier = &inventory_ui_state.hotbar_items[inventory_ui_state.active_hotbar_index];
+            let current_hand_item = inventory_state.hotbar.active_item();
+            let current_hand_identifier = current_hand_item.as_block_id().unwrap_or("century_journey:air");
             // 翻译成运行时对应的动态ID
             let Some(block_id) = reg.get_id_by_identifier(current_hand_identifier) else { return; };
             if block_id == 0 { return; }

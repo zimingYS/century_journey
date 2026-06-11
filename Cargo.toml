@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 tokio = "1.52.3"
-bevy = "0.19.0-rc.2"
+bevy = "0.19.0-rc.3"
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
 serde = { version = "1.0.228", features = ["derive"] }
 # 噪声生成算法
@@ -25,6 +25,9 @@ serde_arrays = "0.2.0"
 serde_json = "1.0.150"
 rand = "0.10.1"
 
+# 修复 ICU4X "No segmentation model for language: ja"
+# cosmic-text 日语分词依赖 LSTM 模型，需显式启用
+icu_segmenter = { version = "2", features = ["compiled_data", "auto", "lstm"] }
 
 
 
