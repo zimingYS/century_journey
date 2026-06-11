@@ -198,7 +198,7 @@ pub fn sync_slot_icon(
     let atlas_index = layer_to_atlas_index(layer);
 
     commands.entity(icon_entity).insert((
-        Visibility::Visible,
+        Visibility::Inherited,
         ImageNode {
             image: registry.base_texture.clone(),
             texture_atlas: Some(TextureAtlas {

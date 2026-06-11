@@ -12,30 +12,39 @@ use bevy::prelude::*;
 
 /// 生成HUD快捷栏
 pub fn spawn_hotbar_ui_system(mut commands: Commands, theme: Res<UiTheme>) {
-    commands.spawn((
-        HudRoot,
-        HudHotbarContainer,
-        Name::new("HudHotbar"),
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(20.0),
-            left: Val::Percent(35.0),
-            width: Val::Percent(30.0),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            flex_direction: FlexDirection::Row,
-            column_gap: Val::Px(theme.slot_gap),
-            padding: UiRect::all(Val::Px(4.0)),
-            border: UiRect::all(Val::Px(2.0)),
-            ..default()
-        },
-        BackgroundColor(theme.hotbar_bg),
-        BorderColor::all(theme.border_default),
-    )).with_children(|parent| {
-        for index in 0..HOTBAR_SIZE {
-            spawn_empty_slot(parent, SlotKind::Hotbar, index, &theme);
-        }
-    });
+    commands
+        .spawn((
+            HudRoot,
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(20.0),
+                left: Val::Px(0.0),
+                width: Val::Percent(100.0),
+                justify_content: JustifyContent::Center, // 水平居中子元素
+                ..default()
+            },
+        ))
+        .with_children(|wrapper| {
+            wrapper
+                .spawn((
+                    HudHotbarContainer,
+                    Name::new("HudHotbar"),
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(theme.slot_gap),
+                        padding: UiRect::all(Val::Px(4.0)),
+                        border: UiRect::all(Val::Px(2.0)),
+                        ..default()
+                    },
+                    BackgroundColor(theme.hotbar_bg),
+                    BorderColor::all(theme.border_default),
+                ))
+                .with_children(|parent| {
+                    for index in 0..HOTBAR_SIZE {
+                        spawn_empty_slot(parent, SlotKind::Hotbar, index, &theme);
+                    }
+                });
+        });
 }
 
 /// HUD快捷栏视觉同步
@@ -53,24 +62,24 @@ pub fn hud_hotbar_visual_sync_system(
     let Some(reg) = block_registry.as_ref() else { return };
     let current: Vec<ItemId> = state.hotbar.items.to_vec();
 
-    // 热栏未变则跳过
-    if *last_hotbar == current { return; }
-    *last_hotbar = current.clone();
+    // 图标同步 — 仅物品变化时执行
+    if *last_hotbar != current {
+        *last_hotbar = current.clone();
 
-    // 原地更新图标 + 回写 SlotVisual
-    for (entity, slot) in &slot_query {
-        if slot.kind != SlotKind::Hotbar { continue; }
-        let item = current.get(slot.index).cloned().unwrap_or(ItemId::air());
+        for (entity, slot) in &slot_query {
+            if slot.kind != SlotKind::Hotbar { continue; }
+            let item = current.get(slot.index).cloned().unwrap_or(ItemId::air());
 
-        if let Ok(mut visual) = slot_visual_query.get_mut(entity) {
-            if visual.item != item {
-                sync_slot_icon(&mut commands, entity, &item, reg, &children_query);
-                visual.item = item;       
+            if let Ok(mut visual) = slot_visual_query.get_mut(entity) {
+                if visual.item != item {
+                    sync_slot_icon(&mut commands, entity, &item, reg, &children_query);
+                    visual.item = item;
+                }
             }
         }
     }
 
-    // 更新选中边框
+    // 边框高亮
     for (slot, mut border) in &mut border_query {
         if slot.kind != SlotKind::Hotbar { continue; }
         *border = BorderColor::all(
