@@ -21,7 +21,7 @@ pub struct PlayerGameMode {
 impl Default for PlayerGameMode {
     fn default() -> Self {
         Self {
-            mode: GameMode::Creative,
+            mode: GameMode::Survival,
         }
     }
 }

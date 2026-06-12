@@ -1,5 +1,6 @@
 use crate::core::constant::world::CHUNK_SIZE;
 use crate::core::input_block::InputBlocked;
+use crate::inventory::container::InventoryContainer;
 use crate::inventory::state::InventoryState;
 use crate::player::components::Player;
 use crate::player::systems::raycast::TargetVoxel;
@@ -11,15 +12,20 @@ use crate::voxel::sound::{BlockSoundEvent, SoundAction};
 use crate::world::chunk::{ChunkComponents, ChunkState};
 use crate::world::storage::WorldStorage;
 use bevy::prelude::*;
+use crate::gameplay::gamemode::PlayerGameMode;
+use crate::loot::block_registry::BlockLootRegistry;
+use crate::world::entity::dropped_item::spawn_dropped_item;
 
 pub fn voxel_interaction_system(
     target_voxel: Res<TargetVoxel>,
     registry: Option<Res<BlockRegistry>>,
     input_blocked: Res<InputBlocked>,
-    inventory_state: Res<InventoryState>,
+    mut inventory_state: ResMut<InventoryState>,
     tag_cache: Option<Res<CachedTagCache>>,
     mouse_button: Res<ButtonInput<MouseButton>>,
     player_query: Query<Entity, With<Player>>,
+    gamemode: Res<PlayerGameMode>,
+    loot_registry: Option<Res<BlockLootRegistry>>,
     mut world_storage: ResMut<WorldStorage>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
     mut break_events: MessageWriter<BlockBreakEvent>,
@@ -53,13 +59,31 @@ pub fn voxel_interaction_system(
                 return;
             }
 
-
             // 调用方块行为
-            let behavior = reg.get_behavior_by_id(hit_id);
-            behavior.on_break(hit_pos, hit_id, &mut world_storage, &mut commands);
+            if gamemode.is_creative() {
+                // 创造模式：直接删除，无掉落
+                let behavior = reg.get_behavior_by_id(hit_id);
+                behavior.on_break(hit_pos, hit_id, &mut world_storage, &mut commands);
+                set_voxel_at_world(hit_pos, 0, &mut world_storage);
+            } else {
+                // 生存模式：执行破坏流水线（方块行为 + 删除 + 掉落）
+                let behavior = reg.get_behavior_by_id(hit_id);
+                behavior.on_break(hit_pos, hit_id, &mut world_storage, &mut commands);
+                set_voxel_at_world(hit_pos, 0, &mut world_storage);
 
-            // 实际移除方块
-            set_voxel_at_world(hit_pos, 0, &mut world_storage);
+                if let Some(ref loot) = loot_registry {
+                    let drops = loot.roll(hit_id);
+                    let center = hit_pos.as_vec3();
+                    for (j, stack) in drops.into_iter().enumerate() {
+                        let offset = Vec3::new(
+                            (j as f32 * 0.3) % 1.0 - 0.5,
+                            0.5,
+                            (j as f32 * 0.7) % 1.0 - 0.5,
+                        );
+                        spawn_dropped_item(&mut commands, center + offset, stack);
+                    }
+                }
+            }
 
             // 发送破坏事件
             break_events.write(BlockBreakEvent {
@@ -144,6 +168,18 @@ pub fn voxel_interaction_system(
 
             // 实际放置方块
             set_voxel_at_world(place_pos, block_id, &mut world_storage);
+
+            // 生存模式下从快捷栏扣除 1 个物品
+            if !gamemode.is_creative() {
+                let idx = inventory_state.hotbar.active_index;
+                if let Some(stack) = inventory_state.hotbar.get_stack_mut(idx) {
+                    if stack.count > 1 {
+                        stack.count -= 1;
+                    } else {
+                        inventory_state.hotbar.set_stack(idx, crate::inventory::item::stack::ItemStack::empty());
+                    }
+                }
+            }
 
             // 发送放置事件
             place_events.write(BlockPlaceEvent {

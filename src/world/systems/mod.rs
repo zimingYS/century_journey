@@ -3,6 +3,8 @@ mod chunk_lifecycle;
 mod greedy_mesh;
 mod mesh_buffer;
 mod mesh_lifecycle;
+pub mod pickup;
+pub mod break_pipeline;
 
 pub use channel::{
     TerrainGenChannel, TerrainGenResult,

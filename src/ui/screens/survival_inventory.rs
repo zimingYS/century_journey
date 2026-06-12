@@ -1,10 +1,11 @@
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use crate::gameplay::gamemode::PlayerGameMode;
+use crate::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::inventory::container::InventoryContainer;
 use crate::inventory::item::id::ItemId;
 use crate::inventory::state::InventoryState;
-use crate::ui::components::{CreativeHotbarPanel, SurvivalInventoryOverlay, SurvivalInventoryRoot, SurvivalItemGrid};
+use crate::ui::components::{SurvivalHotbarPanel, SurvivalInventoryOverlay, SurvivalInventoryRoot, SurvivalItemGrid};
 use crate::ui::theme::ui_theme::UiTheme;
 use crate::ui::widgets::slot::{spawn_empty_slot, sync_slot_icon, InventorySlot, SearchInputState, SlotKind, SlotVisual};
 use crate::voxel::registry::BlockRegistry;
@@ -95,7 +96,7 @@ pub fn spawn_survival_inventory_system(
 /// 生存背包底部的快捷栏
 fn build_survival_hotbar_panel(root: &mut ChildSpawnerCommands, theme: &UiTheme) {
     root.spawn((
-        CreativeHotbarPanel,   // 复用同一个组件标记
+        SurvivalHotbarPanel,
         Node {
             width: Val::Percent(100.0),
             height: Val::Px(theme.creative_hotbar_h),
@@ -187,17 +188,17 @@ pub fn survival_grid_visual_sync_system(
     children_query: Query<&Children>,
     slot_query: Query<(Entity, &InventorySlot, &SlotVisual)>,
     mut commands: Commands,
-    mut last_snapshot: Local<Vec<ItemId>>,
+    mut last_snapshot: Local<Vec<(ItemId, u32)>>,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
     let Ok(grid_entity) = grid_query.single() else { return };
 
-    // 构建当前快照
-    let current: Vec<ItemId> = (0..36)
+    // 构建当前快照（含数量）
+    let current: Vec<(ItemId, u32)> = (0..36)
         .map(|i| {
             state.survival.get_stack(i)
-                .map(|s| s.item.clone())
-                .unwrap_or(ItemId::air())
+                .map(|s| (s.item.clone(), s.count))
+                .unwrap_or((ItemId::air(), 0))
         })
         .collect();
 
@@ -212,9 +213,9 @@ pub fn survival_grid_visual_sync_system(
                 if slot.kind != SlotKind::SurvivalBackpack {
                     continue;
                 }
-                let item = current.get(slot.index).cloned().unwrap_or(ItemId::air());
-                if visual.item != item {
-                    sync_slot_icon(&mut commands, entity, &item, reg, &children_query);
+                let (item, count) = current.get(slot.index).cloned().unwrap_or((ItemId::air(), 0));
+                if visual.item != item || visual.count != count {
+                    sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query);
                 }
             }
         }
@@ -230,20 +231,27 @@ pub fn survival_hotbar_visual_sync_system(
     mut commands: Commands,
     theme: Res<UiTheme>,
     mut border_query: Query<(&InventorySlot, &mut BorderColor)>,
-    mut last_hotbar: Local<Vec<ItemId>>,
+    mut last_hotbar: Local<Vec<(ItemId, u32)>>,
     mut last_active: Local<usize>,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
-    let current = state.hotbar.items().to_vec();
+
+    let current: Vec<(ItemId, u32)> = (0..HOTBAR_SIZE)
+        .map(|i| {
+            state.hotbar.get_stack(i)
+                .map(|s| (s.item.clone(), s.count))
+                .unwrap_or((ItemId::air(), 0))
+        })
+        .collect();
 
     // 图标同步
     if *last_hotbar != current {
         *last_hotbar = current.clone();
         for (entity, slot, visual) in &slot_query {
             if slot.kind != SlotKind::Hotbar { continue; }
-            let item = current.get(slot.index).cloned().unwrap_or(ItemId::air());
-            if visual.item != item {
-                sync_slot_icon(&mut commands, entity, &item, reg, &children_query);
+            let (item, count) = current.get(slot.index).cloned().unwrap_or((ItemId::air(), 0));
+            if visual.item != item || visual.count != count {
+                sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query);
             }
         }
     }

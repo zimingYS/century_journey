@@ -7,3 +7,4 @@ pub mod recent;
 pub mod state;
 pub mod slot;
 pub mod interaction;
+pub mod insert;

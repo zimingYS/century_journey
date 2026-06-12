@@ -5,6 +5,7 @@ pub mod systems;
 pub mod sky;
 pub mod time;
 pub mod save;
+pub mod entity;
 
 use bevy::prelude::*;
 use crate::core::state::app_state::AppState;
@@ -29,6 +30,7 @@ impl Plugin for WorldPlugin{
             .init_resource::<systems::CachedBlockInfo>()
             .add_plugins(sky::SkyPlugin)
             .add_plugins(save::SaveLoadPlugin)
+            .add_plugins(entity::EntityPlugin)
             .add_systems(
                 Update,
                 systems::rebuild_block_info_snapshot
@@ -43,6 +45,7 @@ impl Plugin for WorldPlugin{
                 systems::receive_structure_results,
                 systems::spawn_mesh_build_tasks,
                 systems::receive_mesh_results,
+                systems::pickup::pickup_system,
                 time::update_time_system,
             ).chain().run_if(in_state(AppState::InGame)))
         .add_systems(OnEnter(AppState::InGame), cache_block_ids_system);

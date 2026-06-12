@@ -37,6 +37,9 @@ use bevy::prelude::Component;
 /// 生存背包物品网格（36 格）
 #[derive(Component)] pub struct SurvivalItemGrid;
 
+/// 生存背包底部快捷栏（与 CreativeHotbarPanel 分离，避免 query.single() 冲突）
+#[derive(Component)] pub struct SurvivalHotbarPanel;
+
 // ━━ 未来扩展 ━━
 // #[derive(Component)] pub struct HealthBar;
 // #[derive(Component)] pub struct HungerBar;

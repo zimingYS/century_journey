@@ -25,16 +25,21 @@ pub enum SlotKind {
 #[derive(Component)]
 pub struct SlotIcon;
 
+/// 槽位数量文本子实体标记
+#[derive(Component)]
+pub struct SlotCountText;
+
 /// 槽位的视觉状态缓存
 #[derive(Component, Debug, Clone)]
 pub struct SlotVisual {
     pub item: ItemId,
+    pub count: u32,
 }
 
 /// 默认槽位为空气
 impl Default for SlotVisual {
     fn default() -> Self {
-        Self { item: ItemId::air() }
+        Self { item: ItemId::air(), count: 0 }
     }
 }
 
@@ -84,7 +89,7 @@ pub fn spawn_empty_slot(
 ) {
     parent.spawn((
         InventorySlot { kind, index },
-        SlotVisual { item: ItemId::air() },
+        SlotVisual { item: ItemId::air(), count: 0 },
         Button,
         Pickable::default(),
         Node {
@@ -97,12 +102,28 @@ pub fn spawn_empty_slot(
         },
         BackgroundColor(theme.bg_slot),
         BorderColor::all(theme.border_default),
-    )).with_children(|slot| {
+    )    ).with_children(|slot| {
         slot.spawn((
             SlotIcon,
             Node {
                 width: Val::Percent(80.0),
                 height: Val::Percent(80.0),
+                ..default()
+            },
+            Visibility::Hidden,
+        ));
+        slot.spawn((
+            SlotCountText,
+            Text::new(""),
+            TextFont {
+                font_size: FontSize::Px(11.0),
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(1.0),
+                right: Val::Px(3.0),
                 ..default()
             },
             Visibility::Hidden,
@@ -121,7 +142,7 @@ pub fn spawn_slot_with_item(
 ) {
     parent.spawn((
         InventorySlot { kind, index },
-        SlotVisual { item: item.clone() },
+        SlotVisual { item: item.clone(), count: 0 },
         Button,
         Pickable::default(),
         Node {
@@ -136,6 +157,22 @@ pub fn spawn_slot_with_item(
         BorderColor::all(theme.border_default),
     )).with_children(|slot| {
         spawn_icon_child(slot, item, registry);
+        slot.spawn((
+            SlotCountText,
+            Text::new(""),
+            TextFont {
+                font_size: FontSize::Px(11.0),
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(1.0),
+                right: Val::Px(3.0),
+                ..default()
+            },
+            Visibility::Hidden,
+        ));
     });
 }
 
@@ -181,36 +218,50 @@ pub fn spawn_icon_child(
     ));
 }
 
-/// 原地更新槽位图标，不销毁槽位实体
+/// 原地更新槽位图标 + 数量，不销毁槽位实体
 pub fn sync_slot_icon(
     commands: &mut Commands,
     slot_entity: Entity,
     item: &ItemId,
+    count: u32,
     registry: &BlockRegistry,
     children_query: &Query<&Children>,
 ) {
-    let Ok(children) = children_query.get(slot_entity) else { return; };
-    let Some(&icon_entity) = children.first() else { return; };
+    let Ok(children) = children_query.get(slot_entity) else { return };
 
-    if item.is_air() {
-        commands.entity(icon_entity).insert(Visibility::Hidden);
-        return;
+    // ── 更新图标（第一个子实体）──
+    if let Some(&icon_entity) = children.first() {
+        if item.is_air() {
+            commands.entity(icon_entity).insert(Visibility::Hidden);
+        } else {
+            let Some(block_id) = item.as_block_id() else { return };
+            let Some(runtime_id) = registry.get_id_by_identifier(block_id) else { return };
+            let layer = registry.get_layer(runtime_id, 4);
+            let atlas_index = layer_to_atlas_index(layer);
+
+            commands.entity(icon_entity).insert((
+                Visibility::Inherited,
+                ImageNode {
+                    image: registry.base_texture.clone(),
+                    texture_atlas: Some(TextureAtlas {
+                        layout: registry.atlas_layout.clone(),
+                        index: atlas_index,
+                    }),
+                    ..default()
+                },
+            ));
+        }
     }
 
-    let Some(block_id) = item.as_block_id() else { return; };
-    let Some(runtime_id) = registry.get_id_by_identifier(block_id) else { return; };
-    let layer = registry.get_layer(runtime_id, 4);
-    let atlas_index = layer_to_atlas_index(layer);
-
-    commands.entity(icon_entity).insert((
-        Visibility::Inherited,
-        ImageNode {
-            image: registry.base_texture.clone(),
-            texture_atlas: Some(TextureAtlas {
-                layout: registry.atlas_layout.clone(),
-                index: atlas_index,
-            }),
-            ..default()
-        },
-    ));
+    // ── 更新数量文本（第二个子实体）──
+    if let Some(&count_entity) = children.get(1) {
+        if count > 1 {
+            commands.entity(count_entity).insert((
+                Visibility::Inherited,
+                Text::new(count.to_string()),
+            ));
+        } else {
+            commands.entity(count_entity).insert(Visibility::Hidden);
+        }
+    }
 }

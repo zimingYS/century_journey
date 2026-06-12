@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 use crate::inventory::container::creative::CreativeCategory;
+use crate::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::inventory::item::id::ItemId;
 use crate::inventory::item::stack::ItemStack;
 use crate::inventory::state::InventoryState;
@@ -390,7 +391,7 @@ pub fn populate_creative_grid_system(
         for (entity, idx) in slot_indices {
             let air = &ItemId::air();
             let item = new_items.get(idx).unwrap_or(air);
-            sync_slot_icon(&mut commands, entity, item, reg, &children_query);
+            sync_slot_icon(&mut commands, entity, item, 0, reg, &children_query);
         }
         return;
     }
@@ -447,8 +448,8 @@ pub fn populate_recent_panel_system(
     if slot_entities.len() == new_items.len() {
         for (entity, idx) in slot_entities {
             let air = ItemId::air();
-            let item = new_items.get(idx).map(|s| &s.item).unwrap_or(&air);
-            sync_slot_icon(&mut commands, entity, item, reg, &children_query);
+            let (item, count) = new_items.get(idx).map(|s| (&s.item, s.count)).unwrap_or((&air, 0u32));
+            sync_slot_icon(&mut commands, entity, item, count, reg, &children_query);
         }
         return;
     }
@@ -523,10 +524,17 @@ pub fn creative_hotbar_visual_sync_system(
     mut commands: Commands,
     theme: Res<UiTheme>,
     mut border_query: Query<(&InventorySlot, &mut BorderColor)>,
-    mut last_hotbar: Local<Vec<ItemId>>,
+    mut last_hotbar: Local<Vec<(ItemId, u32)>>,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
-    let current = state.hotbar.items().to_vec();
+
+    let current: Vec<(ItemId, u32)> = (0..HOTBAR_SIZE)
+        .map(|i| {
+            state.hotbar.get_stack(i)
+                .map(|s| (s.item.clone(), s.count))
+                .unwrap_or((ItemId::air(), 0))
+        })
+        .collect();
 
     if *last_hotbar == current {
         return;
@@ -541,9 +549,9 @@ pub fn creative_hotbar_visual_sync_system(
                 if slot.kind != SlotKind::Hotbar {
                     continue;
                 }
-                let item = current.get(slot.index).cloned().unwrap_or(ItemId::air());
-                if visual.item != item {
-                    sync_slot_icon(&mut commands, entity, &item, reg, &children_query);
+                let (item, count) = current.get(slot.index).cloned().unwrap_or((ItemId::air(), 0));
+                if visual.item != item || visual.count != count {
+                    sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query);
                 }
             }
         }

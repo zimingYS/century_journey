@@ -5,6 +5,7 @@ use CenturyJourney::core::CorePlugin;
 use CenturyJourney::core::state::app_state::AppState;
 use CenturyJourney::gameplay::GameplayPlugin;
 use CenturyJourney::inventory;
+use CenturyJourney::loot::LootPlugin;
 use CenturyJourney::player::PlayerPlugin;
 use CenturyJourney::tag::TagPlugin;
 use CenturyJourney::test_setup::setup;
@@ -27,6 +28,7 @@ fn main() {
         .add_plugins((
             CorePlugin,
             GameplayPlugin,
+            LootPlugin,
             VoxelPlugin,
             TagPlugin,
             PlayerPlugin,
