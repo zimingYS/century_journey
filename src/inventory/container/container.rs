@@ -1,4 +1,4 @@
-use crate::inventory::container::slot::SlotData;
+use crate::inventory::slot::SlotData;
 
 /// 通用容器 (箱子/熔炉等)
 /// TODO - 未来扩展

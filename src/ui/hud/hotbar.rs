@@ -56,9 +56,10 @@ pub fn hud_hotbar_visual_sync_system(
     mut border_query: Query<(&InventorySlot, &mut BorderColor)>,
     theme: Res<UiTheme>,
     mut last_hotbar: Local<Vec<ItemId>>,
+    mut last_active: Local<usize>,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
-    let current: Vec<ItemId> = state.hotbar.items.to_vec();
+    let current: Vec<ItemId> = state.hotbar.items().to_vec();
 
     // 图标同步 — 仅物品变化时执行
     if *last_hotbar != current {
@@ -77,16 +78,19 @@ pub fn hud_hotbar_visual_sync_system(
         }
     }
 
-    // 边框高亮
-    for (slot, mut border) in &mut border_query {
-        if slot.kind != SlotKind::Hotbar { continue; }
-        *border = BorderColor::all(
-            if slot.index == state.hotbar.active_index {
-                theme.border_selected
-            } else {
-                theme.border_default
-            }
-        );
+    // 边框高亮 — 仅在 active_index 变化时更新，避免覆盖 hover 高亮
+    if *last_active != state.hotbar.active_index {
+        *last_active = state.hotbar.active_index;
+        for (slot, mut border) in &mut border_query {
+            if slot.kind != SlotKind::Hotbar { continue; }
+            *border = BorderColor::all(
+                if slot.index == state.hotbar.active_index {
+                    theme.border_selected
+                } else {
+                    theme.border_default
+                }
+            );
+        }
     }
 }
 

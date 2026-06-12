@@ -5,3 +5,5 @@ pub mod item;
 pub mod container;
 pub mod recent;
 pub mod state;
+pub mod slot;
+pub mod interaction;

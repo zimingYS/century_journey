@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::inventory::state::InventoryState;
 use crate::ui::theme::category_theme::CategoryTheme;
 use crate::ui::theme::ui_theme::UiTheme;
-use crate::ui::widgets::slot::{CategoryClickedEvent, SearchInputState, SlotClickedEvent};
+use crate::ui::widgets::slot::{CategoryClickedEvent, SearchInputState, SlotInteractionEvent};
 
 pub mod components;
 pub mod resources;
@@ -18,7 +18,7 @@ impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
         app
             // ── 消息通道 ──
-            .add_message::<SlotClickedEvent>()
+            .add_message::<SlotInteractionEvent>()
             .add_message::<CategoryClickedEvent>()
 
             // ── 资源 ──
@@ -59,7 +59,7 @@ impl Plugin for UIPlugin {
 
             // ── Update: 事件 → 状态 ──
             .add_systems(Update, (
-                interaction::handle_slot_clicked_system,
+                interaction::handle_slot_interaction_system,
                 interaction::handle_category_clicked_system,
                 interaction::cancel_drag_system,
             ))

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use crate::core::constant::world::CHUNK_SIZE;
 use crate::inventory::item::id::ItemId;
+use crate::inventory::slot::SlotAction;
 use crate::ui::theme::ui_theme::UiTheme;
 use crate::voxel::registry::BlockRegistry;
 
@@ -53,11 +54,15 @@ pub struct SearchInputState {
     pub active: bool,
 }
 
+#[deprecated(note = "请使用 SlotInteractionEvent")]
+pub type SlotClickedEvent = SlotInteractionEvent;
+
 /// 槽位点击事件
 #[derive(Message, Debug)]
-pub struct SlotClickedEvent {
+pub struct SlotInteractionEvent {
     pub kind: SlotKind,
     pub index: usize,
+    pub action: SlotAction,
 }
 
 /// 分类切换事件

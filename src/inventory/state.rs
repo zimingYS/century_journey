@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use crate::inventory::container::creative::CreativeData;
 use crate::inventory::container::hotbar::HotbarData;
+use crate::inventory::container::survival::SurvivalInventory;
 use crate::inventory::cursor::CursorData;
 use crate::inventory::recent::RecentItems;
 
@@ -11,6 +12,8 @@ pub struct InventoryState {
     pub hotbar: HotbarData,
     /// 创造模式数据
     pub creative: CreativeData,
+    /// 生存模式背包
+    pub survival: SurvivalInventory,
     /// 鼠标悬浮物品
     pub cursor: CursorData,
     /// 最近使用
@@ -24,6 +27,7 @@ impl Default for InventoryState {
         Self {
             hotbar: HotbarData::default(),
             creative: CreativeData::default(),
+            survival: SurvivalInventory::default(),
             cursor: CursorData::default(),
             recent: RecentItems::default(),
             opened: false,
@@ -37,8 +41,13 @@ impl InventoryState {
         self.opened = !self.opened;
     }
 
-    /// 添加最近使用物品
+    /// 添加最近使用物品（兼容旧 API）
     pub fn add_recent(&mut self, item: crate::inventory::item::id::ItemId) {
         self.recent.push(item);
+    }
+
+    /// 添加最近使用物品堆叠
+    pub fn add_recent_stack(&mut self, stack: crate::inventory::item::stack::ItemStack) {
+        self.recent.push_stack(stack);
     }
 }

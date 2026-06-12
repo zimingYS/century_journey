@@ -1,27 +1,37 @@
 use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
-
-use crate::inventory::item::id::ItemId;
+use crate::inventory::slot::SlotAction;
 use crate::inventory::state::InventoryState;
 use crate::ui::components::CreativeSearchBox;
 use crate::ui::theme::ui_theme::UiTheme;
-use crate::ui::widgets::slot::{
-    CategoryClickedEvent, CategoryTab, CreativeSearchInput, InventorySlot,
-    SearchInputState, SlotClickedEvent, SlotKind,
-};
+use crate::ui::widgets::slot::{CategoryClickedEvent, CategoryTab, CreativeSearchInput, InventorySlot, SearchInputState, SlotInteractionEvent, SlotKind};
 
 /// 槽位点击交互系统
 pub fn slot_interaction_system(
     query: Query<(&Interaction, &InventorySlot), (Changed<Interaction>, With<Button>)>,
-    mut writer: MessageWriter<SlotClickedEvent>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut writer: MessageWriter<SlotInteractionEvent>,
 ) {
     for (interaction, slot) in &query {
         if *interaction != Interaction::Pressed {
             continue;
         }
-        writer.write(SlotClickedEvent {
+
+        let action = if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
+            SlotAction::ShiftClick
+        } else if mouse.just_pressed(MouseButton::Left) {
+            SlotAction::LeftClick
+        } else if mouse.just_pressed(MouseButton::Right) {
+            SlotAction::RightClick
+        } else {
+            continue;
+        };
+
+        writer.write(SlotInteractionEvent {
             kind: slot.kind,
             index: slot.index,
+            action,
         });
     }
 }
@@ -64,69 +74,17 @@ pub fn handle_category_clicked_system(
 }
 
 /// 槽位点击路由
-pub fn handle_slot_clicked_system(
-    mut reader: MessageReader<SlotClickedEvent>,
+pub fn handle_slot_interaction_system(
+    mut reader: MessageReader<SlotInteractionEvent>,
     mut inventory: ResMut<InventoryState>,
 ) {
     for event in reader.read() {
-        match event.kind {
-            // 创造模式网格
-            SlotKind::CreativeGrid => {
-                let item = inventory.creative.visible_items
-                    .get(event.index)
-                    .cloned()
-                    .unwrap_or(ItemId::air());
-
-                if item.is_air() {
-                    // 点击空气
-                    inventory.cursor.clear();
-                } else {
-                    // 正常拾取
-                    inventory.cursor.pick_up(item.clone());
-                    inventory.add_recent(item);
-                }
-            }
-
-            // 最近使用
-            SlotKind::Recent => {
-                let item = inventory
-                    .recent
-                    .items
-                    .get(event.index)
-                    .cloned()
-                    .unwrap_or(ItemId::air());
-
-                if item.is_air() {
-                    continue;
-                }
-
-                handle_pick_up(&mut inventory, item);
-            }
-
-            // 快捷栏
-            SlotKind::Hotbar => {
-                let slot_item = inventory.hotbar.items[event.index].clone();
-
-                if inventory.cursor.has_item() {
-                    // 光标有物品 → 交换
-                    let cursor_item = inventory.cursor.place().unwrap();
-                    inventory.hotbar.set_item(event.index, cursor_item);
-                    if !slot_item.is_air() {
-                        inventory.cursor.pick_up(slot_item);
-                    }
-                } else if !slot_item.is_air() {
-                    // 光标空 + 槽有物品 → 拾取
-                    inventory.cursor.pick_up(slot_item.clone());
-                    inventory.hotbar.clear_slot(event.index);
-                } else {
-                    // 光标空 + 槽空 → 选中
-                    inventory.hotbar.active_index = event.index;
-                }
-            }
-
-            // 未来扩展
-            SlotKind::SurvivalBackpack | SlotKind::Container => {}
-        }
+        crate::inventory::interaction::handle_slot_interaction(
+            &mut inventory,
+            event.kind,
+            event.index,
+            event.action,
+        );
     }
 }
 
@@ -143,12 +101,6 @@ pub fn cancel_drag_system(
     if keyboard.just_pressed(KeyCode::Escape) || mouse.just_pressed(MouseButton::Right) {
         inventory.cursor.clear();
     }
-}
-
-/// 拾取到光标并记录到最近使用
-fn handle_pick_up(inventory: &mut InventoryState, item: ItemId) {
-    inventory.cursor.pick_up(item.clone());
-    inventory.add_recent(item);
 }
 
 /// 槽位边框高亮

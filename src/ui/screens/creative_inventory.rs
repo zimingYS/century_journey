@@ -3,6 +3,7 @@ use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 use crate::inventory::container::creative::CreativeCategory;
 use crate::inventory::item::id::ItemId;
+use crate::inventory::item::stack::ItemStack;
 use crate::inventory::state::InventoryState;
 use crate::tag::identifier::TagRegistryType;
 use crate::tag::registry::TagRegistry;
@@ -415,7 +416,7 @@ pub fn populate_recent_panel_system(
     mut commands: Commands,
     ui_font: Res<UiFont>,
     theme: Res<UiTheme>,
-    mut last_items: Local<Vec<ItemId>>,
+    mut last_items: Local<Vec<ItemStack>>,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
     let Ok(panel_entity) = recent_query.single() else { return };
@@ -442,8 +443,8 @@ pub fn populate_recent_panel_system(
 
     if slot_entities.len() == new_items.len() {
         for (entity, idx) in slot_entities {
-            let air = &ItemId::air();
-            let item = new_items.get(idx).unwrap_or(air);
+            let air = ItemId::air();
+            let item = new_items.get(idx).map(|s| &s.item).unwrap_or(&air);
             sync_slot_icon(&mut commands, entity, item, reg, &children_query);
         }
         return;
@@ -470,8 +471,8 @@ pub fn populate_recent_panel_system(
                 ..default()
             },
         ));
-        for (index, item) in new_items.iter().enumerate() {
-            spawn_slot_with_item(panel, SlotKind::Recent, index, item, reg, &theme);
+        for (index, stack) in new_items.iter().enumerate() {
+            spawn_slot_with_item(panel, SlotKind::Recent, index, &stack.item, reg, &theme);
         }
     });
 }
@@ -503,7 +504,7 @@ pub fn init_creative_hotbar_system(
     }
 
     commands.entity(panel_entity).with_children(|bar| {
-        for (index, item) in state.hotbar.items.iter().enumerate() {
+        for (index, item) in state.hotbar.items().iter().enumerate() {
             spawn_slot_with_item(bar, SlotKind::Hotbar, index, item, reg, &theme);
         }
     });
@@ -522,7 +523,7 @@ pub fn creative_hotbar_visual_sync_system(
     mut last_hotbar: Local<Vec<ItemId>>,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
-    let current = state.hotbar.items.to_vec();
+    let current = state.hotbar.items().to_vec();
 
     if *last_hotbar == current {
         return;
