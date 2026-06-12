@@ -26,8 +26,18 @@ use bevy::prelude::Component;
 /// 创造模式快捷栏
 #[derive(Component)] pub struct CreativeHotbarPanel;
 
+// ━━ 生存模式物品栏 ━━
+
+/// 生存背包根容器
+#[derive(Component)] pub struct SurvivalInventoryRoot;
+
+/// 生存背包覆盖层（背景遮罩）
+#[derive(Component)] pub struct SurvivalInventoryOverlay;
+
+/// 生存背包物品网格（36 格）
+#[derive(Component)] pub struct SurvivalItemGrid;
+
 // ━━ 未来扩展 ━━
-// #[derive(Component)] pub struct SurvivalRoot;
 // #[derive(Component)] pub struct HealthBar;
 // #[derive(Component)] pub struct HungerBar;
 // #[derive(Component)] pub struct ContainerRoot;

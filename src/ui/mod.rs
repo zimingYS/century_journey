@@ -35,6 +35,7 @@ impl Plugin for UIPlugin {
                 hud::hotbar::spawn_hotbar_ui_system,
                 widgets::drag::spawn_cursor_item_icon,
                 screens::creative_inventory::spawn_creative_inventory_system,
+                screens::survival_inventory::spawn_survival_inventory_system,  // ← 新增
             ))
 
             // ── Update: 数据构建 ──
@@ -48,6 +49,7 @@ impl Plugin for UIPlugin {
                 screens::creative_inventory::populate_creative_grid_system,
                 screens::creative_inventory::populate_recent_panel_system,
                 screens::creative_inventory::init_creative_hotbar_system,
+                screens::survival_inventory::populate_survival_grid_system,
             ).after(screens::creative_inventory::update_creative_filter_system))
 
             // ── Update: 输入 → 事件 ──
@@ -73,9 +75,12 @@ impl Plugin for UIPlugin {
 
             // ── Update: UI 视觉同步 ──
             .add_systems(Update, (
-                screens::creative_inventory::toggle_creative_inventory_system,
+                screens::creative_inventory::toggle_inventory_system,
                 screens::creative_inventory::update_creative_visibility_system,
+                screens::survival_inventory::update_survival_visibility_system,
                 screens::creative_inventory::creative_hotbar_visual_sync_system,
+                screens::survival_inventory::survival_hotbar_visual_sync_system,
+                screens::survival_inventory::survival_grid_visual_sync_system,
                 screens::creative_inventory::cleanup_creative_hotbar_system,
                 screens::creative_inventory::update_category_highlight_system,
                 interaction::slot_hover_system,

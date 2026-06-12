@@ -6,3 +6,4 @@ pub mod world;
 pub mod ui;
 pub mod tag;
 pub mod inventory;
+pub mod gameplay;

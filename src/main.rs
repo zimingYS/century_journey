@@ -2,6 +2,9 @@ use bevy::prelude::*;
 use bevy::window::WindowResolution;
 use CenturyJourney::core::constant::window::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use CenturyJourney::core::CorePlugin;
+use CenturyJourney::core::state::app_state::AppState;
+use CenturyJourney::gameplay::GameplayPlugin;
+use CenturyJourney::inventory;
 use CenturyJourney::player::PlayerPlugin;
 use CenturyJourney::tag::TagPlugin;
 use CenturyJourney::test_setup::setup;
@@ -23,11 +26,16 @@ fn main() {
         }))
         .add_plugins((
             CorePlugin,
+            GameplayPlugin,
             VoxelPlugin,
             TagPlugin,
             PlayerPlugin,
             WorldPlugin,
             UIPlugin,
+        ))
+        .init_resource::<inventory::item::registry::ItemRegistry>()
+        .add_systems(OnEnter(AppState::InGame), (
+            inventory::item::registry::bridge_block_registry_system,
         ))
         .add_systems(Startup,setup)
         .run();

@@ -217,9 +217,10 @@ fn build_hotbar_panel(root: &mut ChildSpawnerCommands, theme: &UiTheme) {
 }
 
 /// 切换物品栏状态
-pub fn toggle_creative_inventory_system(
+pub fn toggle_inventory_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     search_state: Res<SearchInputState>,
+    gamemode: Res<crate::gameplay::gamemode::PlayerGameMode>,
     mut state: ResMut<InventoryState>,
     mut cursor_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
 ) {
@@ -232,6 +233,7 @@ pub fn toggle_creative_inventory_system(
     if state.opened {
         cursor.visible = true;
         cursor.grab_mode = CursorGrabMode::None;
+        info!("Opened inventory in {:?} mode", gamemode.mode);
     } else {
         cursor.visible = false;
         cursor.grab_mode = CursorGrabMode::Locked;
@@ -241,10 +243,11 @@ pub fn toggle_creative_inventory_system(
 
 pub fn update_creative_visibility_system(
     state: Res<InventoryState>,
+    gamemode: Res<crate::gameplay::gamemode::PlayerGameMode>,
     mut query: Query<&mut Visibility, With<CreativeInventoryOverlay>>,
 ) {
     let Ok(mut vis) = query.single_mut() else { return };
-    let target = if state.opened {
+    let target = if state.opened && gamemode.is_creative() {
         Visibility::Visible
     } else {
         Visibility::Hidden
