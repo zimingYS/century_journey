@@ -2,11 +2,13 @@ pub mod format;
 pub mod region;
 pub mod level;
 pub mod system;
+pub mod player;
 
 use bevy::prelude::*;
 use crate::core::state::app_state::AppState;
 use crate::player::components::Player;
 use crate::voxel::registry::BlockRegistry;
+use crate::world::save::player::PlayerSaveManager;
 use crate::world::save::system::{AutoSaveTimer, CachedBlockIdRemap, LoadQueue, SaveConfig, SaveQueue};
 use crate::world::storage::WorldStorage;
 
@@ -19,7 +21,11 @@ impl Plugin for SaveLoadPlugin {
         .insert_resource(LoadQueue::default())
         .init_resource::<AutoSaveTimer>()
         .init_resource::<CachedBlockIdRemap>()
-        .add_systems(OnEnter(AppState::InGame), system::cache_level_data_on_enter)
+        .init_resource::<PlayerSaveManager>()
+        .add_systems(OnEnter(AppState::InGame), (
+            system::cache_level_data_on_enter,
+            player::load_player_on_enter_system,
+        ))
         .add_systems(
             PostUpdate,
             (
@@ -36,7 +42,9 @@ impl Plugin for SaveLoadPlugin {
         )
         .add_systems(Update,(
             save_load_keybind_system,
-        ));
+            player::auto_save_player_system,
+        ))
+        .add_systems(Last, player::save_on_exit_system);
     }
 }
 

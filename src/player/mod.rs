@@ -21,10 +21,10 @@ impl Plugin for PlayerPlugin {
                 camera::setup_player_camera_system,
                 systems::movement::player_movement_system,
                 systems::gravity::player_gravity_system,
-                systems::interaction::voxel_interaction_system,
-                systems::raycast::draw_voxel_highlight_system,
-                systems::raycast::update_raycast_system,
-            ));
+            ))
+            .add_systems(Update, systems::interaction::voxel_interaction_system)
+            .add_systems(Update, systems::raycast::draw_voxel_highlight_system)
+            .add_systems(Update, systems::raycast::update_raycast_system);
     }
 }
 

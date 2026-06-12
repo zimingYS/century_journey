@@ -15,6 +15,18 @@ use bevy::prelude::*;
 use crate::gameplay::gamemode::PlayerGameMode;
 use crate::loot::block_registry::BlockLootRegistry;
 use crate::world::entity::dropped_item::spawn_dropped_item;
+use crate::world::save::player::PlayerSaveManager;
+
+use bevy::ecs::system::SystemParam;
+
+/// 合并 4 个事件写入器减少 voxel_interaction_system 参数数量
+#[derive(SystemParam)]
+pub struct VoxelEventWriters<'w> {
+    pub break_events: MessageWriter<'w, BlockBreakEvent>,
+    pub place_events: MessageWriter<'w, BlockPlaceEvent>,
+    pub interact_events: MessageWriter<'w, BlockInteractEvent>,
+    pub sound_events: MessageWriter<'w, BlockSoundEvent>,
+}
 
 pub fn voxel_interaction_system(
     target_voxel: Res<TargetVoxel>,
@@ -28,10 +40,8 @@ pub fn voxel_interaction_system(
     loot_registry: Option<Res<BlockLootRegistry>>,
     mut world_storage: ResMut<WorldStorage>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
-    mut break_events: MessageWriter<BlockBreakEvent>,
-    mut place_events: MessageWriter<BlockPlaceEvent>,
-    mut interact_events: MessageWriter<BlockInteractEvent>,
-    mut sound_events: MessageWriter<BlockSoundEvent>,
+    mut events: VoxelEventWriters,
+    mut save_manager: ResMut<PlayerSaveManager>,
     mut commands: Commands,
 ) {
     let Some(reg) = registry else { return; };
@@ -86,7 +96,7 @@ pub fn voxel_interaction_system(
             }
 
             // 发送破坏事件
-            break_events.write(BlockBreakEvent {
+            events.break_events.write(BlockBreakEvent {
                 world_pos: hit_pos,
                 block_id: hit_id,
                 breaker: player_entity,
@@ -94,7 +104,7 @@ pub fn voxel_interaction_system(
 
             // 发送音效事件
             let prop = reg.get(hit_id);
-            sound_events.write(BlockSoundEvent {
+            events.sound_events.write(BlockSoundEvent {
                 position: hit_pos.as_vec3(),
                 sound_material: prop.map(|p| p.sound.sound_material).unwrap_or_default(),
                 action: SoundAction::Break,
@@ -111,7 +121,7 @@ pub fn voxel_interaction_system(
             if let Some(prop) = reg.get(hit_id) {
                 if prop.is_interactable {
                     // 发送交互事件
-                    interact_events.write(BlockInteractEvent {
+                    events.interact_events.write(BlockInteractEvent {
                         world_pos: hit_pos,
                         block_id: hit_id,
                         face_normal: ray_result.normal,
@@ -126,7 +136,7 @@ pub fn voxel_interaction_system(
                     );
 
                     // 发送音效
-                    sound_events.write(BlockSoundEvent {
+                    events.sound_events.write(BlockSoundEvent {
                         position: hit_pos.as_vec3(),
                         sound_material: prop.sound.sound_material,
                         action: SoundAction::Step, // 交互音效用 step 类型
@@ -178,11 +188,12 @@ pub fn voxel_interaction_system(
                     } else {
                         inventory_state.hotbar.set_stack(idx, crate::inventory::item::stack::ItemStack::empty());
                     }
+                    save_manager.mark_dirty();
                 }
             }
 
             // 发送放置事件
-            place_events.write(BlockPlaceEvent {
+            events.place_events.write(BlockPlaceEvent {
                 world_pos: place_pos,
                 block_id,
                 face_normal: ray_result.normal,
@@ -191,7 +202,7 @@ pub fn voxel_interaction_system(
 
             // 发送音效
             let prop = reg.get(block_id);
-            sound_events.write(BlockSoundEvent {
+            events.sound_events.write(BlockSoundEvent {
                 position: place_pos.as_vec3(),
                 sound_material: prop.map(|p| p.sound.sound_material).unwrap_or_default(),
                 action: SoundAction::Place,

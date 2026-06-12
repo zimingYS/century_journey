@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::world::save::player::PlayerSaveManager;
 
 /// 游戏模式定义
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -42,6 +43,7 @@ impl PlayerGameMode {
 pub fn toggle_gamemode_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut gamemode: ResMut<PlayerGameMode>,
+    mut save_manager: ResMut<PlayerSaveManager>,
 ){
     if !keyboard.just_pressed(KeyCode::F4) {
         return;
@@ -52,5 +54,6 @@ pub fn toggle_gamemode_system(
         GameMode::Survival => GameMode::Creative,
     };
 
+    save_manager.mark_dirty();
     info!("游戏模式已改变为：{:?}", gamemode.mode);
 }

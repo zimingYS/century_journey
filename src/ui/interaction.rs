@@ -77,7 +77,9 @@ pub fn handle_category_clicked_system(
 pub fn handle_slot_interaction_system(
     mut reader: MessageReader<SlotInteractionEvent>,
     mut inventory: ResMut<InventoryState>,
+    mut save_manager: ResMut<crate::world::save::player::PlayerSaveManager>,
 ) {
+    let mut changed = false;
     for event in reader.read() {
         crate::inventory::interaction::handle_slot_interaction(
             &mut inventory,
@@ -85,6 +87,10 @@ pub fn handle_slot_interaction_system(
             event.index,
             event.action,
         );
+        changed = true;
+    }
+    if changed {
+        save_manager.mark_dirty();
     }
 }
 

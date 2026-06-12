@@ -109,6 +109,7 @@ pub fn handle_hotbar_switch_system(
     search_state: Res<SearchInputState>,
     mut mouse_wheel: MessageReader<MouseWheel>,
     mut state: ResMut<InventoryState>,
+    mut save_manager: ResMut<crate::world::save::player::PlayerSaveManager>,
 ) {
     if state.opened || search_state.active { return; }
 
@@ -117,10 +118,11 @@ pub fn handle_hotbar_switch_system(
         (KeyCode::Digit4, 3), (KeyCode::Digit5, 4), (KeyCode::Digit6, 5),
         (KeyCode::Digit7, 6), (KeyCode::Digit8, 7), (KeyCode::Digit9, 8),
     ];
+    let old = state.hotbar.active_index;
     for (key, idx) in num_keys {
         if keyboard.just_pressed(key) {
             state.hotbar.active_index = idx;
-            return;
+            break;
         }
     }
 
@@ -130,5 +132,8 @@ pub fn handle_hotbar_switch_system(
         } else {
             state.hotbar.select_next();
         }
+    }
+    if state.hotbar.active_index != old {
+        save_manager.mark_dirty();
     }
 }
