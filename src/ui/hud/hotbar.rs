@@ -109,7 +109,6 @@ pub fn handle_hotbar_switch_system(
     search_state: Res<SearchInputState>,
     mut mouse_wheel: MessageReader<MouseWheel>,
     mut state: ResMut<InventoryState>,
-    mut save_manager: ResMut<crate::world::save::player::PlayerSaveManager>,
 ) {
     if state.opened || search_state.active { return; }
 
@@ -132,8 +131,5 @@ pub fn handle_hotbar_switch_system(
         } else {
             state.hotbar.select_next();
         }
-    }
-    if state.hotbar.active_index != old {
-        save_manager.mark_dirty();
     }
 }

@@ -51,8 +51,8 @@ impl InventoryState {
         self.recent.push_stack(stack);
     }
 
-    /// 标记需要保存
-    pub fn mark_dirty(&self, save_manager: &mut crate::world::save::player::PlayerSaveManager) {
-        save_manager.mark_dirty();
-    }
+    // /// 标记需要保存
+    // pub fn mark_dirty(&self, save_manager: &mut crate::world::save::player::PlayerSaveManager) {
+    //     save_manager.mark_dirty();
+    // }
 }

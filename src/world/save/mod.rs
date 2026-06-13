@@ -3,11 +3,13 @@ pub mod region;
 pub mod level;
 pub mod system;
 pub mod player;
+pub mod events;
 
 use bevy::prelude::*;
 use crate::core::state::app_state::AppState;
 use crate::player::components::Player;
 use crate::voxel::registry::BlockRegistry;
+use crate::world::save::events::SaveDirtyEvent;
 use crate::world::save::player::PlayerSaveManager;
 use crate::world::save::system::{AutoSaveTimer, CachedBlockIdRemap, LoadQueue, SaveConfig, SaveQueue};
 use crate::world::storage::WorldStorage;
@@ -22,6 +24,7 @@ impl Plugin for SaveLoadPlugin {
         .init_resource::<AutoSaveTimer>()
         .init_resource::<CachedBlockIdRemap>()
         .init_resource::<PlayerSaveManager>()
+        .add_message::<SaveDirtyEvent>()
         .add_systems(OnEnter(AppState::InGame), (
             system::cache_level_data_on_enter,
             player::load_player_on_enter_system,
@@ -42,7 +45,11 @@ impl Plugin for SaveLoadPlugin {
         )
         .add_systems(Update,(
             save_load_keybind_system,
+            player::player_position_dirty_system,
+            player::inventory_dirty_tracking_system,
+            player::gamemode_dirty_tracking_system,
             player::auto_save_player_system,
+            player::save_on_exit_system,
         ))
         .add_systems(Last, player::save_on_exit_system);
     }

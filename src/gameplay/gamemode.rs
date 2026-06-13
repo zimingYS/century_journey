@@ -43,17 +43,11 @@ impl PlayerGameMode {
 pub fn toggle_gamemode_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut gamemode: ResMut<PlayerGameMode>,
-    mut save_manager: ResMut<PlayerSaveManager>,
-){
-    if !keyboard.just_pressed(KeyCode::F4) {
-        return;
-    }
-
+) {
+    if !keyboard.just_pressed(KeyCode::F4) { return; }
     gamemode.mode = match gamemode.mode {
         GameMode::Creative => GameMode::Survival,
         GameMode::Survival => GameMode::Creative,
     };
-
-    save_manager.mark_dirty();
     info!("游戏模式已改变为：{:?}", gamemode.mode);
 }

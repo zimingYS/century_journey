@@ -13,7 +13,6 @@ const PICKUP_RANGE: f32 = 2.0;
 /// 成功则删除掉落物实体，失败则保留剩余物品
 pub fn pickup_system(
     player_query: Query<&Transform, With<Player>>,
-    mut save_manager: ResMut<PlayerSaveManager>,
     mut item_query: Query<(Entity, &Transform, &mut DroppedItem)>,
     mut inventory: ResMut<InventoryState>,
     mut commands: Commands,
@@ -41,11 +40,9 @@ pub fn pickup_system(
             insert::InventoryInsertResult::AllInserted => {
                 info!("Picked up {:?}", dropped.stack);
                 commands.entity(entity).despawn();
-                save_manager.mark_dirty();
             }
             insert::InventoryInsertResult::Partial(remaining) => {
                 dropped.stack = remaining;
-                save_manager.mark_dirty();
             }
             insert::InventoryInsertResult::Full(_) => {
                 // 背包已满，留在世界中，不标记脏

@@ -41,7 +41,6 @@ pub fn voxel_interaction_system(
     mut world_storage: ResMut<WorldStorage>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
     mut events: VoxelEventWriters,
-    mut save_manager: ResMut<PlayerSaveManager>,
     mut commands: Commands,
 ) {
     let Some(reg) = registry else { return; };
@@ -188,7 +187,6 @@ pub fn voxel_interaction_system(
                     } else {
                         inventory_state.hotbar.set_stack(idx, crate::inventory::item::stack::ItemStack::empty());
                     }
-                    save_manager.mark_dirty();
                 }
             }
 

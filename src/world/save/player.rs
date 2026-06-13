@@ -5,23 +5,23 @@ use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use serde::{Deserialize, Serialize};
-
 use crate::gameplay::gamemode::{GameMode, PlayerGameMode};
 use crate::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::inventory::container::InventoryContainer;
 use crate::inventory::item::id::ItemId;
 use crate::inventory::item::stack::ItemStack;
 use crate::inventory::state::InventoryState;
+use crate::player::camera::FpsCamera;
 use crate::player::components::Player;
+use crate::world::save::events::{SaveDirtySource};
 use crate::world::save::system::SaveConfig;
 
-// ═══════════════════════════════════════════════════════════════════════════════
+pub const SAVE_VERSION: u32 = 3;
+
+/// 玩家位置变化超过此距离才标记Dirty
+const POSITION_DIRTY_THRESHOLD_SQ: f32 = 0.25;
+
 // 可序列化数据结构
-// ═══════════════════════════════════════════════════════════════════════════════
-
-pub const CURRENT_SAVE_VERSION: u32 = 1;
-
-/// 可序列化的物品堆叠（ItemStack 的持久化等价物）
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct SaveItemStack {
     pub item: String,
@@ -29,39 +29,51 @@ pub struct SaveItemStack {
 }
 
 impl SaveItemStack {
-    fn air() -> Self {
-        Self { item: "century_journey:air".into(), count: 0 }
-    }
-    fn is_air(&self) -> bool {
-        self.item == "century_journey:air" || self.count == 0
-    }
+    /// 设置为空气
+    fn air() -> Self { Self { item: "century_journey:air".into(), count: 0 } }
+    /// 判断是否是空气
+    fn is_air(&self) -> bool { self.item == "century_journey:air" || self.count == 0 }
 }
 
-/// 可序列化的玩家完整状态
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PlayerSaveData {
+    pub version: u32,
     pub position: [f32; 3],
     pub rotation: [f32; 4],
+    /// FPS相机弧度
+    #[serde(default)]
+    pub camera_pitch: f32,
+    /// 游戏模式
     pub gamemode: String,
+    /// 生命值
+    #[serde(default)]
     pub health: f32,
+    /// 饥饿值
+    #[serde(default)]
     pub hunger: f32,
+    /// 快捷栏选位
     pub hotbar_active: usize,
     #[serde(with = "serde_arrays")]
+    /// 快捷栏
     pub hotbar: [SaveItemStack; HOTBAR_SIZE],
+    /// 物品栏
     #[serde(with = "serde_arrays")]
     pub backpack: [SaveItemStack; 36],
+    /// 装备栏
     #[serde(with = "serde_arrays")]
     pub armor: [SaveItemStack; 4],
+    /// 饰品栏
     #[serde(with = "serde_arrays")]
     pub accessories: [SaveItemStack; 6],
-    pub version: u32,
 }
 
 impl Default for PlayerSaveData {
     fn default() -> Self {
         Self {
+            version: SAVE_VERSION,
             position: [0.0, 70.0, 0.0],
             rotation: [0.0, 0.0, 0.0, 1.0],
+            camera_pitch: 0.0,
             gamemode: "survival".into(),
             health: 20.0,
             hunger: 20.0,
@@ -70,103 +82,61 @@ impl Default for PlayerSaveData {
             backpack: std::array::from_fn(|_| SaveItemStack::air()),
             armor: std::array::from_fn(|_| SaveItemStack::air()),
             accessories: std::array::from_fn(|_| SaveItemStack::air()),
-            version: CURRENT_SAVE_VERSION,
         }
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// 转换辅助
-// ═══════════════════════════════════════════════════════════════════════════════
+fn item_id_to_string(id: &ItemId) -> String { id.to_string() }
 
-fn item_id_to_string(id: &ItemId) -> String {
-    id.to_string()
-}
-
-fn string_to_item_id(s: &str) -> ItemId {
-    ItemId::block(s.to_string())
-}
+fn string_to_item_id(s: &str) -> ItemId { ItemId::block(s.to_string()) }
 
 fn optional_stack_to_save(opt: Option<&ItemStack>) -> SaveItemStack {
     match opt {
-        Some(s) if !s.is_empty() => SaveItemStack {
-            item: item_id_to_string(&s.item),
-            count: s.count,
-        },
+        Some(s) if !s.is_empty() => SaveItemStack { item: item_id_to_string(&s.item), count: s.count },
         _ => SaveItemStack::air(),
     }
 }
 
 fn save_to_optional_stack(slot: &SaveItemStack) -> Option<ItemStack> {
-    if slot.is_air() {
-        None
-    } else {
-        Some(ItemStack::new(string_to_item_id(&slot.item), slot.count))
-    }
+    if slot.is_air() { None }
+    else { Some(ItemStack::new(string_to_item_id(&slot.item), slot.count)) }
 }
 
 fn gamemode_to_string(mode: GameMode) -> String {
-    match mode {
-        GameMode::Survival => "survival".into(),
-        GameMode::Creative => "creative".into(),
-    }
+    match mode { GameMode::Survival => "survival".into(), GameMode::Creative => "creative".into() }
 }
 
 fn string_to_gamemode(s: &str) -> GameMode {
-    match s {
-        "creative" => GameMode::Creative,
-        _ => GameMode::Survival,
-    }
+    match s { "creative" => GameMode::Creative, _ => GameMode::Survival }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Runtime → SaveData
-// ═══════════════════════════════════════════════════════════════════════════════
 
 impl PlayerSaveData {
     pub fn from_runtime(
         position: Vec3,
         rotation: Quat,
+        camera_pitch: f32,
         gamemode: &PlayerGameMode,
         inventory: &InventoryState,
         health: f32,
         hunger: f32,
     ) -> Self {
-        let hotbar = std::array::from_fn(|i| {
-            optional_stack_to_save(inventory.hotbar.get_stack(i))
-        });
-
-        let backpack = std::array::from_fn(|i| {
-            optional_stack_to_save(inventory.survival.get_stack(i))
-        });
-
-        let armor = std::array::from_fn(|i| {
-            optional_stack_to_save(inventory.survival.get_stack(36 + i))
-        });
-
-        let accessories = std::array::from_fn(|i| {
-            optional_stack_to_save(inventory.survival.get_stack(40 + i))
-        });
+        let hotbar = std::array::from_fn(|i| optional_stack_to_save(inventory.hotbar.get_stack(i)));
+        let backpack = std::array::from_fn(|i| optional_stack_to_save(inventory.survival.get_stack(i)));
+        let armor = std::array::from_fn(|i| optional_stack_to_save(inventory.survival.get_stack(36 + i)));
+        let accessories = std::array::from_fn(|i| optional_stack_to_save(inventory.survival.get_stack(40 + i)));
 
         Self {
+            version: SAVE_VERSION,
             position: [position.x, position.y, position.z],
             rotation: [rotation.x, rotation.y, rotation.z, rotation.w],
+            camera_pitch,
             gamemode: gamemode_to_string(gamemode.mode),
-            health,
-            hunger,
+            health, hunger,
             hotbar_active: inventory.hotbar.active_index,
-            hotbar,
-            backpack,
-            armor,
-            accessories,
-            version: CURRENT_SAVE_VERSION,
+            hotbar, backpack, armor, accessories,
         }
     }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// SaveData → Runtime
-// ═══════════════════════════════════════════════════════════════════════════════
 
 impl PlayerSaveData {
     pub fn restore_gamemode(&self) -> PlayerGameMode {
@@ -175,51 +145,97 @@ impl PlayerSaveData {
 
     pub fn restore_inventory(&self) -> InventoryState {
         let mut state = InventoryState::default();
-
         for (i, slot) in self.hotbar.iter().enumerate() {
-            if let Some(stack) = save_to_optional_stack(slot) {
-                state.hotbar.set_stack(i, stack);
-            }
+            if let Some(stack) = save_to_optional_stack(slot) { state.hotbar.set_stack(i, stack); }
         }
         state.hotbar.active_index = self.hotbar_active.min(HOTBAR_SIZE - 1);
-
         for (i, slot) in self.backpack.iter().enumerate() {
-            if let Some(stack) = save_to_optional_stack(slot) {
-                state.survival.set_stack(i, stack);
-            }
+            if let Some(stack) = save_to_optional_stack(slot) { state.survival.set_stack(i, stack); }
         }
         for (i, slot) in self.armor.iter().enumerate() {
-            if let Some(stack) = save_to_optional_stack(slot) {
-                state.survival.set_stack(36 + i, stack);
-            }
+            if let Some(stack) = save_to_optional_stack(slot) { state.survival.set_stack(36 + i, stack); }
         }
         for (i, slot) in self.accessories.iter().enumerate() {
-            if let Some(stack) = save_to_optional_stack(slot) {
-                state.survival.set_stack(40 + i, stack);
-            }
+            if let Some(stack) = save_to_optional_stack(slot) { state.survival.set_stack(40 + i, stack); }
         }
-
         state
     }
 
     pub fn restore_transform(&self) -> Transform {
         let [x, y, z] = self.position;
         let [rx, ry, rz, rw] = self.rotation;
-        Transform {
-            translation: Vec3::new(x, y, z),
-            rotation: Quat::from_xyzw(rx, ry, rz, rw),
-            scale: Vec3::ONE,
-        }
+        Transform { translation: Vec3::new(x, y, z), rotation: Quat::from_xyzw(rx, ry, rz, rw), scale: Vec3::ONE }
     }
+
+    pub fn camera_pitch(&self) -> f32 { self.camera_pitch }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// PlayerSaveManager 资源
-// ═══════════════════════════════════════════════════════════════════════════════
+// 存档健康检查
+fn validate_player_data(data: &PlayerSaveData) -> PlayerSaveData {
+    let mut data = data.clone();
+    let mut repaired = false;
+
+    // 位置 NaN / Infinite 检查
+    if data.position.iter().any(|v| v.is_nan() || v.is_infinite()) {
+        log::warn!("[SaveV3] invalid position {:?}, reset to default", data.position);
+        data.position = [0.0, 70.0, 0.0];
+        repaired = true;
+    }
+    // 旋转 NaN / Infinite 检查
+    if data.rotation.iter().any(|v| v.is_nan() || v.is_infinite()) {
+        log::warn!("[SaveV3] invalid rotation {:?}, reset to identity", data.rotation);
+        data.rotation = [0.0, 0.0, 0.0, 1.0];
+        repaired = true;
+    }
+    // camera_pitch 合法性
+    if data.camera_pitch.is_nan() || data.camera_pitch.is_infinite() {
+        log::warn!("[SaveV3] invalid camera_pitch {}, reset to 0.0", data.camera_pitch);
+        data.camera_pitch = 0.0;
+        repaired = true;
+    }
+    // gamemode 合法性
+    if !matches!(data.gamemode.as_str(), "survival" | "creative") {
+        log::warn!("[SaveV3] unknown gamemode '{}', reset to survival", data.gamemode);
+        data.gamemode = "survival".into();
+        repaired = true;
+    }
+    // hotbar_active 越界
+    if data.hotbar_active >= HOTBAR_SIZE {
+        log::warn!("[SaveV3] hotbar_active {} out of range, reset to 0", data.hotbar_active);
+        data.hotbar_active = 0;
+        repaired = true;
+    }
+    // 物品合法性
+    for (slot, kind) in data.hotbar.iter_mut().map(|s| (s, "hotbar"))
+        .chain(data.backpack.iter_mut().map(|s| (s, "backpack")))
+        .chain(data.armor.iter_mut().map(|s| (s, "armor")))
+        .chain(data.accessories.iter_mut().map(|s| (s, "accessories")))
+    {
+        if slot.is_air() { continue; }
+        if slot.item.is_empty() || !slot.item.contains(':') {
+            log::warn!("[SaveV3] invalid item '{}' in {}, replacing with air", slot.item, kind);
+            *slot = SaveItemStack::air();
+            repaired = true;
+        }
+    }
+
+    if repaired { log::warn!("[SaveV3] save data had issues — auto-repaired"); }
+    data
+}
 
 #[derive(Resource, Debug)]
 pub struct PlayerSaveManager {
+    /// 是否需要保存
     pub dirty: bool,
+    /// 最近一次脏数据的来源
+    pub last_dirty_source: Option<SaveDirtySource>,
+    /// 累计保存次数
+    pub total_saves: u64,
+    /// 上次保存时间 (游戏时间, 秒)
+    pub last_save_time: f64,
+    /// 上次保存时的玩家位置 (用于距离阈值判断)
+    last_saved_position: Vec3,
+    /// 自动保存计时器
     auto_save_timer: f32,
 }
 
@@ -227,6 +243,10 @@ impl Default for PlayerSaveManager {
     fn default() -> Self {
         Self {
             dirty: false,
+            last_dirty_source: None,
+            total_saves: 0,
+            last_save_time: 0.0,
+            last_saved_position: Vec3::ZERO,
             auto_save_timer: 30.0,
         }
     }
@@ -235,45 +255,44 @@ impl Default for PlayerSaveManager {
 impl PlayerSaveManager {
     pub const AUTO_SAVE_INTERVAL: f32 = 30.0;
 
-    pub fn mark_dirty(&mut self) {
-        self.dirty = true;
-    }
-
-    fn reset_timer(&mut self) {
-        self.auto_save_timer = Self::AUTO_SAVE_INTERVAL;
-    }
-
-    fn tick(&mut self, dt: f32) -> bool {
+    /// 设置脏标记, 记录来源
+    pub fn set_dirty(&mut self, source: SaveDirtySource) {
         if !self.dirty {
-            return false;
+            self.dirty = true;
+            self.last_dirty_source = Some(source);
+            log::info!("[SaveV3] Dirty by {:?}", source);
         }
-        self.auto_save_timer -= dt;
-        if self.auto_save_timer <= 0.0 {
-            self.reset_timer();
+    }
+
+    /// 检查位置是否需要标记脏 (阈值: 0.5 block)
+    pub fn check_position_dirty(&mut self, current_pos: Vec3) -> bool {
+        let dist_sq = current_pos.distance_squared(self.last_saved_position);
+        if dist_sq > POSITION_DIRTY_THRESHOLD_SQ {
+            self.set_dirty(SaveDirtySource::Position);
             true
         } else {
             false
         }
     }
+
+    fn reset_timer(&mut self) { self.auto_save_timer = Self::AUTO_SAVE_INTERVAL; }
+
+    fn tick(&mut self, dt: f32) -> bool {
+        if !self.dirty { return false; }
+        self.auto_save_timer -= dt;
+        if self.auto_save_timer <= 0.0 { self.reset_timer(); true }
+        else { false }
+    }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // 序列化 / 反序列化
-// ═══════════════════════════════════════════════════════════════════════════════
-
 fn write_player_data(data: &PlayerSaveData, path: &std::path::Path) -> Result<(), String> {
-    let serialized = bincode::DefaultOptions::new()
-        .with_varint_encoding()
-        .serialize(data)
-        .map_err(|e| format!("bincode serialize: {e}"))?;
-
+    let serialized = bincode::DefaultOptions::new().with_varint_encoding()
+        .serialize(data).map_err(|e| format!("bincode serialize: {e}"))?;
     let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
     encoder.write_all(&serialized).map_err(|e| format!("gzip write: {e}"))?;
     let compressed = encoder.finish().map_err(|e| format!("gzip finish: {e}"))?;
-
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
+    if let Some(parent) = path.parent() { let _ = std::fs::create_dir_all(parent); }
     std::fs::write(path, compressed).map_err(|e| format!("file write: {e}"))?;
     Ok(())
 }
@@ -283,138 +302,153 @@ fn read_player_data(path: &std::path::Path) -> Result<PlayerSaveData, String> {
     let mut decoder = GzDecoder::new(&compressed[..]);
     let mut decompressed = Vec::new();
     decoder.read_to_end(&mut decompressed).map_err(|e| format!("gzip decompress: {e}"))?;
-
-    let data: PlayerSaveData = bincode::DefaultOptions::new()
-        .with_varint_encoding()
-        .deserialize(&decompressed)
-        .map_err(|e| format!("bincode deserialize: {e}"))?;
-
+    let data: PlayerSaveData = bincode::DefaultOptions::new().with_varint_encoding()
+        .deserialize(&decompressed).map_err(|e| format!("bincode deserialize: {e}"))?;
     Ok(data)
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 辅助: 构建路径
-// ═══════════════════════════════════════════════════════════════════════════════
 
 fn player_save_path(world_name: &str) -> std::path::PathBuf {
     std::path::PathBuf::from("saves").join(world_name).join("players").join("singleplayer.dat")
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// 统一保存
-// ═══════════════════════════════════════════════════════════════════════════════
 
+// 统一保存 (V3 — 含统计更新)
 fn perform_save(
     world_name: &str,
     gamemode: &PlayerGameMode,
     inventory: &InventoryState,
     player_query: &Query<&Transform, With<Player>>,
+    camera_query: &Query<&FpsCamera, With<Camera3d>>,
     save_manager: &mut PlayerSaveManager,
+    time: &Time,
 ) {
     let transform = player_query.single().cloned().unwrap_or_default();
+    let pitch = camera_query.single().map(|c| c.pitch).unwrap_or(0.0);
     let data = PlayerSaveData::from_runtime(
-        transform.translation,
-        transform.rotation,
-        gamemode,
-        inventory,
-        20.0,
-        20.0,
+        transform.translation, transform.rotation, pitch,
+        gamemode, inventory, 20.0, 20.0,
     );
 
     let path = player_save_path(world_name);
     match write_player_data(&data, &path) {
         Ok(()) => {
             save_manager.dirty = false;
-            log::info!("[SaveV2] player saved to {:?}", path);
+            save_manager.last_dirty_source = None;
+            save_manager.total_saves += 1;
+            save_manager.last_save_time = time.elapsed_secs() as f64;
+            save_manager.last_saved_position = transform.translation;
+            log::info!("[SaveV3] player saved (total: {}) to {:?}", save_manager.total_saves, path);
         }
-        Err(e) => {
-            log::error!("[SaveV2] save failed: {e}");
-        }
+        Err(e) => { log::error!("[SaveV3] save failed: {e}"); }
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ECS 系统
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/// OnEnter(InGame) — 加载玩家存档
 pub fn load_player_on_enter_system(
     save_config: Res<SaveConfig>,
     mut gamemode: ResMut<PlayerGameMode>,
     mut inventory: ResMut<InventoryState>,
-    mut player_query: Query<&mut Transform, With<Player>>,
+    mut player_query: Query<(&mut Transform,), With<Player>>,
+    mut camera_query: Query<&mut FpsCamera, With<Camera3d>>,
+    mut save_manager: ResMut<PlayerSaveManager>,
+    time: Res<Time>,
 ) {
     let save_path = player_save_path(&save_config.world_name);
-
-    let save_data = if save_path.exists() {
+    let raw_data = if save_path.exists() {
         match read_player_data(&save_path) {
-            Ok(data) => {
-                log::info!("[SaveV2] loaded player from {:?}", save_path);
-                data
-            }
-            Err(e) => {
-                log::warn!("[SaveV2] load failed: {}, using defaults", e);
-                PlayerSaveData::default()
-            }
+            Ok(data) => { log::info!("[SaveV3] loaded from {:?}", save_path); data }
+            Err(e) => { log::warn!("[SaveV3] load failed: {}, defaults", e); PlayerSaveData::default() }
         }
     } else {
-        log::info!("[SaveV2] no save found, creating default player");
+        log::info!("[SaveV3] no save, creating default");
         PlayerSaveData::default()
     };
 
+    // 健康检查 + 自动修复
+    let save_data = validate_player_data(&raw_data);
+
+    // 恢复 GameMode
     *gamemode = save_data.restore_gamemode();
+
+    // 恢复 Inventory
     let restored = save_data.restore_inventory();
     inventory.hotbar = restored.hotbar;
     inventory.survival = restored.survival;
 
-    if let Ok(mut transform) = player_query.single_mut() {
+    // 恢复 Transform
+    if let Ok((mut transform,)) = player_query.single_mut() {
         *transform = save_data.restore_transform();
+        save_manager.last_saved_position = transform.translation;
     }
 
-    log::info!(
-        "[SaveV2] player restored: pos={:?}, mode={}",
-        save_data.position, save_data.gamemode
-    );
+    // 恢复 Camera Pitch (V3 新增)
+    if let Ok(mut fps_camera) = camera_query.single_mut() {
+        fps_camera.pitch = save_data.camera_pitch();
+    }
+
+    // 标记初始保存位置, 确保首次退出前一定写入
+    save_manager.set_dirty(SaveDirtySource::Position);
+
+    log::info!("[SaveV3] player ready: pos={:?}, mode={}, pitch={:.2}",
+        save_data.position, save_data.gamemode, save_data.camera_pitch);
 }
 
-/// 自动保存（每 30 秒，仅 dirty 时）
+/// 玩家位置脏数据追踪
+pub fn player_position_dirty_system(
+    player_query: Query<&Transform, (With<Player>, Changed<Transform>)>,
+    mut save_manager: ResMut<PlayerSaveManager>,
+) {
+    for transform in &player_query {
+        save_manager.check_position_dirty(transform.translation);
+    }
+}
+
+/// 背包变化脏数据追踪
+pub fn inventory_dirty_tracking_system(
+    inventory: Res<InventoryState>,
+    mut save_manager: ResMut<PlayerSaveManager>,
+) {
+    if inventory.is_changed() {
+        save_manager.set_dirty(SaveDirtySource::Inventory);
+    }
+}
+
+/// 游戏模式变化脏数据追踪
+pub fn gamemode_dirty_tracking_system(
+    gamemode: Res<PlayerGameMode>,
+    mut save_manager: ResMut<PlayerSaveManager>,
+) {
+    if gamemode.is_changed() {
+        save_manager.set_dirty(SaveDirtySource::GameMode);
+    }
+}
+
+// 自动保存
 pub fn auto_save_player_system(
     time: Res<Time>,
     save_config: Res<SaveConfig>,
     gamemode: Res<PlayerGameMode>,
     inventory: Res<InventoryState>,
     player_query: Query<&Transform, With<Player>>,
+    camera_query: Query<&FpsCamera, With<Camera3d>>,
     mut save_manager: ResMut<PlayerSaveManager>,
 ) {
-    if !save_manager.tick(time.delta_secs()) {
-        return;
-    }
-    perform_save(
-        &save_config.world_name,
-        &gamemode,
-        &inventory,
-        &player_query,
-        &mut save_manager,
-    );
+    if !save_manager.tick(time.delta_secs()) { return; }
+    perform_save(&save_config.world_name, &gamemode, &inventory, &player_query, &camera_query, &mut save_manager, &time);
 }
 
-/// 退出前最后一帧保存（Last schedule，每帧检查仅 dirty 时写入）
+/// AppExit 事件触发立即保存
 pub fn save_on_exit_system(
+    mut exit_reader: MessageReader<bevy::app::AppExit>,
     save_config: Res<SaveConfig>,
     gamemode: Res<PlayerGameMode>,
     inventory: Res<InventoryState>,
     player_query: Query<&Transform, With<Player>>,
+    camera_query: Query<&FpsCamera, With<Camera3d>>,
     mut save_manager: ResMut<PlayerSaveManager>,
+    time: Res<Time>,
 ) {
-    if !save_manager.dirty {
-        return;
-    }
-    log::info!("[SaveV2] flushing player save...");
-    perform_save(
-        &save_config.world_name,
-        &gamemode,
-        &inventory,
-        &player_query,
-        &mut save_manager,
-    );
+    if exit_reader.read().next().is_none() { return; }
+    if !save_manager.dirty { return; }
+    log::info!("[SaveV3] exit detected, flushing...");
+    perform_save(&save_config.world_name, &gamemode, &inventory, &player_query, &camera_query, &mut save_manager, &time);
 }
