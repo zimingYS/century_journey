@@ -1,3 +1,5 @@
+pub mod stats;
+
 use bevy::prelude::*;
 use crate::core::constant::player::*;
 

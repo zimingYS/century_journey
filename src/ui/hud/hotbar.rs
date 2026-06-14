@@ -8,41 +8,48 @@ use crate::voxel::registry::BlockRegistry;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
+/// 生成HUD根节点
+pub fn spawn_hud_root_system(mut commands: Commands) {
+    commands.spawn((
+        HudRoot,
+        Name::new("HudRoot"),
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::End,
+            ..default()
+        },
+    ));
+}
+
 /// 生成HUD快捷栏
-pub fn spawn_hotbar_ui_system(mut commands: Commands, theme: Res<UiTheme>) {
-    commands
-        .spawn((
-            HudRoot,
+pub fn spawn_hotbar_ui_system(mut commands: Commands, theme: Res<UiTheme>, hud: Query<Entity, With<HudRoot>>) {
+    let Ok(hud_entity) = hud.single() else {
+        log::error!("HUD ROOT NOT FOUND — cannot spawn hotbar");
+        return;
+    };
+    commands.entity(hud_entity).with_children(|root| {
+        root.spawn((
+            HudHotbarContainer,
+            Name::new("HudHotbar"),
             Node {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(20.0),
-                left: Val::Px(0.0),
-                width: Val::Percent(100.0),
-                justify_content: JustifyContent::Center, // 水平居中子元素
+                flex_direction: FlexDirection::Row,
+                column_gap: Val::Px(theme.slot_gap),
+                padding: UiRect::all(Val::Px(4.0)),
+                border: UiRect::all(Val::Px(2.0)),
+                margin: UiRect { bottom: Val::Px(20.0), ..default() },
                 ..default()
             },
-        ))
-        .with_children(|wrapper| {
-            wrapper
-                .spawn((
-                    HudHotbarContainer,
-                    Name::new("HudHotbar"),
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        column_gap: Val::Px(theme.slot_gap),
-                        padding: UiRect::all(Val::Px(4.0)),
-                        border: UiRect::all(Val::Px(2.0)),
-                        ..default()
-                    },
-                    BackgroundColor(theme.hotbar_bg),
-                    BorderColor::all(theme.border_default),
-                ))
-                .with_children(|parent| {
-                    for index in 0..HOTBAR_SIZE {
-                        spawn_empty_slot(parent, SlotKind::Hotbar, index, &theme);
-                    }
-                });
+            BackgroundColor(theme.hotbar_bg),
+            BorderColor::all(theme.border_default),
+        )).with_children(|parent| {
+            for index in 0..HOTBAR_SIZE {
+                spawn_empty_slot(parent, SlotKind::Hotbar, index, &theme);
+            }
         });
+    });
 }
 
 /// HUD快捷栏视觉同步

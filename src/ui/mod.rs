@@ -28,14 +28,21 @@ impl Plugin for UIPlugin {
             .init_resource::<resources::ui_font::UiFont>()
             .init_resource::<SearchInputState>()
 
-            // ── Startup ──
+            // ── Startup: HudRoot + 所有 HUD 子元素 (chain 保证顺序) ──
             .add_systems(Startup, (
-                resources::ui_font::load_ui_font_system,
+                hud::hotbar::spawn_hud_root_system,
                 hud::crosshair::setup_crosshair,
                 hud::hotbar::spawn_hotbar_ui_system,
+                hud::health_bar::spawn_health_bar,
+                hud::hunger_bar::spawn_hunger_bar,
+                hud::armor_bar::spawn_armor_bar,
+            ).chain())
+            // ── Startup: 独立元素 ──
+            .add_systems(Startup, (
+                resources::ui_font::load_ui_font_system,
                 widgets::drag::spawn_cursor_item_icon,
                 screens::creative_inventory::spawn_creative_inventory_system,
-                screens::survival_inventory::spawn_survival_inventory_system,  // ← 新增
+                screens::survival_inventory::spawn_survival_inventory_system,
             ))
 
             // ── Update: 数据构建 ──
@@ -50,6 +57,7 @@ impl Plugin for UIPlugin {
                 screens::creative_inventory::populate_recent_panel_system,
                 screens::creative_inventory::init_creative_hotbar_system,
                 screens::survival_inventory::populate_survival_grid_system,
+                screens::survival_inventory::init_survival_hotbar_system,
             ).after(screens::creative_inventory::update_creative_filter_system))
 
             // ── Update: 输入 → 事件 ──
@@ -82,15 +90,19 @@ impl Plugin for UIPlugin {
                 screens::survival_inventory::survival_hotbar_visual_sync_system,
                 screens::survival_inventory::survival_grid_visual_sync_system,
                 screens::creative_inventory::cleanup_creative_hotbar_system,
+                screens::survival_inventory::cleanup_survival_hotbar_system,
                 screens::creative_inventory::update_category_highlight_system,
                 interaction::slot_hover_system,
             ))
 
             // ── Update: HUD ──
             .add_systems(Update, (
+                hud::sync_hud_visibility_system,
                 hud::hotbar::hud_hotbar_visual_sync_system,
                 hud::hotbar::handle_hotbar_switch_system,
-                hud::sync_hud_visibility_system,
+                hud::health_bar::health_bar_sync_system,
+                hud::hunger_bar::hunger_bar_sync_system,
+                hud::armor_bar::armor_bar_sync_system,
                 sync_input_blocked_system,
             ))
 

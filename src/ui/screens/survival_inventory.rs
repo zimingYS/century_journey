@@ -271,3 +271,54 @@ pub fn survival_hotbar_visual_sync_system(
         }
     }
 }
+
+/// 生存背包快捷栏初始填充
+pub fn init_survival_hotbar_system(
+    state: Res<InventoryState>,
+    block_registry: Option<Res<BlockRegistry>>,
+    hotbar_query: Query<Entity, With<SurvivalHotbarPanel>>,
+    children_query: Query<&Children>,
+    slot_query: Query<&InventorySlot>,
+    mut commands: Commands,
+    theme: Res<UiTheme>,
+) {
+    let Some(reg) = block_registry.as_ref() else { return };
+    let Ok(panel_entity) = hotbar_query.single() else { return };
+
+    let has_hotbar_slots = children_query
+        .get(panel_entity)
+        .map(|children| children.iter().any(|child| {
+            slot_query.get(child).map_or(false, |s| s.kind == SlotKind::Hotbar)
+        }))
+        .unwrap_or(false);
+
+    if has_hotbar_slots { return; }
+
+    commands.entity(panel_entity).with_children(|bar| {
+        for (index, item) in state.hotbar.items().iter().enumerate() {
+            crate::ui::widgets::slot::spawn_slot_with_item(
+                bar, SlotKind::Hotbar, index, item, reg, &theme,
+            );
+        }
+    });
+}
+
+/// 关闭生存背包时清理快捷栏子实体
+pub fn cleanup_survival_hotbar_system(
+    state: Res<InventoryState>,
+    hotbar_query: Query<Entity, With<SurvivalHotbarPanel>>,
+    children_query: Query<&Children>,
+    mut commands: Commands,
+    mut was_opened: Local<bool>,
+) {
+    if *was_opened && !state.opened {
+        if let Ok(panel_entity) = hotbar_query.single() {
+            if let Ok(children) = children_query.get(panel_entity) {
+                for child in children.iter() {
+                    commands.entity(child).despawn();
+                }
+            }
+        }
+    }
+    *was_opened = state.opened;
+}

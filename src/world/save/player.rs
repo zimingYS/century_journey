@@ -13,6 +13,7 @@ use crate::inventory::item::stack::ItemStack;
 use crate::inventory::state::InventoryState;
 use crate::player::camera::FpsCamera;
 use crate::player::components::Player;
+use crate::player::components::stats::{Health, Hunger};
 use crate::world::save::events::{SaveDirtySource};
 use crate::world::save::system::SaveConfig;
 
@@ -112,13 +113,10 @@ fn string_to_gamemode(s: &str) -> GameMode {
 
 impl PlayerSaveData {
     pub fn from_runtime(
-        position: Vec3,
-        rotation: Quat,
-        camera_pitch: f32,
+        position: Vec3, rotation: Quat, camera_pitch: f32,
         gamemode: &PlayerGameMode,
         inventory: &InventoryState,
-        health: f32,
-        hunger: f32,
+        health: f32, hunger: f32,
     ) -> Self {
         let hotbar = std::array::from_fn(|i| optional_stack_to_save(inventory.hotbar.get_stack(i)));
         let backpack = std::array::from_fn(|i| optional_stack_to_save(inventory.survival.get_stack(i)));
@@ -347,7 +345,7 @@ pub fn load_player_on_enter_system(
     save_config: Res<SaveConfig>,
     mut gamemode: ResMut<PlayerGameMode>,
     mut inventory: ResMut<InventoryState>,
-    mut player_query: Query<(&mut Transform,), With<Player>>,
+    mut player_query: Query<(&mut Transform, &mut Health, &mut Hunger), With<Player>>,
     mut camera_query: Query<&mut FpsCamera, With<Camera3d>>,
     mut save_manager: ResMut<PlayerSaveManager>,
     time: Res<Time>,
@@ -374,13 +372,18 @@ pub fn load_player_on_enter_system(
     inventory.hotbar = restored.hotbar;
     inventory.survival = restored.survival;
 
-    // 恢复 Transform
-    if let Ok((mut transform,)) = player_query.single_mut() {
+    // 恢复 Transform + Health + Hunger
+    if let Ok((mut transform, mut health, mut hunger)) = player_query.single_mut() {
         *transform = save_data.restore_transform();
         save_manager.last_saved_position = transform.translation;
+
+        health.current = save_data.health.clamp(0.0, health.max);
+        hunger.current = save_data.hunger.clamp(0.0, hunger.max);
+        hunger.saturation = 5.0;
     }
 
-    // 恢复 Camera Pitch (V3 新增)
+
+    // 恢复 Camera Pitch
     if let Ok(mut fps_camera) = camera_query.single_mut() {
         fps_camera.pitch = save_data.camera_pitch();
     }
@@ -438,7 +441,7 @@ pub fn auto_save_player_system(
 
 /// AppExit 事件触发立即保存
 pub fn save_on_exit_system(
-    mut exit_reader: MessageReader<bevy::app::AppExit>,
+    mut exit_reader: MessageReader<AppExit>,
     save_config: Res<SaveConfig>,
     gamemode: Res<PlayerGameMode>,
     inventory: Res<InventoryState>,
