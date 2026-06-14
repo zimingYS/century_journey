@@ -8,6 +8,10 @@ use crate::voxel::registry::BlockRegistry;
 #[derive(Component)]
 pub struct CursorItemIcon;
 
+/// 光标图标固定子节点 — 永远只有一个
+#[derive(Component)]
+pub struct CursorItemImage;
+
 /// 光标数量文本标记
 #[derive(Component)]
 pub struct CursorCountText;
@@ -30,19 +34,16 @@ pub fn spawn_cursor_item_icon(mut commands: Commands) {
         Visibility::Hidden,
     )).with_children(|parent| {
         parent.spawn((
+            CursorItemImage,
+            ImageNode::default(),
+            Node { width: Val::Percent(100.0), height: Val::Percent(100.0), ..default() },
+        ));
+        parent.spawn((
             CursorCountText,
             Text::new(""),
-            TextFont {
-                font_size: FontSize::Px(12.0),
-                ..default()
-            },
+            TextFont { font_size: FontSize::Px(12.0), ..default() },
             TextColor(Color::WHITE),
-            Node {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(2.0),
-                right: Val::Px(4.0),
-                ..default()
-            },
+            Node { position_type: PositionType::Absolute, bottom: Val::Px(2.0), right: Val::Px(4.0), ..default() },
             Visibility::Hidden,
         ));
     });
@@ -67,97 +68,59 @@ pub fn cursor_visibility_system(
     mut query: Query<&mut Visibility, With<CursorItemIcon>>,
 ) {
     for mut vis in &mut query {
-        *vis = if state.cursor.has_item() {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
+        *vis = if state.cursor.has_item() { Visibility::Visible } else { Visibility::Hidden };
     }
 }
 
-// 光标纹理更新
+// 光标纹理和数量更新 (只修改已有子节点, 不新建)
 pub fn cursor_texture_system(
     state: Res<InventoryState>,
     registry: Option<Res<BlockRegistry>>,
-    mut query: Query<(Entity, Option<&Children>), With<CursorItemIcon>>,
-    children_query: Query<&Children>,
-    mut image_query: Query<&mut ImageNode>,
-    mut commands: Commands,
+    cursor_query: Query<&Children, With<CursorItemIcon>>,
+    mut image_query: Query<&mut ImageNode, With<CursorItemImage>>,
+    mut count_text_query: Query<(&mut Text, &mut Visibility), With<CursorCountText>>,
     mut last_snapshot: Local<Option<(ItemId, u32)>>,
 ) {
     let Some(reg) = registry.as_ref() else { return };
     let current = state.cursor.stack().map(|s| (s.item.clone(), s.count));
-
-    if *last_snapshot == current {
-        return;
-    }
+    if *last_snapshot == current { return; }
     *last_snapshot = current.clone();
 
-    let Some((item_id, count)) = current else {
-        // 光标清空 → 需要隐藏图标（由 visibility system 处理）
-        return;
-    };
-    for (entity, _children_opt) in &mut query {
-        let Some(block_str) = item_id.as_block_id() else { continue; };
-        let Some(id) = reg.get_id_by_identifier(block_str) else { continue; };
-        let layer_idx = reg.get_layer(id, 4);
-        let index = (layer_idx as usize) * CHUNK_SIZE * CHUNK_SIZE;
-
-        // 更新图标子节点
-        let has_icon = if let Ok(cursor_children) = children_query.get(entity) {
-            if let Some(&icon_entity) = cursor_children.first() {
-                if let Ok(mut img) = image_query.get_mut(icon_entity) {
-                    img.image = reg.base_texture.clone();
-                    if let Some(ref mut atlas) = img.texture_atlas {
-                        atlas.index = index;
-                    } else {
-                        img.texture_atlas = Some(TextureAtlas {
-                            layout: reg.atlas_layout.clone(),
-                            index,
-                        });
+    for children in &cursor_query {
+        // ── 更新图标 (第1个子节点 CursorItemImage) ──
+        for child in children.iter() {
+            if let Ok(mut img) = image_query.get_mut(child) {
+                if let Some((item_id, _count)) = &current {
+                    if let Some(block_str) = item_id.as_block_id() {
+                        if let Some(id) = reg.get_id_by_identifier(block_str) {
+                            let layer_idx = reg.get_layer(id, 4);
+                            let atlas_idx = (layer_idx as usize) * CHUNK_SIZE * CHUNK_SIZE;
+                            img.image = reg.base_texture.clone();
+                            if let Some(ref mut atlas) = img.texture_atlas {
+                                atlas.index = atlas_idx;
+                            } else {
+                                img.texture_atlas = Some(TextureAtlas {
+                                    layout: reg.atlas_layout.clone(), index: atlas_idx,
+                                });
+                            }
+                        }
                     }
-                    true
-                } else {
-                    false
                 }
-            } else {
-                false
             }
-        } else {
-            false
-        };
-
-        if !has_icon {
-            // 首次创建图标子节点
-            let image = reg.base_texture.clone();
-            let layout = reg.atlas_layout.clone();
-            commands.entity(entity).with_children(|parent| {
-                parent.spawn((
-                    ImageNode {
-                        image,
-                        texture_atlas: Some(TextureAtlas { layout, index }),
-                        ..default()
-                    },
-                    Node {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        ..default()
-                    },
-                ));
-            });
         }
 
-        // 更新数量文本（CursorItemIcon 第二个子实体 = CursorCountText，或 for 新建时查找）
-        if let Ok(cursor_children) = children_query.get(entity) {
-            let count_child = cursor_children.get(1).copied();
-            if let Some(count_entity) = count_child {
-                if count > 1 {
-                    commands.entity(count_entity).insert((
-                        Visibility::Inherited,
-                        Text::new(count.to_string()),
-                    ));
+        // ── 更新数量文本 (第2个子节点 CursorCountText) ──
+        for child in children.iter() {
+            if let Ok((mut text, mut vis)) = count_text_query.get_mut(child) {
+                if let Some((_, count)) = &current {
+                    if *count > 1 {
+                        *vis = Visibility::Inherited;
+                        *text = Text::new(count.to_string());
+                    } else {
+                        *vis = Visibility::Hidden;
+                    }
                 } else {
-                    commands.entity(count_entity).insert(Visibility::Hidden);
+                    *vis = Visibility::Hidden;
                 }
             }
         }

@@ -256,3 +256,20 @@ fn mark_dirty_chunks(
         }
     }
 }
+
+/// Q 丢弃系统 — 在玩家面前生成 DroppedItem
+pub fn drop_item_system(
+    mut reader: MessageReader<crate::inventory::events::DropItemEvent>,
+    player_query: Query<&Transform, With<Player>>,
+    mut commands: Commands,
+) {
+    let Ok(player_transform) = player_query.single() else { return };
+    for event in reader.read() {
+        if event.stack.is_empty() { continue; }
+        let pos = player_transform.translation
+            + player_transform.forward() * 2.0
+            + Vec3::new(0.0, 0.5, 0.0);
+        spawn_dropped_item(&mut commands, pos, event.stack.clone());
+        log::info!("[Q] Dropped {:?}", event.stack);
+    }
+}

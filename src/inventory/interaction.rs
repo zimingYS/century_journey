@@ -1,5 +1,5 @@
 use crate::inventory::container::InventoryContainer;
-use crate::inventory::cursor::CursorData;
+use crate::inventory::cursor::{CursorData, CursorSource};
 use crate::inventory::item::id::ItemId;
 use crate::inventory::item::stack::ItemStack;
 
@@ -39,19 +39,17 @@ pub fn left_click_slot<C: InventoryContainer>(
 
         // 情况 3 & 4：光标有物 + 槽有物
         (true, true) => {
-            let cursor_stack = cursor.stack_mut().unwrap();
-
-            // 判断是否同种物品
             let slot_item = container.get_stack(index).unwrap().item.clone();
-            let is_same = cursor_stack.item == slot_item;
+            let cursor_item = cursor.stack().unwrap().item.clone();
+            let is_same = cursor_item == slot_item;
 
             if is_same {
-                // 情况 3：尝试合并
+                // 情况 3：尝试将光标物品合并到槽位（Minecraft 标准行为）
                 let slot_stack = container.get_stack_mut(index).unwrap();
-                cursor_stack.merge_from(slot_stack);
+                slot_stack.merge_from(cursor.stack_mut().unwrap());
 
                 // 合并后如果光标为空，清空
-                if cursor_stack.is_empty() {
+                if cursor.stack().is_some_and(|s| s.is_empty()) {
                     cursor.clear();
                 }
             } else {
@@ -214,18 +212,21 @@ pub fn handle_slot_interaction(state: &mut InventoryState, kind: SlotKind, index
             match action {
                 SlotAction::LeftClick => {
                     state.cursor.set_stack(ItemStack::new(item.clone(), ItemStack::MAX_STACK_SIZE));
+                    state.cursor.source = None; // 创造网格无"来源"
                     state.add_recent(item);
                 }
                 SlotAction::RightClick => {
                     // 右键：从创造网格拿起一半
                     let half = (ItemStack::MAX_STACK_SIZE + 1) / 2;
                     state.cursor.set_stack(ItemStack::new(item.clone(), half));
+                    state.cursor.source = None;
                     state.add_recent(item);
                 }
                 SlotAction::ShiftClick => {
                     // 创造模式 Shift：尝试转移到快捷栏
                     shift_into_hotbar(state, &ItemStack::new(item, ItemStack::MAX_STACK_SIZE));
                 }
+                _ => {}
             }
         }
 
@@ -243,16 +244,19 @@ pub fn handle_slot_interaction(state: &mut InventoryState, kind: SlotKind, index
             match action {
                 SlotAction::LeftClick => {
                     state.cursor.set_stack(ItemStack::new(stack.item.clone(), ItemStack::MAX_STACK_SIZE));
+                    state.cursor.source = None;
                     state.add_recent(stack.item.clone());
                 }
                 SlotAction::RightClick => {
                     let half = (ItemStack::MAX_STACK_SIZE + 1) / 2;
                     state.cursor.set_stack(ItemStack::new(stack.item.clone(), half));
+                    state.cursor.source = None;
                     state.add_recent(stack.item.clone());
                 }
                 SlotAction::ShiftClick => {
                     shift_into_hotbar(state, &ItemStack::new(stack.item.clone(), ItemStack::MAX_STACK_SIZE));
                 }
+                _ => {}
             }
         }
 
@@ -261,9 +265,11 @@ pub fn handle_slot_interaction(state: &mut InventoryState, kind: SlotKind, index
             match action {
                 SlotAction::LeftClick => {
                     left_click_slot(&mut state.hotbar, index, &mut state.cursor);
+                    update_cursor_source(&mut state.cursor, CursorSource::Hotbar(index));
                 }
                 SlotAction::RightClick => {
                     right_click_slot(&mut state.hotbar, index, &mut state.cursor);
+                    update_cursor_source(&mut state.cursor, CursorSource::Hotbar(index));
                 }
                 SlotAction::ShiftClick => {
                     // 快捷栏 ← → 生存背包
@@ -274,6 +280,7 @@ pub fn handle_slot_interaction(state: &mut InventoryState, kind: SlotKind, index
                         index,
                     );
                 }
+                _ => {}
             }
         }
 
@@ -282,9 +289,11 @@ pub fn handle_slot_interaction(state: &mut InventoryState, kind: SlotKind, index
             match action {
                 SlotAction::LeftClick => {
                     left_click_slot(&mut state.survival, index, &mut state.cursor);
+                    update_cursor_source(&mut state.cursor, CursorSource::SurvivalBackpack(index));
                 }
                 SlotAction::RightClick => {
                     right_click_slot(&mut state.survival, index, &mut state.cursor);
+                    update_cursor_source(&mut state.cursor, CursorSource::SurvivalBackpack(index));
                 }
                 SlotAction::ShiftClick => {
                     // 源 = 背包，目标 = 快捷栏
@@ -294,6 +303,7 @@ pub fn handle_slot_interaction(state: &mut InventoryState, kind: SlotKind, index
                         index,
                     );
                 }
+                _ => {}
             }
         }
 
@@ -302,6 +312,15 @@ pub fn handle_slot_interaction(state: &mut InventoryState, kind: SlotKind, index
             // TODO: 需要从 WorldStorage 查找容器实体
             // 当前占位，后续实现
         }
+    }
+}
+
+/// 当光标有物品时更新来源槽位；空光标则清除来源
+fn update_cursor_source(cursor: &mut CursorData, source: CursorSource) {
+    if cursor.has_item() {
+        cursor.source = Some(source);
+    } else {
+        cursor.source = None;
     }
 }
 

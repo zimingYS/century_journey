@@ -238,7 +238,12 @@ pub fn toggle_inventory_system(
     } else {
         cursor.visible = false;
         cursor.grab_mode = CursorGrabMode::Locked;
-        state.cursor.clear();
+        if gamemode.is_creative() {
+            state.cursor.clear();
+        } else {
+            // Survival: 尝试放回背包来源槽位
+            crate::ui::screens::survival_inventory::handle_inventory_close(&mut state);
+        }
     }
 }
 
@@ -520,13 +525,20 @@ pub fn creative_hotbar_visual_sync_system(
     block_registry: Option<Res<BlockRegistry>>,
     hotbar_query: Query<Entity, With<CreativeHotbarPanel>>,
     children_query: Query<&Children>,
-    slot_query: Query<(Entity, &InventorySlot, &SlotVisual)>,
+    mut slot_query: Query<(Entity, &InventorySlot, &mut SlotVisual)>,
     mut commands: Commands,
     theme: Res<UiTheme>,
     mut border_query: Query<(&InventorySlot, &mut BorderColor)>,
-    mut last_hotbar: Local<Vec<(ItemId, u32)>>,
+    mut last_hotbar: Local<Option<Vec<(ItemId, u32)>>>,
+    mut was_opened: Local<bool>,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
+
+    // 背包打开时强制重置缓存（解决 init 系统延迟创建槽位的时序问题）
+    if state.opened && !*was_opened {
+        *last_hotbar = None;
+    }
+    *was_opened = state.opened;
 
     let current: Vec<(ItemId, u32)> = (0..HOTBAR_SIZE)
         .map(|i| {
@@ -536,22 +548,21 @@ pub fn creative_hotbar_visual_sync_system(
         })
         .collect();
 
-    if *last_hotbar == current {
-        return;
-    }
-    *last_hotbar = current.clone();
+    let force = last_hotbar.is_none();
+    let unchanged = !force && last_hotbar.as_ref().map_or(false, |old| old == &current);
+    if unchanged { return; }
+    *last_hotbar = Some(current.clone());
 
     // 原地更新图标
     let Ok(hotbar_entity) = hotbar_query.single() else { return };
     if let Ok(children) = children_query.get(hotbar_entity) {
         for child in children.iter() {
-            if let Ok((entity, slot, visual)) = slot_query.get(child) {
-                if slot.kind != SlotKind::Hotbar {
-                    continue;
-                }
+            if let Ok((entity, slot, mut visual)) = slot_query.get_mut(child) {
+                if slot.kind != SlotKind::Hotbar { continue; }
                 let (item, count) = current.get(slot.index).cloned().unwrap_or((ItemId::air(), 0));
-                if visual.item != item || visual.count != count {
+                if force || visual.item != item || visual.count != count {
                     sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query);
+                    visual.item = item; visual.count = count;
                 }
             }
         }

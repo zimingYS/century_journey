@@ -40,7 +40,8 @@ impl Plugin for PlayerPlugin {
                 systems::hunger::natural_regeneration_system,
                 systems::hunger::starvation_damage_system,
             ).chain())
-            .add_systems(Update, systems::armor_calc::armor_calculation_system);
+            .add_systems(Update, systems::armor_calc::armor_calculation_system)
+            .add_systems(Update, systems::interaction::drop_item_system);
     }
 }
 

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::inventory::item::id::ItemId;
+use crate::inventory::item::stack::ItemStack;
 
 /// 物品被拾取到鼠标
 #[derive(Message)]
@@ -12,4 +13,10 @@ pub struct ItemPickedEvent {
 pub struct ItemPlacedToHotbarEvent {
     pub hotbar_index: usize,
     pub item: ItemId,
+}
+
+/// Q 丢弃事件
+#[derive(Message, Debug, Clone)]
+pub struct DropItemEvent {
+    pub stack: ItemStack,
 }

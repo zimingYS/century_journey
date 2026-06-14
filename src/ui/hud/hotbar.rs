@@ -62,10 +62,17 @@ pub fn hud_hotbar_visual_sync_system(
     children_query: Query<&Children>,
     mut border_query: Query<(&InventorySlot, &mut BorderColor)>,
     theme: Res<UiTheme>,
-    mut last_hotbar: Local<Vec<(ItemId, u32)>>,
+    mut last_hotbar: Local<Option<Vec<(ItemId, u32)>>>,
     mut last_active: Local<usize>,
+    mut was_opened: Local<bool>,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
+
+    // 背包打开时强制重置缓存（确保 HUD hotbar 与数据同步）
+    if state.opened && !*was_opened {
+        *last_hotbar = None;
+    }
+    *was_opened = state.opened;
 
     // 构建当前快照（包含数量）
     let current: Vec<(ItemId, u32)> = (0..HOTBAR_SIZE)
@@ -77,15 +84,17 @@ pub fn hud_hotbar_visual_sync_system(
         .collect();
 
     // 图标同步 — 仅物品或数量变化时执行
-    if *last_hotbar != current {
-        *last_hotbar = current.clone();
+    let force = last_hotbar.is_none();
+    let changed = force || last_hotbar.as_ref().map_or(true, |old| old != &current);
+    if changed {
+        *last_hotbar = Some(current.clone());
 
         for (entity, slot) in &slot_query {
             if slot.kind != SlotKind::Hotbar { continue; }
             let (item, count) = current.get(slot.index).cloned().unwrap_or((ItemId::air(), 0));
 
             if let Ok(mut visual) = slot_visual_query.get_mut(entity) {
-                if visual.item != item || visual.count != count {
+                if force || visual.item != item || visual.count != count {
                     sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query);
                     visual.item = item;
                     visual.count = count;

@@ -17,6 +17,10 @@ pub enum SlotAction {
     RightClick,
     /// Shift + 左键点击
     ShiftClick,
+    /// Q 丢弃 1 个
+    DropOne,
+    /// Shift+Q 丢弃整组
+    DropAll,
 }
 
 impl Default for SlotData {

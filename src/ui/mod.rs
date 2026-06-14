@@ -1,5 +1,6 @@
 use crate::core::input_block::InputBlocked;
 use bevy::prelude::*;
+use crate::inventory::events::DropItemEvent;
 use crate::inventory::state::InventoryState;
 use crate::ui::theme::category_theme::CategoryTheme;
 use crate::ui::theme::ui_theme::UiTheme;
@@ -20,6 +21,7 @@ impl Plugin for UIPlugin {
             // ── 消息通道 ──
             .add_message::<SlotInteractionEvent>()
             .add_message::<CategoryClickedEvent>()
+            .add_message::<DropItemEvent>()
 
             // ── 资源 ──
             .init_resource::<InventoryState>()
@@ -63,6 +65,8 @@ impl Plugin for UIPlugin {
             // ── Update: 输入 → 事件 ──
             .add_systems(Update, (
                 interaction::slot_interaction_system,
+                interaction::slot_right_click_system,
+                interaction::slot_q_drop_system,
                 interaction::category_tab_interaction_system,
                 interaction::search_box_interaction_system,
             ))
@@ -81,11 +85,13 @@ impl Plugin for UIPlugin {
                 interaction::update_search_text_display_system,
             ))
 
-            // ── Update: UI 视觉同步 ──
+            // ── Update: UI 视觉同步 (init/cleanup → 视觉同步 → 清理, chain 保证顺序) ──
             .add_systems(Update, (
                 screens::creative_inventory::toggle_inventory_system,
                 screens::creative_inventory::update_creative_visibility_system,
                 screens::survival_inventory::update_survival_visibility_system,
+            ))
+            .add_systems(Update, (
                 screens::creative_inventory::creative_hotbar_visual_sync_system,
                 screens::survival_inventory::survival_hotbar_visual_sync_system,
                 screens::survival_inventory::survival_grid_visual_sync_system,
@@ -93,7 +99,7 @@ impl Plugin for UIPlugin {
                 screens::survival_inventory::cleanup_survival_hotbar_system,
                 screens::creative_inventory::update_category_highlight_system,
                 interaction::slot_hover_system,
-            ))
+            ).after(screens::creative_inventory::init_creative_hotbar_system).chain())
 
             // ── Update: HUD ──
             .add_systems(Update, (
