@@ -18,11 +18,24 @@ impl IconDefinition {
         IconDefinition::Block(id.into())
     }
 
+    /// 从路径创建图标
+    pub fn texture(path: impl Into<String>) -> Self {
+        IconDefinition::Texture(path.into())
+    }
+
     /// 获取用于方块注册表纹理查找的方块标识符
     pub fn as_block_id(&self) -> Option<&str> {
         match self {
             IconDefinition::Block(id) => Some(id.as_str()),
             IconDefinition::Texture(_) => None,
+        }
+    }
+
+    /// 获取独立纹理引用的路径
+    pub fn texture_path(&self) -> Option<&str> {
+        match self {
+            IconDefinition::Block(_) => None,
+            IconDefinition::Texture(path) => Some(path.as_str()),
         }
     }
 }

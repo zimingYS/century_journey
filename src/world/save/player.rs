@@ -87,9 +87,20 @@ impl Default for PlayerSaveData {
     }
 }
 
-fn item_id_to_string(id: &ItemId) -> String { id.to_string() }
+fn item_id_to_string(id: &ItemId) -> String {
+    id.to_string()
+}
 
-fn string_to_item_id(s: &str) -> ItemId { ItemId::block(s.to_string()) }
+fn string_to_item_id(s: &str) -> ItemId {
+    if let Some(rest) = s.strip_prefix("item:") {
+        ItemId::item(rest.to_string())
+    } else if let Some(rest) = s.strip_prefix("block:") {
+        ItemId::block(rest.to_string())
+    } else {
+        // 兼容旧存档（无前缀）
+        ItemId::block(s.to_string())
+    }
+}
 
 fn optional_stack_to_save(opt: Option<&ItemStack>) -> SaveItemStack {
     match opt {
@@ -389,6 +400,9 @@ pub fn load_player_on_enter_system(
 
     // 标记初始保存位置, 确保首次退出前一定写入
     save_manager.set_dirty(SaveDirtySource::Position);
+
+    // 强制标记 inventory 变化，确保下一帧视觉同步刷新所有图标
+    inventory.set_changed();
 
     log::info!("[存档系统] 玩家已生成,位置:{:?},游戏模式:{}",
         save_data.position, save_data.gamemode);

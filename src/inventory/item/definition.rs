@@ -100,8 +100,11 @@ impl ItemDefinition {
         self.placeable_block.is_some()
     }
 
-    /// 获取用于 BlockRegistry 纹理查找的标识符
-    pub fn texture_id(&self) -> Option<&str> {
-        self.icon.as_block_id().or_else(|| self.id.as_block_id())
+    /// 获取用于渲染的纹理标识符
+    pub fn texture_key(&self) -> Option<&str> {
+        match &self.icon {
+            IconDefinition::Block(id) => Some(id.as_str()),
+            IconDefinition::Texture(path) => Some(path.as_str()),
+        }
     }
 }

@@ -3,8 +3,9 @@ use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use crate::gameplay::gamemode::PlayerGameMode;
 use crate::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::inventory::container::InventoryContainer;
-use crate::inventory::item::id::ItemId;
 use crate::inventory::item::registry::ItemRegistry;
+use crate::inventory::item::texture_registry::ItemTextureRegistry;
+use crate::inventory::item::id::ItemId;
 use crate::inventory::state::InventoryState;
 use crate::ui::components::{SurvivalHotbarPanel, SurvivalInventoryOverlay, SurvivalInventoryRoot, SurvivalItemGrid};
 use crate::ui::theme::ui_theme::UiTheme;
@@ -189,6 +190,7 @@ pub fn survival_grid_visual_sync_system(
     grid_query: Query<Entity, With<SurvivalItemGrid>>,
     children_query: Query<&Children>,
     item_registry: Option<Res<ItemRegistry>>,
+    item_texture_registry: Option<Res<ItemTextureRegistry>>,
     mut slot_query: Query<(&InventorySlot, &mut SlotVisual)>,
     mut commands: Commands,
     mut last_snapshot: Local<Option<Vec<(ItemId, u32)>>>,
@@ -223,7 +225,7 @@ pub fn survival_grid_visual_sync_system(
                 if slot.kind != SlotKind::SurvivalBackpack { continue; }
                 let (item, count) = current.get(slot.index).cloned().unwrap_or((ItemId::air(), 0));
                 if force || visual.item != item || visual.count != count {
-                    sync_slot_icon(&mut commands, child, &item, count, reg, &children_query, item_registry.as_deref());
+                    sync_slot_icon(&mut commands, child, &item, count, reg, &children_query, item_registry.as_deref(), item_texture_registry.as_deref());
                     visual.item = item; visual.count = count;
                 }
             }
@@ -240,6 +242,7 @@ pub fn survival_hotbar_visual_sync_system(
     mut commands: Commands,
     theme: Res<UiTheme>,
     item_registry: Option<Res<ItemRegistry>>,
+    item_texture_registry: Option<Res<ItemTextureRegistry>>,
     mut border_query: Query<(&InventorySlot, &mut BorderColor)>,
     mut last_hotbar: Local<Option<Vec<(ItemId, u32)>>>,
     mut last_active: Local<usize>,
@@ -269,7 +272,7 @@ pub fn survival_hotbar_visual_sync_system(
             if slot.kind != SlotKind::Hotbar { continue; }
             let (item, count) = current.get(slot.index).cloned().unwrap_or((ItemId::air(), 0));
             if force || visual.item != item || visual.count != count {
-                sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query, item_registry.as_deref());
+                sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query, item_registry.as_deref(), item_texture_registry.as_deref());
                 visual.item = item; visual.count = count;
             }
         }
@@ -301,6 +304,7 @@ pub fn init_survival_hotbar_system(
     mut commands: Commands,
     theme: Res<UiTheme>,
     item_registry: Option<Res<ItemRegistry>>,
+    item_texture_registry: Option<Res<ItemTextureRegistry>>,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
     let Ok(panel_entity) = hotbar_query.single() else { return };
@@ -317,7 +321,7 @@ pub fn init_survival_hotbar_system(
     commands.entity(panel_entity).with_children(|bar| {
         for (index, item) in state.hotbar.items().iter().enumerate() {
             crate::ui::widgets::slot::spawn_slot_with_item(
-                bar, SlotKind::Hotbar, index, item, reg, &theme, item_registry.as_deref(),
+                bar, SlotKind::Hotbar, index, item, reg, &theme, item_registry.as_deref(), item_texture_registry.as_deref(),
             );
         }
     });

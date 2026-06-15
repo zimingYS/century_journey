@@ -78,7 +78,7 @@ impl Default for UiTheme {
             border_selected:   Color::srgba(1.0, 1.0, 1.0, 1.0),
             accent:            Color::srgba(0.35, 0.55, 0.95, 1.0),
 
-            slot_size:         56.0,
+            slot_size:         64.0,
             slot_border:       2.0,
             slot_gap:          4.0,
 

@@ -1,5 +1,6 @@
 use crate::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::inventory::item::id::ItemId;
+use crate::inventory::item::texture_registry::ItemTextureRegistry;
 use crate::inventory::state::InventoryState;
 use crate::ui::components::{HudHotbarContainer, HudRoot};
 use crate::ui::theme::ui_theme::UiTheme;
@@ -65,8 +66,9 @@ pub fn hud_hotbar_visual_sync_system(
     theme: Res<UiTheme>,
     mut last_hotbar: Local<Option<Vec<(ItemId, u32)>>>,
     mut last_active: Local<usize>,
-    mut was_opened: Local<bool>,
+    mut     was_opened: Local<bool>,
     item_registry: Option<Res<ItemRegistry>>,
+    item_texture_registry: Option<Res<ItemTextureRegistry>>,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
 
@@ -97,7 +99,7 @@ pub fn hud_hotbar_visual_sync_system(
 
             if let Ok(mut visual) = slot_visual_query.get_mut(entity) {
                 if force || visual.item != item || visual.count != count {
-                    sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query ,item_registry.as_deref());
+                    sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query, item_registry.as_deref(), item_texture_registry.as_deref());
                     visual.item = item;
                     visual.count = count;
                 }

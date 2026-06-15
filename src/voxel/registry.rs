@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use bevy::prelude::*;
+use crate::core::constant::world::CHUNK_SIZE;
 use crate::core::state::app_state::AppState;
 use crate::voxel::behavior::{BlockBehavior, DefaultBlockBehavior};
 use crate::voxel::properties::BlockProperty;
@@ -70,6 +71,13 @@ impl BlockRegistry{
     /// 查询某个方块对应的某个面在 GPU 纹理数组中的 Layer 索引
     pub fn get_layer(&self, id: u16, face_idx: usize) -> u32 {
         *self.texture_layers.get(&(id, face_idx)).unwrap_or(&0)
+    }
+
+    /// 查询方块图标对应的图集 tile index (仅 Block 图标)
+    pub fn get_icon_atlas_index(&self, block_id: &str) -> Option<usize> {
+        let runtime_id = self.get_id_by_identifier(block_id)?;
+        let layer = self.get_layer(runtime_id, 4) as usize;
+        Some(layer * CHUNK_SIZE * CHUNK_SIZE)
     }
 
     /// 获取方块行为

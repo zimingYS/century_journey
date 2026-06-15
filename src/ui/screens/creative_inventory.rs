@@ -6,6 +6,7 @@ use crate::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::inventory::item::definition::ItemCategory;
 use crate::inventory::item::id::ItemId;
 use crate::inventory::item::registry::ItemRegistry;
+use crate::inventory::item::texture_registry::ItemTextureRegistry;
 use crate::inventory::item::stack::ItemStack;
 use crate::inventory::state::InventoryState;
 use crate::tag::identifier::TagRegistryType;
@@ -392,6 +393,7 @@ pub fn populate_creative_grid_system(
     children_query: Query<&Children>,
     existing_slots: Query<(Entity, &InventorySlot)>,
     item_registry: Option<Res<ItemRegistry>>,
+    item_texture_registry: Option<Res<ItemTextureRegistry>>,
     theme: Res<UiTheme>,
     mut commands: Commands,
     mut last_items: Local<Vec<ItemId>>,
@@ -423,7 +425,7 @@ pub fn populate_creative_grid_system(
         for (entity, idx) in slot_indices {
             let air = &ItemId::air();
             let item = new_items.get(idx).unwrap_or(air);
-            sync_slot_icon(&mut commands, entity, item, 0, reg, &children_query, item_registry.as_deref());
+            sync_slot_icon(&mut commands, entity, item, 0, reg, &children_query, item_registry.as_deref(), item_texture_registry.as_deref());
         }
         return;
     }
@@ -437,7 +439,7 @@ pub fn populate_creative_grid_system(
 
     commands.entity(grid_entity).with_children(|grid| {
         for (index, item) in new_items.iter().enumerate() {
-            spawn_slot_with_item(grid, SlotKind::CreativeGrid, index, item, reg, &theme, item_registry.as_deref());
+            spawn_slot_with_item(grid, SlotKind::CreativeGrid, index, item, reg, &theme, item_registry.as_deref(), item_texture_registry.as_deref());
         }
     });
 }
@@ -452,6 +454,7 @@ pub fn populate_recent_panel_system(
     ui_font: Res<UiFont>,
     theme: Res<UiTheme>,
     item_registry: Option<Res<ItemRegistry>>,
+    item_texture_registry: Option<Res<ItemTextureRegistry>>,
     mut commands: Commands,
     mut last_items: Local<Vec<ItemStack>>,
 ) {
@@ -482,7 +485,7 @@ pub fn populate_recent_panel_system(
         for (entity, idx) in slot_entities {
             let air = ItemId::air();
             let (item, count) = new_items.get(idx).map(|s| (&s.item, s.count)).unwrap_or((&air, 0u32));
-            sync_slot_icon(&mut commands, entity, item, count, reg, &children_query, item_registry.as_deref());
+            sync_slot_icon(&mut commands, entity, item, count, reg, &children_query, item_registry.as_deref(), item_texture_registry.as_deref());
         }
         return;
     }
@@ -509,7 +512,7 @@ pub fn populate_recent_panel_system(
             },
         ));
         for (index, stack) in new_items.iter().enumerate() {
-            spawn_slot_with_item(panel, SlotKind::Recent, index, &stack.item, reg, &theme , item_registry.as_deref(),);
+            spawn_slot_with_item(panel, SlotKind::Recent, index, &stack.item, reg, &theme, item_registry.as_deref(), item_texture_registry.as_deref());
         }
     });
 }
@@ -523,6 +526,7 @@ pub fn init_creative_hotbar_system(
     slot_query: Query<&InventorySlot>,
     theme: Res<UiTheme>,
     item_registry: Option<Res<ItemRegistry>>,
+    item_texture_registry: Option<Res<ItemTextureRegistry>>,
     mut commands: Commands,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
@@ -543,7 +547,7 @@ pub fn init_creative_hotbar_system(
 
     commands.entity(panel_entity).with_children(|bar| {
         for (index, item) in state.hotbar.items().iter().enumerate() {
-            spawn_slot_with_item(bar, SlotKind::Hotbar, index, item, reg, &theme ,item_registry.as_deref(),);
+            spawn_slot_with_item(bar, SlotKind::Hotbar, index, item, reg, &theme, item_registry.as_deref(), item_texture_registry.as_deref());
         }
     });
 }
@@ -556,6 +560,7 @@ pub fn creative_hotbar_visual_sync_system(
     children_query: Query<&Children>,
     theme: Res<UiTheme>,
     item_registry: Option<Res<ItemRegistry>>,
+    item_texture_registry: Option<Res<ItemTextureRegistry>>,
     mut slot_query: Query<(Entity, &InventorySlot, &mut SlotVisual)>,
     mut commands: Commands,
     mut border_query: Query<(&InventorySlot, &mut BorderColor)>,
@@ -591,7 +596,7 @@ pub fn creative_hotbar_visual_sync_system(
                 if slot.kind != SlotKind::Hotbar { continue; }
                 let (item, count) = current.get(slot.index).cloned().unwrap_or((ItemId::air(), 0));
                 if force || visual.item != item || visual.count != count {
-                    sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query, item_registry.as_deref(),);
+                    sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query, item_registry.as_deref(), item_texture_registry.as_deref());
                     visual.item = item; visual.count = count;
                 }
             }

@@ -36,6 +36,9 @@ fn main() {
             UIPlugin,
         ))
         .init_resource::<inventory::item::registry::ItemRegistry>()
+        .add_systems(Startup, (
+            inventory::item::texture_registry::load_item_textures_system,
+        ))
         .add_systems(OnEnter(AppState::InGame), (
             inventory::item::registry::auto_generate_block_items_system,
             inventory::item::registry::load_item_definitions_system,

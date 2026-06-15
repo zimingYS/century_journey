@@ -1,0 +1,11 @@
+{
+  "identifier": "century_journey:stick",
+  "display_name": "木棍",
+  "category": "material",
+  "max_stack": 64,
+  "tags": ["material", "fuel", "stick"],
+  "icon": {
+    "type": "texture",
+    "value": "century_journey:stick"
+  }
+}

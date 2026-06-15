@@ -1,7 +1,9 @@
 use bevy::prelude::*;
 use crate::core::constant::world::CHUNK_SIZE;
+use crate::inventory::item::icon::IconDefinition;
 use crate::inventory::item::id::ItemId;
 use crate::inventory::item::registry::ItemRegistry;
+use crate::inventory::item::texture_registry::ItemTextureRegistry;
 use crate::inventory::slot::SlotAction;
 use crate::ui::theme::ui_theme::UiTheme;
 use crate::voxel::registry::BlockRegistry;
@@ -141,6 +143,7 @@ pub fn spawn_slot_with_item(
     registry: &BlockRegistry,
     theme: &UiTheme,
     item_registry: Option<&ItemRegistry>,
+    item_texture_registry: Option<&ItemTextureRegistry>,
 ) {
     parent.spawn((
         InventorySlot { kind, index },
@@ -158,7 +161,7 @@ pub fn spawn_slot_with_item(
         BackgroundColor(theme.bg_slot),
         BorderColor::all(theme.border_default),
     )).with_children(|slot| {
-        spawn_icon_child(slot, item, registry, item_registry);
+        spawn_icon_child(slot, item, registry, item_registry, item_texture_registry);
         slot.spawn((
             SlotCountText,
             Text::new(""),
@@ -182,20 +185,22 @@ pub fn spawn_slot_with_item(
 pub fn spawn_icon_child(
     parent: &mut ChildSpawnerCommands,
     item: &ItemId,
-    registry: &BlockRegistry,
+    block_registry: &BlockRegistry,
     item_registry: Option<&ItemRegistry>,
+    item_texture_registry: Option<&ItemTextureRegistry>,
 ) {
     // 确定纹理标识符
-    let texture_id = if let Some(block_id) = item.as_block_id() {
-        Some(block_id.to_string())
+    let icon_def = if let Some(block_id) = item.as_block_id() {
+        // Block 变体: 直接使用 block_id 作为图标
+        Some(IconDefinition::block(block_id))
     } else if let Some(reg) = item_registry {
-        reg.get(item).and_then(|def| def.texture_id().map(|s| s.to_string()))
+        reg.get(item).map(|def| def.icon.clone())
     } else {
         None
     };
 
-    let Some(ref tex_id) = texture_id else {
-        // 无纹理可用: 生成空的隐藏图标
+    let Some(icon) = icon_def else {
+        // 无图标: 隐藏占位
         parent.spawn((
             SlotIcon,
             Node { width: Val::Percent(80.0), height: Val::Percent(80.0), ..default() },
@@ -204,31 +209,49 @@ pub fn spawn_icon_child(
         return;
     };
 
-    let Some(runtime_id) = registry.get_id_by_identifier(tex_id) else {
-        // 纹理标识符在 BlockRegistry 中不存在: 显示占位
-        parent.spawn((
-            SlotIcon,
-            Node { width: Val::Percent(80.0), height: Val::Percent(80.0), ..default() },
-            Visibility::Hidden,
-        ));
-        return;
-    };
+    match icon {
+        // 方块图标
+        IconDefinition::Block(id) => {
+            let Some(atlas_idx) = block_registry.get_icon_atlas_index(&id) else {
+                parent.spawn((
+                    SlotIcon,
+                    Node { width: Val::Percent(80.0), height: Val::Percent(80.0), ..default() },
+                    Visibility::Hidden,
+                ));
+                return;
+            };
 
-    let layer = registry.get_layer(runtime_id, 4);
-    let atlas_index = (layer as usize) * CHUNK_SIZE * CHUNK_SIZE;
+            parent.spawn((
+                SlotIcon,
+                ImageNode {
+                    image: block_registry.base_texture.clone(),
+                    texture_atlas: Some(TextureAtlas {
+                        layout: block_registry.atlas_layout.clone(),
+                        index: atlas_idx,
+                    }),
+                    ..default()
+                },
+                Node { width: Val::Percent(80.0), height: Val::Percent(80.0), ..default() },
+            ));
+        }
 
-    parent.spawn((
-        SlotIcon,
-        ImageNode {
-            image: registry.base_texture.clone(),
-            texture_atlas: Some(TextureAtlas {
-                layout: registry.atlas_layout.clone(),
-                index: atlas_index,
-            }),
-            ..default()
-        },
-        Node { width: Val::Percent(80.0), height: Val::Percent(80.0), ..default() },
-    ));
+        // 独立纹理图标
+        IconDefinition::Texture(path) => {
+            let handle = item_texture_registry
+                .and_then(|reg| reg.get(&path).cloned())
+                .unwrap_or_default();
+
+            parent.spawn((
+                SlotIcon,
+                ImageNode {
+                    image: handle,
+                    texture_atlas: None,
+                    ..default()
+                },
+                Node { width: Val::Percent(80.0), height: Val::Percent(80.0), ..default() },
+            ));
+        }
+    }
 }
 
 /// 原地更新槽位图标 + 数量，不销毁槽位实体
@@ -237,9 +260,10 @@ pub fn sync_slot_icon(
     slot_entity: Entity,
     item: &ItemId,
     count: u32,
-    registry: &BlockRegistry,
+    block_registry: &BlockRegistry,
     children_query: &Query<&Children>,
     item_registry: Option<&ItemRegistry>,
+    item_texture_registry: Option<&ItemTextureRegistry>,
 ) {
     let Ok(children) = children_query.get(slot_entity) else { return };
 
@@ -248,36 +272,50 @@ pub fn sync_slot_icon(
         if item.is_air() {
             commands.entity(icon_entity).insert(Visibility::Hidden);
         } else {
-            let texture_id = if let Some(block_id) = item.as_block_id() {
-                Some(block_id.to_string())
+            let icon_def = if let Some(block_id) = item.as_block_id() {
+                Some(IconDefinition::block(block_id))
             } else if let Some(reg) = item_registry {
-                reg.get(item).and_then(|def| def.texture_id().map(|s| s.to_string()))
+                reg.get(item).map(|def| def.icon.clone())
             } else {
                 None
             };
 
-            if let Some(ref tex_id) = texture_id {
-                if let Some(runtime_id) = registry.get_id_by_identifier(tex_id) {
-                    let layer = registry.get_layer(runtime_id, 4);
-                    let atlas_index = (layer as usize) * CHUNK_SIZE * CHUNK_SIZE;
-
-                    commands.entity(icon_entity).insert((
-                        Visibility::Inherited,
-                        ImageNode {
-                            image: registry.base_texture.clone(),
-                            texture_atlas: Some(TextureAtlas {
-                                layout: registry.atlas_layout.clone(),
-                                index: atlas_index,
-                            }),
-                            ..default()
-                        },
-                    ));
+            if let Some(icon) = icon_def {
+                match icon {
+                    IconDefinition::Block(id) => {
+                        if let Some(atlas_idx) = block_registry.get_icon_atlas_index(&id) {
+                            commands.entity(icon_entity).insert((
+                                Visibility::Inherited,
+                                ImageNode {
+                                    image: block_registry.base_texture.clone(),
+                                    texture_atlas: Some(TextureAtlas {
+                                        layout: block_registry.atlas_layout.clone(),
+                                        index: atlas_idx,
+                                    }),
+                                    ..default()
+                                },
+                            ));
+                        }
+                    }
+                    IconDefinition::Texture(path) => {
+                        let handle = item_texture_registry
+                            .and_then(|reg| reg.get(&path).cloned())
+                            .unwrap_or_default();
+                        commands.entity(icon_entity).insert((
+                            Visibility::Inherited,
+                            ImageNode {
+                                image: handle,
+                                texture_atlas: None,
+                                ..default()
+                            },
+                        ));
+                    }
                 }
             }
         }
     }
 
-    // ── 更新数量文本 ──
+    // 数量文本
     if let Some(&count_entity) = children.get(1) {
         if count > 1 {
             commands.entity(count_entity).insert((
