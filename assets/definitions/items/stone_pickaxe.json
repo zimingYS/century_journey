@@ -1,0 +1,17 @@
+{
+  "identifier": "century_journey:stone_pickaxe",
+  "display_name": "石镐",
+  "category": "tool",
+  "max_stack": 1,
+  "tags": ["tool", "pickaxe"],
+  "icon": {
+    "type": "block",
+    "value": "century_journey:stone"
+  },
+  "tool": {
+    "tool_type": "pickaxe",
+    "tier": "stone",
+    "max_durability": 132,
+    "efficiency": 2.0
+  }
+}

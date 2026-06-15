@@ -37,8 +37,9 @@ fn main() {
         ))
         .init_resource::<inventory::item::registry::ItemRegistry>()
         .add_systems(OnEnter(AppState::InGame), (
-            inventory::item::registry::bridge_block_registry_system,
-        ))
+            inventory::item::registry::auto_generate_block_items_system,
+            inventory::item::registry::load_item_definitions_system,
+        ).chain())
         .add_systems(Startup,setup)
         .run();
 }

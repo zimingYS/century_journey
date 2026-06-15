@@ -175,31 +175,31 @@ fn validate_player_data(data: &PlayerSaveData) -> PlayerSaveData {
 
     // 位置 NaN / Infinite 检查
     if data.position.iter().any(|v| v.is_nan() || v.is_infinite()) {
-        log::warn!("[SaveV3] invalid position {:?}, reset to default", data.position);
+        log::warn!("[存档系统] 无效位置{:?}，已重置为世界原点", data.position);
         data.position = [0.0, 70.0, 0.0];
         repaired = true;
     }
     // 旋转 NaN / Infinite 检查
     if data.rotation.iter().any(|v| v.is_nan() || v.is_infinite()) {
-        log::warn!("[SaveV3] invalid rotation {:?}, reset to identity", data.rotation);
+        log::warn!("[存档系统] 旋转无效 {:?}, 已重置为恒等矩阵", data.rotation);
         data.rotation = [0.0, 0.0, 0.0, 1.0];
         repaired = true;
     }
     // camera_pitch 合法性
     if data.camera_pitch.is_nan() || data.camera_pitch.is_infinite() {
-        log::warn!("[SaveV3] invalid camera_pitch {}, reset to 0.0", data.camera_pitch);
+        log::warn!("[存档系统] 相机俯仰角{}无效, 已重置为0.0", data.camera_pitch);
         data.camera_pitch = 0.0;
         repaired = true;
     }
     // gamemode 合法性
     if !matches!(data.gamemode.as_str(), "survival" | "creative") {
-        log::warn!("[SaveV3] unknown gamemode '{}', reset to survival", data.gamemode);
+        log::warn!("[存档系统] 未知游戏模式: '{}', 已重置为生存模式", data.gamemode);
         data.gamemode = "survival".into();
         repaired = true;
     }
     // hotbar_active 越界
     if data.hotbar_active >= HOTBAR_SIZE {
-        log::warn!("[SaveV3] hotbar_active {} out of range, reset to 0", data.hotbar_active);
+        log::warn!("[存档系统] 快捷栏索引 {} 超出索引范围,已重置为0", data.hotbar_active);
         data.hotbar_active = 0;
         repaired = true;
     }
@@ -211,13 +211,13 @@ fn validate_player_data(data: &PlayerSaveData) -> PlayerSaveData {
     {
         if slot.is_air() { continue; }
         if slot.item.is_empty() || !slot.item.contains(':') {
-            log::warn!("[SaveV3] invalid item '{}' in {}, replacing with air", slot.item, kind);
+            log::warn!("[存档系统] '{}'中的物品{}无效,已替换为空气", slot.item, kind);
             *slot = SaveItemStack::air();
             repaired = true;
         }
     }
 
-    if repaired { log::warn!("[SaveV3] save data had issues — auto-repaired"); }
+    if repaired { log::warn!("[存档系统] 保存数据出现问题 — 已自动修复"); }
     data
 }
 
@@ -258,7 +258,6 @@ impl PlayerSaveManager {
         if !self.dirty {
             self.dirty = true;
             self.last_dirty_source = Some(source);
-            log::info!("[SaveV3] Dirty by {:?}", source);
         }
     }
 
@@ -335,9 +334,9 @@ fn perform_save(
             save_manager.total_saves += 1;
             save_manager.last_save_time = time.elapsed_secs() as f64;
             save_manager.last_saved_position = transform.translation;
-            log::info!("[SaveV3] player saved (total: {}) to {:?}", save_manager.total_saves, path);
+            log::info!("[存档系统] 玩家已保存(共计: {}),保存到{:?}", save_manager.total_saves, path);
         }
-        Err(e) => { log::error!("[SaveV3] save failed: {e}"); }
+        Err(e) => { log::error!("[存档系统] 保存失败: {e} !"); }
     }
 }
 
@@ -353,11 +352,11 @@ pub fn load_player_on_enter_system(
     let save_path = player_save_path(&save_config.world_name);
     let raw_data = if save_path.exists() {
         match read_player_data(&save_path) {
-            Ok(data) => { log::info!("[SaveV3] loaded from {:?}", save_path); data }
-            Err(e) => { log::warn!("[SaveV3] load failed: {}, defaults", e); PlayerSaveData::default() }
+            Ok(data) => { log::info!("[存档系统] 从 {:?} 加载数据成功", save_path); data }
+            Err(e) => { log::warn!("[存档系统] 从 {} 加载失败, 已使用默认值", e); PlayerSaveData::default() }
         }
     } else {
-        log::info!("[SaveV3] no save, creating default");
+        log::info!("[存档系统] 存档不存在，正在已默认值创建");
         PlayerSaveData::default()
     };
 
@@ -391,8 +390,8 @@ pub fn load_player_on_enter_system(
     // 标记初始保存位置, 确保首次退出前一定写入
     save_manager.set_dirty(SaveDirtySource::Position);
 
-    log::info!("[SaveV3] player ready: pos={:?}, mode={}, pitch={:.2}",
-        save_data.position, save_data.gamemode, save_data.camera_pitch);
+    log::info!("[存档系统] 玩家已生成,位置:{:?},游戏模式:{}",
+        save_data.position, save_data.gamemode);
 }
 
 /// 玩家位置脏数据追踪
@@ -452,6 +451,6 @@ pub fn save_on_exit_system(
 ) {
     if exit_reader.read().next().is_none() { return; }
     if !save_manager.dirty { return; }
-    log::info!("[SaveV3] exit detected, flushing...");
+    log::info!("[存档系统] 检测到游戏退出,正在保存游戏...");
     perform_save(&save_config.world_name, &gamemode, &inventory, &player_query, &camera_query, &mut save_manager, &time);
 }

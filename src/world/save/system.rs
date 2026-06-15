@@ -135,10 +135,10 @@ pub fn process_save_queue_system(
 
     match RegionManager::write_chunks_batch(&save_config.world_name, &batch) {
         Ok(()) => {
-            log::trace!("已保存 {} 个区块", batch.len());
+            log::trace!("[存档系统] 已保存 {} 个区块", batch.len());
         }
         Err(e) => {
-            log::error!("保存区块失败: {e}");
+            log::error!("[存档系统] 保存区块失败: {e}");
             // 失败的区块放回队列头部
             for chunk in batch.into_iter().rev() {
                 save_queue.queue.push_front(chunk);
@@ -184,7 +184,7 @@ pub fn process_load_queue_system(
     }
 
     if loaded > 0 {
-        log::trace!("已加载 {} 个区块", loaded);
+        log::trace!("[存档系统] 已加载 {} 个区块", loaded);
     }
 }
 
@@ -197,7 +197,7 @@ pub fn try_load_chunk_from_disk(
         Ok(Some(saved)) => Some(saved),
         Ok(None) => None,
         Err(e) => {
-            log::error!("加载区块 {:?} 失败: {e}", chunk_pos);
+            log::error!("[存档系统] 加载区块 {:?} 失败: {e}", chunk_pos);
             None
         }
     }
@@ -243,7 +243,7 @@ pub fn save_entire_world(
 
     RegionManager::write_chunks_batch(world_name, &chunks)?;
 
-    log::info!("世界已保存: {} 个区块", chunks.len());
+    log::info!("[存档系统] 世界已保存: {} 个区块", chunks.len());
     Ok(())
 }
 
@@ -318,13 +318,13 @@ pub fn cache_level_data_on_enter(
         Ok(level_data) => {
             cached_remap.0 = block_registry.build_id_remap_table(&level_data.block_id_map);
             log::info!(
-                "[存档] level.dat 已缓存，block_id_map 含 {} 条记录",
+                "[存档系统] level.dat 已缓存，block_id_map 含 {} 条记录",
                 level_data.block_id_map.len()
             );
         }
         Err(_) => {
             // 新存档没有 level.dat，正常
-            log::info!("[存档] 未找到 level.dat，将使用纯生成模式");
+            log::info!("[存档系统] 未找到 level.dat，将使用纯生成模式");
         }
     }
 }

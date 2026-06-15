@@ -3,7 +3,9 @@ use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 use crate::inventory::container::creative::CreativeCategory;
 use crate::inventory::container::hotbar::HOTBAR_SIZE;
+use crate::inventory::item::definition::ItemCategory;
 use crate::inventory::item::id::ItemId;
+use crate::inventory::item::registry::ItemRegistry;
 use crate::inventory::item::stack::ItemStack;
 use crate::inventory::state::InventoryState;
 use crate::tag::identifier::TagRegistryType;
@@ -273,6 +275,7 @@ pub fn build_creative_categories_system(
     theme: Res<UiTheme>,
     cat_theme: Res<CategoryTheme>,
     mut commands: Commands,
+    item_registry: Option<Res<ItemRegistry>>,
 ) {
     let Some(tag_reg) = tag_registry else { return };
     let Some(block_reg) = block_registry else { return };
@@ -302,6 +305,17 @@ pub fn build_creative_categories_system(
         ));
     }
 
+    // 工具分类
+    let categories = &mut state.creative.categories;
+    categories.push(CreativeCategory::virtual_category("工具", ""));
+    if let Some(item_reg) = item_registry.as_ref() {
+        let tool_ids = item_reg.items_by_category(&ItemCategory::Tool);
+        if let Some(last) = categories.last_mut() {
+            last.items = tool_ids.to_vec();
+        }
+    }
+    // 如果工具分类为空，保留空分类
+
     state
         .creative
         .categories
@@ -321,6 +335,7 @@ pub fn build_creative_categories_system(
 /// 搜索过滤更新
 pub fn update_creative_filter_system(
     block_registry: Option<Res<BlockRegistry>>,
+    item_registry: Option<Res<ItemRegistry>>,
     mut state: ResMut<InventoryState>,
 ) {
     let Some(reg) = block_registry else { return };
@@ -332,11 +347,22 @@ pub fn update_creative_filter_system(
     let search = state.creative.search_text.clone();
 
     let mut new_items = if tab == 0 {
-        reg.identifier_to_id
+        // "全部"标签页
+        let mut all: Vec<ItemId> = reg.identifier_to_id
             .keys()
             .filter(|id| *id != "century_journey:air")
             .map(|id| ItemId::block(id.as_str()))
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+
+        // 追加ItemRegistry中的非Block物品
+        if let Some(item_reg) = item_registry.as_ref() {
+            for def in item_reg.all_items() {
+                if def.id.is_pure_item() {
+                    all.push(def.id.clone());
+                }
+            }
+        }
+        all
     } else if let Some(cat) = state.creative.categories.get(tab) {
         if cat.tag_id.is_none() && cat.display_name == "收藏" {
             state.creative.favorites.clone()
@@ -365,8 +391,9 @@ pub fn populate_creative_grid_system(
     grid_query: Query<Entity, With<CreativeItemGrid>>,
     children_query: Query<&Children>,
     existing_slots: Query<(Entity, &InventorySlot)>,
-    mut commands: Commands,
+    item_registry: Option<Res<ItemRegistry>>,
     theme: Res<UiTheme>,
+    mut commands: Commands,
     mut last_items: Local<Vec<ItemId>>,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
@@ -396,7 +423,7 @@ pub fn populate_creative_grid_system(
         for (entity, idx) in slot_indices {
             let air = &ItemId::air();
             let item = new_items.get(idx).unwrap_or(air);
-            sync_slot_icon(&mut commands, entity, item, 0, reg, &children_query);
+            sync_slot_icon(&mut commands, entity, item, 0, reg, &children_query, item_registry.as_deref());
         }
         return;
     }
@@ -410,7 +437,7 @@ pub fn populate_creative_grid_system(
 
     commands.entity(grid_entity).with_children(|grid| {
         for (index, item) in new_items.iter().enumerate() {
-            spawn_slot_with_item(grid, SlotKind::CreativeGrid, index, item, reg, &theme);
+            spawn_slot_with_item(grid, SlotKind::CreativeGrid, index, item, reg, &theme, item_registry.as_deref());
         }
     });
 }
@@ -422,9 +449,10 @@ pub fn populate_recent_panel_system(
     recent_query: Query<Entity, With<CreativeRecentPanel>>,
     children_query: Query<&Children>,
     existing_slots: Query<(Entity, &InventorySlot)>,
-    mut commands: Commands,
     ui_font: Res<UiFont>,
     theme: Res<UiTheme>,
+    item_registry: Option<Res<ItemRegistry>>,
+    mut commands: Commands,
     mut last_items: Local<Vec<ItemStack>>,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
@@ -454,7 +482,7 @@ pub fn populate_recent_panel_system(
         for (entity, idx) in slot_entities {
             let air = ItemId::air();
             let (item, count) = new_items.get(idx).map(|s| (&s.item, s.count)).unwrap_or((&air, 0u32));
-            sync_slot_icon(&mut commands, entity, item, count, reg, &children_query);
+            sync_slot_icon(&mut commands, entity, item, count, reg, &children_query, item_registry.as_deref());
         }
         return;
     }
@@ -481,7 +509,7 @@ pub fn populate_recent_panel_system(
             },
         ));
         for (index, stack) in new_items.iter().enumerate() {
-            spawn_slot_with_item(panel, SlotKind::Recent, index, &stack.item, reg, &theme);
+            spawn_slot_with_item(panel, SlotKind::Recent, index, &stack.item, reg, &theme , item_registry.as_deref(),);
         }
     });
 }
@@ -493,8 +521,9 @@ pub fn init_creative_hotbar_system(
     hotbar_query: Query<Entity, With<CreativeHotbarPanel>>,
     children_query: Query<&Children>,
     slot_query: Query<&InventorySlot>,
-    mut commands: Commands,
     theme: Res<UiTheme>,
+    item_registry: Option<Res<ItemRegistry>>,
+    mut commands: Commands,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
     let Ok(panel_entity) = hotbar_query.single() else { return };
@@ -514,7 +543,7 @@ pub fn init_creative_hotbar_system(
 
     commands.entity(panel_entity).with_children(|bar| {
         for (index, item) in state.hotbar.items().iter().enumerate() {
-            spawn_slot_with_item(bar, SlotKind::Hotbar, index, item, reg, &theme);
+            spawn_slot_with_item(bar, SlotKind::Hotbar, index, item, reg, &theme ,item_registry.as_deref(),);
         }
     });
 }
@@ -525,9 +554,10 @@ pub fn creative_hotbar_visual_sync_system(
     block_registry: Option<Res<BlockRegistry>>,
     hotbar_query: Query<Entity, With<CreativeHotbarPanel>>,
     children_query: Query<&Children>,
+    theme: Res<UiTheme>,
+    item_registry: Option<Res<ItemRegistry>>,
     mut slot_query: Query<(Entity, &InventorySlot, &mut SlotVisual)>,
     mut commands: Commands,
-    theme: Res<UiTheme>,
     mut border_query: Query<(&InventorySlot, &mut BorderColor)>,
     mut last_hotbar: Local<Option<Vec<(ItemId, u32)>>>,
     mut was_opened: Local<bool>,
@@ -561,7 +591,7 @@ pub fn creative_hotbar_visual_sync_system(
                 if slot.kind != SlotKind::Hotbar { continue; }
                 let (item, count) = current.get(slot.index).cloned().unwrap_or((ItemId::air(), 0));
                 if force || visual.item != item || visual.count != count {
-                    sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query);
+                    sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query, item_registry.as_deref(),);
                     visual.item = item; visual.count = count;
                 }
             }

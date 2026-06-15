@@ -1,0 +1,17 @@
+{
+  "identifier": "century_journey:wooden_pickaxe",
+  "display_name": "木镐",
+  "category": "tool",
+  "max_stack": 1,
+  "tags": ["tool", "pickaxe"],
+  "icon": {
+    "type": "block",
+    "value": "century_journey:wood"
+  },
+  "tool": {
+    "tool_type": "pickaxe",
+    "tier": "wood",
+    "max_durability": 60,
+    "efficiency": 1.5
+  }
+}

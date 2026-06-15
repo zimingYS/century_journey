@@ -1,0 +1,17 @@
+{
+  "identifier": "century_journey:iron_axe",
+  "display_name": "铁斧",
+  "category": "tool",
+  "max_stack": 1,
+  "tags": ["tool", "axe"],
+  "icon": {
+    "type": "block",
+    "value": "century_journey:stone"
+  },
+  "tool": {
+    "tool_type": "axe",
+    "tier": "iron",
+    "max_durability": 251,
+    "efficiency": 2.0
+  }
+}

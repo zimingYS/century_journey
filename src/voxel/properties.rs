@@ -60,6 +60,11 @@ pub struct BlockProperty{
     /// 方块行为类型标识（用于在注册时查找对应 Behavior）
     #[serde(default)]
     pub behavior_type: String,
+
+    /// 方块标签 (自动填充到 TagRegistry)
+    /// 示例: ["mineable/pickaxe", "stone_like"]
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 impl Default for BlockProperty {
@@ -81,6 +86,7 @@ impl Default for BlockProperty {
             is_interactable: false,
             light_transmission: 0.0,
             behavior_type: String::new(),
+            tags: Vec::new(),
         }
     }
 }

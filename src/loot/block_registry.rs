@@ -64,5 +64,5 @@ pub fn init_default_loot_system(
         loot_registry.register(block_id, table);
     }
 
-    info!("[BlockLootRegistry] 已注册 {} 个方块掉落表", loot_registry.tables.len());
+    info!("[方块掉落] 已注册 {} 个方块掉落表", loot_registry.tables.len());
 }

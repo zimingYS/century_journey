@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use crate::core::constant::world::CHUNK_SIZE;
 use crate::inventory::item::id::ItemId;
+use crate::inventory::item::registry::ItemRegistry;
 use crate::inventory::slot::SlotAction;
 use crate::ui::theme::ui_theme::UiTheme;
 use crate::voxel::registry::BlockRegistry;
@@ -139,6 +140,7 @@ pub fn spawn_slot_with_item(
     item: &ItemId,
     registry: &BlockRegistry,
     theme: &UiTheme,
+    item_registry: Option<&ItemRegistry>,
 ) {
     parent.spawn((
         InventorySlot { kind, index },
@@ -156,7 +158,7 @@ pub fn spawn_slot_with_item(
         BackgroundColor(theme.bg_slot),
         BorderColor::all(theme.border_default),
     )).with_children(|slot| {
-        spawn_icon_child(slot, item, registry);
+        spawn_icon_child(slot, item, registry, item_registry);
         slot.spawn((
             SlotCountText,
             Text::new(""),
@@ -181,24 +183,39 @@ pub fn spawn_icon_child(
     parent: &mut ChildSpawnerCommands,
     item: &ItemId,
     registry: &BlockRegistry,
+    item_registry: Option<&ItemRegistry>,
 ) {
-    if item.is_air() {
+    // 确定纹理标识符
+    let texture_id = if let Some(block_id) = item.as_block_id() {
+        Some(block_id.to_string())
+    } else if let Some(reg) = item_registry {
+        reg.get(item).and_then(|def| def.texture_id().map(|s| s.to_string()))
+    } else {
+        None
+    };
+
+    let Some(ref tex_id) = texture_id else {
+        // 无纹理可用: 生成空的隐藏图标
         parent.spawn((
             SlotIcon,
-            Node {
-                width: Val::Percent(80.0),
-                height: Val::Percent(80.0),
-                ..default()
-            },
+            Node { width: Val::Percent(80.0), height: Val::Percent(80.0), ..default() },
             Visibility::Hidden,
         ));
         return;
-    }
+    };
 
-    let Some(block_id) = item.as_block_id() else { return; };
-    let Some(runtime_id) = registry.get_id_by_identifier(block_id) else { return; };
+    let Some(runtime_id) = registry.get_id_by_identifier(tex_id) else {
+        // 纹理标识符在 BlockRegistry 中不存在: 显示占位
+        parent.spawn((
+            SlotIcon,
+            Node { width: Val::Percent(80.0), height: Val::Percent(80.0), ..default() },
+            Visibility::Hidden,
+        ));
+        return;
+    };
+
     let layer = registry.get_layer(runtime_id, 4);
-    let atlas_index = layer_to_atlas_index(layer);
+    let atlas_index = (layer as usize) * CHUNK_SIZE * CHUNK_SIZE;
 
     parent.spawn((
         SlotIcon,
@@ -210,11 +227,7 @@ pub fn spawn_icon_child(
             }),
             ..default()
         },
-        Node {
-            width: Val::Percent(80.0),
-            height: Val::Percent(80.0),
-            ..default()
-        },
+        Node { width: Val::Percent(80.0), height: Val::Percent(80.0), ..default() },
     ));
 }
 
@@ -226,34 +239,45 @@ pub fn sync_slot_icon(
     count: u32,
     registry: &BlockRegistry,
     children_query: &Query<&Children>,
+    item_registry: Option<&ItemRegistry>,
 ) {
     let Ok(children) = children_query.get(slot_entity) else { return };
 
-    // ── 更新图标（第一个子实体）──
+    // ── 更新图标 ──
     if let Some(&icon_entity) = children.first() {
         if item.is_air() {
             commands.entity(icon_entity).insert(Visibility::Hidden);
         } else {
-            let Some(block_id) = item.as_block_id() else { return };
-            let Some(runtime_id) = registry.get_id_by_identifier(block_id) else { return };
-            let layer = registry.get_layer(runtime_id, 4);
-            let atlas_index = layer_to_atlas_index(layer);
+            let texture_id = if let Some(block_id) = item.as_block_id() {
+                Some(block_id.to_string())
+            } else if let Some(reg) = item_registry {
+                reg.get(item).and_then(|def| def.texture_id().map(|s| s.to_string()))
+            } else {
+                None
+            };
 
-            commands.entity(icon_entity).insert((
-                Visibility::Inherited,
-                ImageNode {
-                    image: registry.base_texture.clone(),
-                    texture_atlas: Some(TextureAtlas {
-                        layout: registry.atlas_layout.clone(),
-                        index: atlas_index,
-                    }),
-                    ..default()
-                },
-            ));
+            if let Some(ref tex_id) = texture_id {
+                if let Some(runtime_id) = registry.get_id_by_identifier(tex_id) {
+                    let layer = registry.get_layer(runtime_id, 4);
+                    let atlas_index = (layer as usize) * CHUNK_SIZE * CHUNK_SIZE;
+
+                    commands.entity(icon_entity).insert((
+                        Visibility::Inherited,
+                        ImageNode {
+                            image: registry.base_texture.clone(),
+                            texture_atlas: Some(TextureAtlas {
+                                layout: registry.atlas_layout.clone(),
+                                index: atlas_index,
+                            }),
+                            ..default()
+                        },
+                    ));
+                }
+            }
         }
     }
 
-    // ── 更新数量文本（第二个子实体）──
+    // ── 更新数量文本 ──
     if let Some(&count_entity) = children.get(1) {
         if count > 1 {
             commands.entity(count_entity).insert((

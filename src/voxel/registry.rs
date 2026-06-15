@@ -203,7 +203,7 @@ pub fn init_block_registry_system(
     commands.insert_resource(registry);
     next_state.set(AppState::InGame);
 
-    info!("[世纪之旅] 核心方块资产注册完毕，游戏状态切入 InGame，正在生成 3D 噪声地形...");
+    info!("[方块注册] 核心方块资产注册完毕，游戏状态切入 InGame，正在生成 3D 噪声地形...");
 }
 
 /// 从文件系统加载所有方块的JSON配置
@@ -228,7 +228,7 @@ fn load_block_configs() -> Vec<BlockProperty> {
         let _ = fs::create_dir_all(block_dir);
     }
 
-    info!("模块化资源系统：成功扫描并加载了 {} 个独立方块配置文件！", raw_configs.len());
+    info!("[方块注册] 成功扫描并加载了 {} 个独立方块配置文件！", raw_configs.len());
     raw_configs
 }
 

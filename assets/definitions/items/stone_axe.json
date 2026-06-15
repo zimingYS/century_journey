@@ -1,0 +1,17 @@
+{
+  "identifier": "century_journey:stone_axe",
+  "display_name": "石斧",
+  "category": "tool",
+  "max_stack": 1,
+  "tags": ["tool", "axe"],
+  "icon": {
+    "type": "block",
+    "value": "century_journey:stone"
+  },
+  "tool": {
+    "tool_type": "axe",
+    "tier": "stone",
+    "max_durability": 132,
+    "efficiency": 1.5
+  }
+}

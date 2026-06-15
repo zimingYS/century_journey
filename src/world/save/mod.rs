@@ -77,9 +77,9 @@ pub fn save_load_keybind_system(
             spawn_pos,
             time_of_day.current_time,
         ) {
-            log::error!("保存世界失败: {e}");
+            log::error!("[世界] 保存世界失败: {e}");
         } else {
-            log::info!("世界已保存！");
+            log::info!("[世界] 世界已保存！");
         }
     }
 
@@ -88,13 +88,13 @@ pub fn save_load_keybind_system(
         match level::load_level(&save_config.world_name) {
             Ok(level) => {
                 log::info!(
-                    "世界元数据已加载: seed={}, spawn={:?}",
+                    "[世界] 世界元数据已加载: seed={}, spawn={:?}",
                     level.seed,
                     level.spawn_position
                 );
             }
             Err(e) => {
-                log::error!("加载世界失败: {e}");
+                log::error!("[世界] 加载世界失败: {e}");
             }
         }
     }

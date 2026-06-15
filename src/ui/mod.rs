@@ -47,20 +47,18 @@ impl Plugin for UIPlugin {
                 screens::survival_inventory::spawn_survival_inventory_system,
             ))
 
-            // ── Update: 数据构建 ──
+            // ── Update: 数据构建 + UI填充 (分成两组保证 chain 在 tuple 限制内) ──
             .add_systems(Update, (
                 screens::creative_inventory::build_creative_categories_system,
                 screens::creative_inventory::update_creative_filter_system,
-            ).chain())
-
-            // ── Update: UI填充 ──
-            .add_systems(Update, (
                 screens::creative_inventory::populate_creative_grid_system,
                 screens::creative_inventory::populate_recent_panel_system,
+            ).chain())
+            .add_systems(Update, (
                 screens::creative_inventory::init_creative_hotbar_system,
                 screens::survival_inventory::populate_survival_grid_system,
                 screens::survival_inventory::init_survival_hotbar_system,
-            ).after(screens::creative_inventory::update_creative_filter_system))
+            ).chain())
 
             // ── Update: 输入 → 事件 ──
             .add_systems(Update, (
@@ -85,7 +83,7 @@ impl Plugin for UIPlugin {
                 interaction::update_search_text_display_system,
             ))
 
-            // ── Update: UI 视觉同步 (init/cleanup → 视觉同步 → 清理, chain 保证顺序) ──
+            // ── Update: UI 视觉同步 — toggle → visibility → sync → cleanup ──
             .add_systems(Update, (
                 screens::creative_inventory::toggle_inventory_system,
                 screens::creative_inventory::update_creative_visibility_system,
@@ -95,11 +93,13 @@ impl Plugin for UIPlugin {
                 screens::creative_inventory::creative_hotbar_visual_sync_system,
                 screens::survival_inventory::survival_hotbar_visual_sync_system,
                 screens::survival_inventory::survival_grid_visual_sync_system,
+                screens::creative_inventory::update_category_highlight_system,
+            ).chain())
+            .add_systems(Update, (
                 screens::creative_inventory::cleanup_creative_hotbar_system,
                 screens::survival_inventory::cleanup_survival_hotbar_system,
-                screens::creative_inventory::update_category_highlight_system,
                 interaction::slot_hover_system,
-            ).after(screens::creative_inventory::init_creative_hotbar_system).chain())
+            ).chain())
 
             // ── Update: HUD ──
             .add_systems(Update, (
@@ -107,6 +107,8 @@ impl Plugin for UIPlugin {
                 hud::hotbar::hud_hotbar_visual_sync_system,
                 hud::hotbar::handle_hotbar_switch_system,
                 hud::health_bar::health_bar_sync_system,
+            ))
+            .add_systems(Update, (
                 hud::hunger_bar::hunger_bar_sync_system,
                 hud::armor_bar::armor_bar_sync_system,
                 sync_input_blocked_system,

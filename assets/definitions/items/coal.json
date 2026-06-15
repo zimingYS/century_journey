@@ -1,0 +1,11 @@
+{
+  "identifier": "century_journey:coal",
+  "display_name": "煤炭",
+  "category": "material",
+  "max_stack": 64,
+  "tags": ["material", "fuel"],
+  "icon": {
+    "type": "block",
+    "value": "century_journey:stone"
+  }
+}

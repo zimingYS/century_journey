@@ -4,7 +4,8 @@
   "render_mode": "Opaque",
   "is_solid": true,
   "light_emission": 0,
-  "hardness": 1.0,
+  "hardness": 0.6,
+  "tags": ["mineable/shovel", "grass_like"],
   "textures": {
     "top": "textures/blocks/grass_top.png",
     "bottom": "textures/blocks/dirt.png",

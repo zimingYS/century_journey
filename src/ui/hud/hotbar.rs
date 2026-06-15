@@ -7,6 +7,7 @@ use crate::ui::widgets::slot::{spawn_empty_slot, sync_slot_icon, InventorySlot, 
 use crate::voxel::registry::BlockRegistry;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
+use crate::inventory::item::registry::ItemRegistry;
 
 /// 生成HUD根节点
 pub fn spawn_hud_root_system(mut commands: Commands) {
@@ -65,6 +66,7 @@ pub fn hud_hotbar_visual_sync_system(
     mut last_hotbar: Local<Option<Vec<(ItemId, u32)>>>,
     mut last_active: Local<usize>,
     mut was_opened: Local<bool>,
+    item_registry: Option<Res<ItemRegistry>>,
 ) {
     let Some(reg) = block_registry.as_ref() else { return };
 
@@ -95,7 +97,7 @@ pub fn hud_hotbar_visual_sync_system(
 
             if let Ok(mut visual) = slot_visual_query.get_mut(entity) {
                 if force || visual.item != item || visual.count != count {
-                    sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query);
+                    sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query ,item_registry.as_deref());
                     visual.item = item;
                     visual.count = count;
                 }

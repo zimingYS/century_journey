@@ -1,0 +1,11 @@
+{
+  "identifier": "century_journey:raw_iron",
+  "display_name": "粗铁",
+  "category": "material",
+  "max_stack": 64,
+  "tags": ["material"],
+  "icon": {
+    "type": "block",
+    "value": "century_journey:stone"
+  }
+}

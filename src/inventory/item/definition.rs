@@ -1,11 +1,13 @@
+use serde::{Deserialize, Serialize};
+use crate::inventory::item::icon::IconDefinition;
 use crate::inventory::item::id::ItemId;
+use crate::inventory::item::tool::ToolData;
 
 /// 物品分类
-///
-/// 用于创造模式分类标签、合成配方分组、掉落表筛选等。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ItemCategory {
-    /// 方块类（由BlockRegistry自动生成）
+    /// 方块类（由方块注册表自动生成）
     Block,
     /// 材料类（矿石、锭、宝石等）
     Material,
@@ -18,36 +20,88 @@ pub enum ItemCategory {
     /// 饰品类（戒指、项链等）
     Accessory,
     /// 消耗品类（食物、药水等）
+    #[serde(rename = "consumable")]
     Consumable,
-
-    // ── 未来扩展 ──
-    // Food,
-    // Quest,
-    // Magic,
 }
 
-
-/// 物品定义:物品在背包/UI 中的行为（堆叠、分类、显示名）
-#[derive(Debug, Clone)]
+/// 物品定义
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ItemDefinition {
-    /// 物品唯一标识
-    pub id: ItemId,
+    /// 唯一标识符
+    pub identifier: String,
     /// 显示名称
     pub display_name: String,
-    /// 最大堆叠数（默认 64）
-    pub max_stack: u32,
     /// 物品分类
     pub category: ItemCategory,
+
+    /// 最大堆叠数（默认 64）
+    #[serde(default = "default_max_stack")]
+    pub max_stack: u32,
+
+    /// 标签列表
+    #[serde(default)]
+    pub tags: Vec<String>,
+
+    /// 图标定义
+    #[serde(default)]
+    pub icon: IconDefinition,
+
+    /// 可放置的方块 ID (仅 Block 物品)
+    #[serde(default)]
+    pub placeable_block: Option<String>,
+
+    /// 工具数据 (仅 Tool 物品)
+    #[serde(default)]
+    pub tool: Option<ToolData>,
+
+    /// 运行时 ItemId — 不参与 serde
+    #[serde(skip, default = "ItemId::air")]
+    pub id: ItemId,
 }
 
+fn default_max_stack() -> u32 { 64 }
+
 impl ItemDefinition {
-    /// 从方块自动创建 ItemDefinition
+    /// 从方块属性自动创建 Block Item (保留兼容 bridge 系统)
     pub fn from_block(identifier: &str, display_name: &str) -> Self {
         Self {
+            identifier: identifier.to_string(),
             id: ItemId::block(identifier),
             display_name: display_name.to_string(),
-            max_stack: 64,
             category: ItemCategory::Block,
+            max_stack: 64,
+            tags: Vec::new(),
+            icon: IconDefinition::block(identifier),
+            placeable_block: Some(identifier.to_string()),
+            tool: None,
         }
+    }
+
+    /// 加载时: 从 identifier + category 自动赋值 id
+    pub fn finalize_id(&mut self) {
+        self.id = match self.category {
+            ItemCategory::Block => ItemId::block(&self.identifier),
+            _ => ItemId::item(&self.identifier),
+        };
+    }
+
+    /// 是否为工具
+    pub fn is_tool(&self) -> bool {
+        self.tool.is_some()
+    }
+
+    /// 获取工具数据引用
+    pub fn tool_data(&self) -> Option<&ToolData> {
+        self.tool.as_ref()
+    }
+
+    /// 是否为可放置的方块
+    pub fn is_placeable(&self) -> bool {
+        self.placeable_block.is_some()
+    }
+
+    /// 获取用于 BlockRegistry 纹理查找的标识符
+    pub fn texture_id(&self) -> Option<&str> {
+        self.icon.as_block_id().or_else(|| self.id.as_block_id())
     }
 }
