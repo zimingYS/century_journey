@@ -5,7 +5,7 @@
   "max_stack": 64,
   "tags": ["material"],
   "icon": {
-    "type": "block",
-    "value": "century_journey:stone"
+    "type": "texture",
+    "value": "century_journey:raw_iron"
   }
 }

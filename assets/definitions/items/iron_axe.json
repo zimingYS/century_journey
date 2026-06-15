@@ -5,8 +5,8 @@
   "max_stack": 1,
   "tags": ["tool", "axe"],
   "icon": {
-    "type": "block",
-    "value": "century_journey:stone"
+    "type": "texture",
+    "value": "century_journey:iron_axe"
   },
   "tool": {
     "tool_type": "axe",
