@@ -13,6 +13,8 @@ use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 pub struct FpsCamera{
     pub mouse_sensitivity: f32,
     pub pitch: f32,
+    /// 是否为第一人称
+    pub is_first_person: bool,
 }
 
 impl Default for FpsCamera{
@@ -20,6 +22,7 @@ impl Default for FpsCamera{
         Self{
             mouse_sensitivity: 0.015,
             pitch: 0.0,
+            is_first_person: true,
         }
     }
 }
@@ -91,5 +94,31 @@ pub fn toggle_mouse_lock_system(
             cursor_options.visible = false;
             cursor_options.grab_mode = CursorGrabMode::Locked;
         }
+    }
+}
+
+/// F5切换第一人称/第三人称视角
+pub fn toggle_perspective_system(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut camera_query: Query<&mut FpsCamera, With<Camera3d>>,
+) {
+    if !keyboard_input.just_pressed(KeyCode::F5) { return; }
+    for mut fps_camera in &mut camera_query {
+        fps_camera.is_first_person = !fps_camera.is_first_person;
+        info!("视角切换: {}", if fps_camera.is_first_person { "第一人称" } else { "第三人称" });
+    }
+}
+
+/// 同步摄像机位置
+pub fn camera_perspective_sync_system(
+    mut camera_query: Query<(&FpsCamera, &mut Transform), With<Camera3d>>,
+) {
+    for (fps_camera, mut camera_transform) in camera_query.iter_mut() {
+        let offset = if fps_camera.is_first_person {
+            Vec3::new(0.0, 0.75, 0.0)
+        } else {
+            Vec3::new(0.0, 0.5, 5.0)
+        };
+        camera_transform.translation = offset;
     }
 }

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use bevy::prelude::*;
+use bevy::image::ImageLoaderSettings;
 use bevy::image::ImageSampler;
 
 /// 物品独立纹理注册表
@@ -65,7 +66,10 @@ pub fn load_item_textures_system(
         }
 
         let asset_path = format!("textures/items/{}.png", stem);
-        let handle: Handle<Image> = asset_server.load(&asset_path);
+        let handle: Handle<Image> = asset_server.load_with_settings(
+            &asset_path,
+            |s: &mut ImageLoaderSettings| { s.sampler = ImageSampler::nearest(); },
+        );
 
         registry.textures.insert(identifier.clone(), handle);
         loaded += 1;
