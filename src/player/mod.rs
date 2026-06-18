@@ -1,15 +1,16 @@
-use bevy::prelude::*;
-use crate::player::systems::raycast::TargetVoxel;
 use crate::player::components::stats::{Defense, Health, Hunger};
 use crate::player::events::{DamageEvent, DeathEvent, HealEvent};
-use crate::player::model::components::{PlayerJoint, PlayerMesh, PlayerModelMarker, PlayerPart};
+use crate::player::model::components::{PlayerJoint, PlayerMesh};
 use crate::player::model::rig::PlayerRigEntities;
+use crate::player::systems::raycast::TargetVoxel;
+use bevy::prelude::*;
 
 pub mod components;
 pub mod systems;
 pub mod camera;
 pub mod events;
 pub mod model;
+pub mod view_model;
 
 pub struct PlayerPlugin;
 
@@ -17,6 +18,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_plugins(model::PlayerModelPlugin)
+            .add_plugins(view_model::ViewModelPlugin)
             .init_resource::<TargetVoxel>()
             .add_message::<DamageEvent>()
             .add_message::<HealEvent>()
@@ -65,6 +67,16 @@ fn spawn_player(
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.75, 0.0),
     )).id();
+
+    // 第一人称物品根节点
+    let _vm_root = commands.spawn((
+        view_model::ViewModelRoot,
+        view_model::ViewModelAnimator::default(),
+        Name::new("ViewModelRoot"),
+        Transform::default(),
+        Visibility::default(),
+    )).id();
+    commands.entity(camera).add_child(_vm_root);
 
     commands.spawn((
         components::Player,

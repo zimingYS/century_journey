@@ -73,6 +73,11 @@ impl BlockRegistry{
         *self.texture_layers.get(&(id, face_idx)).unwrap_or(&0)
     }
 
+    /// 纹理图集中唯一纹理的总层数 (用于 UV 归一化)
+    pub fn total_layer_count(&self) -> usize {
+        self.texture_layers.values().copied().max().map(|v| v as usize + 1).unwrap_or(0)
+    }
+
     /// 查询方块图标对应的图集 tile index (仅 Block 图标)
     pub fn get_icon_atlas_index(&self, block_id: &str) -> Option<usize> {
         let runtime_id = self.get_id_by_identifier(block_id)?;

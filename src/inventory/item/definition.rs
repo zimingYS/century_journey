@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use crate::inventory::item::icon::IconDefinition;
 use crate::inventory::item::id::ItemId;
 use crate::inventory::item::tool::ToolData;
+use crate::rendering::held_render::{HeldRenderDefinition, AnimationConfig};
 
 /// 物品分类
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -54,6 +55,14 @@ pub struct ItemDefinition {
     #[serde(default)]
     pub tool: Option<ToolData>,
 
+    /// 手持渲染配置 (用于第一人称 ViewModel)
+    #[serde(default)]
+    pub held_render: HeldRenderDefinition,
+
+    /// 动画配置
+    #[serde(default)]
+    pub animations: AnimationConfig,
+
     /// 运行时 ItemId — 不参与 serde
     #[serde(skip, default = "ItemId::air")]
     pub id: ItemId,
@@ -74,6 +83,8 @@ impl ItemDefinition {
             icon: IconDefinition::block(identifier),
             placeable_block: Some(identifier.to_string()),
             tool: None,
+            held_render: HeldRenderDefinition::Block,
+            animations: AnimationConfig::default(),
         }
     }
 

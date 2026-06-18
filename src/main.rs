@@ -7,6 +7,7 @@ use CenturyJourney::gameplay::GameplayPlugin;
 use CenturyJourney::inventory;
 use CenturyJourney::loot::LootPlugin;
 use CenturyJourney::player::PlayerPlugin;
+use CenturyJourney::rendering::RenderingPlugin;
 use CenturyJourney::tag::TagPlugin;
 use CenturyJourney::test_setup::setup;
 use CenturyJourney::ui::UIPlugin;
@@ -30,6 +31,7 @@ fn main() {
             GameplayPlugin,
             LootPlugin,
             VoxelPlugin,
+            RenderingPlugin,
             TagPlugin,
             PlayerPlugin,
             WorldPlugin,
