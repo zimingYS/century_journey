@@ -24,12 +24,7 @@ bevy_replicon = "0.40.2"
 serde_arrays = "0.2.0"
 serde_json = "1.0.150"
 rand = "0.10.1"
-
-# 修复 ICU4X "No segmentation model for language: ja"
-# cosmic-text 日语分词依赖 LSTM 模型，需显式启用
-icu_segmenter = { version = "2", features = ["compiled_data", "auto", "lstm"] }
-
-
+anyhow = "1.0.102"
 
 # 为开发构建配置启用少量优化
 [profile.dev]
