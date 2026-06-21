@@ -104,15 +104,15 @@ impl Default for HeldItemConfig {
 
 impl HeldItemConfig {
     pub fn to_transform(&self) -> Transform {
-        bevy::prelude::Transform {
-            translation: bevy::prelude::Vec3::from(self.first_person_translation),
-            rotation: bevy::prelude::Quat::from_euler(
-                bevy::prelude::EulerRot::XYZ,
+        Transform {
+            translation: Vec3::from(self.first_person_translation),
+            rotation: Quat::from_euler(
+                EulerRot::XYZ,
                 self.first_person_rotation[0].to_radians(),
                 self.first_person_rotation[1].to_radians(),
                 self.first_person_rotation[2].to_radians(),
             ),
-            scale: bevy::prelude::Vec3::splat(self.first_person_scale),
+            scale: Vec3::splat(self.first_person_scale),
         }
     }
 
@@ -120,7 +120,7 @@ impl HeldItemConfig {
     pub fn default_block() -> Self {
         Self {
             render: HeldRenderDefinition::Block,
-            first_person_translation: [0.30, -0.10, -0.50],
+            first_person_translation: [0.30, -0.20, -0.50],
             first_person_rotation: [-15.0, 25.0, 0.0],
             first_person_scale: 0.2,
             animations: AnimationConfig { swing: true, ..default() },
@@ -132,7 +132,7 @@ impl HeldItemConfig {
         Self {
             render: HeldRenderDefinition::FlatItem { thickness },
             first_person_translation: [0.30, -0.10, -0.50],
-            first_person_rotation: [0.0, -60.0, 60.0],
+            first_person_rotation: [0.0, -75.0, 60.0],
             first_person_scale: 0.50,
             animations: AnimationConfig { swing: true, ..default() },
         }
@@ -143,7 +143,7 @@ impl HeldItemConfig {
         Self {
             render: HeldRenderDefinition::FlatItem { thickness },
             first_person_translation: [0.30, -0.10, -0.50],
-            first_person_rotation: [0.0, -60.0, 60.0],
+            first_person_rotation: [0.0, -75.0, 60.0],
             first_person_scale: 0.50,
             animations: AnimationConfig::default(),
         }

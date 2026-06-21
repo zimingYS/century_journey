@@ -170,7 +170,7 @@ fn resolve_held_config(
         if let Some(def) = reg.get(item) {
             return Some(match def.category {
                 ItemCategory::Tool | ItemCategory::Weapon => {
-                    HeldItemConfig::default_tool(0.08)
+                    HeldItemConfig::default_tool(0.04)
                 }
                 _ => HeldItemConfig::default_flat(0.04),
             });
