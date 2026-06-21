@@ -1,4 +1,4 @@
-use crate::app::input_block::InputBlocked;
+use crate::client::state::InputBlocked;
 use bevy::prelude::*;
 use crate::game::inventory::events::DropItemEvent;
 use crate::game::inventory::state::InventoryState;

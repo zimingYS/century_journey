@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use crate::app::state::AppState;
-use crate::game::inventory;
 use crate::content::block::event::*;
 use crate::content::block::sound::BlockSoundEvent;
 
@@ -24,7 +23,6 @@ impl Plugin for VoxelPlugin{
         .add_message::<BlockSoundEvent>()
         .add_systems(OnEnter(AppState::Loading), (
             registry::init_block_registry_system,
-            inventory::item::texture_registry::load_item_textures_system,
         ));
     }
 }

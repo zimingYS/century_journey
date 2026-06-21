@@ -117,7 +117,7 @@ pub fn handle_slot_interaction_system(
             }
             continue;
         }
-        crate::game::inventory::interaction::handle_slot_interaction(
+        crate::game::inventory::routing::handle_slot_interaction(
             &mut inventory, event.kind, event.index, event.action,
         );
     }

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use crate::game::player::components::stats::{Health, Hunger};
 use crate::game::player::components::Player;
 use crate::game::player::events::{DamageEvent, HealEvent, DamageSource};
-use crate::app::input_block::InputBlocked;
+use crate::client::state::InputBlocked;
 
 /// Action Cost 系统 — 冲刺/跳跃消耗饥饿
 pub fn action_cost_system(

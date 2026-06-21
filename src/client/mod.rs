@@ -194,3 +194,7 @@ pub mod asset;
 pub mod font;
 pub mod postprocess;
 pub mod overlay;
+pub mod player;
+pub mod plugin_group;
+pub mod startup;
+pub mod state;

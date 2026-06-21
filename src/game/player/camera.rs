@@ -1,7 +1,7 @@
 use bevy::camera::Exposure;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use crate::game::player::components::Player;
-use crate::app::input_block::InputBlocked;
+use crate::client::state::InputBlocked;
 use bevy::input::mouse::MouseMotion;
 use bevy::light::{AtmosphereEnvironmentMapLight, VolumetricFog};
 use bevy::pbr::AtmosphereSettings;

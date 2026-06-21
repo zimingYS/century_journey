@@ -2,7 +2,7 @@ pub mod chunk;
 pub mod storage;
 pub mod generation;
 pub mod systems;
-pub mod sky;
+pub mod block_ops;
 pub mod time;
 pub mod save;
 pub mod entity;
@@ -28,7 +28,6 @@ impl Plugin for WorldPlugin{
             .init_resource::<systems::StructureGenChannel>()
             .init_resource::<systems::PlayerChunkCache>()
             .init_resource::<systems::CachedBlockInfo>()
-            .add_plugins(sky::SkyPlugin)
             .add_plugins(save::SaveLoadPlugin)
             .add_plugins(entity::EntityPlugin)
             .add_systems(

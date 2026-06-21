@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use crate::game::inventory::item::icon::IconDefinition;
 use crate::game::inventory::item::id::ItemId;
 use crate::game::inventory::item::tool::ToolData;
-use crate::client::renderer::held_render::{HeldRenderDefinition, AnimationConfig};
+use crate::shared::held_item::{HeldRenderDefinition, AnimationConfig};
 
 /// 物品分类
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -15,14 +15,7 @@ pub struct InventorySlot {
     pub index: usize,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum SlotKind {
-    Hotbar,
-    CreativeGrid,
-    Recent,
-    SurvivalBackpack,
-    Container,
-}
+pub use crate::shared::ui_types::{SlotKind, SearchInputState};
 
 /// 槽位图标子实体标记
 #[derive(Component)]
@@ -56,12 +49,7 @@ pub struct CategoryTab {
 #[derive(Component)]
 pub struct CreativeSearchInput;
 
-/// 搜索状态
-#[derive(Resource, Default)]
-pub struct SearchInputState {
-    pub active: bool,
-}
-
+/// 搜索状态 — 已迁移到 shared/ui_types.rs，此类型通过上方 re-export 提供。
 #[deprecated(note = "请使用 SlotInteractionEvent")]
 pub type SlotClickedEvent = SlotInteractionEvent;
 

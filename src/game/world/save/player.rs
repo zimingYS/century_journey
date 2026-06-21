@@ -11,7 +11,7 @@ use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::item::id::ItemId;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
-use crate::game::player::camera::FpsCamera;
+use crate::shared::components::camera::FpsCamera;
 use crate::game::player::components::Player;
 use crate::game::player::components::stats::{Health, Hunger};
 use crate::game::world::save::events::{SaveDirtySource};

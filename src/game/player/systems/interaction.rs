@@ -1,11 +1,11 @@
 use crate::engine::constant::world::CHUNK_SIZE;
-use crate::app::input_block::InputBlocked;
+use crate::client::state::InputBlocked;
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::Player;
 use crate::game::player::systems::raycast::TargetVoxel;
 use crate::shared::tag::cache::CachedTagCache;
-use crate::content::block::behavior::{get_voxel_at_world, set_voxel_at_world};
+use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
 use crate::content::block::event::{BlockBreakEvent, BlockInteractEvent, BlockPlaceEvent};
 use crate::content::block::registry::BlockRegistry;
 use crate::content::block::sound::{BlockSoundEvent, SoundAction};

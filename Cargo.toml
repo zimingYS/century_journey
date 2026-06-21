@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 tokio = "1.52.3"
-bevy = "0.19.0-rc.3"
+bevy = "0.19.0"
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
 serde = { version = "1.0.228", features = ["derive"] }
 # 噪声生成算法

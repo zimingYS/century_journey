@@ -5,7 +5,7 @@ pub trait Application {
     fn build(config: AppConfig) -> App;
 
     fn run(config: AppConfig) {
-        Self::build(config)
-            .run();
+        let mut app = Self::build(config);
+        app.run();
     }
 }
