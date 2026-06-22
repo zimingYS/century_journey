@@ -1,10 +1,10 @@
-use std::collections::HashSet;
-use std::sync::{mpsc, Arc, Mutex};
-use bevy::prelude::*;
 use crate::content::block::properties::RenderMode;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::context::ChunkGenContext;
+use bevy::prelude::*;
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex, mpsc};
 
 /// 地形生成异步任务的结果
 pub struct TerrainGenResult {
@@ -23,7 +23,10 @@ pub struct TerrainGenChannel {
 impl Default for TerrainGenChannel {
     fn default() -> Self {
         let (sender, receiver) = mpsc::channel();
-        Self { sender, receiver: Mutex::new(receiver) }
+        Self {
+            sender,
+            receiver: Mutex::new(receiver),
+        }
     }
 }
 
@@ -43,7 +46,10 @@ pub struct StructureGenChannel {
 impl Default for StructureGenChannel {
     fn default() -> Self {
         let (sender, receiver) = mpsc::channel();
-        Self { sender, receiver: Mutex::new(receiver) }
+        Self {
+            sender,
+            receiver: Mutex::new(receiver),
+        }
     }
 }
 
@@ -65,7 +71,10 @@ pub struct MeshBuildChannel {
 impl Default for MeshBuildChannel {
     fn default() -> Self {
         let (sender, receiver) = mpsc::channel();
-        Self { sender, receiver: Mutex::new(receiver) }
+        Self {
+            sender,
+            receiver: Mutex::new(receiver),
+        }
     }
 }
 
@@ -89,8 +98,15 @@ pub struct BlockInfoSnapshot {
 
 impl BlockInfoSnapshot {
     pub fn from_registry(registry: &BlockRegistry) -> Self {
-        let water_id = registry.get_id_by_identifier("century_journey:water").unwrap_or(0);
-        let total_layers = registry.texture_layers.values().map(|&v| v + 1).max().unwrap_or(1);
+        let water_id = registry
+            .get_id_by_identifier("century_journey:water")
+            .unwrap_or(0);
+        let total_layers = registry
+            .texture_layers
+            .values()
+            .map(|&v| v + 1)
+            .max()
+            .unwrap_or(1);
 
         let max_id = registry.id_to_properties.keys().copied().max().unwrap_or(0);
         let mut is_solid = vec![false; (max_id + 1) as usize];
@@ -132,7 +148,7 @@ impl BlockInfoSnapshot {
 }
 
 /// 缓存BlockInfoSnapshot资源
-#[derive(Resource,Default , Clone)]
+#[derive(Resource, Default, Clone)]
 pub struct CachedBlockInfo(pub BlockInfoSnapshot);
 
 /// 单个区块的 Mesh 构建输入快照

@@ -1,7 +1,7 @@
+use crate::engine::constant::world::HOURS_PER_DAY;
 use bevy::prelude::*;
 use noise::{NoiseFn, Perlin, Seedable};
-use serde::{Serialize, Deserialize};
-use crate::engine::constant::world::HOURS_PER_DAY;
+use serde::{Deserialize, Serialize};
 
 /// 气候配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,7 +86,12 @@ impl ClimateSampler {
     }
 
     /// 采样某点的温度 (0.0=极寒, 1.0=极热)
-    pub fn sample_temperature_with_season(&self, world_x: i32, world_z: i32, season: Season) -> f64 {
+    pub fn sample_temperature_with_season(
+        &self,
+        world_x: i32,
+        world_z: i32,
+        season: Season,
+    ) -> f64 {
         let raw = self.temperature_noise.get([
             world_x as f64 * self.config.temperature_scale,
             world_z as f64 * self.config.temperature_scale,

@@ -1,9 +1,9 @@
-use bevy::prelude::*;
 use crate::game::inventory::insert;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::Player;
 use crate::game::world::entity::dropped_item::DroppedItem;
 use crate::game::world::save::player::PlayerSaveManager;
+use bevy::prelude::*;
 
 /// 拾取范围半径
 const PICKUP_RANGE: f32 = 2.0;
@@ -17,7 +17,9 @@ pub fn pickup_system(
     mut inventory: ResMut<InventoryState>,
     mut commands: Commands,
 ) {
-    let Ok(player_transform) = player_query.single() else { return };
+    let Ok(player_transform) = player_query.single() else {
+        return;
+    };
     let player_pos = player_transform.translation;
 
     for (entity, item_transform, mut dropped) in &mut item_query {
@@ -31,7 +33,8 @@ pub fn pickup_system(
         let result = insert::insert_into_container(&mut inventory.hotbar, dropped.stack.clone());
         let result = match result {
             insert::InventoryInsertResult::AllInserted => result,
-            insert::InventoryInsertResult::Partial(remaining) | insert::InventoryInsertResult::Full(remaining) => {
+            insert::InventoryInsertResult::Partial(remaining)
+            | insert::InventoryInsertResult::Full(remaining) => {
                 insert::insert_into_container(&mut inventory.survival, remaining)
             }
         };

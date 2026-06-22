@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::game::player::model::components::{PlayerJoint, PlayerPart};
+use bevy::prelude::*;
 
 /// 动画状态
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -17,11 +17,19 @@ pub enum PlayerAnimationState {
 /// 动画状态切换
 pub fn player_animation_controller_system(
     input: Res<ButtonInput<KeyCode>>,
-    player_query: Query<&Transform, (With<crate::game::player::components::Player>, Without<PlayerJoint>)>,
+    player_query: Query<
+        &Transform,
+        (
+            With<crate::game::player::components::Player>,
+            Without<PlayerJoint>,
+        ),
+    >,
     mut state_query: Query<&mut PlayerAnimationState>,
     mut prev_pos: Local<Option<Vec3>>,
 ) {
-    let Ok(transform) = player_query.single() else { return };
+    let Ok(transform) = player_query.single() else {
+        return;
+    };
     let speed = prev_pos.map_or(0.0, |p| (transform.translation - p).length());
     *prev_pos = Some(transform.translation);
 
@@ -46,10 +54,21 @@ pub fn walk_animation_system(
     state_query: Query<&PlayerAnimationState>,
     mut joint_query: Query<(&PlayerJoint, &mut Transform)>,
 ) {
-    let Ok(state) = state_query.single() else { return };
-    if !matches!(*state, PlayerAnimationState::Walk | PlayerAnimationState::Run) { return; }
+    let Ok(state) = state_query.single() else {
+        return;
+    };
+    if !matches!(
+        *state,
+        PlayerAnimationState::Walk | PlayerAnimationState::Run
+    ) {
+        return;
+    }
 
-    let factor = if *state == PlayerAnimationState::Run { 2.0 } else { 1.0 };
+    let factor = if *state == PlayerAnimationState::Run {
+        2.0
+    } else {
+        1.0
+    };
     let t = time.elapsed_secs() as f32 * 8.0 * factor;
     let swing = (t.sin() * 0.6) as f32;
 
@@ -71,8 +90,12 @@ pub fn idle_reset_system(
     state_query: Query<&PlayerAnimationState>,
     mut joint_query: Query<(&PlayerJoint, &mut Transform)>,
 ) {
-    let Ok(state) = state_query.single() else { return };
-    if *state != PlayerAnimationState::Idle { return; }
+    let Ok(state) = state_query.single() else {
+        return;
+    };
+    if *state != PlayerAnimationState::Idle {
+        return;
+    }
     for (_joint, mut transform) in &mut joint_query {
         transform.rotation = Quat::IDENTITY;
     }

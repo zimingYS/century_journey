@@ -1,20 +1,22 @@
-use std::collections::{HashMap, HashSet};
-use bevy::prelude::*;
 use crate::shared::tag::identifier::{TagId, TagRegistryType};
+use bevy::prelude::*;
+use std::collections::{HashMap, HashSet};
 
 /// 某一注册表类型的标签数据
 #[derive(Default)]
-pub struct TypedTagRegistry{
+pub struct TypedTagRegistry {
     ///  所有实体标识符集合
-    tags : HashMap<TagId, HashSet<String>>,
+    tags: HashMap<TagId, HashSet<String>>,
     /// 该实体所属的所有标签集合
     reverse: HashMap<String, HashSet<TagId>>,
 }
 
-impl TypedTagRegistry{
+impl TypedTagRegistry {
     /// 查询某个实体是否拥有指定标签
-    pub fn is_tagged(&self, entry_id: &str, tag: &TagId) -> bool{
-        self.reverse.get(entry_id).map_or(false, |x| x.contains(tag))
+    pub fn is_tagged(&self, entry_id: &str, tag: &TagId) -> bool {
+        self.reverse
+            .get(entry_id)
+            .map_or(false, |x| x.contains(tag))
     }
 
     /// 获取标签包含的所有实体标识符
@@ -43,10 +45,7 @@ impl TypedTagRegistry{
             .entry(tag.clone())
             .or_default()
             .insert(entry.clone());
-        self.reverse
-            .entry(entry)
-            .or_default()
-            .insert(tag);
+        self.reverse.entry(entry).or_default().insert(tag);
     }
 
     /// 替换标签的所有实体
@@ -78,27 +77,29 @@ impl TypedTagRegistry{
 
 /// 全局标签注册表
 #[derive(Resource, Default)]
-pub struct TagRegistry{
+pub struct TagRegistry {
     /// 注册表类型
     pub(crate) registries: HashMap<TagRegistryType, TypedTagRegistry>,
 }
 
 /// 统一管理方块、生物群系等不同类型对象的标签系统
 /// 支持查询、判断、获取列表、统计等
-impl TagRegistry{
+impl TagRegistry {
     /// 获取指定类型的标签注册表
     pub fn get_registry(&self, registry_type: &TagRegistryType) -> Option<&TypedTagRegistry> {
         self.registries.get(registry_type)
     }
 
     /// 获取或创建指定类型的标签注册表
-    pub fn get_or_create_registry(&mut self, registry_type: TagRegistryType, )
-    -> &mut TypedTagRegistry {
+    pub fn get_or_create_registry(
+        &mut self,
+        registry_type: TagRegistryType,
+    ) -> &mut TypedTagRegistry {
         self.registries.entry(registry_type).or_default()
     }
 
     /// 查询方块是否拥有指定标签
-     pub fn is_block_tagged(&self, block_id: &str, tag: &TagId) -> bool {
+    pub fn is_block_tagged(&self, block_id: &str, tag: &TagId) -> bool {
         self.registries
             .get(&TagRegistryType::Block)
             .map_or(false, |r| r.is_tagged(block_id, tag))
@@ -106,7 +107,8 @@ impl TagRegistry{
 
     /// 通过方块运行时ID查询是否拥有指定标签
     pub fn is_block_id_tagged(
-        &self, block_runtime_id: u16,
+        &self,
+        block_runtime_id: u16,
         tag: &TagId,
         block_registry: &crate::content::block::registry::BlockRegistry,
     ) -> bool {
@@ -206,7 +208,9 @@ impl TagRegistry{
         let mut added = 0usize;
 
         for (identifier, _runtime_id) in &block_registry.identifier_to_id {
-            if identifier == "century_journey:air" { continue; }
+            if identifier == "century_journey:air" {
+                continue;
+            }
 
             let tags = block_registry
                 .get_id_by_identifier(identifier)
@@ -214,7 +218,9 @@ impl TagRegistry{
                 .map(|prop| prop.tags.as_slice())
                 .unwrap_or(&[]);
 
-            if tags.is_empty() { continue; }
+            if tags.is_empty() {
+                continue;
+            }
 
             for tag_str in tags {
                 // "mineable/pickaxe" → TagId { ns: "mineable", path: "pickaxe" }
@@ -234,9 +240,6 @@ impl TagRegistry{
             }
         }
 
-        info!(
-            "[Tag] 从 BlockProperty.tags 自动构建 {} 条标签映射",
-            added
-        );
+        info!("[Tag] 从 BlockProperty.tags 自动构建 {} 条标签映射", added);
     }
 }

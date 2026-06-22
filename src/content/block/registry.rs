@@ -1,15 +1,15 @@
-use std::collections::HashMap;
-use std::fs;
-use bevy::prelude::*;
-use crate::engine::constant::world::CHUNK_SIZE;
 use crate::app::state::AppState;
 use crate::content::block::behavior::{BlockBehavior, DefaultBlockBehavior};
 use crate::content::block::properties::BlockProperty;
 use crate::content::block::sound::SoundMaterial;
 use crate::content::block::texture_atlas::build_texture_atlas;
+use crate::engine::constant::world::CHUNK_SIZE;
+use bevy::prelude::*;
+use std::collections::HashMap;
+use std::fs;
 
-#[derive(Resource,Default)]
-pub struct BlockRegistry{
+#[derive(Resource, Default)]
+pub struct BlockRegistry {
     /// 根据运行时分配的动态ID查找属性
     pub id_to_properties: HashMap<u16, BlockProperty>,
     /// 通过唯一名标识进行查找动态ID
@@ -52,7 +52,7 @@ pub struct SoundPaths {
     pub flow_sound: String,
 }
 
-impl BlockRegistry{
+impl BlockRegistry {
     /// 获取注册的方块属性
     pub fn get(&self, id: u16) -> Option<&BlockProperty> {
         self.id_to_properties.get(&id)
@@ -75,7 +75,12 @@ impl BlockRegistry{
 
     /// 纹理图集中唯一纹理的总层数 (用于 UV 归一化)
     pub fn total_layer_count(&self) -> usize {
-        self.texture_layers.values().copied().max().map(|v| v as usize + 1).unwrap_or(0)
+        self.texture_layers
+            .values()
+            .copied()
+            .max()
+            .map(|v| v as usize + 1)
+            .unwrap_or(0)
     }
 
     /// 查询方块图标对应的图集 tile index (仅 Block 图标)
@@ -94,10 +99,11 @@ impl BlockRegistry{
     pub fn get_behavior_by_id(&self, id: u16) -> &dyn BlockBehavior {
         let prop = self.id_to_properties.get(&id);
         match prop {
-            Some(p) if !p.behavior_type.is_empty() => {
-                self.behaviors.get(&p.behavior_type).map(|b| b.as_ref())
-                    .unwrap_or(&DefaultBlockBehavior)
-            }
+            Some(p) if !p.behavior_type.is_empty() => self
+                .behaviors
+                .get(&p.behavior_type)
+                .map(|b| b.as_ref())
+                .unwrap_or(&DefaultBlockBehavior),
             _ => &DefaultBlockBehavior,
         }
     }
@@ -116,10 +122,7 @@ impl BlockRegistry{
     }
 
     /// 构建读取存档的动态ID(将标识符重新读取为对应动态ID的方块)
-    pub fn build_id_remap_table(
-        &self,
-        saved_map: &[(u16, String)],
-    ) -> HashMap<u16, u16> {
+    pub fn build_id_remap_table(&self, saved_map: &[(u16, String)]) -> HashMap<u16, u16> {
         let mut remap = HashMap::new();
 
         for (saved_id, identifier) in saved_map {
@@ -134,10 +137,8 @@ impl BlockRegistry{
 
     /// 注册内置行为
     fn register_builtin_behaviors(&mut self) {
-        self.behaviors.insert(
-            "default".to_string(),
-            Box::new(DefaultBlockBehavior),
-        );
+        self.behaviors
+            .insert("default".to_string(), Box::new(DefaultBlockBehavior));
         // self.behaviors.insert(
         //     "falling".to_string(),
         //     Box::new(FallingBlockBehavior),
@@ -146,51 +147,71 @@ impl BlockRegistry{
 
     /// 注册内置音效路径
     fn register_builtin_sounds(&mut self) {
-        self.sound_paths.insert(SoundMaterial::Stone, SoundPaths {
-            break_sound: "sounds/block/stone/break.ogg".to_string(),
-            place_sound: "sounds/block/stone/place.ogg".to_string(),
-            step_sound: "sounds/block/stone/step.ogg".to_string(),
-            ..default()
-        });
-        self.sound_paths.insert(SoundMaterial::Dirt, SoundPaths {
-            break_sound: "sounds/block/dirt/break.ogg".to_string(),
-            place_sound: "sounds/block/dirt/place.ogg".to_string(),
-            step_sound: "sounds/block/dirt/step.ogg".to_string(),
-            ..default()
-        });
-        self.sound_paths.insert(SoundMaterial::Grass, SoundPaths {
-            break_sound: "sounds/block/grass/break.ogg".to_string(),
-            place_sound: "sounds/block/grass/place.ogg".to_string(),
-            step_sound: "sounds/block/grass/step.ogg".to_string(),
-            ..default()
-        });
-        self.sound_paths.insert(SoundMaterial::Wood, SoundPaths {
-            break_sound: "sounds/block/wood/break.ogg".to_string(),
-            place_sound: "sounds/block/wood/place.ogg".to_string(),
-            step_sound: "sounds/block/wood/step.ogg".to_string(),
-            ..default()
-        });
-        self.sound_paths.insert(SoundMaterial::Sand, SoundPaths {
-            break_sound: "sounds/block/sand/break.ogg".to_string(),
-            place_sound: "sounds/block/sand/place.ogg".to_string(),
-            step_sound: "sounds/block/sand/step.ogg".to_string(),
-            ..default()
-        });
-        self.sound_paths.insert(SoundMaterial::Glass, SoundPaths {
-            break_sound: "sounds/block/glass/break.ogg".to_string(),
-            place_sound: "sounds/block/glass/place.ogg".to_string(),
-            step_sound: "sounds/block/glass/step.ogg".to_string(),
-            ..default()
-        });
-        self.sound_paths.insert(SoundMaterial::Snow, SoundPaths {
-            break_sound: "sounds/block/snow/break.ogg".to_string(),
-            place_sound: "sounds/block/snow/place.ogg".to_string(),
-            step_sound: "sounds/block/snow/step.ogg".to_string(),
-            ..default()
-        });
+        self.sound_paths.insert(
+            SoundMaterial::Stone,
+            SoundPaths {
+                break_sound: "sounds/block/stone/break.ogg".to_string(),
+                place_sound: "sounds/block/stone/place.ogg".to_string(),
+                step_sound: "sounds/block/stone/step.ogg".to_string(),
+                ..default()
+            },
+        );
+        self.sound_paths.insert(
+            SoundMaterial::Dirt,
+            SoundPaths {
+                break_sound: "sounds/block/dirt/break.ogg".to_string(),
+                place_sound: "sounds/block/dirt/place.ogg".to_string(),
+                step_sound: "sounds/block/dirt/step.ogg".to_string(),
+                ..default()
+            },
+        );
+        self.sound_paths.insert(
+            SoundMaterial::Grass,
+            SoundPaths {
+                break_sound: "sounds/block/grass/break.ogg".to_string(),
+                place_sound: "sounds/block/grass/place.ogg".to_string(),
+                step_sound: "sounds/block/grass/step.ogg".to_string(),
+                ..default()
+            },
+        );
+        self.sound_paths.insert(
+            SoundMaterial::Wood,
+            SoundPaths {
+                break_sound: "sounds/block/wood/break.ogg".to_string(),
+                place_sound: "sounds/block/wood/place.ogg".to_string(),
+                step_sound: "sounds/block/wood/step.ogg".to_string(),
+                ..default()
+            },
+        );
+        self.sound_paths.insert(
+            SoundMaterial::Sand,
+            SoundPaths {
+                break_sound: "sounds/block/sand/break.ogg".to_string(),
+                place_sound: "sounds/block/sand/place.ogg".to_string(),
+                step_sound: "sounds/block/sand/step.ogg".to_string(),
+                ..default()
+            },
+        );
+        self.sound_paths.insert(
+            SoundMaterial::Glass,
+            SoundPaths {
+                break_sound: "sounds/block/glass/break.ogg".to_string(),
+                place_sound: "sounds/block/glass/place.ogg".to_string(),
+                step_sound: "sounds/block/glass/step.ogg".to_string(),
+                ..default()
+            },
+        );
+        self.sound_paths.insert(
+            SoundMaterial::Snow,
+            SoundPaths {
+                break_sound: "sounds/block/snow/break.ogg".to_string(),
+                place_sound: "sounds/block/snow/place.ogg".to_string(),
+                step_sound: "sounds/block/snow/step.ogg".to_string(),
+                ..default()
+            },
+        );
     }
 }
-
 
 /// 注册方块系统
 pub fn init_block_registry_system(
@@ -210,7 +231,13 @@ pub fn init_block_registry_system(
     let unique_paths = register_blocks(&mut registry, raw_configs);
 
     // 构建纹理图集并创建材质
-    build_texture_atlas(&mut registry, &unique_paths, &mut images, &mut layouts, &mut materials);
+    build_texture_atlas(
+        &mut registry,
+        &unique_paths,
+        &mut images,
+        &mut layouts,
+        &mut materials,
+    );
 
     // 插入资源并切换状态
     commands.insert_resource(registry);
@@ -241,7 +268,10 @@ fn load_block_configs() -> Vec<BlockProperty> {
         let _ = fs::create_dir_all(block_dir);
     }
 
-    info!("[方块注册] 成功扫描并加载了 {} 个独立方块配置文件！", raw_configs.len());
+    info!(
+        "[方块注册] 成功扫描并加载了 {} 个独立方块配置文件！",
+        raw_configs.len()
+    );
     raw_configs
 }
 
@@ -249,7 +279,7 @@ fn load_block_configs() -> Vec<BlockProperty> {
 fn register_blocks(
     registry: &mut BlockRegistry,
     mut raw_configs: Vec<BlockProperty>,
-) -> Vec<String>{
+) -> Vec<String> {
     // 收集所有独立贴图路径
     let mut unique_paths = Vec::new();
 
@@ -271,7 +301,10 @@ fn register_blocks(
         .collect();
 
     // 单独处理空气方块
-    if let Some(air_idx) = raw_configs.iter().position(|p| p.identifier == "century_journey:air") {
+    if let Some(air_idx) = raw_configs
+        .iter()
+        .position(|p| p.identifier == "century_journey:air")
+    {
         // 从配置列表中移除空气方块
         let mut air_block = raw_configs.remove(air_idx);
 
@@ -279,9 +312,13 @@ fn register_blocks(
         air_block.runtime_id = 0;
 
         // 注册方块标识符
-        registry.identifier_to_id.insert(air_block.identifier.clone(), 0);
+        registry
+            .identifier_to_id
+            .insert(air_block.identifier.clone(), 0);
         // 注册反向映射
-        registry.id_to_identifier.insert(0, air_block.identifier.clone());
+        registry
+            .id_to_identifier
+            .insert(0, air_block.identifier.clone());
 
         // 为空气方块6个面分配纹理层
         for face_idx in 0..6 {
@@ -303,15 +340,21 @@ fn register_blocks(
         block.runtime_id = assigned_id;
 
         // 注册标识符与ID映射
-        registry.identifier_to_id.insert(block.identifier.clone(), assigned_id);
+        registry
+            .identifier_to_id
+            .insert(block.identifier.clone(), assigned_id);
         // 注册反向映射
-        registry.id_to_identifier.insert(assigned_id, block.identifier.clone());
+        registry
+            .id_to_identifier
+            .insert(assigned_id, block.identifier.clone());
 
         // 为当前方块的6个面设置纹理层
         for face_idx in 0..6 {
             let path = block.textures.get_face_texture(face_idx);
             let layer_id = path_to_layer[path];
-            registry.texture_layers.insert((assigned_id, face_idx), layer_id);
+            registry
+                .texture_layers
+                .insert((assigned_id, face_idx), layer_id);
         }
 
         // 注册方块属性

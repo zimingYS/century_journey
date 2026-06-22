@@ -177,7 +177,9 @@ impl SlotData {
     /// 尝试往槽位放入一个同种物品
     pub fn add_one(&mut self, item: &ItemId) -> bool {
         match &mut self.stack {
-            Some(existing) if &existing.item == item && existing.count < ItemStack::MAX_STACK_SIZE => {
+            Some(existing)
+                if &existing.item == item && existing.count < ItemStack::MAX_STACK_SIZE =>
+            {
                 existing.count += 1;
                 true
             }

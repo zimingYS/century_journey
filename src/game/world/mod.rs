@@ -1,25 +1,24 @@
-pub mod chunk;
-pub mod storage;
-pub mod generation;
-pub mod systems;
 pub mod block_ops;
-pub mod time;
-pub mod save;
+pub mod chunk;
 pub mod entity;
+pub mod generation;
+pub mod save;
+pub mod storage;
+pub mod systems;
+pub mod time;
 
-use bevy::prelude::*;
 use crate::app::state::AppState;
-use crate::shared::tag;
-use crate::shared::tag::cache::CachedTagCache;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::world::generation::noise::CachedBlockIds;
+use crate::shared::tag;
+use crate::shared::tag::cache::CachedTagCache;
+use bevy::prelude::*;
 
 pub struct WorldPlugin;
 
-impl Plugin for WorldPlugin{
-    fn build(&self, app: &mut App){
-        app
-            .init_resource::<storage::WorldStorage>()
+impl Plugin for WorldPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<storage::WorldStorage>()
             .insert_resource(generation::WorldGenerator::new(12345))
             .insert_resource(time::TimeOfDay::default())
             .init_resource::<generation::climate::SeasonResource>()
@@ -36,18 +35,23 @@ impl Plugin for WorldPlugin{
                     .before(systems::spawn_mesh_build_tasks)
                     .run_if(in_state(AppState::InGame)),
             )
-            .add_systems(Update,(
-                systems::manage_chunks_system,
-                systems::spawn_terrain_gen_tasks,
-                systems::receive_terrain_results,
-                systems::generate_structures_system,
-                systems::receive_structure_results,
-                systems::spawn_mesh_build_tasks,
-                systems::receive_mesh_results,
-                systems::pickup::pickup_system,
-                time::update_time_system,
-            ).chain().run_if(in_state(AppState::InGame)))
-        .add_systems(OnEnter(AppState::InGame), cache_block_ids_system);
+            .add_systems(
+                Update,
+                (
+                    systems::manage_chunks_system,
+                    systems::spawn_terrain_gen_tasks,
+                    systems::receive_terrain_results,
+                    systems::generate_structures_system,
+                    systems::receive_structure_results,
+                    systems::spawn_mesh_build_tasks,
+                    systems::receive_mesh_results,
+                    systems::pickup::pickup_system,
+                    time::update_time_system,
+                )
+                    .chain()
+                    .run_if(in_state(AppState::InGame)),
+            )
+            .add_systems(OnEnter(AppState::InGame), cache_block_ids_system);
     }
 }
 

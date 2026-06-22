@@ -1,9 +1,9 @@
-use std::fmt;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// 物品唯一标识符
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ItemId{
+pub enum ItemId {
     /// 方块类型
     Block(String),
     /// 物品类型
@@ -81,7 +81,7 @@ impl fmt::Display for ItemId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ItemId::Block(id) => write!(f, "block:{}", id),
-            ItemId::Item(id)  => write!(f, "item:{}", id),
+            ItemId::Item(id) => write!(f, "item:{}", id),
         }
     }
 }

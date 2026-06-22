@@ -1,10 +1,10 @@
-use crate::game::player::components::{Player, PlayerCollider, PlayerGravity, PlayerMovement};
-use bevy::prelude::*;
-use crate::engine::constant::player::STEP_HEIGHT;
-use crate::game::player::systems::collision::check_collision_at;
 use crate::client::ui::widgets::slot::SearchInputState;
 use crate::content::block::registry::BlockRegistry;
+use crate::engine::constant::player::STEP_HEIGHT;
+use crate::game::player::components::{Player, PlayerCollider, PlayerGravity, PlayerMovement};
+use crate::game::player::systems::collision::check_collision_at;
 use crate::game::world::storage::WorldStorage;
+use bevy::prelude::*;
 
 pub fn player_movement_system(
     time: Res<Time>,
@@ -12,13 +12,23 @@ pub fn player_movement_system(
     registry: Option<Res<BlockRegistry>>,
     world_storage: Res<WorldStorage>,
     search_state: Res<SearchInputState>,
-    mut query: Query<(&mut Transform, &PlayerCollider, &PlayerMovement, &mut PlayerGravity), With<Player>>,
-){
-    if search_state.active { return; }
+    mut query: Query<
+        (
+            &mut Transform,
+            &PlayerCollider,
+            &PlayerMovement,
+            &mut PlayerGravity,
+        ),
+        With<Player>,
+    >,
+) {
+    if search_state.active {
+        return;
+    }
     let Some(reg) = registry else { return };
     let dt = time.delta_secs();
 
-    for (mut transform, collider, movement, mut gravity) in &mut query{
+    for (mut transform, collider, movement, mut gravity) in &mut query {
         let half = collider.half_extents;
 
         // 跳跃
@@ -31,10 +41,18 @@ pub fn player_movement_system(
 
         // 移动
         let mut direction = Vec3::ZERO;
-        if keyboard_input.pressed(KeyCode::KeyW) { direction += transform.forward().as_vec3(); }
-        if keyboard_input.pressed(KeyCode::KeyS) { direction -= transform.forward().as_vec3(); }
-        if keyboard_input.pressed(KeyCode::KeyA) { direction -= transform.right().as_vec3(); }
-        if keyboard_input.pressed(KeyCode::KeyD) { direction += transform.right().as_vec3(); }
+        if keyboard_input.pressed(KeyCode::KeyW) {
+            direction += transform.forward().as_vec3();
+        }
+        if keyboard_input.pressed(KeyCode::KeyS) {
+            direction -= transform.forward().as_vec3();
+        }
+        if keyboard_input.pressed(KeyCode::KeyA) {
+            direction -= transform.right().as_vec3();
+        }
+        if keyboard_input.pressed(KeyCode::KeyD) {
+            direction += transform.right().as_vec3();
+        }
 
         if direction.length() == 0.0 {
             continue;
@@ -60,7 +78,14 @@ pub fn player_movement_system(
             transform.translation.x = new_pos_x.x;
         } else if gravity.is_grounded {
             // X轴碰撞 → 尝试沿X轴爬台阶
-            try_step_up(&mut transform.translation, half, move_delta.x, 0, &world_storage, &reg);
+            try_step_up(
+                &mut transform.translation,
+                half,
+                move_delta.x,
+                0,
+                &world_storage,
+                &reg,
+            );
         }
 
         // 处理Z轴移动
@@ -70,7 +95,14 @@ pub fn player_movement_system(
             transform.translation.z = new_pos_z.z;
         } else if gravity.is_grounded {
             // Z轴碰撞 → 尝试沿Z轴爬台阶
-            try_step_up(&mut transform.translation, half, move_delta.z, 2, &world_storage, &reg);
+            try_step_up(
+                &mut transform.translation,
+                half,
+                move_delta.z,
+                2,
+                &world_storage,
+                &reg,
+            );
         }
     }
 }

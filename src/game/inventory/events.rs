@@ -1,6 +1,6 @@
-use bevy::prelude::*;
 use crate::game::inventory::item::id::ItemId;
 use crate::game::inventory::item::stack::ItemStack;
+use bevy::prelude::*;
 
 /// 物品被拾取到鼠标
 #[derive(Message)]

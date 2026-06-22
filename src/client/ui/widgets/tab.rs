@@ -30,42 +30,32 @@ pub fn spawn_category_tab(
         format!("{} {}", icon, display_name)
     };
 
-    parent.spawn((
-        CategoryTab {
-            category_index,
-        },
+    parent
+        .spawn((
+            CategoryTab { category_index },
+            Button,
+            Pickable::default(),
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Px(theme.tab_height),
 
-        Button,
-        Pickable::default(),
+                justify_content: JustifyContent::Start,
+                align_items: AlignItems::Center,
 
-        Node {
-            width: Val::Percent(100.0),
-            height: Val::Px(theme.tab_height),
+                padding: UiRect::left(Val::Px(12.0)),
 
-            justify_content: JustifyContent::Start,
-            align_items: AlignItems::Center,
-
-            padding: UiRect::left(Val::Px(12.0)),
-
-            ..default()
-        },
-
-        BackgroundColor(bg),
-    ))
+                ..default()
+            },
+            BackgroundColor(bg),
+        ))
         .with_children(|btn| {
             btn.spawn((
                 Text::new(label),
-
                 TextFont {
-                    font: FontSource::from(
-                        ui_font.default.clone(),
-                    ),
-                    font_size: FontSize::Px(
-                        theme.tab_font_size,
-                    ),
+                    font: FontSource::from(ui_font.default.clone()),
+                    font_size: FontSize::Px(theme.tab_font_size),
                     ..default()
                 },
-
                 TextColor(text_color),
             ));
         });

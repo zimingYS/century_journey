@@ -1,6 +1,6 @@
+use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
-use bevy::asset::RenderAssetUsages;
 
 /// 平面物品厚度渲染器
 pub struct HeldFlatItemRenderer;
@@ -14,11 +14,17 @@ impl HeldFlatItemRenderer {
 
         // 获取像素数据
         let Some(pixels) = image.data.as_deref() else {
-            return Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
+            return Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::default(),
+            );
         };
 
         if pixels.is_empty() || w <= 0 || h <= 0 {
-            return Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
+            return Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::default(),
+            );
         }
 
         // 纹理调整
@@ -30,7 +36,9 @@ impl HeldFlatItemRenderer {
 
         // 判断指定像素坐标是否为不透明
         let get_alpha = |x: i32, y: i32| -> bool {
-            if x < 0 || x >= w || y < 0 || y >= h { return false; }
+            if x < 0 || x >= w || y < 0 || y >= h {
+                return false;
+            }
             let idx = ((y * w + x) * 4 + 3) as usize;
             idx < pixels.len() && pixels[idx] > 30
         };
@@ -50,7 +58,9 @@ impl HeldFlatItemRenderer {
         let front_z = half_thick;
         for y in 0..h {
             for x in 0..w {
-                if !get_alpha(x, y) { continue; }
+                if !get_alpha(x, y) {
+                    continue;
+                }
                 let wx = px_to_wx(x);
                 let wy = px_to_wy(y);
                 let u = px_to_u(x);
@@ -66,9 +76,7 @@ impl HeldFlatItemRenderer {
                     [wx, wy + world_h / tex_h, front_z],
                 ]);
                 normals.extend_from_slice(&[[0.0, 0.0, 1.0]; 4]);
-                uvs.extend_from_slice(&[
-                    [u, v + dv], [u + du, v + dv], [u + du, v], [u, v],
-                ]);
+                uvs.extend_from_slice(&[[u, v + dv], [u + du, v + dv], [u + du, v], [u, v]]);
                 indices.extend_from_slice(&[b, b + 1, b + 2, b + 2, b + 3, b]);
             }
         }
@@ -77,7 +85,9 @@ impl HeldFlatItemRenderer {
         let back_z = -half_thick;
         for y in 0..h {
             for x in 0..w {
-                if !get_alpha(x, y) { continue; }
+                if !get_alpha(x, y) {
+                    continue;
+                }
                 let wx = px_to_wx(x);
                 let wy = px_to_wy(y);
                 let u = px_to_u(x);
@@ -93,21 +103,35 @@ impl HeldFlatItemRenderer {
                     [wx + world_w / tex_w, wy, back_z],
                 ]);
                 normals.extend_from_slice(&[[0.0, 0.0, -1.0]; 4]);
-                uvs.extend_from_slice(&[
-                    [u, v + dv], [u, v], [u + du, v], [u + du, v + dv],
-                ]);
+                uvs.extend_from_slice(&[[u, v + dv], [u, v], [u + du, v], [u + du, v + dv]]);
                 indices.extend_from_slice(&[b, b + 1, b + 2, b + 2, b + 3, b]);
             }
         }
 
         // 边缘侧面
         add_edge_faces(
-            &mut vertices, &mut normals, &mut uvs, &mut indices,
-            w, h, half_thick, world_w, world_h, &get_alpha,
-            px_to_u, px_to_v, px_to_wx, px_to_wy, tex_w, tex_h,
+            &mut vertices,
+            &mut normals,
+            &mut uvs,
+            &mut indices,
+            w,
+            h,
+            half_thick,
+            world_w,
+            world_h,
+            &get_alpha,
+            px_to_u,
+            px_to_v,
+            px_to_wx,
+            px_to_wy,
+            tex_w,
+            tex_h,
         );
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
@@ -119,14 +143,25 @@ impl HeldFlatItemRenderer {
 
 // 生成物品轮廓的四个方向边缘侧面
 fn add_edge_faces<F>(
-    vertices: &mut Vec<[f32; 3]>, normals: &mut Vec<[f32; 3]>, uvs: &mut Vec<[f32; 2]>, indices: &mut Vec<u32>,
-    w: i32, h: i32, half_thick: f32, world_w: f32, world_h: f32,
+    vertices: &mut Vec<[f32; 3]>,
+    normals: &mut Vec<[f32; 3]>,
+    uvs: &mut Vec<[f32; 2]>,
+    indices: &mut Vec<u32>,
+    w: i32,
+    h: i32,
+    half_thick: f32,
+    world_w: f32,
+    world_h: f32,
     get_alpha: &F,
-    px_to_u: impl Fn(i32) -> f32, px_to_v: impl Fn(i32) -> f32,
-    px_to_wx: impl Fn(i32) -> f32, px_to_wy: impl Fn(i32) -> f32,
-    tex_w: f32, tex_h: f32,
-) where F: Fn(i32, i32) -> bool {
-
+    px_to_u: impl Fn(i32) -> f32,
+    px_to_v: impl Fn(i32) -> f32,
+    px_to_wx: impl Fn(i32) -> f32,
+    px_to_wy: impl Fn(i32) -> f32,
+    tex_w: f32,
+    tex_h: f32,
+) where
+    F: Fn(i32, i32) -> bool,
+{
     // 右侧边缘 (Facing +X)
     for y in 0..h {
         for x in 0..w {
@@ -140,10 +175,10 @@ fn add_edge_faces<F>(
                 let b = vertices.len() as u32;
                 // 重构顶点顺序，使其满足逆时针（CCW）向外外翻
                 vertices.extend_from_slice(&[
-                    [wx, wy0, -half_thick],  // 后上
-                    [wx, wy0, half_thick],   // 前上
-                    [wx, wy1, half_thick],   // 前下
-                    [wx, wy1, -half_thick],  // 后下
+                    [wx, wy0, -half_thick], // 后上
+                    [wx, wy0, half_thick],  // 前上
+                    [wx, wy1, half_thick],  // 前下
+                    [wx, wy1, -half_thick], // 后下
                 ]);
                 normals.extend_from_slice(&[[1.0, 0.0, 0.0]; 4]);
                 uvs.extend_from_slice(&[[u_center, v_center]; 4]);
@@ -164,10 +199,10 @@ fn add_edge_faces<F>(
 
                 let b = vertices.len() as u32;
                 vertices.extend_from_slice(&[
-                    [wx, wy0, half_thick],   // 前上
-                    [wx, wy0, -half_thick],  // 后上
-                    [wx, wy1, -half_thick],  // 后下
-                    [wx, wy1, half_thick],   // 前下
+                    [wx, wy0, half_thick],  // 前上
+                    [wx, wy0, -half_thick], // 后上
+                    [wx, wy1, -half_thick], // 后下
+                    [wx, wy1, half_thick],  // 前下
                 ]);
                 normals.extend_from_slice(&[[-1.0, 0.0, 0.0]; 4]);
                 uvs.extend_from_slice(&[[u_center, v_center]; 4]);
@@ -188,10 +223,10 @@ fn add_edge_faces<F>(
 
                 let b = vertices.len() as u32;
                 vertices.extend_from_slice(&[
-                    [wx0, wy, half_thick],   // 前左
-                    [wx1, wy, half_thick],   // 前右
-                    [wx1, wy, -half_thick],  // 后右
-                    [wx0, wy, -half_thick],  // 后左
+                    [wx0, wy, half_thick],  // 前左
+                    [wx1, wy, half_thick],  // 前右
+                    [wx1, wy, -half_thick], // 后右
+                    [wx0, wy, -half_thick], // 后左
                 ]);
                 normals.extend_from_slice(&[[0.0, -1.0, 0.0]; 4]);
                 uvs.extend_from_slice(&[[u_center, v_center]; 4]);
@@ -213,10 +248,10 @@ fn add_edge_faces<F>(
 
                 let b = vertices.len() as u32;
                 vertices.extend_from_slice(&[
-                    [wx0, wy, -half_thick],  // 后左
-                    [wx1, wy, -half_thick],  // 后右
-                    [wx1, wy, half_thick],   // 前右
-                    [wx0, wy, half_thick],   // 前左
+                    [wx0, wy, -half_thick], // 后左
+                    [wx1, wy, -half_thick], // 后右
+                    [wx1, wy, half_thick],  // 前右
+                    [wx0, wy, half_thick],  // 前左
                 ]);
                 normals.extend_from_slice(&[[0.0, 1.0, 0.0]; 4]);
                 uvs.extend_from_slice(&[[u_center, v_center]; 4]);

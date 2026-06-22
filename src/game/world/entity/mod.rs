@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 pub struct EntityPlugin;
 impl Plugin for EntityPlugin {
-    fn build(&self, app: &mut App) { app
-        .add_plugins(dropped_item::DroppedItemPlugin); 
+    fn build(&self, app: &mut App) {
+        app.add_plugins(dropped_item::DroppedItemPlugin);
     }
 }

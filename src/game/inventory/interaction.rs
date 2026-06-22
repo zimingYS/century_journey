@@ -85,10 +85,8 @@ pub fn right_click_slot<C: InventoryContainer>(
             } else {
                 container.get_stack_mut(index).unwrap().count = remaining;
 
-                let mut cursor_stack = ItemStack::new(
-                    container.get_stack(index).unwrap().item.clone(),
-                    half,
-                );
+                let mut cursor_stack =
+                    ItemStack::new(container.get_stack(index).unwrap().item.clone(), half);
                 cursor.set_stack(cursor_stack);
             }
         }
@@ -205,12 +203,16 @@ mod tests {
 
     impl TestContainer {
         fn new() -> Self {
-            Self { slots: array::from_fn(|_| None) }
+            Self {
+                slots: array::from_fn(|_| None),
+            }
         }
     }
 
     impl InventoryContainer for TestContainer {
-        fn slot_count(&self) -> usize { 9 }
+        fn slot_count(&self) -> usize {
+            9
+        }
         fn get_stack(&self, index: usize) -> Option<&ItemStack> {
             self.slots.get(index).and_then(|s| s.as_ref())
         }
@@ -289,9 +291,15 @@ mod tests {
         container.replace_stack(0, stone());
         cursor.set_stack(dirt());
         left_click_slot(&mut container, 0, &mut cursor);
-        assert_eq!(cursor.stack().unwrap().item, ItemId::block("century_journey:stone"));
+        assert_eq!(
+            cursor.stack().unwrap().item,
+            ItemId::block("century_journey:stone")
+        );
         assert_eq!(cursor.stack().unwrap().count, 64);
-        assert_eq!(container.get_stack(0).unwrap().item, ItemId::block("century_journey:dirt"));
+        assert_eq!(
+            container.get_stack(0).unwrap().item,
+            ItemId::block("century_journey:dirt")
+        );
         assert_eq!(container.get_stack(0).unwrap().count, 32);
     }
 
@@ -318,7 +326,10 @@ mod tests {
     fn right_click_odd_count_rounds_up() {
         let mut container = TestContainer::new();
         let mut cursor = CursorData::default();
-        container.replace_stack(0, ItemStack::new(ItemId::block("century_journey:stone"), 63));
+        container.replace_stack(
+            0,
+            ItemStack::new(ItemId::block("century_journey:stone"), 63),
+        );
         right_click_slot(&mut container, 0, &mut cursor);
         assert_eq!(cursor.stack().unwrap().count, 32);
         assert_eq!(container.get_stack(0).unwrap().count, 31);
@@ -363,8 +374,14 @@ mod tests {
         container.replace_stack(0, stone());
         cursor.set_stack(dirt());
         right_click_slot(&mut container, 0, &mut cursor);
-        assert_eq!(container.get_stack(0).unwrap().item, ItemId::block("century_journey:stone"));
-        assert_eq!(cursor.stack().unwrap().item, ItemId::block("century_journey:dirt"));
+        assert_eq!(
+            container.get_stack(0).unwrap().item,
+            ItemId::block("century_journey:stone")
+        );
+        assert_eq!(
+            cursor.stack().unwrap().item,
+            ItemId::block("century_journey:dirt")
+        );
     }
 
     #[test]
@@ -403,7 +420,10 @@ mod tests {
         let mut source = TestContainer::new();
         let mut dest = TestContainer::new();
         source.replace_stack(0, stone());
-        dest.replace_stack(0, ItemStack::new(ItemId::block("century_journey:stone"), 60));
+        dest.replace_stack(
+            0,
+            ItemStack::new(ItemId::block("century_journey:stone"), 60),
+        );
         shift_click(&mut source, &mut dest, 0);
         assert!(source.get_stack(0).is_none());
         assert_eq!(dest.get_stack(0).unwrap().count, 64);

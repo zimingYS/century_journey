@@ -1,7 +1,7 @@
+use crate::client::state::InputBlocked;
+use crate::game::player::components::Player;
 use bevy::camera::Exposure;
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use crate::game::player::components::Player;
-use crate::client::state::InputBlocked;
 use bevy::input::mouse::MouseMotion;
 use bevy::light::{AtmosphereEnvironmentMapLight, VolumetricFog};
 use bevy::pbr::AtmosphereSettings;
@@ -22,7 +22,10 @@ pub fn setup_player_camera_system(
             Exposure { ..default() },
             Tonemapping::AcesFitted,
             Bloom::NATURAL,
-            VolumetricFog { ambient_intensity: 0.0, ..default() },
+            VolumetricFog {
+                ambient_intensity: 0.0,
+                ..default()
+            },
         ));
     }
 }
@@ -30,13 +33,15 @@ pub fn setup_player_camera_system(
 pub fn player_look_system(
     mut mouse_motion: MessageReader<MouseMotion>,
     mut player_query: Query<&mut Transform, With<Player>>,
-    mut camera_query: Query<(&mut Transform,&mut FpsCamera),Without<Player>>,
+    mut camera_query: Query<(&mut Transform, &mut FpsCamera), Without<Player>>,
     input_blocked: Res<InputBlocked>,
-){
-    if input_blocked.0 { return; }
+) {
+    if input_blocked.0 {
+        return;
+    }
 
     let mut delta = Vec2::ZERO;
-    for event in mouse_motion.read(){
+    for event in mouse_motion.read() {
         delta += event.delta;
     }
 
@@ -50,15 +55,17 @@ pub fn player_look_system(
     }
 
     // 上下旋转
-    if let Ok((mut camera_transform,mut fps_camera)) = camera_query.single_mut() {
+    if let Ok((mut camera_transform, mut fps_camera)) = camera_query.single_mut() {
         camera_transform.rotate_local_x(-delta.y * 0.0015);
     }
 }
 
 pub fn convert_mouse_lock_on_startup(
     mut cursor_options_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
-){
-    let Ok(mut cursor_options) = cursor_options_query.single_mut() else { return };
+) {
+    let Ok(mut cursor_options) = cursor_options_query.single_mut() else {
+        return;
+    };
 
     cursor_options.grab_mode = CursorGrabMode::Locked;
     cursor_options.visible = false;
@@ -66,15 +73,17 @@ pub fn convert_mouse_lock_on_startup(
 
 pub fn toggle_mouse_lock_system(
     mut cursor_options_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
-    keyboard_input: Res<ButtonInput<KeyCode>>
-){
-    let Ok(mut cursor_options) = cursor_options_query.single_mut() else { return };
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+) {
+    let Ok(mut cursor_options) = cursor_options_query.single_mut() else {
+        return;
+    };
 
-    if keyboard_input.just_pressed(KeyCode::Escape){
+    if keyboard_input.just_pressed(KeyCode::Escape) {
         if cursor_options.grab_mode == CursorGrabMode::Locked {
             cursor_options.visible = true;
             cursor_options.grab_mode = CursorGrabMode::None;
-        }else {
+        } else {
             cursor_options.visible = false;
             cursor_options.grab_mode = CursorGrabMode::Locked;
         }
@@ -86,10 +95,19 @@ pub fn toggle_perspective_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut camera_query: Query<&mut FpsCamera, With<Camera3d>>,
 ) {
-    if !keyboard_input.just_pressed(KeyCode::F5) { return; }
+    if !keyboard_input.just_pressed(KeyCode::F5) {
+        return;
+    }
     for mut fps_camera in &mut camera_query {
         fps_camera.is_first_person = !fps_camera.is_first_person;
-        info!("视角切换: {}", if fps_camera.is_first_person { "第一人称" } else { "第三人称" });
+        info!(
+            "视角切换: {}",
+            if fps_camera.is_first_person {
+                "第一人称"
+            } else {
+                "第三人称"
+            }
+        );
     }
 }
 
@@ -111,14 +129,16 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_systems(Startup, convert_mouse_lock_on_startup)
-            .add_systems(Update, (
-                player_look_system,
-                toggle_mouse_lock_system,
-                toggle_perspective_system,
-                camera_perspective_sync_system,
-                setup_player_camera_system,
-            ));
+        app.add_systems(Startup, convert_mouse_lock_on_startup)
+            .add_systems(
+                Update,
+                (
+                    player_look_system,
+                    toggle_mouse_lock_system,
+                    toggle_perspective_system,
+                    camera_perspective_sync_system,
+                    setup_player_camera_system,
+                ),
+            );
     }
 }

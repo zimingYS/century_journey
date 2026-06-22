@@ -1,10 +1,10 @@
-use std::collections::HashMap;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// 定义方块属性状态
-#[derive(Debug,Clone,Serialize,Deserialize)]
-pub struct BlockStateProperty{
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockStateProperty {
     /// 属性名
     pub name: String,
     /// 允许的值
@@ -22,21 +22,21 @@ pub struct BlockStateData {
 
 /// 方块完整状态
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct BlockStateDefinition{
+pub struct BlockStateDefinition {
     /// 所有状态属性
     pub properties: Vec<BlockStateProperty>,
 }
 
-impl BlockStateDefinition{
+impl BlockStateDefinition {
     /// 空状态
-    pub fn empty()-> Self{
+    pub fn empty() -> Self {
         Self {
-            properties:Vec::new(),
+            properties: Vec::new(),
         }
     }
 
     /// 创建单属性状态
-     pub fn single(name: &str, values: &[&str], default: usize) -> Self {
+    pub fn single(name: &str, values: &[&str], default: usize) -> Self {
         Self {
             properties: vec![BlockStateProperty {
                 name: name.to_string(),
@@ -48,7 +48,9 @@ impl BlockStateDefinition{
 
     /// 计算所有可能的状态组合数
     pub fn total_state_count(&self) -> usize {
-        if self.properties.is_empty() { return 1; }
+        if self.properties.is_empty() {
+            return 1;
+        }
         self.properties.iter().map(|p| p.values.len()).product()
     }
 
@@ -72,7 +74,8 @@ impl BlockStateDefinition{
         let mut multiplier = 1;
 
         for prop in &self.properties {
-            let value_idx = values.get(&prop.name)
+            let value_idx = values
+                .get(&prop.name)
                 .and_then(|v| prop.values.iter().position(|pv| pv == v))
                 .unwrap_or(prop.default_index);
             index += value_idx * multiplier;
@@ -83,8 +86,12 @@ impl BlockStateDefinition{
 
     /// 获取默认状态索引
     pub fn default_state_index(&self) -> usize {
-        self.get_state_index(&self.properties.iter().map(|p| {
-            (p.name.clone(), p.values[p.default_index].clone())
-        }).collect())
+        self.get_state_index(
+            &self
+                .properties
+                .iter()
+                .map(|p| (p.name.clone(), p.values[p.default_index].clone()))
+                .collect(),
+        )
     }
 }

@@ -1,21 +1,21 @@
-use crate::engine::constant::world::CHUNK_SIZE;
 use crate::client::state::InputBlocked;
+use crate::content::block::event::{BlockBreakEvent, BlockInteractEvent, BlockPlaceEvent};
+use crate::content::block::registry::BlockRegistry;
+use crate::content::block::sound::{BlockSoundEvent, SoundAction};
+use crate::content::loot::block_registry::BlockLootRegistry;
+use crate::engine::constant::world::CHUNK_SIZE;
+use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::Player;
 use crate::game::player::systems::raycast::TargetVoxel;
-use crate::shared::tag::cache::CachedTagCache;
 use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
-use crate::content::block::event::{BlockBreakEvent, BlockInteractEvent, BlockPlaceEvent};
-use crate::content::block::registry::BlockRegistry;
-use crate::content::block::sound::{BlockSoundEvent, SoundAction};
 use crate::game::world::chunk::{ChunkComponents, ChunkState};
-use crate::game::world::storage::WorldStorage;
-use bevy::prelude::*;
-use crate::game::gameplay::gamemode::PlayerGameMode;
-use crate::content::loot::block_registry::BlockLootRegistry;
 use crate::game::world::entity::dropped_item::spawn_dropped_item;
 use crate::game::world::save::player::PlayerSaveManager;
+use crate::game::world::storage::WorldStorage;
+use crate::shared::tag::cache::CachedTagCache;
+use bevy::prelude::*;
 
 use bevy::ecs::system::SystemParam;
 
@@ -43,15 +43,21 @@ pub fn voxel_interaction_system(
     mut events: VoxelEventWriters,
     mut commands: Commands,
 ) {
-    let Some(reg) = registry else { return; };
+    let Some(reg) = registry else {
+        return;
+    };
     // 当打开物品栏时不进行破坏和放置操作
-    if input_blocked.0 { return; }
+    if input_blocked.0 {
+        return;
+    }
 
     let player_entity = player_query.single().ok();
 
     let left_click = mouse_button.just_pressed(MouseButton::Left);
     let right_click = mouse_button.just_pressed(MouseButton::Right);
-    if !left_click && !right_click { return; }
+    if !left_click && !right_click {
+        return;
+    }
 
     // 左键破坏，右键放置
     if let Some(ray_result) = &target_voxel.result {
@@ -61,10 +67,9 @@ pub fn voxel_interaction_system(
             let hit_id = get_voxel_at_world(hit_pos, &world_storage);
 
             // 检查不可破坏方块
-            if tag_cache
-                .as_ref()
-                .map_or(false, |tc| tc.0.is_block_in_tag(hit_id, "century_journey:unbreakable"))
-            {
+            if tag_cache.as_ref().map_or(false, |tc| {
+                tc.0.is_block_in_tag(hit_id, "century_journey:unbreakable")
+            }) {
                 return;
             }
 
@@ -130,8 +135,12 @@ pub fn voxel_interaction_system(
                     // 调用方块行为
                     let behavior = reg.get_behavior_by_id(hit_id);
                     behavior.on_interact(
-                        hit_pos, hit_id, ray_result.normal, None,
-                        &mut world_storage, &mut commands,
+                        hit_pos,
+                        hit_id,
+                        ray_result.normal,
+                        None,
+                        &mut world_storage,
+                        &mut commands,
                     );
 
                     // 发送音效
@@ -153,27 +162,38 @@ pub fn voxel_interaction_system(
             let existing_id = get_voxel_at_world(place_pos, &world_storage);
             if existing_id != 0 {
                 // 目标位置已有方块，只有可替换的才允许覆盖
-                if tag_cache
-                    .as_ref()
-                    .map_or(true, |tc| !tc.0.is_block_in_tag(existing_id, "century_journey:overworld_replaceable"))
-                {
+                if tag_cache.as_ref().map_or(true, |tc| {
+                    !tc.0
+                        .is_block_in_tag(existing_id, "century_journey:overworld_replaceable")
+                }) {
                     return;
                 }
             }
 
             let current_hand_item = inventory_state.hotbar.active_item();
-            let current_hand_identifier = current_hand_item.as_block_id().unwrap_or("century_journey:air");
+            let current_hand_identifier = current_hand_item
+                .as_block_id()
+                .unwrap_or("century_journey:air");
             // 翻译成运行时对应的动态ID
-            let Some(block_id) = reg.get_id_by_identifier(current_hand_identifier) else { return; };
-            if block_id == 0 { return; }
+            let Some(block_id) = reg.get_id_by_identifier(current_hand_identifier) else {
+                return;
+            };
+            if block_id == 0 {
+                return;
+            }
 
             // 调用方块行为的 on_place
             let behavior = reg.get_behavior_by_id(block_id);
             let allowed = behavior.on_place(
-                place_pos, block_id, ray_result.normal,
-                &mut world_storage, &mut commands,
+                place_pos,
+                block_id,
+                ray_result.normal,
+                &mut world_storage,
+                &mut commands,
             );
-            if !allowed { return; }
+            if !allowed {
+                return;
+            }
 
             // 实际放置方块
             set_voxel_at_world(place_pos, block_id, &mut world_storage);
@@ -185,7 +205,10 @@ pub fn voxel_interaction_system(
                     if stack.count > 1 {
                         stack.count -= 1;
                     } else {
-                        inventory_state.hotbar.set_stack(idx, crate::game::inventory::item::stack::ItemStack::empty());
+                        inventory_state.hotbar.set_stack(
+                            idx,
+                            crate::game::inventory::item::stack::ItemStack::empty(),
+                        );
                     }
                 }
             }
@@ -238,12 +261,24 @@ fn mark_dirty_chunks(
     let mut dirty_chunks = vec![chunk_pos];
     let max_idx = CHUNK_SIZE - 1;
 
-    if local_y == 0 { dirty_chunks.push(chunk_pos + IVec3::new(0, -1, 0)); }
-    if local_y == max_idx { dirty_chunks.push(chunk_pos + IVec3::new(0, 1, 0)); }
-    if local_x == 0 { dirty_chunks.push(chunk_pos + IVec3::new(-1, 0, 0)); }
-    if local_x == max_idx { dirty_chunks.push(chunk_pos + IVec3::new(1, 0, 0)); }
-    if local_z == 0 { dirty_chunks.push(chunk_pos + IVec3::new(0, 0, -1)); }
-    if local_z == max_idx { dirty_chunks.push(chunk_pos + IVec3::new(0, 0, 1)); }
+    if local_y == 0 {
+        dirty_chunks.push(chunk_pos + IVec3::new(0, -1, 0));
+    }
+    if local_y == max_idx {
+        dirty_chunks.push(chunk_pos + IVec3::new(0, 1, 0));
+    }
+    if local_x == 0 {
+        dirty_chunks.push(chunk_pos + IVec3::new(-1, 0, 0));
+    }
+    if local_x == max_idx {
+        dirty_chunks.push(chunk_pos + IVec3::new(1, 0, 0));
+    }
+    if local_z == 0 {
+        dirty_chunks.push(chunk_pos + IVec3::new(0, 0, -1));
+    }
+    if local_z == max_idx {
+        dirty_chunks.push(chunk_pos + IVec3::new(0, 0, 1));
+    }
 
     // 边缘相邻区块也记录修改时间
     for &dirty_pos in &dirty_chunks {
@@ -263,9 +298,13 @@ pub fn drop_item_system(
     player_query: Query<&Transform, With<Player>>,
     mut commands: Commands,
 ) {
-    let Ok(player_transform) = player_query.single() else { return };
+    let Ok(player_transform) = player_query.single() else {
+        return;
+    };
     for event in reader.read() {
-        if event.stack.is_empty() { continue; }
+        if event.stack.is_empty() {
+            continue;
+        }
         let pos = player_transform.translation
             + player_transform.forward() * 2.0
             + Vec3::new(0.0, 0.5, 0.0);

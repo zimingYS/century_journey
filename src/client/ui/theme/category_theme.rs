@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use bevy::prelude::*;
+use std::collections::HashMap;
 
 /// 分类显示配置
 #[derive(Resource, Debug, Clone)]
@@ -19,15 +19,24 @@ impl Default for CategoryTheme {
         let mut entries = HashMap::new();
         entries.insert(
             "century_journey:solid".to_string(),
-            CategoryDisplay { display_name: "固体".into(), icon: "🪨".into() },
+            CategoryDisplay {
+                display_name: "固体".into(),
+                icon: "🪨".into(),
+            },
         );
         entries.insert(
             "century_journey:natural".to_string(),
-            CategoryDisplay { display_name: "自然".into(), icon: "🌍".into() },
+            CategoryDisplay {
+                display_name: "自然".into(),
+                icon: "🌍".into(),
+            },
         );
         entries.insert(
             "century_journey:tree_plantable".to_string(),
-            CategoryDisplay { display_name: "作物".into(), icon: "🌱".into() },
+            CategoryDisplay {
+                display_name: "作物".into(),
+                icon: "🌱".into(),
+            },
         );
         Self { entries }
     }
@@ -41,11 +50,7 @@ impl CategoryTheme {
             .map(|e| e.display_name.clone())
             .unwrap_or_else(|| {
                 // eg:从 "century_journey:solid" 提取 "solid" 并首字母大写
-                tag_full
-                    .split(':')
-                    .last()
-                    .unwrap_or(tag_full)
-                    .to_string()
+                tag_full.split(':').last().unwrap_or(tag_full).to_string()
             })
     }
 

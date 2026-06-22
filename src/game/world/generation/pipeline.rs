@@ -1,4 +1,3 @@
-use bevy::prelude::IVec3;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::biome::BiomeRegistry;
 use crate::game::world::generation::climate::{ClimateConfig, ClimateSampler};
@@ -7,6 +6,7 @@ use crate::game::world::generation::noise::{GenerationBlockIds, NoiseSampler};
 use crate::game::world::generation::structure::StructureGenerator;
 use crate::game::world::generation::terrain::TerrainGenerator;
 use crate::game::world::storage::WorldStorage;
+use bevy::prelude::IVec3;
 
 /// 生成管线阶段
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,11 +47,7 @@ impl GenerationPipeline {
     }
 
     /// 生成区块地形
-    pub fn generate_chunk(
-        &self,
-        chunk_pos: IVec3,
-        block_ids: GenerationBlockIds,
-    ) -> ChunkData {
+    pub fn generate_chunk(&self, chunk_pos: IVec3, block_ids: GenerationBlockIds) -> ChunkData {
         // 采样气候和群系
         let ctx = TerrainGenerator::sample_context(
             &self.noise_sampler,
@@ -66,7 +62,12 @@ impl GenerationPipeline {
     }
 
     /// 根据种子、气候、当前季节与生物群系注册表重建世界生成
-    pub fn rebuild_from_seed(seed: u32, climate_config: ClimateConfig, current_season: crate::game::world::generation::climate::Season, biome_registry: BiomeRegistry) -> Self {
+    pub fn rebuild_from_seed(
+        seed: u32,
+        climate_config: ClimateConfig,
+        current_season: crate::game::world::generation::climate::Season,
+        biome_registry: BiomeRegistry,
+    ) -> Self {
         let mut pipeline = Self::new(seed);
         pipeline.climate_sampler = ClimateSampler::new(seed, climate_config);
         pipeline.climate_sampler.current_season = current_season;
@@ -97,9 +98,8 @@ impl GenerationPipeline {
             }
             GenerationStage::Terrain => {
                 let ctx = context.expect("Terrain stage requires context");
-                let data = TerrainGenerator::generate_terrain(
-                    &ctx, &block_ids, &self.biome_registry,
-                );
+                let data =
+                    TerrainGenerator::generate_terrain(&ctx, &block_ids, &self.biome_registry);
                 (Some(data), ctx, GenerationStage::Structure)
             }
             GenerationStage::Structure => {

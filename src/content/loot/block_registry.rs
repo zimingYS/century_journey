@@ -1,9 +1,9 @@
-use std::collections::HashMap;
-use bevy::prelude::*;
+use crate::content::block::registry::BlockRegistry;
+use crate::content::loot::table::{LootEntry, LootTable};
 use crate::game::inventory::item::id::ItemId;
 use crate::game::inventory::item::stack::ItemStack;
-use crate::content::loot::table::{LootEntry, LootTable};
-use crate::content::block::registry::BlockRegistry;
+use bevy::prelude::*;
+use std::collections::HashMap;
 
 /// 方块掉落注册表（BlockId → LootTable）
 #[derive(Resource, Default)]
@@ -49,11 +49,12 @@ pub fn init_default_loot_system(
                 LootTable::single(ItemId::block("century_journey:dirt"), 1)
             }
             "century_journey:leaves" | "century_journey:oak_leaves" => {
-                LootTable::single(ItemId::block("century_journey:stick"), 1)
-                    .with(LootEntry {
-                        item: ItemId::block("century_journey:oak_sapling"),
-                        min_count: 1, max_count: 1, chance: 0.05,
-                    })
+                LootTable::single(ItemId::block("century_journey:stick"), 1).with(LootEntry {
+                    item: ItemId::block("century_journey:oak_sapling"),
+                    min_count: 1,
+                    max_count: 1,
+                    chance: 0.05,
+                })
             }
             _ => {
                 // 默认：掉落自身
@@ -64,5 +65,8 @@ pub fn init_default_loot_system(
         loot_registry.register(block_id, table);
     }
 
-    info!("[方块掉落] 已注册 {} 个方块掉落表", loot_registry.tables.len());
+    info!(
+        "[方块掉落] 已注册 {} 个方块掉落表",
+        loot_registry.tables.len()
+    );
 }

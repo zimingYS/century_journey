@@ -12,9 +12,5 @@ pub trait AssetLoader: Send + Sync + 'static {
     fn load(&self, path: &str, asset_server: &AssetServer) -> Handle<Self::Output>;
 }
 
-pub mod texture;
 pub mod json;
-mod binary;
-mod font;
-mod shader;
-mod sound;
+pub mod texture;

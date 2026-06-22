@@ -1,14 +1,13 @@
-/// 客户端应用 — Composition Root。
-///
-/// 仅负责组装：DefaultPlugins + ClientPluginGroup。
-/// 不直接初始化任何业务资源或注册业务 System。
-
-use bevy::prelude::*;
-use bevy::window::{Window, WindowPlugin, WindowResolution};
 use super::application::Application;
 use crate::app::config::AppConfig;
 use crate::client::plugin_group::ClientPluginGroup;
 use crate::engine::constant::window::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
+/// 客户端应用 — Composition Root。
+///
+/// 仅负责组装：DefaultPlugins + ClientPluginGroup。
+/// 不直接初始化任何业务资源或注册业务 System。
+use bevy::prelude::*;
+use bevy::window::{Window, WindowPlugin, WindowResolution};
 
 pub struct ClientApplication;
 

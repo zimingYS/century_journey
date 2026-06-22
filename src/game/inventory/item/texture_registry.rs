@@ -1,9 +1,9 @@
+use bevy::image::ImageLoaderSettings;
+use bevy::image::ImageSampler;
+use bevy::prelude::*;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use bevy::prelude::*;
-use bevy::image::ImageLoaderSettings;
-use bevy::image::ImageSampler;
 
 /// 物品独立纹理注册表
 ///
@@ -27,10 +27,7 @@ impl ItemTextureRegistry {
 }
 
 /// 启动时扫描并加载物品纹理
-pub fn load_item_textures_system(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+pub fn load_item_textures_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let dir = PathBuf::from("assets/textures/items");
     if !dir.exists() {
         info!("[ItemTexture] textures/items/ 目录不存在，跳过加载");
@@ -53,7 +50,8 @@ pub fn load_item_textures_system(
             continue;
         }
 
-        let stem = path.file_stem()
+        let stem = path
+            .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("unknown");
 
@@ -66,10 +64,10 @@ pub fn load_item_textures_system(
         }
 
         let asset_path = format!("textures/items/{}.png", stem);
-        let handle: Handle<Image> = asset_server.load_with_settings(
-            &asset_path,
-            |s: &mut ImageLoaderSettings| { s.sampler = ImageSampler::nearest(); },
-        );
+        let handle: Handle<Image> =
+            asset_server.load_with_settings(&asset_path, |s: &mut ImageLoaderSettings| {
+                s.sampler = ImageSampler::nearest();
+            });
 
         registry.textures.insert(identifier.clone(), handle);
         loaded += 1;

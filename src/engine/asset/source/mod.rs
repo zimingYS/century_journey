@@ -1,10 +1,17 @@
-/// 资源来源 trait。
-///
-/// 抽象资源数据的获取方式。
-/// V1 仅实现文件系统；后续可扩展 MemorySource、NetworkSource 等。
-pub trait AssetSource: Send + Sync + 'static {
-    /// 读取资源原始字节。
-    fn read_bytes(&self, path: &str) -> Result<Vec<u8>, String>;
-}
-
 pub mod filesystem;
+pub mod manager;
+pub mod memory;
+pub mod mod_source;
+pub mod priority;
+pub mod registry;
+pub mod resource_pack;
+pub mod source;
+
+pub use filesystem::FilesystemSource;
+pub use manager::SourceManager;
+pub use memory::MemorySource;
+pub use mod_source::ModSource;
+pub use priority::SourcePriority;
+pub use registry::SourceRegistry;
+pub use resource_pack::ResourcePackManager;
+pub use source::{AssetSource, SourceFileMetadata, SourceMetadata};

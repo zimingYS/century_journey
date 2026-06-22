@@ -1,13 +1,16 @@
-use std::f32::consts::TAU;
 use crate::client::sky::components::*;
+use crate::client::sky::texture;
+use crate::engine::constant::sky::*;
 use crate::game::world::time::TimeOfDay;
 use bevy::camera::Exposure;
 use bevy::light::atmosphere::ScatteringMedium;
-use bevy::light::{Atmosphere, CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver, VolumetricFog, VolumetricLight};
+use bevy::light::{
+    Atmosphere, CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver, VolumetricFog,
+    VolumetricLight,
+};
 use bevy::prelude::*;
 use rand::{RngExt, SeedableRng};
-use crate::engine::constant::sky::*;
-use crate::client::sky::texture;
+use std::f32::consts::TAU;
 
 pub fn setup_sky_system(
     mut commands: Commands,
@@ -18,9 +21,7 @@ pub fn setup_sky_system(
 ) {
     // 生成世界大气
     let earth_medium = scattering_mediums.add(ScatteringMedium::default());
-    commands.spawn((
-        Atmosphere::earth(earth_medium),
-    ));
+    commands.spawn((Atmosphere::earth(earth_medium),));
 
     // 构造级联阴影
     let cascade_shadow_config = CascadeShadowConfigBuilder {
@@ -32,12 +33,12 @@ pub fn setup_sky_system(
         num_cascades: 4,
         ..default()
     }
-        .build();
+    .build();
 
     // 生成太阳光
     commands.spawn((
         Sun,
-        DirectionalLight{
+        DirectionalLight {
             illuminance: light_consts::lux::RAW_SUNLIGHT,
             shadow_maps_enabled: true,
             ..default()
@@ -116,11 +117,7 @@ pub fn setup_sky_system(
         // 在球面上均匀分布
         let theta: f32 = rng.random_range(0.0..TAU);
         let phi: f32 = rng.random_range(0.0..std::f32::consts::PI);
-        let star_dir = Vec3::new(
-            phi.sin() * theta.cos(),
-            phi.cos(),
-            phi.sin() * theta.sin(),
-        );
+        let star_dir = Vec3::new(phi.sin() * theta.cos(), phi.cos(), phi.sin() * theta.sin());
 
         // 星星亮度随机（0.3 ~ 1.0）
         let brightness: f32 = rng.random_range(0.3..1.0);
@@ -142,8 +139,7 @@ pub fn setup_sky_system(
             Stars,
             Mesh3d(star_quad),
             MeshMaterial3d(star_material),
-            Transform::from_translation(star_pos)
-                .looking_to(-star_dir, Vec3::Y),
+            Transform::from_translation(star_pos).looking_to(-star_dir, Vec3::Y),
         ));
     }
 }
@@ -153,7 +149,7 @@ pub fn atmosphere_system(
     mut sun_query: Query<(&mut Transform, &mut DirectionalLight), (With<Sun>, Without<Moon>)>,
     mut moon_query: Query<(&mut Transform, &mut DirectionalLight), (With<Moon>, Without<Sun>)>,
     mut camera_query: Query<(&mut Exposure, Option<&mut VolumetricFog>), With<Camera3d>>,
-){
+) {
     // 太阳当前弧度角 (0.0 到 2π)
     let sun_angle = ((time_of_day.current_time + 6.0) / 24.0) * TAU;
     // 月亮与太阳永远保持 180 度正对立
@@ -193,7 +189,8 @@ pub fn atmosphere_system(
 
         let moon_forward_y = moon_transform.forward().y;
         let moon_fade = ((-moon_forward_y + 0.12) / 1.12).clamp(0.0, 1.0);
-        moon_light.illuminance = MIN_MOON_ILLUMINANCE + moon_fade * (MAX_MOON_ILLUMINANCE - MIN_MOON_ILLUMINANCE);
+        moon_light.illuminance =
+            MIN_MOON_ILLUMINANCE + moon_fade * (MAX_MOON_ILLUMINANCE - MIN_MOON_ILLUMINANCE);
     }
 
     // 相机自动曝光
@@ -224,7 +221,6 @@ pub fn atmosphere_system(
     }
 }
 
-
 /// 天体纹理处理系统
 pub fn celestial_mesh_system(
     camera_query: Query<&GlobalTransform, With<Camera3d>>,
@@ -233,7 +229,9 @@ pub fn celestial_mesh_system(
     sun_query: Query<&Transform, (With<Sun>, Without<SunMesh>, Without<MoonMesh>)>,
     moon_query: Query<&Transform, (With<Moon>, Without<SunMesh>, Without<MoonMesh>)>,
 ) {
-    let Ok(camera_transform) = camera_query.single() else { return };
+    let Ok(camera_transform) = camera_query.single() else {
+        return;
+    };
     let camera_pos = camera_transform.translation();
 
     // 太阳方向

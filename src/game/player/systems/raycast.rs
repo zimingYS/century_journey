@@ -25,7 +25,7 @@ pub fn update_raycast_system(
     world_storage: Res<WorldStorage>,
     camera_query: Query<&GlobalTransform, With<Camera3d>>,
     mut target_voxel: ResMut<TargetVoxel>,
-){
+) {
     let Ok(global_transform) = camera_query.single() else {
         target_voxel.result = None;
         return;
@@ -38,10 +38,10 @@ pub fn update_raycast_system(
 }
 
 pub fn raycast_voxel(
-    origin: &Vec3,                  // 射线起点
-    direction: &Vec3,               // 射线方向
+    origin: &Vec3,    // 射线起点
+    direction: &Vec3, // 射线方向
     world_storage: &WorldStorage,
-    start_offset: f32,              // 起点偏移量
+    start_offset: f32, // 起点偏移量
 ) -> Option<RaycastResult> {
     // 最大射线距离
     let max_distance = 8.0;
@@ -56,16 +56,28 @@ pub fn raycast_voxel(
 
     // 计算射线前进方向
     let (step_x, step_y, step_z) = (
-        if direction.x > 0.0 {1} else {-1},
-        if direction.y > 0.0 {1} else {-1},
-        if direction.z > 0.0 {1} else {-1},
+        if direction.x > 0.0 { 1 } else { -1 },
+        if direction.y > 0.0 { 1 } else { -1 },
+        if direction.z > 0.0 { 1 } else { -1 },
     );
 
     // 计算DDA
     let (t_delta_x, t_delta_y, t_delta_z) = (
-        if direction.x != 0.0 { 1.0 / direction.x.abs() } else { f32::MAX },
-        if direction.y != 0.0 { 1.0 / direction.y.abs() } else { f32::MAX },
-        if direction.z != 0.0 { 1.0 / direction.z.abs() } else { f32::MAX },
+        if direction.x != 0.0 {
+            1.0 / direction.x.abs()
+        } else {
+            f32::MAX
+        },
+        if direction.y != 0.0 {
+            1.0 / direction.y.abs()
+        } else {
+            f32::MAX
+        },
+        if direction.z != 0.0 {
+            1.0 / direction.z.abs()
+        } else {
+            f32::MAX
+        },
     );
 
     let mut t_max_x = calculate_t_max(pos.x, x, step_x, t_delta_x);
@@ -150,17 +162,17 @@ fn check_voxel(x: i32, y: i32, z: i32, world_storage: &WorldStorage) -> Option<(
 
         // 只要不是空气，一律视为“被撞击的实体”
         if voxel_id != 0u16 {
-            return Some((chunk_pos, UVec3::new(local_x as u32, local_y as u32, local_z as u32)));
+            return Some((
+                chunk_pos,
+                UVec3::new(local_x as u32, local_y as u32, local_z as u32),
+            ));
         }
     }
 
     None
 }
 /// 绘制方块高亮框系统
-pub fn draw_voxel_highlight_system(
-    target_voxel: Res<TargetVoxel>,
-    mut gizmos: Gizmos,)
-{
+pub fn draw_voxel_highlight_system(target_voxel: Res<TargetVoxel>, mut gizmos: Gizmos) {
     if let Some(ray_result) = &target_voxel.result {
         let center = Vec3::new(
             ray_result.hit_pos.x as f32 + 0.5,

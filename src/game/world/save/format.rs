@@ -1,10 +1,10 @@
+use crate::game::world::chunk::ChunkData;
 use bevy::prelude::IVec3;
 use serde::{Deserialize, Serialize};
-use crate::game::world::chunk::ChunkData;
 
 /// 世界数据
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct LevelData{
+pub struct LevelData {
     /// 世界种子
     pub seed: u64,
     /// 出生地坐标
@@ -12,15 +12,14 @@ pub struct LevelData{
     /// 游戏时间
     pub time_of_day: f32,
     /// 区块方块 ID
-    pub block_id_map: Vec<(u16,String)>,
+    pub block_id_map: Vec<(u16, String)>,
     /// 存档版本号
     pub version: f32,
 }
 
-impl LevelData{
+impl LevelData {
     pub const CURRENT_VERSION: f32 = 0.1;
 }
-
 
 /// Region 文件整体结构
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -33,7 +32,7 @@ pub struct RegionFile {
 
 /// 定位每个区块数据的偏移量和长度
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct RegionHeader{
+pub struct RegionHeader {
     /// 区块存在标记位图
     pub chunk_present: Vec<u8>,
     /// 每个存在区块在文件中的字节偏移

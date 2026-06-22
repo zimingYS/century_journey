@@ -1,26 +1,29 @@
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
+use crate::client::ui::components::{
+    CreativeCategoryPanel, CreativeHotbarPanel, CreativeInventoryOverlay, CreativeInventoryRoot,
+    CreativeItemGrid, CreativeRecentPanel, CreativeSearchBox,
+};
+use crate::client::ui::resources::ui_font::UiFont;
+use crate::client::ui::theme::category_theme::CategoryTheme;
+use crate::client::ui::theme::ui_theme::UiTheme;
+use crate::client::ui::widgets::slot::{
+    CategoryTab, CreativeSearchInput, InventorySlot, SearchInputState, SlotKind, SlotVisual,
+    spawn_slot_with_item, sync_slot_icon,
+};
+use crate::client::ui::widgets::tab::spawn_category_tab;
+use crate::content::block::registry::BlockRegistry;
 use crate::game::inventory::container::creative::CreativeCategory;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::item::definition::ItemCategory;
 use crate::game::inventory::item::id::ItemId;
 use crate::game::inventory::item::registry::ItemRegistry;
-use crate::game::inventory::item::texture_registry::ItemTextureRegistry;
 use crate::game::inventory::item::stack::ItemStack;
+use crate::game::inventory::item::texture_registry::ItemTextureRegistry;
 use crate::game::inventory::state::InventoryState;
 use crate::shared::tag::identifier::TagRegistryType;
 use crate::shared::tag::registry::TagRegistry;
-use crate::client::ui::components::{
-    CreativeCategoryPanel, CreativeHotbarPanel, CreativeInventoryOverlay,
-    CreativeInventoryRoot, CreativeItemGrid, CreativeRecentPanel, CreativeSearchBox,
-};
-use crate::client::ui::resources::ui_font::UiFont;
-use crate::client::ui::theme::category_theme::CategoryTheme;
-use crate::client::ui::theme::ui_theme::UiTheme;
-use crate::client::ui::widgets::slot::{spawn_slot_with_item, sync_slot_icon, CategoryTab, CreativeSearchInput, InventorySlot, SearchInputState, SlotKind, SlotVisual};
-use crate::client::ui::widgets::tab::spawn_category_tab;
-use crate::content::block::registry::BlockRegistry;
 
 pub use crate::client::ui::screens::setup::spawn_creative_inventory_system;
 
@@ -32,12 +35,18 @@ pub fn toggle_inventory_system(
     mut state: ResMut<InventoryState>,
     mut cursor_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
 ) {
-    if !keyboard.just_pressed(KeyCode::KeyE) { return; }
-    if search_state.active { return; }
+    if !keyboard.just_pressed(KeyCode::KeyE) {
+        return;
+    }
+    if search_state.active {
+        return;
+    }
 
     state.toggle();
 
-    let Ok(mut cursor) = cursor_query.single_mut() else { return };
+    let Ok(mut cursor) = cursor_query.single_mut() else {
+        return;
+    };
     if state.opened {
         cursor.visible = true;
         cursor.grab_mode = CursorGrabMode::None;
@@ -59,7 +68,9 @@ pub fn update_creative_visibility_system(
     gamemode: Res<crate::game::gameplay::gamemode::PlayerGameMode>,
     mut query: Query<&mut Visibility, With<CreativeInventoryOverlay>>,
 ) {
-    let Ok(mut vis) = query.single_mut() else { return };
+    let Ok(mut vis) = query.single_mut() else {
+        return;
+    };
     let target = if state.opened && gamemode.is_creative() {
         Visibility::Visible
     } else {
@@ -83,7 +94,9 @@ pub fn build_creative_categories_system(
     item_registry: Option<Res<ItemRegistry>>,
 ) {
     let Some(tag_reg) = tag_registry else { return };
-    let Some(block_reg) = block_registry else { return };
+    let Some(block_reg) = block_registry else {
+        return;
+    };
     if !state.creative.categories.is_empty() {
         return;
     }
@@ -126,12 +139,19 @@ pub fn build_creative_categories_system(
         .categories
         .push(CreativeCategory::virtual_category("收藏", ""));
 
-    let Ok(panel_entity) = category_panel.single() else { return };
+    let Ok(panel_entity) = category_panel.single() else {
+        return;
+    };
     commands.entity(panel_entity).with_children(|panel| {
         for (idx, cat) in state.creative.categories.iter().enumerate() {
             spawn_category_tab(
-                panel, &cat.display_name, &cat.icon, idx,
-                idx == state.creative.selected_tab, &ui_font, &theme,
+                panel,
+                &cat.display_name,
+                &cat.icon,
+                idx,
+                idx == state.creative.selected_tab,
+                &ui_font,
+                &theme,
             );
         }
     });
@@ -153,7 +173,8 @@ pub fn update_creative_filter_system(
 
     let mut new_items = if tab == 0 {
         // "全部"标签页
-        let mut all: Vec<ItemId> = reg.identifier_to_id
+        let mut all: Vec<ItemId> = reg
+            .identifier_to_id
             .keys()
             .filter(|id| *id != "century_journey:air")
             .map(|id| ItemId::block(id.as_str()))
@@ -188,7 +209,6 @@ pub fn update_creative_filter_system(
     }
 }
 
-
 /// 创造模式网格填充
 pub fn populate_creative_grid_system(
     state: Res<InventoryState>,
@@ -202,8 +222,12 @@ pub fn populate_creative_grid_system(
     mut commands: Commands,
     mut last_items: Local<Vec<ItemId>>,
 ) {
-    let Some(reg) = block_registry.as_ref() else { return };
-    let Ok(grid_entity) = grid_query.single() else { return };
+    let Some(reg) = block_registry.as_ref() else {
+        return;
+    };
+    let Ok(grid_entity) = grid_query.single() else {
+        return;
+    };
 
     if *last_items == state.creative.visible_items {
         return;
@@ -229,7 +253,16 @@ pub fn populate_creative_grid_system(
         for (entity, idx) in slot_indices {
             let air = &ItemId::air();
             let item = new_items.get(idx).unwrap_or(air);
-            sync_slot_icon(&mut commands, entity, item, 0, reg, &children_query, item_registry.as_deref(), item_texture_registry.as_deref());
+            sync_slot_icon(
+                &mut commands,
+                entity,
+                item,
+                0,
+                reg,
+                &children_query,
+                item_registry.as_deref(),
+                item_texture_registry.as_deref(),
+            );
         }
         return;
     }
@@ -243,7 +276,16 @@ pub fn populate_creative_grid_system(
 
     commands.entity(grid_entity).with_children(|grid| {
         for (index, item) in new_items.iter().enumerate() {
-            spawn_slot_with_item(grid, SlotKind::CreativeGrid, index, item, reg, &theme, item_registry.as_deref(), item_texture_registry.as_deref());
+            spawn_slot_with_item(
+                grid,
+                SlotKind::CreativeGrid,
+                index,
+                item,
+                reg,
+                &theme,
+                item_registry.as_deref(),
+                item_texture_registry.as_deref(),
+            );
         }
     });
 }
@@ -262,8 +304,12 @@ pub fn populate_recent_panel_system(
     mut commands: Commands,
     mut last_items: Local<Vec<ItemStack>>,
 ) {
-    let Some(reg) = block_registry.as_ref() else { return };
-    let Ok(panel_entity) = recent_query.single() else { return };
+    let Some(reg) = block_registry.as_ref() else {
+        return;
+    };
+    let Ok(panel_entity) = recent_query.single() else {
+        return;
+    };
 
     if *last_items == state.recent.items {
         return;
@@ -288,8 +334,20 @@ pub fn populate_recent_panel_system(
     if slot_entities.len() == new_items.len() {
         for (entity, idx) in slot_entities {
             let air = ItemId::air();
-            let (item, count) = new_items.get(idx).map(|s| (&s.item, s.count)).unwrap_or((&air, 0u32));
-            sync_slot_icon(&mut commands, entity, item, count, reg, &children_query, item_registry.as_deref(), item_texture_registry.as_deref());
+            let (item, count) = new_items
+                .get(idx)
+                .map(|s| (&s.item, s.count))
+                .unwrap_or((&air, 0u32));
+            sync_slot_icon(
+                &mut commands,
+                entity,
+                item,
+                count,
+                reg,
+                &children_query,
+                item_registry.as_deref(),
+                item_texture_registry.as_deref(),
+            );
         }
         return;
     }
@@ -316,7 +374,16 @@ pub fn populate_recent_panel_system(
             },
         ));
         for (index, stack) in new_items.iter().enumerate() {
-            spawn_slot_with_item(panel, SlotKind::Recent, index, &stack.item, reg, &theme, item_registry.as_deref(), item_texture_registry.as_deref());
+            spawn_slot_with_item(
+                panel,
+                SlotKind::Recent,
+                index,
+                &stack.item,
+                reg,
+                &theme,
+                item_registry.as_deref(),
+                item_texture_registry.as_deref(),
+            );
         }
     });
 }
@@ -333,14 +400,20 @@ pub fn init_creative_hotbar_system(
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
     mut commands: Commands,
 ) {
-    let Some(reg) = block_registry.as_ref() else { return };
-    let Ok(panel_entity) = hotbar_query.single() else { return };
+    let Some(reg) = block_registry.as_ref() else {
+        return;
+    };
+    let Ok(panel_entity) = hotbar_query.single() else {
+        return;
+    };
 
     let has_hotbar_slots = children_query
         .get(panel_entity)
         .map(|children| {
             children.iter().any(|child| {
-                slot_query.get(child).map_or(false, |s| s.kind == SlotKind::Hotbar)
+                slot_query
+                    .get(child)
+                    .map_or(false, |s| s.kind == SlotKind::Hotbar)
             })
         })
         .unwrap_or(false);
@@ -351,7 +424,16 @@ pub fn init_creative_hotbar_system(
 
     commands.entity(panel_entity).with_children(|bar| {
         for (index, item) in state.hotbar.items().iter().enumerate() {
-            spawn_slot_with_item(bar, SlotKind::Hotbar, index, item, reg, &theme, item_registry.as_deref(), item_texture_registry.as_deref());
+            spawn_slot_with_item(
+                bar,
+                SlotKind::Hotbar,
+                index,
+                item,
+                reg,
+                &theme,
+                item_registry.as_deref(),
+                item_texture_registry.as_deref(),
+            );
         }
     });
 }
@@ -371,7 +453,9 @@ pub fn creative_hotbar_visual_sync_system(
     mut last_hotbar: Local<Option<Vec<(ItemId, u32)>>>,
     mut was_opened: Local<bool>,
 ) {
-    let Some(reg) = block_registry.as_ref() else { return };
+    let Some(reg) = block_registry.as_ref() else {
+        return;
+    };
 
     // 背包打开时强制重置缓存（解决 init 系统延迟创建槽位的时序问题）
     if state.opened && !*was_opened {
@@ -381,7 +465,9 @@ pub fn creative_hotbar_visual_sync_system(
 
     let current: Vec<(ItemId, u32)> = (0..HOTBAR_SIZE)
         .map(|i| {
-            state.hotbar.get_stack(i)
+            state
+                .hotbar
+                .get_stack(i)
                 .map(|s| (s.item.clone(), s.count))
                 .unwrap_or((ItemId::air(), 0))
         })
@@ -389,19 +475,38 @@ pub fn creative_hotbar_visual_sync_system(
 
     let force = last_hotbar.is_none();
     let unchanged = !force && last_hotbar.as_ref().map_or(false, |old| old == &current);
-    if unchanged { return; }
+    if unchanged {
+        return;
+    }
     *last_hotbar = Some(current.clone());
 
     // 原地更新图标
-    let Ok(hotbar_entity) = hotbar_query.single() else { return };
+    let Ok(hotbar_entity) = hotbar_query.single() else {
+        return;
+    };
     if let Ok(children) = children_query.get(hotbar_entity) {
         for child in children.iter() {
             if let Ok((entity, slot, mut visual)) = slot_query.get_mut(child) {
-                if slot.kind != SlotKind::Hotbar { continue; }
-                let (item, count) = current.get(slot.index).cloned().unwrap_or((ItemId::air(), 0));
+                if slot.kind != SlotKind::Hotbar {
+                    continue;
+                }
+                let (item, count) = current
+                    .get(slot.index)
+                    .cloned()
+                    .unwrap_or((ItemId::air(), 0));
                 if force || visual.item != item || visual.count != count {
-                    sync_slot_icon(&mut commands, entity, &item, count, reg, &children_query, item_registry.as_deref(), item_texture_registry.as_deref());
-                    visual.item = item; visual.count = count;
+                    sync_slot_icon(
+                        &mut commands,
+                        entity,
+                        &item,
+                        count,
+                        reg,
+                        &children_query,
+                        item_registry.as_deref(),
+                        item_texture_registry.as_deref(),
+                    );
+                    visual.item = item;
+                    visual.count = count;
                 }
             }
         }
@@ -439,7 +544,6 @@ pub fn cleanup_creative_hotbar_system(
     }
     *was_opened = state.opened;
 }
-
 
 ///  分类标签高亮
 pub fn update_category_highlight_system(

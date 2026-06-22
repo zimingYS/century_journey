@@ -1,16 +1,16 @@
-use std::fmt;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// 标签标识符
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TagId{
+pub struct TagId {
     /// 标签ID
     namespace: String,
     /// 标签ID路径
     path: String,
 }
 
-impl TagId{
+impl TagId {
     // 支持自动接收&str等可转为String的类型
     pub fn new(namespace: impl Into<String>, path: impl Into<String>) -> Self {
         Self {
@@ -29,7 +29,7 @@ impl TagId{
 
     /// 从完整标识符解析成TAG
     pub fn from_full(id: &str) -> Option<Self> {
-        let (namespace , path) = id.split_once(':')?;
+        let (namespace, path) = id.split_once(':')?;
         if namespace.is_empty() || path.is_empty() {
             return None;
         }
@@ -72,7 +72,7 @@ pub enum TagRegistryType {
 
 impl TagRegistryType {
     /// 根据目录名进行标签分类
-    pub fn from_dir_name(dir: &str) -> Self{
+    pub fn from_dir_name(dir: &str) -> Self {
         match dir {
             "block" => Self::Block,
             "item" => Self::Item,

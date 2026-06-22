@@ -1,3 +1,6 @@
+use crate::content::block::registry::BlockRegistry;
+use crate::engine::constant::texture::TILE_SIZE;
+use crate::engine::constant::world::CHUNK_SIZE;
 use bevy::asset::{Assets, RenderAssetUsages};
 use bevy::color::Color;
 use bevy::image::{Image, ImageSampler, TextureAtlasLayout};
@@ -7,9 +10,6 @@ use bevy::math::UVec2;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::default;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-use crate::engine::constant::texture::TILE_SIZE;
-use crate::engine::constant::world::CHUNK_SIZE;
-use crate::content::block::registry::BlockRegistry;
 
 /// 构建纹理图集
 pub fn build_texture_atlas(
@@ -47,7 +47,9 @@ pub fn build_texture_atlas(
 
         // 将贴图缩放到固定方块大小
         let resized = image::imageops::resize(
-            &image, TILE_SIZE, TILE_SIZE,
+            &image,
+            TILE_SIZE,
+            TILE_SIZE,
             image::imageops::FilterType::Nearest,
         );
         let src_pixels = resized.as_raw();
@@ -127,7 +129,6 @@ pub fn build_texture_atlas(
         ..default()
     });
 }
-
 
 /// 创建紫黑格缺失贴图占位符
 fn create_missing_texture_placeholder() -> image::RgbaImage {

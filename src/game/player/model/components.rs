@@ -23,16 +23,36 @@ pub enum PlayerPart {
 
 impl PlayerPart {
     /// 根据部位进行构造
-    pub fn upper_arm_r() -> Self { PlayerPart::UpperArmL(true) }
-    pub fn upper_arm_l() -> Self { PlayerPart::UpperArmL(false) }
-    pub fn forearm_r() -> Self   { PlayerPart::ForearmL(true) }
-    pub fn forearm_l() -> Self   { PlayerPart::ForearmL(false) }
-    pub fn hand_r() -> Self      { PlayerPart::HandL(true) }
-    pub fn hand_l() -> Self      { PlayerPart::HandL(false) }
-    pub fn thigh_r() -> Self     { PlayerPart::ThighL(true) }
-    pub fn thigh_l() -> Self     { PlayerPart::ThighL(false) }
-    pub fn calf_r() -> Self      { PlayerPart::CalfL(true) }
-    pub fn calf_l() -> Self      { PlayerPart::CalfL(false) }
+    pub fn upper_arm_r() -> Self {
+        PlayerPart::UpperArmL(true)
+    }
+    pub fn upper_arm_l() -> Self {
+        PlayerPart::UpperArmL(false)
+    }
+    pub fn forearm_r() -> Self {
+        PlayerPart::ForearmL(true)
+    }
+    pub fn forearm_l() -> Self {
+        PlayerPart::ForearmL(false)
+    }
+    pub fn hand_r() -> Self {
+        PlayerPart::HandL(true)
+    }
+    pub fn hand_l() -> Self {
+        PlayerPart::HandL(false)
+    }
+    pub fn thigh_r() -> Self {
+        PlayerPart::ThighL(true)
+    }
+    pub fn thigh_l() -> Self {
+        PlayerPart::ThighL(false)
+    }
+    pub fn calf_r() -> Self {
+        PlayerPart::CalfL(true)
+    }
+    pub fn calf_l() -> Self {
+        PlayerPart::CalfL(false)
+    }
 
     /// 判断当前部件是否为右侧肢体
     pub fn is_right(&self) -> bool {

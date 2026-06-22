@@ -1,5 +1,5 @@
+use crate::client::viewmodel::{ViewAnimation, ViewModelAnimator, ViewModelRoot};
 use bevy::prelude::*;
-use crate::client::viewmodel::{ViewModelRoot, ViewModelAnimator, ViewAnimation};
 
 /// 动画系统
 pub fn view_model_animation_system(
@@ -43,10 +43,7 @@ pub fn view_model_animation_system(
 }
 
 /// 触发挥动动画
-pub fn trigger_swing(
-    query: &mut Query<&mut ViewModelAnimator>,
-    _anim: ViewAnimation,
-) {
+pub fn trigger_swing(query: &mut Query<&mut ViewModelAnimator>, _anim: ViewAnimation) {
     for mut anim in query.iter_mut() {
         anim.swing_progress = 1.0;
     }

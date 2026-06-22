@@ -1,13 +1,16 @@
-use std::fs;
-use std::io::{Read, Write};
-use std::path::PathBuf;
+use crate::engine::constant::world::*;
+use crate::game::world::save::format::{
+    RegionFile, RegionHeader, SavedChunk, chunk_local_index, chunk_to_region_pos,
+    local_index_to_flat,
+};
 use bevy::prelude::*;
 use bincode::Options;
 use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
-use crate::engine::constant::world::*;
-use crate::game::world::save::format::{chunk_local_index, chunk_to_region_pos, local_index_to_flat, RegionFile, RegionHeader, SavedChunk};
+use std::fs;
+use std::io::{Read, Write};
+use std::path::PathBuf;
 
 /// Region 文件的读写管理器
 pub struct RegionManager;
@@ -75,10 +78,7 @@ impl RegionManager {
     }
 
     /// 读取单个区块，返回 None 表示该区块未存储
-    pub fn read_chunk(
-        world_name: &str,
-        chunk_pos: IVec3,
-    ) -> Result<Option<SavedChunk>, SaveError> {
+    pub fn read_chunk(world_name: &str, chunk_pos: IVec3) -> Result<Option<SavedChunk>, SaveError> {
         let region_pos = chunk_to_region_pos(chunk_pos);
         let path = Self::region_path(world_name, region_pos);
 
@@ -114,10 +114,7 @@ impl RegionManager {
     }
 
     /// 写入单个区块（读取整个 region → 修改 → 写回）
-    pub fn write_chunk(
-        world_name: &str,
-        chunk: &SavedChunk,
-    ) -> Result<(), SaveError> {
+    pub fn write_chunk(world_name: &str, chunk: &SavedChunk) -> Result<(), SaveError> {
         let region_pos = chunk_to_region_pos(chunk.position);
         let path = Self::region_path(world_name, region_pos);
         Self::ensure_dirs(world_name)?;
@@ -163,10 +160,7 @@ impl RegionManager {
     }
 
     /// 批量写入同一 Region 的多个区块（只读写一次文件）
-    pub fn write_chunks_batch(
-        world_name: &str,
-        chunks: &[SavedChunk],
-    ) -> Result<(), SaveError> {
+    pub fn write_chunks_batch(world_name: &str, chunks: &[SavedChunk]) -> Result<(), SaveError> {
         if chunks.is_empty() {
             return Ok(());
         }
@@ -202,8 +196,7 @@ impl RegionManager {
                 let flat = local_index_to_flat(lx, ly, lz);
                 let byte_idx = flat / 8;
                 let bit_idx = flat % 8;
-                let was_present =
-                    region.header.chunk_present[byte_idx] & (1 << bit_idx) != 0;
+                let was_present = region.header.chunk_present[byte_idx] & (1 << bit_idx) != 0;
 
                 let compressed = Self::compress_chunk(chunk)?;
 
@@ -250,10 +243,7 @@ impl RegionManager {
     }
 
     /// Region文件写入
-    fn write_region_file(
-        file: &mut fs::File,
-        region: &RegionFile,
-    ) -> Result<(), SaveError> {
+    fn write_region_file(file: &mut fs::File, region: &RegionFile) -> Result<(), SaveError> {
         let serialized = bincode::DefaultOptions::new()
             .with_varint_encoding()
             .serialize(region)?;

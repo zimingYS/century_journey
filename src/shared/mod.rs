@@ -104,21 +104,21 @@
 //! 那么它通常应该放入 Shared；
 //! 如果它依赖具体玩法规则，则应放入 Game 或其他业务模块。
 
-pub mod components;
-pub mod resources;
-pub mod events;
 pub mod bundles;
-pub mod states;
+pub mod components;
 pub mod constants;
+pub mod direction;
+pub mod errors;
+pub mod events;
+pub mod held_item;
 pub mod identifier;
 pub mod math;
 pub mod position;
-pub mod direction;
-pub mod time;
 pub mod registry;
-pub mod util;
-pub mod types;
-pub mod errors;
+pub mod resources;
+pub mod states;
 pub mod tag;
+pub mod time;
+pub mod types;
 pub mod ui_types;
-pub mod held_item;
+pub mod util;

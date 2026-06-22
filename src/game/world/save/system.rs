@@ -1,16 +1,16 @@
-use std::collections::{HashMap, VecDeque};
-use std::sync::Arc;
-use bevy::prelude::*;
-use bincode::Options;
+use crate::content::block::registry::BlockRegistry;
 use crate::engine::constant::world::*;
 use crate::game::player::components::Player;
-use crate::content::block::registry::BlockRegistry;
 use crate::game::world::generation::WorldGenerator;
 use crate::game::world::save::format::{LevelData, SavedChunk};
 use crate::game::world::save::level;
 use crate::game::world::save::region::RegionManager;
 use crate::game::world::storage::WorldStorage;
 use crate::game::world::time::TimeOfDay;
+use bevy::prelude::*;
+use bincode::Options;
+use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
 
 /// 缓存的 block_id 重映射表
 #[derive(Resource, Clone)]
@@ -72,7 +72,7 @@ pub fn auto_save_on_unload_system(
     world_generator: Res<WorldGenerator>,
     time_of_day: Res<TimeOfDay>,
     player_query: Query<&Transform, With<Player>>,
-){
+) {
     // 禁用自动保存则跳过
     if save_config.auto_save_interval <= 0.0 {
         return;
@@ -87,7 +87,9 @@ pub fn auto_save_on_unload_system(
     }
 
     // 推进计时器
-    let Some(ref mut timer) = auto_save_timer.timer else { return };
+    let Some(ref mut timer) = auto_save_timer.timer else {
+        return;
+    };
     timer.tick(time.delta());
 
     if !timer.just_finished() {
@@ -95,7 +97,10 @@ pub fn auto_save_on_unload_system(
     }
 
     // 获取玩家位置作为出生点
-    let spawn_pos = player_query.single().map(|t| t.translation).unwrap_or(Vec3::ZERO);
+    let spawn_pos = player_query
+        .single()
+        .map(|t| t.translation)
+        .unwrap_or(Vec3::ZERO);
 
     // 全量保存
     match save_entire_world(
@@ -119,15 +124,9 @@ pub fn auto_save_on_unload_system(
 }
 
 /// 每帧处理保存队列，批量写入磁盘
-pub fn process_save_queue_system(
-    mut save_queue: ResMut<SaveQueue>,
-    save_config: Res<SaveConfig>,
-) {
+pub fn process_save_queue_system(mut save_queue: ResMut<SaveQueue>, save_config: Res<SaveConfig>) {
     let drain_count = MAX_SAVE_PER_FRAME.min(save_queue.queue.len());
-    let batch: Vec<SavedChunk> = save_queue
-        .queue
-        .drain(..drain_count)
-        .collect();
+    let batch: Vec<SavedChunk> = save_queue.queue.drain(..drain_count).collect();
 
     if batch.is_empty() {
         return;
@@ -189,10 +188,7 @@ pub fn process_load_queue_system(
 }
 
 /// 从存档文件读取单个区块
-pub fn try_load_chunk_from_disk(
-    world_name: &str,
-    chunk_pos: IVec3,
-) -> Option<SavedChunk> {
+pub fn try_load_chunk_from_disk(world_name: &str, chunk_pos: IVec3) -> Option<SavedChunk> {
     match RegionManager::read_chunk(world_name, chunk_pos) {
         Ok(Some(saved)) => Some(saved),
         Ok(None) => None,
@@ -278,13 +274,11 @@ pub fn load_entire_world(
                         if let Ok(mut file) = std::fs::File::open(&region_path) {
                             if let Ok(region) = RegionManager::read_region_file(&mut file) {
                                 for compressed in &region.chunks {
-                                    if let Ok(decompressed) =
-                                        RegionManager::decompress(compressed)
+                                    if let Ok(decompressed) = RegionManager::decompress(compressed)
                                     {
-                                        if let Ok(mut saved) =
-                                            bincode::DefaultOptions::new()
-                                                .with_varint_encoding()
-                                                .deserialize::<SavedChunk>(&decompressed)
+                                        if let Ok(mut saved) = bincode::DefaultOptions::new()
+                                            .with_varint_encoding()
+                                            .deserialize::<SavedChunk>(&decompressed)
                                         {
                                             level::remap_chunk_block_ids(
                                                 &mut saved.data,

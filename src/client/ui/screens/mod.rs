@@ -1,4 +1,4 @@
-pub mod creative_inventory;
-pub mod survival_inventory;
 pub mod container;
+pub mod creative_inventory;
 pub mod setup;
+pub mod survival_inventory;

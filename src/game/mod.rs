@@ -184,18 +184,18 @@
 //!
 //! 它们全部共享同一套 Game，实现真正的单一权威逻辑（Single Source of Truth）。
 
-pub mod world;
-pub mod player;
-pub mod inventory;
-pub mod interaction;
-pub mod combat;
-pub mod crafting;
-pub mod entity;
-pub mod rules;
-pub mod effect;
-pub mod physics;
-pub mod event;
-pub mod command;
 pub mod advancement;
-pub mod statistics;
+pub mod combat;
+pub mod command;
+pub mod crafting;
+pub mod effect;
+pub mod entity;
+pub mod event;
 pub mod gameplay;
+pub mod interaction;
+pub mod inventory;
+pub mod physics;
+pub mod player;
+pub mod rules;
+pub mod statistics;
+pub mod world;

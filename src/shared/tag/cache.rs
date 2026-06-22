@@ -1,7 +1,7 @@
-use std::collections::HashSet;
-use bevy::prelude::*;
-use crate::shared::tag::registry::TagRegistry;
 use crate::content::block::registry::BlockRegistry;
+use crate::shared::tag::registry::TagRegistry;
+use bevy::prelude::*;
+use std::collections::HashSet;
 
 /// 缓存的标签数据
 #[derive(Resource, Clone, Default)]
@@ -20,7 +20,8 @@ impl TagCache {
         let mut cache = Self::default();
 
         // 缓存所有方块标签
-        for tag_id in tag_registry.all_tags(&crate::shared::tag::identifier::TagRegistryType::Block) {
+        for tag_id in tag_registry.all_tags(&crate::shared::tag::identifier::TagRegistryType::Block)
+        {
             let entries = tag_registry.get_block_tag_entries(tag_id);
             let runtime_ids: HashSet<u16> = entries
                 .iter()
@@ -30,10 +31,7 @@ impl TagCache {
             cache.block_tags.insert(tag_id.to_full(), runtime_ids);
         }
 
-        log::info!(
-            "[标签缓存] 已缓存 {} 个方块标签",
-            cache.block_tags.len()
-        );
+        log::info!("[标签缓存] 已缓存 {} 个方块标签", cache.block_tags.len());
 
         cache
     }

@@ -9,9 +9,7 @@ pub struct AssetPathResolver {
 impl AssetPathResolver {
     /// 创建以`assets/`为根目录的默认解析器。
     pub fn new(root: impl Into<String>) -> Self {
-        Self {
-            root: root.into()
-        }
+        Self { root: root.into() }
     }
 
     /// 将 AssetId 解析为文件路径。

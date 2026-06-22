@@ -1,5 +1,5 @@
 use CenturyJourney::app;
 
-fn main() {
-    app::launch();
+fn main() -> anyhow::Result<()> {
+    app::launch()
 }

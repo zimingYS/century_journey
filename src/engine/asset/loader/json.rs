@@ -1,6 +1,6 @@
-use bevy::prelude::*;
-use bevy::asset::AssetServer;
 use crate::engine::asset::loader::AssetLoader;
+use bevy::asset::AssetServer;
+use bevy::prelude::*;
 
 /// JSON 资源类型
 #[derive(Asset, TypePath, Debug, Clone)]

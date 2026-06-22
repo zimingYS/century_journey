@@ -1,9 +1,9 @@
+use crate::game::inventory::item::definition::{ItemCategory, ItemDefinition};
+use crate::game::inventory::item::id::ItemId;
+use bevy::prelude::*;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use bevy::prelude::*;
-use crate::game::inventory::item::definition::{ItemCategory, ItemDefinition};
-use crate::game::inventory::item::id::ItemId;
 
 /// 物品注册表
 #[derive(Resource, Default)]
@@ -16,7 +16,7 @@ pub struct ItemRegistry {
 
 impl ItemRegistry {
     /// 注册一个物品定义
-    pub fn register(&mut self, def: ItemDefinition){
+    pub fn register(&mut self, def: ItemDefinition) {
         self.by_category
             .entry(def.category)
             .or_default()
@@ -41,7 +41,7 @@ impl ItemRegistry {
     }
 
     /// 获取指定分类下的所有的物品ID
-    pub fn items_by_category(&self, category: &ItemCategory) -> &[ItemId]  {
+    pub fn items_by_category(&self, category: &ItemCategory) -> &[ItemId] {
         self.by_category
             .get(&category)
             .map(|v| v.as_slice())
@@ -60,9 +60,7 @@ impl ItemRegistry {
 }
 
 /// 从 assets/definitions/items/ 加载所有物品JSON并注册
-pub fn load_item_definitions_system(
-    mut item_registry: ResMut<ItemRegistry>,
-) {
+pub fn load_item_definitions_system(mut item_registry: ResMut<ItemRegistry>) {
     let items_dir = PathBuf::from("assets/definitions/items");
     if !items_dir.exists() {
         info!("[ItemRegistry] items/ 目录不存在，跳过 JSON 加载");
@@ -72,10 +70,7 @@ pub fn load_item_definitions_system(
     let mut count = 0usize;
     scan_and_load(&items_dir, &items_dir, &mut item_registry, &mut count);
 
-    info!(
-        "[物品注册] 从 JSON 加载 {} 个物品定义",
-        count
-    );
+    info!("[物品注册] 从 JSON 加载 {} 个物品定义", count);
 }
 
 /// 递归扫描目录，加载所有物品JSON
@@ -85,7 +80,9 @@ fn scan_and_load(
     registry: &mut ItemRegistry,
     count: &mut usize,
 ) {
-    let Ok(entries) = fs::read_dir(current) else { return };
+    let Ok(entries) = fs::read_dir(current) else {
+        return;
+    };
 
     for entry in entries.flatten() {
         let path = entry.path();
@@ -126,11 +123,15 @@ pub fn auto_generate_block_items_system(
 
     // 只在首次构建时运行
     let existing_blocks = item_registry.items_by_category(&ItemCategory::Block).len();
-    if existing_blocks > 0 { return; }
+    if existing_blocks > 0 {
+        return;
+    }
 
     let mut count = 0usize;
     for identifier in reg.identifier_to_id.keys() {
-        if identifier == "century_journey:air" { continue; }
+        if identifier == "century_journey:air" {
+            continue;
+        }
 
         let display_name = reg
             .get_id_by_identifier(identifier)
@@ -143,8 +144,5 @@ pub fn auto_generate_block_items_system(
         count += 1;
     }
 
-    info!(
-        "[物品注册] 从BlockRegistry自动生成{}个方块物品",
-        count
-    );
+    info!("[物品注册] 从BlockRegistry自动生成{}个方块物品", count);
 }

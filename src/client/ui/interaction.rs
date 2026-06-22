@@ -1,11 +1,14 @@
-use bevy::input::keyboard::KeyboardInput;
-use bevy::prelude::*;
+use crate::client::ui::components::CreativeSearchBox;
+use crate::client::ui::theme::ui_theme::UiTheme;
+use crate::client::ui::widgets::slot::{
+    CategoryClickedEvent, CategoryTab, CreativeSearchInput, InventorySlot, SearchInputState,
+    SlotInteractionEvent, SlotKind,
+};
 use crate::game::inventory::events::DropItemEvent;
 use crate::game::inventory::slot::SlotAction;
 use crate::game::inventory::state::InventoryState;
-use crate::client::ui::components::CreativeSearchBox;
-use crate::client::ui::theme::ui_theme::UiTheme;
-use crate::client::ui::widgets::slot::{CategoryClickedEvent, CategoryTab, CreativeSearchInput, InventorySlot, SearchInputState, SlotInteractionEvent, SlotKind};
+use bevy::input::keyboard::KeyboardInput;
+use bevy::prelude::*;
 
 /// 槽位左键/Shift点击交互系统
 /// 使用 Changed<Interaction> + Pressed（仅左键触发 Pressed）
@@ -16,15 +19,22 @@ pub fn slot_interaction_system(
     mut writer: MessageWriter<SlotInteractionEvent>,
 ) {
     for (interaction, slot) in &query {
-        if *interaction != Interaction::Pressed { continue; }
-        let action = if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
-            SlotAction::ShiftClick
-        } else if mouse.just_pressed(MouseButton::Left) {
-            SlotAction::LeftClick
-        } else {
+        if *interaction != Interaction::Pressed {
             continue;
-        };
-        writer.write(SlotInteractionEvent { kind: slot.kind, index: slot.index, action });
+        }
+        let action =
+            if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
+                SlotAction::ShiftClick
+            } else if mouse.just_pressed(MouseButton::Left) {
+                SlotAction::LeftClick
+            } else {
+                continue;
+            };
+        writer.write(SlotInteractionEvent {
+            kind: slot.kind,
+            index: slot.index,
+            action,
+        });
     }
 }
 
@@ -35,12 +45,20 @@ pub fn slot_right_click_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut writer: MessageWriter<SlotInteractionEvent>,
 ) {
-    if !mouse.just_pressed(MouseButton::Right) { return; }
-    if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) { return; }
+    if !mouse.just_pressed(MouseButton::Right) {
+        return;
+    }
+    if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
+        return;
+    }
 
     for (interaction, slot) in &query {
         if *interaction == Interaction::Hovered {
-            writer.write(SlotInteractionEvent { kind: slot.kind, index: slot.index, action: SlotAction::RightClick });
+            writer.write(SlotInteractionEvent {
+                kind: slot.kind,
+                index: slot.index,
+                action: SlotAction::RightClick,
+            });
             break; // 一次只有一个槽位被 hover
         }
     }
@@ -52,16 +70,23 @@ pub fn slot_q_drop_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut writer: MessageWriter<SlotInteractionEvent>,
 ) {
-    if !keyboard.just_pressed(KeyCode::KeyQ) { return; }
+    if !keyboard.just_pressed(KeyCode::KeyQ) {
+        return;
+    }
 
     for (interaction, slot) in &query {
         if *interaction == Interaction::Hovered {
-            let action = if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
-                SlotAction::DropAll
-            } else {
-                SlotAction::DropOne
-            };
-            writer.write(SlotInteractionEvent { kind: slot.kind, index: slot.index, action });
+            let action =
+                if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
+                    SlotAction::DropAll
+                } else {
+                    SlotAction::DropOne
+                };
+            writer.write(SlotInteractionEvent {
+                kind: slot.kind,
+                index: slot.index,
+                action,
+            });
             break;
         }
     }
@@ -73,8 +98,12 @@ pub fn category_tab_interaction_system(
     mut writer: MessageWriter<CategoryClickedEvent>,
 ) {
     for (interaction, tab) in &mut query {
-        if *interaction != Interaction::Pressed { continue; }
-        writer.write(CategoryClickedEvent { category_index: tab.category_index });
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+        writer.write(CategoryClickedEvent {
+            category_index: tab.category_index,
+        });
     }
 }
 
@@ -84,7 +113,9 @@ pub fn search_box_interaction_system(
     mut search_state: ResMut<SearchInputState>,
 ) {
     for interaction in &mut query {
-        if *interaction == Interaction::Pressed { search_state.active = true; }
+        if *interaction == Interaction::Pressed {
+            search_state.active = true;
+        }
     }
 }
 
@@ -106,19 +137,30 @@ pub fn handle_slot_interaction_system(
 ) {
     for event in reader.read() {
         if event.action == SlotAction::DropOne || event.action == SlotAction::DropAll {
-            let take_count = if event.action == SlotAction::DropAll { u32::MAX } else { 1 };
-            let container: &mut dyn crate::game::inventory::container::InventoryContainer = match event.kind {
-                SlotKind::Hotbar => &mut inventory.hotbar,
-                SlotKind::SurvivalBackpack => &mut inventory.survival,
-                _ => continue,
+            let take_count = if event.action == SlotAction::DropAll {
+                u32::MAX
+            } else {
+                1
             };
-            if let Some(stack) = container.get_stack_mut(event.index).and_then(|s| s.take(take_count)) {
+            let container: &mut dyn crate::game::inventory::container::InventoryContainer =
+                match event.kind {
+                    SlotKind::Hotbar => &mut inventory.hotbar,
+                    SlotKind::SurvivalBackpack => &mut inventory.survival,
+                    _ => continue,
+                };
+            if let Some(stack) = container
+                .get_stack_mut(event.index)
+                .and_then(|s| s.take(take_count))
+            {
                 drop_writer.write(DropItemEvent { stack });
             }
             continue;
         }
         crate::game::inventory::routing::handle_slot_interaction(
-            &mut inventory, event.kind, event.index, event.action,
+            &mut inventory,
+            event.kind,
+            event.index,
+            event.action,
         );
     }
 }
@@ -129,8 +171,12 @@ pub fn cancel_drag_system(
     mut inventory: ResMut<InventoryState>,
     search_state: Res<SearchInputState>,
 ) {
-    if !inventory.opened { return; }
-    if search_state.active { return; }
+    if !inventory.opened {
+        return;
+    }
+    if search_state.active {
+        return;
+    }
     if keyboard.just_pressed(KeyCode::Escape) {
         inventory.cursor.clear();
     }
@@ -147,11 +193,20 @@ pub fn slot_hover_system(
 ) {
     for (slot, interaction, mut border) in &mut query {
         match *interaction {
-            Interaction::Hovered => { *border = BorderColor::all(theme.border_hover); }
-            Interaction::Pressed => { *border = BorderColor::all(theme.border_selected); }
+            Interaction::Hovered => {
+                *border = BorderColor::all(theme.border_hover);
+            }
+            Interaction::Pressed => {
+                *border = BorderColor::all(theme.border_selected);
+            }
             Interaction::None => {
-                let selected = slot.kind == SlotKind::Hotbar && slot.index == state.hotbar.active_index;
-                *border = BorderColor::all(if selected { theme.border_selected } else { theme.border_default });
+                let selected =
+                    slot.kind == SlotKind::Hotbar && slot.index == state.hotbar.active_index;
+                *border = BorderColor::all(if selected {
+                    theme.border_selected
+                } else {
+                    theme.border_default
+                });
             }
         }
     }
@@ -167,13 +222,21 @@ pub fn search_keyboard_input_system(
     mut inventory: ResMut<InventoryState>,
     search_state: Res<SearchInputState>,
 ) {
-    if !search_state.active { return; }
-    if keyboard.just_pressed(KeyCode::Escape) { return; }
-    if keyboard.just_pressed(KeyCode::Backspace) { inventory.creative.search_text.pop(); }
+    if !search_state.active {
+        return;
+    }
+    if keyboard.just_pressed(KeyCode::Escape) {
+        return;
+    }
+    if keyboard.just_pressed(KeyCode::Backspace) {
+        inventory.creative.search_text.pop();
+    }
     for ev in char_events.read() {
         let Some(text) = &ev.text else { continue };
         for ch in text.chars() {
-            if !ch.is_control() { inventory.creative.search_text.push(ch); }
+            if !ch.is_control() {
+                inventory.creative.search_text.push(ch);
+            }
         }
     }
 }
@@ -196,7 +259,11 @@ pub fn update_search_text_display_system(
     let search = inventory.creative.search_text.clone();
     for child in children.iter() {
         if let Ok(mut text) = text_query.get_mut(child) {
-            *text = Text::new(if search.is_empty() { "🔍 搜索...".into() } else { search.clone() });
+            *text = Text::new(if search.is_empty() {
+                "🔍 搜索...".into()
+            } else {
+                search.clone()
+            });
         }
     }
 }

@@ -1,12 +1,12 @@
-use std::io::{Read, Write};
+use crate::content::block::registry::BlockRegistry;
+use crate::game::world::save::format::LevelData;
+use crate::game::world::save::region::{RegionManager, SaveError};
 use bevy::prelude::*;
 use bincode::Options;
 use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
-use crate::content::block::registry::BlockRegistry;
-use crate::game::world::save::format::LevelData;
-use crate::game::world::save::region::{RegionManager, SaveError};
+use std::io::{Read, Write};
 
 /// 检测存档是否存在
 pub fn world_exists(world_name: &str) -> bool {
@@ -20,7 +20,7 @@ pub fn save_level(
     spawn_pos: Vec3,
     time_of_day: f32,
     block_registry: &BlockRegistry,
-)-> Result<(), SaveError> {
+) -> Result<(), SaveError> {
     // 确保当前世界文件存在
     RegionManager::ensure_dirs(world_name)?;
 

@@ -1,11 +1,11 @@
-use bevy::prelude::IVec3;
-use noise::NoiseFn;
 use crate::engine::constant::world::*;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::biome::BiomeRegistry;
 use crate::game::world::generation::climate::{ClimateSampler, Season};
 use crate::game::world::generation::context::ChunkGenContext;
 use crate::game::world::generation::noise::{GenerationBlockIds, NoiseSampler};
+use bevy::prelude::IVec3;
+use noise::NoiseFn;
 
 /// 地形生成器 — 根据群系参数生成地形
 pub struct TerrainGenerator;
@@ -30,7 +30,7 @@ impl TerrainGenerator {
 
         let mut cached_temperature = [[0.0f64; PADDED]; PADDED];
         let mut cached_humidity = [[0.0f64; PADDED]; PADDED];
-        
+
         for x in 0..PADDED {
             for z in 0..PADDED {
                 // 偏移 -1 以覆盖区块边界外一圈的世界坐标
@@ -38,8 +38,10 @@ impl TerrainGenerator {
                 let world_z = world_start_z + z as i32 - 1;
 
                 // 采样气候
-                let temperature = climate_sampler.sample_temperature_with_season(world_x, world_z, season);
-                let humidity = climate_sampler.sample_humidity_with_season(world_x, world_z, season);
+                let temperature =
+                    climate_sampler.sample_temperature_with_season(world_x, world_z, season);
+                let humidity =
+                    climate_sampler.sample_humidity_with_season(world_x, world_z, season);
                 cached_temperature[x][z] = temperature;
                 cached_humidity[x][z] = humidity;
 
@@ -70,7 +72,7 @@ impl TerrainGenerator {
 
         let kernel = [
             [0.0625, 0.125, 0.0625],
-            [0.125,  0.25,  0.125],
+            [0.125, 0.25, 0.125],
             [0.0625, 0.125, 0.0625],
         ];
 
@@ -97,17 +99,18 @@ impl TerrainGenerator {
                 }
 
                 // 平滑核现在已包含真实的跨区块邻居数据，无需 edge_factor 补偿
-                let final_height: f64  = smoothed;
+                let final_height: f64 = smoothed;
 
-                ctx.columns.push(crate::game::world::generation::context::ColumnContext {
-                    world_x,
-                    world_z,
-                    temperature,
-                    humidity,
-                    biome_index,
-                    base_height: final_height.round() as i32,
-                    roughness: 0.0,
-                });
+                ctx.columns
+                    .push(crate::game::world::generation::context::ColumnContext {
+                        world_x,
+                        world_z,
+                        temperature,
+                        humidity,
+                        biome_index,
+                        base_height: final_height.round() as i32,
+                        roughness: 0.0,
+                    });
             }
         }
 
@@ -120,7 +123,9 @@ impl TerrainGenerator {
         block_ids: &GenerationBlockIds,
         biome_registry: &BiomeRegistry,
     ) -> ChunkData {
-        let mut chunk_data = ChunkData { voxels: [0u16; CHUNK_VOLUME] };
+        let mut chunk_data = ChunkData {
+            voxels: [0u16; CHUNK_VOLUME],
+        };
         let world_start_y = ctx.chunk_pos.y * CHUNK_SIZE as i32;
 
         struct ColCache {
@@ -130,16 +135,19 @@ impl TerrainGenerator {
             beach_id: u16,
         }
 
-        let col_cache: Vec<ColCache> = ctx.columns.iter().map(|col| {
-            let biome = biome_registry.get(col.biome_index).unwrap();
-            ColCache {
-                target_surface_y: col.base_height,
-                surface_id: block_ids.resolve_block_id(&biome.surface_block),
-                subsurface_id: block_ids.resolve_block_id(&biome.subsurface_block),
-                beach_id: block_ids.resolve_block_id(&biome.beach_block),
-            }
-        }).collect();
-
+        let col_cache: Vec<ColCache> = ctx
+            .columns
+            .iter()
+            .map(|col| {
+                let biome = biome_registry.get(col.biome_index).unwrap();
+                ColCache {
+                    target_surface_y: col.base_height,
+                    surface_id: block_ids.resolve_block_id(&biome.surface_block),
+                    subsurface_id: block_ids.resolve_block_id(&biome.subsurface_block),
+                    beach_id: block_ids.resolve_block_id(&biome.beach_block),
+                }
+            })
+            .collect();
 
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {

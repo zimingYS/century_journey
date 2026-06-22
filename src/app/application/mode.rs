@@ -6,7 +6,7 @@
 
 /// 应用运行模式
 #[derive(Clone, Debug)]
-pub enum AppMode{
+pub enum AppMode {
     /// 客户端
     Client,
     /// 服务端

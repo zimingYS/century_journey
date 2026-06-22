@@ -1,7 +1,7 @@
-use bevy::prelude::*;
-use crate::game::player::components::stats::{Health, Defense, Hunger};
-use crate::game::player::events::{DamageEvent, HealEvent, DeathEvent};
 use crate::game::player::components::Player;
+use crate::game::player::components::stats::{Defense, Health, Hunger};
+use crate::game::player::events::{DamageEvent, DeathEvent, HealEvent};
+use bevy::prelude::*;
 
 /// 伤害处理 (含盔甲减伤)
 pub fn damage_system(
@@ -14,7 +14,9 @@ pub fn damage_system(
             let reduction = defense_opt.map_or(0.0, |d| d.damage_reduction());
             health.apply_damage(event.amount * (1.0 - reduction));
             if health.is_dead() {
-                death_writer.write(DeathEvent { entity: event.target });
+                death_writer.write(DeathEvent {
+                    entity: event.target,
+                });
             }
         }
     }

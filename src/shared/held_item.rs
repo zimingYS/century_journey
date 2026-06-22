@@ -33,14 +33,15 @@ pub enum HeldRenderDefinition {
 }
 
 /// 默认厚度设置
-fn default_thickness() -> f32 { 0.1 }
+fn default_thickness() -> f32 {
+    0.1
+}
 
 impl Default for HeldRenderDefinition {
     fn default() -> Self {
         HeldRenderDefinition::Empty
     }
 }
-
 
 /// 手持物品的完整渲染配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,9 +68,13 @@ pub struct HeldItemConfig {
 }
 
 /// 默认第一人称位置
-fn default_fp_translation() -> [f32; 3] { [0.30, -0.05, -0.40] }
+fn default_fp_translation() -> [f32; 3] {
+    [0.30, -0.05, -0.40]
+}
 /// 默认第一人称缩放
-fn default_fp_scale() -> f32 { 0.55 }
+fn default_fp_scale() -> f32 {
+    0.55
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnimationConfig {
@@ -123,7 +128,10 @@ impl HeldItemConfig {
             first_person_translation: [0.30, -0.20, -0.50],
             first_person_rotation: [-15.0, 25.0, 0.0],
             first_person_scale: 0.2,
-            animations: AnimationConfig { swing: true, ..default() },
+            animations: AnimationConfig {
+                swing: true,
+                ..default()
+            },
         }
     }
 
@@ -134,7 +142,10 @@ impl HeldItemConfig {
             first_person_translation: [0.30, -0.10, -0.50],
             first_person_rotation: [0.0, -75.0, 60.0],
             first_person_scale: 0.50,
-            animations: AnimationConfig { swing: true, ..default() },
+            animations: AnimationConfig {
+                swing: true,
+                ..default()
+            },
         }
     }
 
@@ -152,7 +163,9 @@ impl HeldItemConfig {
     /// 模型物品手持配置
     pub fn default_model(path: &str) -> Self {
         Self {
-            render: HeldRenderDefinition::Model { path: path.to_string() },
+            render: HeldRenderDefinition::Model {
+                path: path.to_string(),
+            },
             first_person_translation: [0.25, -0.10, -0.40],
             first_person_rotation: [0.0, -60.0, 60.0],
             first_person_scale: 0.60,

@@ -7,7 +7,6 @@ pub struct RenderingPlugin;
 
 impl Plugin for RenderingPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<mesh_cache::HeldMeshCache>();
+        app.init_resource::<mesh_cache::HeldMeshCache>();
     }
 }

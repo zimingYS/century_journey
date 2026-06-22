@@ -7,8 +7,7 @@ pub struct HeldModelRenderer;
 
 impl HeldModelRenderer {
     /// 加载模型 (占位 — 后续通过 AssetServer::load 实现)
-    pub fn load_model(_asset_server: &AssetServer, _path: &str) {
-    }
+    pub fn load_model(_asset_server: &AssetServer, _path: &str) {}
 }
 
 /// 模型 Mesh 缓存 — 避免重复加载

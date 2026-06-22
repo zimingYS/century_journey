@@ -1,57 +1,64 @@
-pub mod format;
-pub mod region;
-pub mod level;
-pub mod system;
-pub mod player;
 pub mod events;
+pub mod format;
+pub mod level;
+pub mod player;
+pub mod region;
+pub mod system;
 
-use bevy::prelude::*;
 use crate::app::state::AppState;
-use crate::game::player::components::Player;
 use crate::content::block::registry::BlockRegistry;
+use crate::game::player::components::Player;
 use crate::game::world::save::events::SaveDirtyEvent;
 use crate::game::world::save::player::PlayerSaveManager;
-use crate::game::world::save::system::{AutoSaveTimer, CachedBlockIdRemap, LoadQueue, SaveConfig, SaveQueue};
+use crate::game::world::save::system::{
+    AutoSaveTimer, CachedBlockIdRemap, LoadQueue, SaveConfig, SaveQueue,
+};
 use crate::game::world::storage::WorldStorage;
+use bevy::prelude::*;
 
 pub struct SaveLoadPlugin;
 
 impl Plugin for SaveLoadPlugin {
-    fn build(&self, app: &mut App) { app
-        .insert_resource(SaveConfig::default())
-        .insert_resource(SaveQueue::default())
-        .insert_resource(LoadQueue::default())
-        .init_resource::<AutoSaveTimer>()
-        .init_resource::<CachedBlockIdRemap>()
-        .init_resource::<PlayerSaveManager>()
-        .add_message::<SaveDirtyEvent>()
-        .add_systems(OnEnter(AppState::InGame), (
-            system::cache_level_data_on_enter,
-            player::load_player_on_enter_system,
-        ))
-        .add_systems(
-            PostUpdate,
-            (
-                system::process_save_queue_system,
-                system::process_load_queue_system,
+    fn build(&self, app: &mut App) {
+        app.insert_resource(SaveConfig::default())
+            .insert_resource(SaveQueue::default())
+            .insert_resource(LoadQueue::default())
+            .init_resource::<AutoSaveTimer>()
+            .init_resource::<CachedBlockIdRemap>()
+            .init_resource::<PlayerSaveManager>()
+            .add_message::<SaveDirtyEvent>()
+            .add_systems(
+                OnEnter(AppState::InGame),
+                (
+                    system::cache_level_data_on_enter,
+                    player::load_player_on_enter_system,
+                ),
             )
-                .chain()
-                .run_if(in_state(AppState::InGame)),
-        )
-        .add_systems(
-            PostUpdate,
-            system::auto_save_on_unload_system
-                .run_if(in_state(AppState::InGame)),
-        )
-        .add_systems(Update,(
-            save_load_keybind_system,
-            player::player_position_dirty_system,
-            player::inventory_dirty_tracking_system,
-            player::gamemode_dirty_tracking_system,
-            player::auto_save_player_system,
-            player::save_on_exit_system,
-        ))
-        .add_systems(Last, player::save_on_exit_system);
+            .add_systems(
+                PostUpdate,
+                (
+                    system::process_save_queue_system,
+                    system::process_load_queue_system,
+                )
+                    .chain()
+                    .run_if(in_state(AppState::InGame)),
+            )
+            .add_systems(
+                PostUpdate,
+                system::auto_save_on_unload_system.run_if(in_state(AppState::InGame)),
+            )
+            .add_systems(
+                Update,
+                (
+                    save_load_keybind_system,
+                    player::player_position_dirty_system,
+                    player::inventory_dirty_tracking_system,
+                    player::gamemode_dirty_tracking_system,
+                    player::auto_save_player_system,
+                    player::save_on_exit_system,
+                ),
+            )
+            .add_systems(Last, player::save_on_exit_system);
     }
 }
 
@@ -68,7 +75,10 @@ pub fn save_load_keybind_system(
 ) {
     // F5 — 保存
     if keyboard.just_pressed(KeyCode::F5) {
-        let spawn_pos = player_query.single().map(|t| t.translation).unwrap_or(Vec3::ZERO);
+        let spawn_pos = player_query
+            .single()
+            .map(|t| t.translation)
+            .unwrap_or(Vec3::ZERO);
         if let Err(e) = system::save_entire_world(
             &save_config.world_name,
             &world_storage,

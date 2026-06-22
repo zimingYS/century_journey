@@ -1,6 +1,6 @@
-use std::sync::Arc;
-use bevy::prelude::*;
 use crate::content::block::registry::BlockRegistry;
+use bevy::prelude::*;
+use std::sync::Arc;
 
 /// 定义方块对各种事件的响应
 pub trait BlockBehavior: Send + Sync + 'static {
@@ -11,7 +11,8 @@ pub trait BlockBehavior: Send + Sync + 'static {
         _block_id: u16,
         _world_storage: &mut crate::game::world::storage::WorldStorage,
         _commands: &mut Commands,
-    ) {}
+    ) {
+    }
 
     /// 方块被放置时调用，返回 false 可取消放置
     fn on_place(
@@ -34,7 +35,8 @@ pub trait BlockBehavior: Send + Sync + 'static {
         _interactor: Option<Entity>,
         _world_storage: &mut crate::game::world::storage::WorldStorage,
         _commands: &mut Commands,
-    ) {}
+    ) {
+    }
 
     /// 方块状态更新
     fn on_change(
@@ -43,7 +45,8 @@ pub trait BlockBehavior: Send + Sync + 'static {
         _block_id: u16,
         _world_storage: &mut crate::game::world::storage::WorldStorage,
         _commands: &mut Commands,
-    ) {}
+    ) {
+    }
 
     /// 邻居方块变更时调用
     fn on_neighbor_update(
@@ -54,7 +57,8 @@ pub trait BlockBehavior: Send + Sync + 'static {
         _neighbor_block_id: u16,
         _world_storage: &mut crate::game::world::storage::WorldStorage,
         _commands: &mut Commands,
-    ) {}
+    ) {
+    }
 }
 
 /// 默认空行为

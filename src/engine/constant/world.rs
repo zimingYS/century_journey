@@ -26,7 +26,6 @@ pub const MAX_STRUCTURE_TASKS_PER_FRAME: u32 = 4;
 /// 每帧最多接收结构生成结果数
 pub const MAX_STRUCTURE_RECEIVE_PER_FRAME: usize = 4;
 
-
 /*
     保存读取世界
 */

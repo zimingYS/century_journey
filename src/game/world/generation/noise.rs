@@ -1,12 +1,12 @@
-use std::collections::HashSet;
-use crate::engine::constant::world::*;
 use crate::content::block::registry::BlockRegistry;
-use bevy::prelude::*;
-use noise::{NoiseFn, Perlin};
-use crate::shared::tag::cache::TagCache;
+use crate::engine::constant::world::*;
 use crate::game::world::generation::biome::BiomeRegistry;
 use crate::game::world::generation::climate::{ClimateSampler, Season};
 use crate::game::world::generation::context::{ChunkGenContext, ColumnContext};
+use crate::shared::tag::cache::TagCache;
+use bevy::prelude::*;
+use noise::{NoiseFn, Perlin};
+use std::collections::HashSet;
 
 /// 地形生成器
 pub struct TerrainGenerator {
@@ -31,10 +31,10 @@ impl TerrainGenerator {
 
         // ── 第一步：稀疏采样气候 → 4×4 ──
         // 同时预计算 blended terrain params，避免后续 exp() 重复计算
-        let mut sparse_temp   = [[0.0f64; CLIMATE_SPARSE]; CLIMATE_SPARSE];
-        let mut sparse_humid  = [[0.0f64; CLIMATE_SPARSE]; CLIMATE_SPARSE];
-        let mut sparse_blend_base  = [[0.0f64; CLIMATE_SPARSE]; CLIMATE_SPARSE];
-        let mut sparse_blend_amp   = [[0.0f64; CLIMATE_SPARSE]; CLIMATE_SPARSE];
+        let mut sparse_temp = [[0.0f64; CLIMATE_SPARSE]; CLIMATE_SPARSE];
+        let mut sparse_humid = [[0.0f64; CLIMATE_SPARSE]; CLIMATE_SPARSE];
+        let mut sparse_blend_base = [[0.0f64; CLIMATE_SPARSE]; CLIMATE_SPARSE];
+        let mut sparse_blend_amp = [[0.0f64; CLIMATE_SPARSE]; CLIMATE_SPARSE];
         let mut sparse_blend_rough = [[0.0f64; CLIMATE_SPARSE]; CLIMATE_SPARSE];
 
         for sx in 0..CLIMATE_SPARSE {
@@ -59,8 +59,8 @@ impl TerrainGenerator {
 
         // ── 第二步：稀疏采样地形噪声 → 9×9 ──
         let mut sparse_primary = [[0.0f64; TERRAIN_SPARSE]; TERRAIN_SPARSE];
-        let mut sparse_detail  = [[0.0f64; TERRAIN_SPARSE]; TERRAIN_SPARSE];
-        let mut sparse_rough   = [[0.0f64; TERRAIN_SPARSE]; TERRAIN_SPARSE];
+        let mut sparse_detail = [[0.0f64; TERRAIN_SPARSE]; TERRAIN_SPARSE];
+        let mut sparse_rough = [[0.0f64; TERRAIN_SPARSE]; TERRAIN_SPARSE];
 
         for sx in 0..TERRAIN_SPARSE {
             for sz in 0..TERRAIN_SPARSE {
@@ -114,7 +114,7 @@ impl TerrainGenerator {
         // ── 第五步：3×3 高斯平滑 + 构建 ColumnContext ──
         let kernel = [
             [0.0625, 0.125, 0.0625],
-            [0.125,  0.25,  0.125],
+            [0.125, 0.25, 0.125],
             [0.0625, 0.125, 0.0625],
         ];
 
@@ -176,17 +176,33 @@ pub struct GenerationBlockIds {
 
 impl GenerationBlockIds {
     /// 游戏在调用生成前，从 Bevy 的中央注册表中一次性把名字翻译成数字 ID
-    pub fn from_registry(registry: &BlockRegistry , tag_cache: &TagCache) -> Self {
+    pub fn from_registry(registry: &BlockRegistry, tag_cache: &TagCache) -> Self {
         Self {
             air: 0,
-            grass: registry.get_id_by_identifier("century_journey:grass").unwrap_or(0),
-            dirt:  registry.get_id_by_identifier("century_journey:dirt").unwrap_or(0),
-            stone: registry.get_id_by_identifier("century_journey:stone").unwrap_or(0),
-            sand:  registry.get_id_by_identifier("century_journey:sand").unwrap_or(0),
-            water: registry.get_id_by_identifier("century_journey:water").unwrap_or(0),
-            snow:  registry.get_id_by_identifier("century_journey:snow").unwrap_or(0),
-            leaves: registry.get_id_by_identifier("century_journey:leaves").unwrap_or(0),
-            wood:  registry.get_id_by_identifier("century_journey:wood").unwrap_or(0),
+            grass: registry
+                .get_id_by_identifier("century_journey:grass")
+                .unwrap_or(0),
+            dirt: registry
+                .get_id_by_identifier("century_journey:dirt")
+                .unwrap_or(0),
+            stone: registry
+                .get_id_by_identifier("century_journey:stone")
+                .unwrap_or(0),
+            sand: registry
+                .get_id_by_identifier("century_journey:sand")
+                .unwrap_or(0),
+            water: registry
+                .get_id_by_identifier("century_journey:water")
+                .unwrap_or(0),
+            snow: registry
+                .get_id_by_identifier("century_journey:snow")
+                .unwrap_or(0),
+            leaves: registry
+                .get_id_by_identifier("century_journey:leaves")
+                .unwrap_or(0),
+            wood: registry
+                .get_id_by_identifier("century_journey:wood")
+                .unwrap_or(0),
             tree_plantable_ids: tag_cache
                 .get_block_tag_ids("century_journey:tree_plantable")
                 .cloned()
@@ -301,8 +317,8 @@ fn upsample_sparse<const D: usize, const S: usize>(sparse: &[[f64; S]; S]) -> [[
             let v01 = sparse[sx_lo][sz_hi];
             let v11 = sparse[sx_hi][sz_hi];
 
-            dense[x][z] = (v00 * (1.0 - fx) + v10 * fx) * (1.0 - fz)
-                + (v01 * (1.0 - fx) + v11 * fx) * fz;
+            dense[x][z] =
+                (v00 * (1.0 - fx) + v10 * fx) * (1.0 - fz) + (v01 * (1.0 - fx) + v11 * fx) * fz;
         }
     }
     dense

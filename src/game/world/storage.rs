@@ -1,11 +1,11 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-use bevy::prelude::*;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::context::ChunkGenContext;
+use bevy::prelude::*;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 /// 存储世界数据
-#[derive(Resource , Default)]
+#[derive(Resource, Default)]
 pub struct WorldStorage {
     /// 键是区块的 3D 坐标，值是区块的原生数据，用于存储世界的方块数据
     pub loaded_chunks: HashMap<IVec3, Arc<ChunkData>>,

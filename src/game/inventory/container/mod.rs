@@ -1,9 +1,9 @@
-pub mod hotbar;
-pub mod creative;
-pub mod player_inventory;
-pub mod creative_inventory;
 pub mod container;
+pub mod creative;
+pub mod creative_inventory;
+pub mod hotbar;
 pub mod interaction;
+pub mod player_inventory;
 pub mod survival;
 
 use crate::game::inventory::item::stack::ItemStack;

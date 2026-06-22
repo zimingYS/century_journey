@@ -1,10 +1,10 @@
-use bevy::prelude::*;
 use crate::engine::constant::world::{CHUNK_SIZE, SEA_LEVEL};
 use crate::game::world::generation::biome::BiomeRegistry;
+use bevy::prelude::*;
 
 /// 区块内单个坐标(每列)共享的上下文
-#[derive(Debug,Clone)]
-pub struct ColumnContext{
+#[derive(Debug, Clone)]
+pub struct ColumnContext {
     /// 世界 x 坐标
     pub world_x: i32,
     /// 世界 z 坐标
@@ -24,16 +24,10 @@ pub struct ColumnContext{
 /// 是否允许生成树
 /// 用于树木生成检测
 impl ColumnContext {
-    pub fn can_spawn_tree(
-        &self,
-        biome_registry: &BiomeRegistry,
-    ) -> bool {
-        let biome =
-            biome_registry.get(self.biome_index)
-                .unwrap();
+    pub fn can_spawn_tree(&self, biome_registry: &BiomeRegistry) -> bool {
+        let biome = biome_registry.get(self.biome_index).unwrap();
 
-        self.base_height > SEA_LEVEL + 2
-            && biome.tree_density > 0.0
+        self.base_height > SEA_LEVEL + 2 && biome.tree_density > 0.0
     }
 }
 

@@ -1,10 +1,10 @@
 pub mod app;
-pub mod engine;
-pub mod shared;
+pub mod client;
 pub mod content;
+pub mod editor;
+pub mod engine;
 pub mod game;
 pub mod protocol;
-pub mod client;
 pub mod server;
+pub mod shared;
 pub mod tests;
-pub mod editor;

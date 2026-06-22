@@ -1,28 +1,21 @@
+pub mod break_pipeline;
 mod channel;
 mod chunk_lifecycle;
 mod greedy_mesh;
 mod mesh_buffer;
 mod mesh_lifecycle;
 pub mod pickup;
-pub mod break_pipeline;
 
 pub use channel::{
-    TerrainGenChannel, TerrainGenResult,
-    MeshBuildChannel, MeshBuildResult,
-    PlayerChunkCache, BlockInfoSnapshot, MeshBuildInput,
-    StructureGenChannel, CachedBlockInfo
+    BlockInfoSnapshot, CachedBlockInfo, MeshBuildChannel, MeshBuildInput, MeshBuildResult,
+    PlayerChunkCache, StructureGenChannel, TerrainGenChannel, TerrainGenResult,
 };
-pub use mesh_buffer::{DIRECTIONS, MeshBufferData};
 pub use chunk_lifecycle::{
-    manage_chunks_system,
-    spawn_terrain_gen_tasks,
-    receive_terrain_results,
-    generate_structures_system,
-    receive_structure_results,
-};
-pub use mesh_lifecycle::{
-    spawn_mesh_build_tasks,
-    receive_mesh_results,
-    rebuild_block_info_snapshot
+    generate_structures_system, manage_chunks_system, receive_structure_results,
+    receive_terrain_results, spawn_terrain_gen_tasks,
 };
 pub use greedy_mesh::build_greedy_mesh;
+pub use mesh_buffer::{DIRECTIONS, MeshBufferData};
+pub use mesh_lifecycle::{
+    rebuild_block_info_snapshot, receive_mesh_results, spawn_mesh_build_tasks,
+};

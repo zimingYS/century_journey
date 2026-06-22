@@ -14,12 +14,12 @@
     10. 返回最终构建完成的TagRegistry
 */
 
+use crate::shared::tag::identifier::{TagId, TagRegistryType};
+use crate::shared::tag::registry::{TagRegistry, TypedTagRegistry};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
-use crate::shared::tag::identifier::{TagId, TagRegistryType};
-use crate::shared::tag::registry::{TagRegistry, TypedTagRegistry};
 
 /// 标签定义文件格式
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,17 +40,14 @@ struct UnresolvedTag {
 }
 
 /// 从 `assets/definitions/tags/` 加载所有标签到 TagRegistry
-pub fn load_tags_from_assets() -> TagRegistry{
+pub fn load_tags_from_assets() -> TagRegistry {
     let mut registry = TagRegistry::default();
     // 指定加载目录
     let tags_root = PathBuf::from("assets/definitions/tags");
 
     // 没有标签目录则记录在日志，同时返回空的已注册标签
     if !tags_root.exists() {
-        log::info!(
-            "[标签] 标签目录不存在，跳过加载: {:?}",
-            tags_root
-        );
+        log::info!("[标签] 标签目录不存在，跳过加载: {:?}", tags_root);
         return registry;
     }
 
@@ -146,11 +143,7 @@ fn scan_tag_dir(base: &Path, current: &Path, results: &mut Vec<UnresolvedTag>) {
                 // 直接条目
                 direct_entries.insert(entry_id);
             } else {
-                log::warn!(
-                    "[标签] 标签 {} 中的无效条目被忽略: '{}'",
-                    tag_id,
-                    value
-                );
+                log::warn!("[标签] 标签 {} 中的无效条目被忽略: '{}'", tag_id, value);
             }
         }
 
@@ -166,7 +159,9 @@ fn scan_tag_dir(base: &Path, current: &Path, results: &mut Vec<UnresolvedTag>) {
 /// 将相对路径转换为标签ID
 fn path_to_tag_id(relative: &Path) -> Option<TagId> {
     let stem = relative.to_str()?.strip_suffix(".json")?;
-    let parts: Vec<&str> = stem.split(|c| c == '/' || c == std::path::MAIN_SEPARATOR).collect();
+    let parts: Vec<&str> = stem
+        .split(|c| c == '/' || c == std::path::MAIN_SEPARATOR)
+        .collect();
 
     // 命名空间至少有两个字段
     if parts.len() < 2 {
@@ -338,9 +333,6 @@ pub fn validate_tags_against_block_registry(
     if missing_count == 0 {
         log::info!("[标签验证] 所有标签条目验证通过");
     } else {
-        log::warn!(
-            "[标签验证] 共发现 {} 个不匹配的条目",
-            missing_count
-        );
+        log::warn!("[标签验证] 共发现 {} 个不匹配的条目", missing_count);
     }
 }

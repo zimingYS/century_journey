@@ -1,10 +1,10 @@
-pub mod noise;
-pub mod context;
-pub mod climate;
 pub mod biome;
-pub mod terrain;
-pub mod structure;
+pub mod climate;
+pub mod context;
+pub mod noise;
 pub mod pipeline;
+pub mod structure;
+pub mod terrain;
 
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::biome::BiomeRegistry;
@@ -37,7 +37,11 @@ impl WorldGenerator {
     }
 
     /// 生成区块数据
-    pub fn generate_chunk_data(&self, chunk_pos: IVec3, block_ids: GenerationBlockIds, ) -> ChunkData {
+    pub fn generate_chunk_data(
+        &self,
+        chunk_pos: IVec3,
+        block_ids: GenerationBlockIds,
+    ) -> ChunkData {
         self.pipeline.generate_chunk(chunk_pos, block_ids)
     }
 

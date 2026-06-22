@@ -1,8 +1,8 @@
-use std::array;
-use std::sync::LazyLock;
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::item::id::ItemId;
 use crate::game::inventory::item::stack::ItemStack;
+use std::array;
+use std::sync::LazyLock;
 
 /// 快捷栏格子数
 pub const HOTBAR_SIZE: usize = 9;
@@ -10,7 +10,7 @@ pub const HOTBAR_SIZE: usize = 9;
 /// 快捷栏数据
 /// 此部分仅定义数据，不定义UI状态
 #[derive(Debug)]
-pub struct HotbarData{
+pub struct HotbarData {
     /// 物品堆叠，None表示空格
     pub stacks: [Option<ItemStack>; HOTBAR_SIZE],
     /// 当前选中的格子
@@ -27,7 +27,7 @@ impl Default for HotbarData {
     }
 }
 
-impl HotbarData{
+impl HotbarData {
     /// 选中当前物品
     pub fn active_stack(&self) -> &ItemStack {
         static EMPTY: LazyLock<ItemStack> = LazyLock::new(|| ItemStack::empty());
@@ -131,7 +131,10 @@ impl InventoryContainer for HotbarData {
         self.stacks.get(index).and_then(|s| s.as_ref())
     }
 
-    fn get_stack_mut(&mut self, index: usize) -> Option<&mut crate::game::inventory::item::stack::ItemStack> {
+    fn get_stack_mut(
+        &mut self,
+        index: usize,
+    ) -> Option<&mut crate::game::inventory::item::stack::ItemStack> {
         self.stacks.get_mut(index).and_then(|s| s.as_mut())
     }
 

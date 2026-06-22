@@ -1,6 +1,6 @@
+use crate::engine::asset::loader::AssetLoader;
 use bevy::asset::AssetServer;
 use bevy::prelude::*;
-use crate::engine::asset::loader::AssetLoader;
 
 /// 纹理加载器。
 ///

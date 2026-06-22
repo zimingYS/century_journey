@@ -25,7 +25,7 @@ impl ChunkData {
 
     /// 扁平化 3D 坐标到一维数组索引
     #[inline]
-    pub fn xyz_to_index(x: usize, y: usize, z: usize) -> usize{
+    pub fn xyz_to_index(x: usize, y: usize, z: usize) -> usize {
         (y * CHUNK_SIZE * CHUNK_SIZE) + (z * CHUNK_SIZE) + x
     }
 
@@ -41,7 +41,13 @@ impl ChunkData {
 
     /// 安全读取局部方块
     pub fn get_voxel_safe(&self, x: i32, y: i32, z: i32) -> Option<u16> {
-        if x < 0 || x >= CHUNK_SIZE as i32 || y < 0 || y >= CHUNK_SIZE as i32 || z < 0 || z >= CHUNK_SIZE as i32 {
+        if x < 0
+            || x >= CHUNK_SIZE as i32
+            || y < 0
+            || y >= CHUNK_SIZE as i32
+            || z < 0
+            || z >= CHUNK_SIZE as i32
+        {
             return None;
         }
         let idx = Self::xyz_to_index(x as usize, y as usize, z as usize);

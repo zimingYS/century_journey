@@ -8,7 +8,7 @@ pub const MAX_STACK_SIZE: u32 = 64;
 
 /// 物品堆叠
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ItemStack{
+pub struct ItemStack {
     /// 物品类型
     pub item: ItemId,
     /// 堆叠数量
@@ -18,14 +18,13 @@ pub struct ItemStack{
 impl ItemStack {
     // 由数量创建物品
     pub fn new(item: ItemId, count: u32) -> Self {
-        Self{ item, count }
+        Self { item, count }
     }
 
     // 创建一个物品
     pub fn single(item_id: ItemId) -> Self {
         Self::new(item_id, 1)
     }
-
 
     /// 创建空堆叠
     pub fn empty() -> Self {
@@ -70,7 +69,7 @@ impl ItemStack {
     }
 
     /// 将自身对半拆分，返回拆分出的新堆叠
-    pub fn split_half(&mut self) -> Option<ItemStack>{
+    pub fn split_half(&mut self) -> Option<ItemStack> {
         if self.count <= 1 {
             return None;
         }

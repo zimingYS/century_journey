@@ -1,9 +1,9 @@
-use bevy::prelude::*;
 use crate::game::inventory::container::creative::CreativeData;
 use crate::game::inventory::container::hotbar::HotbarData;
 use crate::game::inventory::container::survival::SurvivalInventory;
 use crate::game::inventory::cursor::CursorData;
 use crate::game::inventory::recent::RecentItems;
+use bevy::prelude::*;
 
 /// 统一的物品栏状态资源
 #[derive(Resource, Debug)]

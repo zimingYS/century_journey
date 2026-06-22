@@ -58,9 +58,7 @@ pub fn insert_into_player(
 ) -> InventoryInsertResult {
     match insert_into_container(hotbar, stack) {
         result @ InventoryInsertResult::AllInserted => result,
-        InventoryInsertResult::Partial(remaining) => {
-            insert_into_container(backpack, remaining)
-        }
+        InventoryInsertResult::Partial(remaining) => insert_into_container(backpack, remaining),
         full @ InventoryInsertResult::Full(_) => {
             // 快捷栏已满，尝试背包
             let InventoryInsertResult::Full(stack) = full else {

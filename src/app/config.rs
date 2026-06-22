@@ -4,8 +4,8 @@
 //!
 //! 定义全局配置项，并负责配置的加载、管理与访问。
 
-use std::path::PathBuf;
 use crate::app::application::mode::AppMode;
+use std::path::PathBuf;
 
 /// 应用配置。
 #[derive(Debug, Clone)]

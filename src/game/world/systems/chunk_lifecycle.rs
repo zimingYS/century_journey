@@ -1,16 +1,18 @@
 use crate::engine::constant::world::*;
 use crate::game::player::components::Player;
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
+use crate::game::world::generation::WorldGenerator;
 use crate::game::world::generation::context::ChunkGenContext;
 use crate::game::world::generation::noise::CachedBlockIds;
 use crate::game::world::generation::structure::StructureGenerator;
-use crate::game::world::generation::WorldGenerator;
 use crate::game::world::save::format::SavedChunk;
 use crate::game::world::save::region::RegionManager;
 use crate::game::world::save::system::{CachedBlockIdRemap, SaveConfig, SaveQueue};
 use crate::game::world::storage::WorldStorage;
 use crate::game::world::systems::channel::{StructureGenChannel, StructureGenResult};
-use crate::game::world::systems::{PlayerChunkCache, TerrainGenChannel, TerrainGenResult, DIRECTIONS};
+use crate::game::world::systems::{
+    DIRECTIONS, PlayerChunkCache, TerrainGenChannel, TerrainGenResult,
+};
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use std::collections::{HashMap, HashSet};
@@ -26,7 +28,9 @@ pub fn manage_chunks_system(
     player_query: Query<&Transform, With<Player>>,
     save_config: Res<SaveConfig>,
 ) {
-    let Ok(player_transform) = player_query.single() else { return };
+    let Ok(player_transform) = player_query.single() else {
+        return;
+    };
 
     let player_pos = player_transform.translation;
     let size_f32 = CHUNK_SIZE as f32;
@@ -60,19 +64,25 @@ pub fn manage_chunks_system(
     let mut spawned = 0u32;
     for &chunk_pos in &player_cache.expected_chunks {
         if !world_storage.chunk_entities.contains_key(&chunk_pos) {
-            if spawned >= MAX_SPAWN_PER_FRAME { break; }
+            if spawned >= MAX_SPAWN_PER_FRAME {
+                break;
+            }
             spawned += 1;
 
-            let entity = commands.spawn((
-                ChunkComponents { position: chunk_pos },
-                ChunkState::Empty,
-                Transform::from_translation(Vec3::new(
-                    (chunk_pos.x * CHUNK_SIZE as i32) as f32,
-                    (chunk_pos.y * CHUNK_SIZE as i32) as f32,
-                    (chunk_pos.z * CHUNK_SIZE as i32) as f32,
-                )),
-                Visibility::default(),
-            )).id();
+            let entity = commands
+                .spawn((
+                    ChunkComponents {
+                        position: chunk_pos,
+                    },
+                    ChunkState::Empty,
+                    Transform::from_translation(Vec3::new(
+                        (chunk_pos.x * CHUNK_SIZE as i32) as f32,
+                        (chunk_pos.y * CHUNK_SIZE as i32) as f32,
+                        (chunk_pos.z * CHUNK_SIZE as i32) as f32,
+                    )),
+                    Visibility::default(),
+                ))
+                .id();
             world_storage.chunk_entities.insert(chunk_pos, entity);
         }
     }
@@ -88,16 +98,23 @@ pub fn manage_chunks_system(
                         .as_secs_f64();
                     save_queue.queue.push_back(SavedChunk {
                         position: pos,
-                        data:  chunk_data.as_ref().clone(),
-                        modified_time: world_storage.chunk_modified_times.get(&pos).copied().unwrap_or(now),
+                        data: chunk_data.as_ref().clone(),
+                        modified_time: world_storage
+                            .chunk_modified_times
+                            .get(&pos)
+                            .copied()
+                            .unwrap_or(now),
                     });
                 }
             }
             world_storage.chunk_entities.remove(&pos);
             world_storage.loaded_chunks.remove(&pos);
             world_storage.chunk_modified_times.remove(&pos);
-            commands.entity(entity)
-                .queue_silenced(|mut entity: EntityWorldMut| { entity.despawn(); });
+            commands
+                .entity(entity)
+                .queue_silenced(|mut entity: EntityWorldMut| {
+                    entity.despawn();
+                });
         }
     }
 }
@@ -115,8 +132,12 @@ pub fn spawn_terrain_gen_tasks(
     let mut spawned = 0u32;
 
     for (_entity, chunk_components, mut chunk_state) in &mut chunk_query {
-        if *chunk_state != ChunkState::Empty { continue; }
-        if spawned >= MAX_TERRAIN_TASKS_PER_FRAME { break; }
+        if *chunk_state != ChunkState::Empty {
+            continue;
+        }
+        if spawned >= MAX_TERRAIN_TASKS_PER_FRAME {
+            break;
+        }
 
         let chunk_pos = chunk_components.position;
 
@@ -187,7 +208,9 @@ pub fn receive_terrain_results(
     let mut received = 0usize;
 
     while received < MAX_TERRAIN_RECEIVE_PER_FRAME {
-        let Ok(result) = receiver.try_recv() else { break };
+        let Ok(result) = receiver.try_recv() else {
+            break;
+        };
         received += 1;
 
         let chunk_pos = result.chunk_pos;
@@ -195,13 +218,17 @@ pub fn receive_terrain_results(
         let gen_ctx = result.gen_context;
 
         apply_pending_writes(chunk_pos, &mut chunk_data, &mut world_storage);
-        world_storage.loaded_chunks.insert(chunk_pos, Arc::from(chunk_data));
+        world_storage
+            .loaded_chunks
+            .insert(chunk_pos, Arc::from(chunk_data));
         if !gen_ctx.columns.is_empty() {
             world_storage.gen_contexts.insert(chunk_pos, gen_ctx);
         }
 
         for (chunk_components, mut chunk_state) in &mut chunk_query {
-            if chunk_components.position == chunk_pos && *chunk_state == ChunkState::GeneratingTerrain {
+            if chunk_components.position == chunk_pos
+                && *chunk_state == ChunkState::GeneratingTerrain
+            {
                 *chunk_state = ChunkState::TerrainReady;
             }
         }
@@ -219,8 +246,12 @@ pub fn generate_structures_system(
     let mut spawned = 0u32;
 
     for (chunk_components, mut chunk_state) in &mut chunk_query {
-        if *chunk_state != ChunkState::TerrainReady { continue; }
-        if spawned >= MAX_STRUCTURE_TASKS_PER_FRAME { break; }
+        if *chunk_state != ChunkState::TerrainReady {
+            continue;
+        }
+        if spawned >= MAX_STRUCTURE_TASKS_PER_FRAME {
+            break;
+        }
 
         let chunk_pos = chunk_components.position;
 
@@ -230,7 +261,10 @@ pub fn generate_structures_system(
         };
 
         // 取生成上下文（有缓存用缓存，没有就现场采样）
-        let ctx = world_storage.gen_contexts.get(&chunk_pos).cloned()
+        let ctx = world_storage
+            .gen_contexts
+            .get(&chunk_pos)
+            .cloned()
             .unwrap_or_else(|| {
                 crate::game::world::generation::terrain::TerrainGenerator::sample_context(
                     &world_generator.pipeline.noise_sampler,
@@ -255,27 +289,37 @@ pub fn generate_structures_system(
         let biome_registry = world_generator.pipeline.biome_registry.clone();
         let seed = world_generator.seed;
 
-        AsyncComputeTaskPool::get().spawn(async move {
-            // 构建临时 WorldStorage，复用现有 generate_structures_world_aware
-            let mut temp_storage = crate::game::world::storage::WorldStorage::default();
-            temp_storage.loaded_chunks.insert(chunk_pos, chunk_data);
-            for (pos, data) in neighbor_data {
-                temp_storage.loaded_chunks.insert(pos, Arc::from(data));
-            }
+        AsyncComputeTaskPool::get()
+            .spawn(async move {
+                // 构建临时 WorldStorage，复用现有 generate_structures_world_aware
+                let mut temp_storage = crate::game::world::storage::WorldStorage::default();
+                temp_storage.loaded_chunks.insert(chunk_pos, chunk_data);
+                for (pos, data) in neighbor_data {
+                    temp_storage.loaded_chunks.insert(pos, Arc::from(data));
+                }
 
-            StructureGenerator::generate_structures_world_aware(
-                chunk_pos, &ctx, &block_ids, &biome_registry, seed, &mut temp_storage,
-            );
+                StructureGenerator::generate_structures_world_aware(
+                    chunk_pos,
+                    &ctx,
+                    &block_ids,
+                    &biome_registry,
+                    seed,
+                    &mut temp_storage,
+                );
 
-            // 收集所有被修改的区块
-            let modified_chunks: Vec<(IVec3, ChunkData)> = temp_storage
-                .loaded_chunks
-                .into_iter()
-                .map(|(pos, arc)| (pos, Arc::unwrap_or_clone(arc)))
-                .collect();
+                // 收集所有被修改的区块
+                let modified_chunks: Vec<(IVec3, ChunkData)> = temp_storage
+                    .loaded_chunks
+                    .into_iter()
+                    .map(|(pos, arc)| (pos, Arc::unwrap_or_clone(arc)))
+                    .collect();
 
-            let _ = sender.send(StructureGenResult { chunk_pos, modified_chunks });
-        }).detach();
+                let _ = sender.send(StructureGenResult {
+                    chunk_pos,
+                    modified_chunks,
+                });
+            })
+            .detach();
 
         *chunk_state = ChunkState::GeneratingStructure;
         spawned += 1;
@@ -291,7 +335,9 @@ pub fn receive_structure_results(
     let mut received = 0usize;
 
     while received < MAX_STRUCTURE_RECEIVE_PER_FRAME {
-        let Ok(result) = receiver.try_recv() else { break };
+        let Ok(result) = receiver.try_recv() else {
+            break;
+        };
         received += 1;
 
         // 合并异步任务中修改的所有区块数据
@@ -323,11 +369,7 @@ pub fn receive_structure_results(
 }
 
 /// 延迟写入
-fn apply_pending_writes(
-    chunk_pos: IVec3,
-    chunk: &mut ChunkData,
-    storage: &mut WorldStorage,
-) {
+fn apply_pending_writes(chunk_pos: IVec3, chunk: &mut ChunkData, storage: &mut WorldStorage) {
     if let Some(writes) = storage.pending_writes.writes.remove(&chunk_pos) {
         for write in writes {
             if chunk.get_voxel(write.local_x, write.local_y, write.local_z) == 0 {

@@ -144,14 +144,14 @@
 //! - Client 决定它们"如何表现"。
 //! - Server 决定它们"如何同步"。
 
-pub mod block;
-pub mod item;
 pub mod biome;
-pub mod structure;
-pub mod recipe;
-pub mod loot;
+pub mod block;
 pub mod entity;
-pub mod particle;
-pub mod sound;
+pub mod item;
 pub mod language;
 pub mod localization;
+pub mod loot;
+pub mod particle;
+pub mod recipe;
+pub mod sound;
+pub mod structure;

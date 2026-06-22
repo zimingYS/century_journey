@@ -8,14 +8,27 @@ pub struct Health {
 }
 
 impl Default for Health {
-    fn default() -> Self { Self { current: 20.0, max: 20.0 } }
+    fn default() -> Self {
+        Self {
+            current: 20.0,
+            max: 20.0,
+        }
+    }
 }
 
 impl Health {
-    pub fn fraction(&self) -> f32 { (self.current / self.max).clamp(0.0, 1.0) }
-    pub fn is_dead(&self) -> bool { self.current <= 0.0 }
-    pub fn apply_damage(&mut self, amount: f32) { self.current = (self.current - amount).max(0.0); }
-    pub fn apply_heal(&mut self, amount: f32) { self.current = (self.current + amount).min(self.max); }
+    pub fn fraction(&self) -> f32 {
+        (self.current / self.max).clamp(0.0, 1.0)
+    }
+    pub fn is_dead(&self) -> bool {
+        self.current <= 0.0
+    }
+    pub fn apply_damage(&mut self, amount: f32) {
+        self.current = (self.current - amount).max(0.0);
+    }
+    pub fn apply_heal(&mut self, amount: f32) {
+        self.current = (self.current + amount).min(self.max);
+    }
 }
 
 /// 饥饿值
@@ -27,13 +40,25 @@ pub struct Hunger {
 }
 
 impl Default for Hunger {
-    fn default() -> Self { Self { current: 20.0, max: 20.0, saturation: 5.0 } }
+    fn default() -> Self {
+        Self {
+            current: 20.0,
+            max: 20.0,
+            saturation: 5.0,
+        }
+    }
 }
 
 impl Hunger {
-    pub fn fraction(&self) -> f32 { (self.current / self.max).clamp(0.0, 1.0) }
-    pub fn is_starving(&self) -> bool { self.current <= 0.0 }
-    pub fn is_full(&self) -> bool { self.current >= self.max }
+    pub fn fraction(&self) -> f32 {
+        (self.current / self.max).clamp(0.0, 1.0)
+    }
+    pub fn is_starving(&self) -> bool {
+        self.current <= 0.0
+    }
+    pub fn is_full(&self) -> bool {
+        self.current >= self.max
+    }
     /// 消耗, 优先从 saturation 扣除
     pub fn exhaust(&mut self, amount: f32) {
         if self.saturation > 0.0 {
@@ -52,5 +77,7 @@ impl Hunger {
 pub struct Defense(pub f32);
 
 impl Defense {
-    pub fn damage_reduction(&self) -> f32 { self.0 / (self.0 + 10.0) }
+    pub fn damage_reduction(&self) -> f32 {
+        self.0 / (self.0 + 10.0)
+    }
 }

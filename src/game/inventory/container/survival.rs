@@ -41,7 +41,10 @@ impl SurvivalInventory {
         } else if index < Self::BACKPACK_SIZE + Self::ARMOR_SIZE {
             Some(("armor", index - Self::BACKPACK_SIZE))
         } else if index < Self::TOTAL_SIZE {
-            Some(("accessories", index - Self::BACKPACK_SIZE - Self::ARMOR_SIZE))
+            Some((
+                "accessories",
+                index - Self::BACKPACK_SIZE - Self::ARMOR_SIZE,
+            ))
         } else {
             None
         }

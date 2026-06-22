@@ -17,7 +17,7 @@ pub enum ToolType {
 /// 工具等级
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ToolTier{
+pub enum ToolTier {
     /// 木质
     Wood = 0,
     /// 石质
@@ -45,6 +45,11 @@ pub struct ToolData {
 impl ToolData {
     /// 创建工具数据
     pub fn new(tool_type: ToolType, tier: ToolTier, max_durability: u32, efficiency: f32) -> Self {
-        Self { tool_type, tier, max_durability, efficiency }
+        Self {
+            tool_type,
+            tier,
+            max_durability,
+            efficiency,
+        }
     }
 }

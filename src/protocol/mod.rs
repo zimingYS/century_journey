@@ -165,15 +165,15 @@
 //! Client 与 Server 可以独立演进，
 //! 只要双方遵循同一份 Protocol，即可保持兼容。
 
-pub mod packet;
-pub mod message;
-pub mod codec;
-pub mod serialize;
-pub mod version;
 pub mod channel;
-pub mod handshake;
+pub mod codec;
+pub mod common;
 pub mod compression;
 pub mod encryption;
+pub mod handshake;
+pub mod message;
+pub mod packet;
 pub mod replication;
 pub mod rpc;
-pub mod common;
+pub mod serialize;
+pub mod version;

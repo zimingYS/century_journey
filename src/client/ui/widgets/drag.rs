@@ -1,11 +1,11 @@
-use bevy::prelude::*;
+use crate::content::block::registry::BlockRegistry;
 use crate::engine::constant::world::CHUNK_SIZE;
 use crate::game::inventory::item::icon::IconDefinition;
 use crate::game::inventory::item::id::ItemId;
 use crate::game::inventory::item::registry::ItemRegistry;
 use crate::game::inventory::item::texture_registry::ItemTextureRegistry;
 use crate::game::inventory::state::InventoryState;
-use crate::content::block::registry::BlockRegistry;
+use bevy::prelude::*;
 
 /// 鼠标悬浮物品图标标记
 #[derive(Component)]
@@ -21,35 +21,49 @@ pub struct CursorCountText;
 
 /// 生成光标图标实体
 pub fn spawn_cursor_item_icon(mut commands: Commands) {
-    commands.spawn((
-        CursorItemIcon,
-        Name::new("CursorItemIcon"),
-        Node {
-            position_type: PositionType::Absolute,
-            width: Val::Px(64.0),
-            height: Val::Px(64.0),
-            left: Val::Px(-100.0),
-            top: Val::Px(-100.0),
-            ..default()
-        },
-        ZIndex(9999),
-        Pickable::IGNORE,
-        Visibility::Hidden,
-    )).with_children(|parent| {
-        parent.spawn((
-            CursorItemImage,
-            ImageNode::default(),
-            Node { width: Val::Percent(100.0), height: Val::Percent(100.0), ..default() },
-        ));
-        parent.spawn((
-            CursorCountText,
-            Text::new(""),
-            TextFont { font_size: FontSize::Px(12.0), ..default() },
-            TextColor(Color::WHITE),
-            Node { position_type: PositionType::Absolute, bottom: Val::Px(2.0), right: Val::Px(4.0), ..default() },
+    commands
+        .spawn((
+            CursorItemIcon,
+            Name::new("CursorItemIcon"),
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Px(64.0),
+                height: Val::Px(64.0),
+                left: Val::Px(-100.0),
+                top: Val::Px(-100.0),
+                ..default()
+            },
+            ZIndex(9999),
+            Pickable::IGNORE,
             Visibility::Hidden,
-        ));
-    });
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                CursorItemImage,
+                ImageNode::default(),
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+            ));
+            parent.spawn((
+                CursorCountText,
+                Text::new(""),
+                TextFont {
+                    font_size: FontSize::Px(12.0),
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Node {
+                    position_type: PositionType::Absolute,
+                    bottom: Val::Px(2.0),
+                    right: Val::Px(4.0),
+                    ..default()
+                },
+                Visibility::Hidden,
+            ));
+        });
 }
 
 // 光标位置跟随
@@ -71,7 +85,11 @@ pub fn cursor_visibility_system(
     mut query: Query<&mut Visibility, With<CursorItemIcon>>,
 ) {
     for mut vis in &mut query {
-        *vis = if state.cursor.has_item() { Visibility::Visible } else { Visibility::Hidden };
+        *vis = if state.cursor.has_item() {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
     }
 }
 
@@ -86,9 +104,13 @@ pub fn cursor_texture_system(
     mut count_text_query: Query<(&mut Text, &mut Visibility), With<CursorCountText>>,
     mut last_snapshot: Local<Option<(ItemId, u32)>>,
 ) {
-    let Some(block_reg) = block_registry.as_ref() else { return };
+    let Some(block_reg) = block_registry.as_ref() else {
+        return;
+    };
     let current = state.cursor.stack().map(|s| (s.item.clone(), s.count));
-    if *last_snapshot == current { return; }
+    if *last_snapshot == current {
+        return;
+    }
     *last_snapshot = current.clone();
 
     for children in &cursor_query {

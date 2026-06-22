@@ -7,14 +7,15 @@ pub struct InventoryPlugin;
 
 impl Plugin for InventoryPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<crate::game::inventory::item::registry::ItemRegistry>()
-            .add_systems(OnEnter(AppState::Loading), (
-                crate::game::inventory::item::texture_registry::load_item_textures_system,
-            ))
-            .add_systems(Startup, (
-                crate::game::inventory::item::texture_registry::load_item_textures_system,
-            ))
+        app.init_resource::<crate::game::inventory::item::registry::ItemRegistry>()
+            .add_systems(
+                OnEnter(AppState::Loading),
+                (crate::game::inventory::item::texture_registry::load_item_textures_system,),
+            )
+            .add_systems(
+                Startup,
+                (crate::game::inventory::item::texture_registry::load_item_textures_system,),
+            )
             .add_systems(
                 OnEnter(AppState::InGame),
                 (

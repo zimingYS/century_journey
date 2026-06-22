@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-pub mod renderer;
 pub mod animation;
+pub mod renderer;
 
 /// 第一人称物品根节点
 #[derive(Component)]
@@ -55,11 +55,12 @@ pub struct ViewModelPlugin;
 
 impl Plugin for ViewModelPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<ViewModelRenderState>()
-            .add_systems(Update, (
+        app.init_resource::<ViewModelRenderState>().add_systems(
+            Update,
+            (
                 renderer::view_model_sync_system,
                 animation::view_model_animation_system,
-            ));
+            ),
+        );
     }
 }

@@ -1,12 +1,12 @@
-use bevy::prelude::*;
+use crate::client::ui::theme::ui_theme::UiTheme;
+use crate::content::block::registry::BlockRegistry;
 use crate::engine::constant::world::CHUNK_SIZE;
 use crate::game::inventory::item::icon::IconDefinition;
 use crate::game::inventory::item::id::ItemId;
 use crate::game::inventory::item::registry::ItemRegistry;
 use crate::game::inventory::item::texture_registry::ItemTextureRegistry;
 use crate::game::inventory::slot::SlotAction;
-use crate::client::ui::theme::ui_theme::UiTheme;
-use crate::content::block::registry::BlockRegistry;
+use bevy::prelude::*;
 
 /// 槽位
 #[derive(Component, Debug, Clone, Copy)]
@@ -15,7 +15,7 @@ pub struct InventorySlot {
     pub index: usize,
 }
 
-pub use crate::shared::ui_types::{SlotKind, SearchInputState};
+pub use crate::shared::ui_types::{SearchInputState, SlotKind};
 
 /// 槽位图标子实体标记
 #[derive(Component)]
@@ -35,7 +35,10 @@ pub struct SlotVisual {
 /// 默认槽位为空气
 impl Default for SlotVisual {
     fn default() -> Self {
-        Self { item: ItemId::air(), count: 0 }
+        Self {
+            item: ItemId::air(),
+            count: 0,
+        }
     }
 }
 
@@ -78,48 +81,53 @@ pub fn spawn_empty_slot(
     index: usize,
     theme: &UiTheme,
 ) {
-    parent.spawn((
-        InventorySlot { kind, index },
-        SlotVisual { item: ItemId::air(), count: 0 },
-        Button,
-        Pickable::default(),
-        Node {
-            width: Val::Px(theme.slot_size),
-            height: Val::Px(theme.slot_size),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            border: UiRect::all(Val::Px(theme.slot_border)),
-            ..default()
-        },
-        BackgroundColor(theme.bg_slot),
-        BorderColor::all(theme.border_default),
-    )    ).with_children(|slot| {
-        slot.spawn((
-            SlotIcon,
+    parent
+        .spawn((
+            InventorySlot { kind, index },
+            SlotVisual {
+                item: ItemId::air(),
+                count: 0,
+            },
+            Button,
+            Pickable::default(),
             Node {
-                width: Val::Percent(80.0),
-                height: Val::Percent(80.0),
+                width: Val::Px(theme.slot_size),
+                height: Val::Px(theme.slot_size),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(Val::Px(theme.slot_border)),
                 ..default()
             },
-            Visibility::Hidden,
-        ));
-        slot.spawn((
-            SlotCountText,
-            Text::new(""),
-            TextFont {
-                font_size: FontSize::Px(11.0),
-                ..default()
-            },
-            TextColor(Color::WHITE),
-            Node {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(1.0),
-                right: Val::Px(3.0),
-                ..default()
-            },
-            Visibility::Hidden,
-        ));
-    });
+            BackgroundColor(theme.bg_slot),
+            BorderColor::all(theme.border_default),
+        ))
+        .with_children(|slot| {
+            slot.spawn((
+                SlotIcon,
+                Node {
+                    width: Val::Percent(80.0),
+                    height: Val::Percent(80.0),
+                    ..default()
+                },
+                Visibility::Hidden,
+            ));
+            slot.spawn((
+                SlotCountText,
+                Text::new(""),
+                TextFont {
+                    font_size: FontSize::Px(11.0),
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Node {
+                    position_type: PositionType::Absolute,
+                    bottom: Val::Px(1.0),
+                    right: Val::Px(3.0),
+                    ..default()
+                },
+                Visibility::Hidden,
+            ));
+        });
 }
 
 /// 生成带物品的槽位（用于创造网格/最近使用/快捷栏）
@@ -133,40 +141,45 @@ pub fn spawn_slot_with_item(
     item_registry: Option<&ItemRegistry>,
     item_texture_registry: Option<&ItemTextureRegistry>,
 ) {
-    parent.spawn((
-        InventorySlot { kind, index },
-        SlotVisual { item: item.clone(), count: 0 },
-        Button,
-        Pickable::default(),
-        Node {
-            width: Val::Px(theme.slot_size),
-            height: Val::Px(theme.slot_size),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            border: UiRect::all(Val::Px(theme.slot_border)),
-            ..default()
-        },
-        BackgroundColor(theme.bg_slot),
-        BorderColor::all(theme.border_default),
-    )).with_children(|slot| {
-        spawn_icon_child(slot, item, registry, item_registry, item_texture_registry);
-        slot.spawn((
-            SlotCountText,
-            Text::new(""),
-            TextFont {
-                font_size: FontSize::Px(11.0),
-                ..default()
+    parent
+        .spawn((
+            InventorySlot { kind, index },
+            SlotVisual {
+                item: item.clone(),
+                count: 0,
             },
-            TextColor(Color::WHITE),
+            Button,
+            Pickable::default(),
             Node {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(1.0),
-                right: Val::Px(3.0),
+                width: Val::Px(theme.slot_size),
+                height: Val::Px(theme.slot_size),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(Val::Px(theme.slot_border)),
                 ..default()
             },
-            Visibility::Hidden,
-        ));
-    });
+            BackgroundColor(theme.bg_slot),
+            BorderColor::all(theme.border_default),
+        ))
+        .with_children(|slot| {
+            spawn_icon_child(slot, item, registry, item_registry, item_texture_registry);
+            slot.spawn((
+                SlotCountText,
+                Text::new(""),
+                TextFont {
+                    font_size: FontSize::Px(11.0),
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Node {
+                    position_type: PositionType::Absolute,
+                    bottom: Val::Px(1.0),
+                    right: Val::Px(3.0),
+                    ..default()
+                },
+                Visibility::Hidden,
+            ));
+        });
 }
 
 /// 生成槽位的图标子节点
@@ -191,7 +204,11 @@ pub fn spawn_icon_child(
         // 无图标: 隐藏占位
         parent.spawn((
             SlotIcon,
-            Node { width: Val::Percent(80.0), height: Val::Percent(80.0), ..default() },
+            Node {
+                width: Val::Percent(80.0),
+                height: Val::Percent(80.0),
+                ..default()
+            },
             Visibility::Hidden,
         ));
         return;
@@ -203,7 +220,11 @@ pub fn spawn_icon_child(
             let Some(atlas_idx) = block_registry.get_icon_atlas_index(&id) else {
                 parent.spawn((
                     SlotIcon,
-                    Node { width: Val::Percent(80.0), height: Val::Percent(80.0), ..default() },
+                    Node {
+                        width: Val::Percent(80.0),
+                        height: Val::Percent(80.0),
+                        ..default()
+                    },
                     Visibility::Hidden,
                 ));
                 return;
@@ -219,7 +240,11 @@ pub fn spawn_icon_child(
                     }),
                     ..default()
                 },
-                Node { width: Val::Percent(80.0), height: Val::Percent(80.0), ..default() },
+                Node {
+                    width: Val::Percent(80.0),
+                    height: Val::Percent(80.0),
+                    ..default()
+                },
             ));
         }
 
@@ -236,7 +261,11 @@ pub fn spawn_icon_child(
                     texture_atlas: None,
                     ..default()
                 },
-                Node { width: Val::Percent(80.0), height: Val::Percent(80.0), ..default() },
+                Node {
+                    width: Val::Percent(80.0),
+                    height: Val::Percent(80.0),
+                    ..default()
+                },
             ));
         }
     }
@@ -253,7 +282,9 @@ pub fn sync_slot_icon(
     item_registry: Option<&ItemRegistry>,
     item_texture_registry: Option<&ItemTextureRegistry>,
 ) {
-    let Ok(children) = children_query.get(slot_entity) else { return };
+    let Ok(children) = children_query.get(slot_entity) else {
+        return;
+    };
 
     // ── 更新图标 ──
     if let Some(&icon_entity) = children.first() {
@@ -306,10 +337,9 @@ pub fn sync_slot_icon(
     // 数量文本
     if let Some(&count_entity) = children.get(1) {
         if count > 1 {
-            commands.entity(count_entity).insert((
-                Visibility::Inherited,
-                Text::new(count.to_string()),
-            ));
+            commands
+                .entity(count_entity)
+                .insert((Visibility::Inherited, Text::new(count.to_string())));
         } else {
             commands.entity(count_entity).insert(Visibility::Hidden);
         }

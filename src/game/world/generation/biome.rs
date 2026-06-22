@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// 生物群系定义
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -167,7 +167,8 @@ impl BiomeRegistry {
 
         for biome in builtin {
             let idx = self.biomes.len() as u8;
-            self.identifier_to_index.insert(biome.identifier.clone(), idx);
+            self.identifier_to_index
+                .insert(biome.identifier.clone(), idx);
             self.biomes.push(biome);
         }
     }

@@ -4,12 +4,12 @@ use bevy::prelude::*;
 
 /// 定义 6 个方向的相对偏移量，以及对应的三维法线
 pub const DIRECTIONS: [(IVec3, Vec3); 6] = [
-    (IVec3::new(0, 1, 0),  Vec3::new(0.0, 1.0, 0.0)),   // 上 (Top)
-    (IVec3::new(0, -1, 0), Vec3::new(0.0, -1.0, 0.0)),  // 下 (Bottom)
-    (IVec3::new(-1, 0, 0), Vec3::new(-1.0, 0.0, 0.0)),  // 左 (Left)
-    (IVec3::new(1, 0, 0),  Vec3::new(1.0, 0.0, 0.0)),   // 右 (Right)
-    (IVec3::new(0, 0, 1),  Vec3::new(0.0, 0.0, 1.0)),   // 前 (Front)
-    (IVec3::new(0, 0, -1), Vec3::new(0.0, 0.0, -1.0)),  // 后 (Back)
+    (IVec3::new(0, 1, 0), Vec3::new(0.0, 1.0, 0.0)), // 上 (Top)
+    (IVec3::new(0, -1, 0), Vec3::new(0.0, -1.0, 0.0)), // 下 (Bottom)
+    (IVec3::new(-1, 0, 0), Vec3::new(-1.0, 0.0, 0.0)), // 左 (Left)
+    (IVec3::new(1, 0, 0), Vec3::new(1.0, 0.0, 0.0)), // 右 (Right)
+    (IVec3::new(0, 0, 1), Vec3::new(0.0, 0.0, 1.0)), // 前 (Front)
+    (IVec3::new(0, 0, -1), Vec3::new(0.0, 0.0, -1.0)), // 后 (Back)
 ];
 
 /// 单个渲染通道的顶点缓冲区
@@ -52,15 +52,25 @@ impl MeshBufferData {
         }
         self.uvs.extend_from_slice(uvs);
         self.indices.extend_from_slice(&[
-            start_idx, start_idx + 1, start_idx + 2,
-            start_idx, start_idx + 2, start_idx + 3,
+            start_idx,
+            start_idx + 1,
+            start_idx + 2,
+            start_idx,
+            start_idx + 2,
+            start_idx + 3,
         ]);
     }
 
     /// 从缓冲区生成 Bevy Mesh
     pub fn build_mesh(mut self) -> Mesh {
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, std::mem::take(&mut self.positions));
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            std::mem::take(&mut self.positions),
+        );
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, std::mem::take(&mut self.normals));
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, std::mem::take(&mut self.uvs));
         mesh.insert_indices(Indices::U32(std::mem::take(&mut self.indices)));

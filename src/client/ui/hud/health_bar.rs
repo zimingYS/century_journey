@@ -1,7 +1,7 @@
-use bevy::prelude::*;
+use crate::client::ui::components::HudRoot;
 use crate::game::player::components::Player;
 use crate::game::player::components::stats::Health;
-use crate::client::ui::components::HudRoot;
+use bevy::prelude::*;
 
 #[derive(Component)]
 pub struct HealthBar;
@@ -34,8 +34,12 @@ pub fn health_bar_sync_system(
     children_query: Query<&Children>,
     mut commands: Commands,
 ) {
-    let Ok(health) = health_query.single() else { return };
-    let Ok(bar_entity) = bar_query.single() else { return };
+    let Ok(health) = health_query.single() else {
+        return;
+    };
+    let Ok(bar_entity) = bar_query.single() else {
+        return;
+    };
 
     // 清除旧子元素
     if let Ok(children) = children_query.get(bar_entity) {
@@ -50,17 +54,32 @@ pub fn health_bar_sync_system(
     commands.entity(bar_entity).with_children(|bar| {
         for i in 0..max_hearts {
             let filled = i < hearts;
-            let color = if filled { Color::srgb(1.0, 0.1, 0.1) } else { Color::srgb(0.25, 0.05, 0.05) };
+            let color = if filled {
+                Color::srgb(1.0, 0.1, 0.1)
+            } else {
+                Color::srgb(0.25, 0.05, 0.05)
+            };
             bar.spawn((
-                Node { width: Val::Px(9.0), height: Val::Px(9.0), margin: UiRect::all(Val::Px(1.0)), ..default() },
+                Node {
+                    width: Val::Px(9.0),
+                    height: Val::Px(9.0),
+                    margin: UiRect::all(Val::Px(1.0)),
+                    ..default()
+                },
                 BackgroundColor(color),
             ));
         }
         bar.spawn((
             Text::new(format!("{}", health.current as u32)),
-            TextFont { font_size: FontSize::Px(14.0), ..default() },
+            TextFont {
+                font_size: FontSize::Px(14.0),
+                ..default()
+            },
             TextColor(Color::WHITE),
-            Node { margin: UiRect::left(Val::Px(6.0)), ..default() },
+            Node {
+                margin: UiRect::left(Val::Px(6.0)),
+                ..default()
+            },
         ));
     });
 }

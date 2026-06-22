@@ -1,1 +1,1 @@
-pub use crate::shared::held_item::{HeldRenderDefinition, HeldItemConfig, AnimationConfig};
+pub use crate::shared::held_item::{AnimationConfig, HeldItemConfig, HeldRenderDefinition};

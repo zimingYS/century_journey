@@ -1,9 +1,9 @@
-use bevy::prelude::*;
 use crate::game::world::save::player::PlayerSaveManager;
+use bevy::prelude::*;
 
 /// 游戏模式定义
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum GameMode{
+pub enum GameMode {
     /// 生存模式
     #[default]
     Survival,
@@ -44,7 +44,9 @@ pub fn toggle_gamemode_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut gamemode: ResMut<PlayerGameMode>,
 ) {
-    if !keyboard.just_pressed(KeyCode::F4) { return; }
+    if !keyboard.just_pressed(KeyCode::F4) {
+        return;
+    }
     gamemode.mode = match gamemode.mode {
         GameMode::Creative => GameMode::Survival,
         GameMode::Survival => GameMode::Creative,

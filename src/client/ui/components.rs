@@ -2,43 +2,58 @@ use bevy::prelude::Component;
 
 // ━━ HUD ━━
 /// 十字准心组件
-#[derive(Component)] pub struct Crosshair;
+#[derive(Component)]
+pub struct Crosshair;
 /// 处理HUD的根节点
-#[derive(Component)] pub struct HudRoot;
+#[derive(Component)]
+pub struct HudRoot;
 /// HUD快捷栏(物品栏)
-#[derive(Component)] pub struct HudHotbarContainer;
+#[derive(Component)]
+pub struct HudHotbarContainer;
 /// HUD快捷栏(物品栏)外的高亮选择框
-#[derive(Component)] pub struct HudHotbarSelector;
+#[derive(Component)]
+pub struct HudHotbarSelector;
 
 // ━━ 创造模式物品栏 ━━
 /// 创造模式物品栏显示根目录
-#[derive(Component)] pub struct CreativeInventoryOverlay;
+#[derive(Component)]
+pub struct CreativeInventoryOverlay;
 /// 创造模式物品栏UI
-#[derive(Component)] pub struct CreativeInventoryRoot;
+#[derive(Component)]
+pub struct CreativeInventoryRoot;
 /// 创造模式物品栏分类标签面板组件
-#[derive(Component)] pub struct CreativeCategoryPanel;
+#[derive(Component)]
+pub struct CreativeCategoryPanel;
 /// 创造模式物品栏物品网格组件
-#[derive(Component)] pub struct CreativeItemGrid;
+#[derive(Component)]
+pub struct CreativeItemGrid;
 /// 创造模式物品栏最近使用物品面板组件
-#[derive(Component)] pub struct CreativeRecentPanel;
+#[derive(Component)]
+pub struct CreativeRecentPanel;
 /// 创造模式物品栏搜索框组件
-#[derive(Component)] pub struct CreativeSearchBox;
+#[derive(Component)]
+pub struct CreativeSearchBox;
 /// 创造模式快捷栏
-#[derive(Component)] pub struct CreativeHotbarPanel;
+#[derive(Component)]
+pub struct CreativeHotbarPanel;
 
 // ━━ 生存模式物品栏 ━━
 
 /// 生存背包根容器
-#[derive(Component)] pub struct SurvivalInventoryRoot;
+#[derive(Component)]
+pub struct SurvivalInventoryRoot;
 
 /// 生存背包覆盖层（背景遮罩）
-#[derive(Component)] pub struct SurvivalInventoryOverlay;
+#[derive(Component)]
+pub struct SurvivalInventoryOverlay;
 
 /// 生存背包物品网格（36 格）
-#[derive(Component)] pub struct SurvivalItemGrid;
+#[derive(Component)]
+pub struct SurvivalItemGrid;
 
 /// 生存背包底部快捷栏（与 CreativeHotbarPanel 分离，避免 query.single() 冲突）
-#[derive(Component)] pub struct SurvivalHotbarPanel;
+#[derive(Component)]
+pub struct SurvivalHotbarPanel;
 
 // ━━ 未来扩展 ━━
 // #[derive(Component)] pub struct HealthBar;

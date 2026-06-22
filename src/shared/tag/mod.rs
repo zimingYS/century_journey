@@ -1,20 +1,17 @@
-pub mod identifier;
-pub mod registry;
-pub mod loader;
 pub mod cache;
+pub mod identifier;
+pub mod loader;
+pub mod registry;
 
-use bevy::prelude::*;
 use crate::app::state::AppState;
 use crate::shared::tag::cache::{CachedTagCache, TagCache};
+use bevy::prelude::*;
 
 pub struct TagPlugin;
 
 impl Plugin for TagPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            OnEnter(AppState::InGame),
-            init_tag_registry_system,
-        );
+        app.add_systems(OnEnter(AppState::InGame), init_tag_registry_system);
     }
 }
 

@@ -1,12 +1,12 @@
-use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
 use crate::content::block::model::BlockModelConfig;
 use crate::content::block::sound::BlockSoundConfig;
 use crate::content::block::state::BlockStateDefinition;
+use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// 方块属性
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlockProperty{
+pub struct BlockProperty {
     /// 方块编号
     pub identifier: String,
     /// 显示名称
@@ -97,7 +97,7 @@ fn default_light_transmission() -> f32 {
 
 /// 方块渲染归类
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-pub enum RenderMode{
+pub enum RenderMode {
     /// 普通不透明方块
     Opaque,
     /// 半透明方块
@@ -133,16 +133,27 @@ impl Default for BlockTextureConfig {
     }
 }
 
-
 impl BlockTextureConfig {
     /// 计算贴图路径
     pub fn get_face_texture(&self, face_idx: usize) -> &str {
         match face_idx {
             0 => &self.top,
             1 => self.bottom.as_deref().unwrap_or(&self.top),
-            2 => self.west.as_deref().or(self.north.as_deref()).unwrap_or(&self.top),
-            3 => self.east.as_deref().or(self.north.as_deref()).unwrap_or(&self.top),
-            4 => self.south.as_deref().or(self.north.as_deref()).unwrap_or(&self.top),
+            2 => self
+                .west
+                .as_deref()
+                .or(self.north.as_deref())
+                .unwrap_or(&self.top),
+            3 => self
+                .east
+                .as_deref()
+                .or(self.north.as_deref())
+                .unwrap_or(&self.top),
+            4 => self
+                .south
+                .as_deref()
+                .or(self.north.as_deref())
+                .unwrap_or(&self.top),
             5 => self.north.as_deref().unwrap_or(&self.top),
             _ => unreachable!("未知方块类型！"),
         }

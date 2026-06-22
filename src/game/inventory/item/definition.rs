@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use crate::game::inventory::item::icon::IconDefinition;
 use crate::game::inventory::item::id::ItemId;
 use crate::game::inventory::item::tool::ToolData;
-use crate::shared::held_item::{HeldRenderDefinition, AnimationConfig};
+use crate::shared::held_item::{AnimationConfig, HeldRenderDefinition};
+use serde::{Deserialize, Serialize};
 
 /// 物品分类
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -68,7 +68,9 @@ pub struct ItemDefinition {
     pub id: ItemId,
 }
 
-fn default_max_stack() -> u32 { 64 }
+fn default_max_stack() -> u32 {
+    64
+}
 
 impl ItemDefinition {
     /// 从方块属性自动创建 Block Item (保留兼容 bridge 系统)

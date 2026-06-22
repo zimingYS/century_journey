@@ -17,12 +17,22 @@ pub struct LootEntry {
 impl LootEntry {
     /// 创建必定掉落固定数量的条目
     pub fn guaranteed(item: ItemId, count: u32) -> Self {
-        Self { item, min_count: count, max_count: count, chance: 1.0 }
+        Self {
+            item,
+            min_count: count,
+            max_count: count,
+            chance: 1.0,
+        }
     }
 
     /// 创建必定掉落范围数量的条目
     pub fn ranged(item: ItemId, min: u32, max: u32) -> Self {
-        Self { item, min_count: min, max_count: max, chance: 1.0 }
+        Self {
+            item,
+            min_count: min,
+            max_count: max,
+            chance: 1.0,
+        }
     }
 }
 
@@ -33,11 +43,17 @@ pub struct LootTable {
 }
 
 impl LootTable {
-    pub fn new() -> Self { Self { entries: Vec::new() } }
+    pub fn new() -> Self {
+        Self {
+            entries: Vec::new(),
+        }
+    }
 
     /// 单物品掉落
     pub fn single(item: ItemId, count: u32) -> Self {
-        Self { entries: vec![LootEntry::guaranteed(item, count)] }
+        Self {
+            entries: vec![LootEntry::guaranteed(item, count)],
+        }
     }
 
     /// 添加条目
@@ -54,7 +70,8 @@ impl LootTable {
                 let count = if entry.min_count == entry.max_count {
                     entry.min_count
                 } else {
-                    entry.min_count + (rand::random::<u32>() % (entry.max_count - entry.min_count + 1))
+                    entry.min_count
+                        + (rand::random::<u32>() % (entry.max_count - entry.min_count + 1))
                 };
                 if count > 0 {
                     results.push(ItemStack::new(entry.item.clone(), count));

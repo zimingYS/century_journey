@@ -1,15 +1,17 @@
-pub mod table;
 pub mod block_registry;
+pub mod table;
 
-use bevy::prelude::*;
 use crate::app::state::AppState;
+use bevy::prelude::*;
 
 pub struct LootPlugin;
 
 impl Plugin for LootPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<block_registry::BlockLootRegistry>()
-            .add_systems(OnEnter(AppState::InGame), block_registry::init_default_loot_system);
+        app.init_resource::<block_registry::BlockLootRegistry>()
+            .add_systems(
+                OnEnter(AppState::InGame),
+                block_registry::init_default_loot_system,
+            );
     }
 }

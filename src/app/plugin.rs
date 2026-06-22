@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use crate::client::state::InputBlocked;
 use crate::app::state::CoreStatePlugin;
+use crate::client::state::InputBlocked;
 
 pub struct CorePlugin;
 

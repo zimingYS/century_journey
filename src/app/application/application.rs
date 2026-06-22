@@ -1,5 +1,5 @@
-use bevy::prelude::App;
 use crate::app::config::AppConfig;
+use bevy::prelude::App;
 
 pub trait Application {
     fn build(config: AppConfig) -> App;

@@ -1,13 +1,18 @@
-use std::sync::Arc;
-use bevy::prelude::*;
-use crate::engine::constant::world::*;
 use crate::content::block::properties::RenderMode;
+use crate::engine::constant::world::*;
 use crate::game::world::chunk::ChunkData;
-use crate::game::world::systems::{BlockInfoSnapshot, MeshBufferData, MeshBuildInput, DIRECTIONS};
+use crate::game::world::systems::{BlockInfoSnapshot, DIRECTIONS, MeshBufferData, MeshBuildInput};
+use bevy::prelude::*;
+use std::sync::Arc;
 
 /// 构建贪心网格
 pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResult {
-    let MeshBuildInput { chunk_pos, current_data, neighbors, block_info } = input;
+    let MeshBuildInput {
+        chunk_pos,
+        current_data,
+        neighbors,
+        block_info,
+    } = input;
 
     let mut opaque_buf = MeshBufferData::new();
     let mut cutout_buf = MeshBufferData::new();
@@ -42,9 +47,14 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
 
                     let neighbor_pos = IVec3::new(x as i32, y as i32, z as i32) + dir;
                     let is_visible = match get_neighbor_voxel_id_snapshot(
-                        neighbor_pos, &current_data, &neighbors, dir,
+                        neighbor_pos,
+                        &current_data,
+                        &neighbors,
+                        dir,
                     ) {
-                        Some(nbr_id) => is_face_visible_snapshot(current_is_water, nbr_id, &block_info),
+                        Some(nbr_id) => {
+                            is_face_visible_snapshot(current_is_water, nbr_id, &block_info)
+                        }
                         None => !current_is_water,
                     };
 
@@ -56,10 +66,16 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
                     let texture_layer = block_info.get_texture_layer(voxel_id, face_idx);
 
                     let idx = voxel_id as usize;
-                    let buffer_idx = if current_is_water { 2u8 } else {
+                    let buffer_idx = if current_is_water {
+                        2u8
+                    } else {
                         if idx < block_info.render_modes.len()
                             && block_info.render_modes[idx] == RenderMode::Cutout
-                        { 1 } else { 0 }
+                        {
+                            1
+                        } else {
+                            0
+                        }
                     };
 
                     mask[my][mx] = texture_layer * 4 + buffer_idx as u32 + 1;
@@ -67,9 +83,16 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
             }
 
             greedy_merge_pass(
-                face_idx, depth, depth_axis, mx_axis, my_axis,
-                &mut mask, &block_info,
-                &mut opaque_buf, &mut cutout_buf, &mut water_buf,
+                face_idx,
+                depth,
+                depth_axis,
+                mx_axis,
+                my_axis,
+                &mut mask,
+                &block_info,
+                &mut opaque_buf,
+                &mut cutout_buf,
+                &mut water_buf,
             );
         }
     }
@@ -84,7 +107,14 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
 
 /// 将 mask 坐标解码为区块体素坐标
 #[inline]
-fn decode_mask_to_xyz(mx: usize, my: usize, depth: usize, depth_axis: usize, mx_axis: usize, my_axis: usize) -> (usize, usize, usize) {
+fn decode_mask_to_xyz(
+    mx: usize,
+    my: usize,
+    depth: usize,
+    depth_axis: usize,
+    mx_axis: usize,
+    my_axis: usize,
+) -> (usize, usize, usize) {
     let mut coords = [0usize; 3];
     coords[depth_axis] = depth;
     coords[mx_axis] = mx;
@@ -111,7 +141,10 @@ fn greedy_merge_pass(
         let mut mx = 0;
         while mx < cs {
             let face_key = mask[my][mx];
-            if face_key == FACE_NONE { mx += 1; continue; }
+            if face_key == FACE_NONE {
+                mx += 1;
+                continue;
+            }
 
             let decoded = face_key - 1;
             let texture_layer = decoded / 4;
@@ -135,9 +168,17 @@ fn greedy_merge_pass(
             }
 
             let (positions, uvs) = get_merged_face_data(
-                mx, my, depth, width, height,
-                face_idx, depth_axis, mx_axis, my_axis,
-                texture_layer, block_info.total_layers,
+                mx,
+                my,
+                depth,
+                width,
+                height,
+                face_idx,
+                depth_axis,
+                mx_axis,
+                my_axis,
+                texture_layer,
+                block_info.total_layers,
             );
             let (_, normal) = DIRECTIONS[face_idx];
 
@@ -161,10 +202,15 @@ fn greedy_merge_pass(
 
 /// 生成合并面的顶点坐标和 UV 坐标
 fn get_merged_face_data(
-    mx: usize, my: usize, depth: usize,
-    width: usize, height: usize,
+    mx: usize,
+    my: usize,
+    depth: usize,
+    width: usize,
+    height: usize,
     face_idx: usize,
-    depth_axis: usize, mx_axis: usize, my_axis: usize,
+    depth_axis: usize,
+    mx_axis: usize,
+    my_axis: usize,
     texture_layer: u32,
     total_layers: u32,
 ) -> ([[f32; 3]; 4], [[f32; 2]; 4]) {
@@ -189,62 +235,68 @@ fn get_merged_face_data(
     let v1 = (texture_layer as f32 * cs + h) / (nt * cs);
 
     match face_idx {
-        0 => { // Top (Y+)
+        0 => {
+            // Top (Y+)
             let positions = [
                 [base[0] + extent[0], base[1] + 1.0, base[2]],
-                [base[0],             base[1] + 1.0, base[2]],
-                [base[0],             base[1] + 1.0, base[2] + extent[2]],
+                [base[0], base[1] + 1.0, base[2]],
+                [base[0], base[1] + 1.0, base[2] + extent[2]],
                 [base[0] + extent[0], base[1] + 1.0, base[2] + extent[2]],
             ];
             let uvs = [[u1, v0], [u0, v0], [u0, v1], [u1, v1]];
             (positions, uvs)
         }
-        1 => { // Bottom (Y-)
+        1 => {
+            // Bottom (Y-)
             let positions = [
-                [base[0],             base[1], base[2]],
+                [base[0], base[1], base[2]],
                 [base[0] + extent[0], base[1], base[2]],
                 [base[0] + extent[0], base[1], base[2] + extent[2]],
-                [base[0],             base[1], base[2] + extent[2]],
+                [base[0], base[1], base[2] + extent[2]],
             ];
             let uvs = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
             (positions, uvs)
         }
-        2 => { // Left (X-)
+        2 => {
+            // Left (X-)
             let positions = [
                 [base[0], base[1] + extent[1], base[2] + extent[2]],
                 [base[0], base[1] + extent[1], base[2]],
-                [base[0], base[1],             base[2]],
-                [base[0], base[1],             base[2] + extent[2]],
+                [base[0], base[1], base[2]],
+                [base[0], base[1], base[2] + extent[2]],
             ];
             let uvs = [[u1, v0], [u0, v0], [u0, v1], [u1, v1]];
             (positions, uvs)
         }
-        3 => { // Right (X+)
+        3 => {
+            // Right (X+)
             let positions = [
                 [base[0] + 1.0, base[1] + extent[1], base[2]],
                 [base[0] + 1.0, base[1] + extent[1], base[2] + extent[2]],
-                [base[0] + 1.0, base[1],             base[2] + extent[2]],
-                [base[0] + 1.0, base[1],             base[2]],
+                [base[0] + 1.0, base[1], base[2] + extent[2]],
+                [base[0] + 1.0, base[1], base[2]],
             ];
             let uvs = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
             (positions, uvs)
         }
-        4 => { // Front (Z+)
+        4 => {
+            // Front (Z+)
             let positions = [
                 [base[0] + extent[0], base[1] + extent[1], base[2] + 1.0],
-                [base[0],             base[1] + extent[1], base[2] + 1.0],
-                [base[0],             base[1],             base[2] + 1.0],
-                [base[0] + extent[0], base[1],             base[2] + 1.0],
+                [base[0], base[1] + extent[1], base[2] + 1.0],
+                [base[0], base[1], base[2] + 1.0],
+                [base[0] + extent[0], base[1], base[2] + 1.0],
             ];
             let uvs = [[u1, v0], [u0, v0], [u0, v1], [u1, v1]];
             (positions, uvs)
         }
-        5 => { // Back (Z-)
+        5 => {
+            // Back (Z-)
             let positions = [
-                [base[0],             base[1] + extent[1], base[2]],
+                [base[0], base[1] + extent[1], base[2]],
                 [base[0] + extent[0], base[1] + extent[1], base[2]],
-                [base[0] + extent[0], base[1],             base[2]],
-                [base[0],             base[1],             base[2]],
+                [base[0] + extent[0], base[1], base[2]],
+                [base[0], base[1], base[2]],
             ];
             let uvs = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
             (positions, uvs)
@@ -261,7 +313,9 @@ fn get_neighbor_voxel_id_snapshot(
     dir: IVec3,
 ) -> Option<u16> {
     if let Some(nbr_id) = current_chunk_data.get_voxel_safe(
-        neighbor_local_pos.x, neighbor_local_pos.y, neighbor_local_pos.z,
+        neighbor_local_pos.x,
+        neighbor_local_pos.y,
+        neighbor_local_pos.z,
     ) {
         return Some(nbr_id);
     }
@@ -279,8 +333,16 @@ fn is_face_visible_snapshot(
     neighbor_voxel_id: u16,
     block_info: &BlockInfoSnapshot,
 ) -> bool {
-    if neighbor_voxel_id == 0 { return true; }
-    if current_is_water { return false; }
-    let nbr_is_solid = block_info.is_solid.get(neighbor_voxel_id as usize).copied().unwrap_or(true);
+    if neighbor_voxel_id == 0 {
+        return true;
+    }
+    if current_is_water {
+        return false;
+    }
+    let nbr_is_solid = block_info
+        .is_solid
+        .get(neighbor_voxel_id as usize)
+        .copied()
+        .unwrap_or(true);
     !nbr_is_solid || neighbor_voxel_id == block_info.water_id
 }

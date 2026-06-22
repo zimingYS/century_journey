@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use crate::client::ui::components::{
-    CreativeCategoryPanel, CreativeHotbarPanel, CreativeInventoryOverlay,
-    CreativeInventoryRoot, CreativeItemGrid, CreativeRecentPanel, CreativeSearchBox,
+    CreativeCategoryPanel, CreativeHotbarPanel, CreativeInventoryOverlay, CreativeInventoryRoot,
+    CreativeItemGrid, CreativeRecentPanel, CreativeSearchBox,
 };
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
@@ -65,7 +65,8 @@ fn build_header(root: &mut ChildSpawnerCommands, ui_font: &UiFont, theme: &UiThe
             ..default()
         },
         BorderColor::all(theme.border_default),
-    )).with_children(|header| {
+    ))
+    .with_children(|header| {
         header.spawn((
             Text::new("创造模式"),
             TextFont {
@@ -92,7 +93,8 @@ fn build_header(root: &mut ChildSpawnerCommands, ui_font: &UiFont, theme: &UiThe
                 },
                 BackgroundColor(theme.search_bg),
                 BorderColor::all(theme.search_border),
-            )).with_children(|s| {
+            ))
+            .with_children(|s| {
                 s.spawn((
                     Text::new(""),
                     TextFont {
@@ -103,18 +105,16 @@ fn build_header(root: &mut ChildSpawnerCommands, ui_font: &UiFont, theme: &UiThe
                     TextColor(theme.text_hint),
                 ));
             });
-        });
+    });
 }
 
 fn build_body(root: &mut ChildSpawnerCommands, _ui_font: &UiFont, theme: &UiTheme) {
-    root.spawn((
-        Node {
-            width: Val::Percent(100.0),
-            flex_grow: 1.0,
-            flex_direction: FlexDirection::Row,
-            ..default()
-        },
-    ))
+    root.spawn((Node {
+        width: Val::Percent(100.0),
+        flex_grow: 1.0,
+        flex_direction: FlexDirection::Row,
+        ..default()
+    },))
         .with_children(|body| {
             body.spawn((
                 CreativeCategoryPanel,
@@ -135,13 +135,8 @@ fn build_body(root: &mut ChildSpawnerCommands, _ui_font: &UiFont, theme: &UiThem
                 Node {
                     flex_grow: 1.0,
                     display: Display::Grid,
-                    grid_template_columns: RepeatedGridTrack::flex(
-                        theme.grid_columns as u16,
-                        1.0,
-                    ),
-                    grid_auto_rows: vec![GridTrack::px(
-                        theme.slot_size + theme.slot_gap,
-                    )],
+                    grid_template_columns: RepeatedGridTrack::flex(theme.grid_columns as u16, 1.0),
+                    grid_auto_rows: vec![GridTrack::px(theme.slot_size + theme.slot_gap)],
                     column_gap: Val::Px(theme.slot_gap),
                     row_gap: Val::Px(theme.slot_gap),
                     padding: UiRect::all(Val::Px(theme.grid_padding)),
@@ -168,21 +163,21 @@ fn build_recent_panel(root: &mut ChildSpawnerCommands, ui_font: &UiFont, theme: 
         },
         BorderColor::all(theme.border_default),
     ))
-        .with_children(|panel| {
-            panel.spawn((
-                Text::new("最近使用:"),
-                TextFont {
-                    font: FontSource::from(ui_font.default.clone()),
-                    font_size: FontSize::Px(theme.small_font_size),
-                    ..default()
-                },
-                TextColor(theme.text_secondary),
-                Node {
-                    margin: UiRect::right(Val::Px(8.0)),
-                    ..default()
-                },
-            ));
-        });
+    .with_children(|panel| {
+        panel.spawn((
+            Text::new("最近使用:"),
+            TextFont {
+                font: FontSource::from(ui_font.default.clone()),
+                font_size: FontSize::Px(theme.small_font_size),
+                ..default()
+            },
+            TextColor(theme.text_secondary),
+            Node {
+                margin: UiRect::right(Val::Px(8.0)),
+                ..default()
+            },
+        ));
+    });
 }
 
 fn build_hotbar_panel(root: &mut ChildSpawnerCommands, theme: &UiTheme) {
