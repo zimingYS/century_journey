@@ -1,3 +1,5 @@
+use crate::engine::asset::texture::TextureAsset;
+use crate::engine::asset::texture::TextureMetadata;
 use bevy::image::ImageLoaderSettings;
 use bevy::image::ImageSampler;
 use bevy::prelude::*;
@@ -7,26 +9,31 @@ use std::path::PathBuf;
 
 /// 物品独立纹理注册表
 ///
-/// 启动时扫描 assets/textures/items/ 下所有 PNG，加载为独立 Handle<Image>。
-/// 每个纹理以 "century_journey:stem" 为 key。
+/// 启动时扫描 assets/textures/items/ 下所有 PNG，通过 AssetManager 加载。
 #[derive(Resource, Default)]
 pub struct ItemTextureRegistry {
-    textures: HashMap<String, Handle<Image>>,
+    textures: HashMap<String, TextureAsset>,
 }
 
 impl ItemTextureRegistry {
-    /// 通过 identifier 获取纹理 Handle
-    pub fn get(&self, identifier: &str) -> Option<&Handle<Image>> {
+    /// 获取纹理句柄（向后兼容）
+    pub fn get_handle(&self, identifier: &str) -> Option<&Handle<Image>> {
+        self.textures.get(identifier).map(|a| &a.handle)
+    }
+
+    /// 获取完整 TextureAsset
+    pub fn get(&self, identifier: &str) -> Option<&TextureAsset> {
         self.textures.get(identifier)
     }
 
-    /// 已加载的纹理数量
     pub fn len(&self) -> usize {
         self.textures.len()
     }
 }
 
 /// 启动时扫描并加载物品纹理
+/// 使用 AssetServer 直接获取即时 Handle（启动阶段），
+/// 纹理元数据从文件自动提取。
 pub fn load_item_textures_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let dir = PathBuf::from("assets/textures/items");
     if !dir.exists() {
@@ -63,13 +70,31 @@ pub fn load_item_textures_system(mut commands: Commands, asset_server: Res<Asset
             continue;
         }
 
-        let asset_path = format!("textures/items/{}.png", stem);
+        let asset_path = format!("textures/items/{stem}.png");
+        // 通过 AssetServer 直接获取即时 Handle（启动阶段）
         let handle: Handle<Image> =
             asset_server.load_with_settings(&asset_path, |s: &mut ImageLoaderSettings| {
                 s.sampler = ImageSampler::nearest();
             });
 
-        registry.textures.insert(identifier.clone(), handle);
+        // 从文件提取元数据
+        let metadata = std::fs::read(&path)
+            .ok()
+            .and_then(|bytes| {
+                image::load_from_memory(&bytes).ok().map(|img| {
+                    let rgba = img.to_rgba8();
+                    TextureMetadata::from_size(rgba.width(), rgba.height())
+                })
+            })
+            .unwrap_or_default();
+
+        let texture_asset = TextureAsset::new(
+            handle,
+            metadata,
+            crate::engine::asset::identifier::AssetId::parse(&identifier),
+        );
+
+        registry.textures.insert(identifier.clone(), texture_asset);
         loaded += 1;
         info!("[ItemTexture] 已加载: {}", identifier);
     }

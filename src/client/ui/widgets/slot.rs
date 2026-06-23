@@ -251,7 +251,7 @@ pub fn spawn_icon_child(
         // 独立纹理图标
         IconDefinition::Texture(path) => {
             let handle = item_texture_registry
-                .and_then(|reg| reg.get(&path).cloned())
+                .and_then(|reg| reg.get_handle(&path).cloned())
                 .unwrap_or_default();
 
             parent.spawn((
@@ -318,7 +318,7 @@ pub fn sync_slot_icon(
                     }
                     IconDefinition::Texture(path) => {
                         let handle = item_texture_registry
-                            .and_then(|reg| reg.get(&path).cloned())
+                            .and_then(|reg| reg.get_handle(&path).cloned())
                             .unwrap_or_default();
                         commands.entity(icon_entity).insert((
                             Visibility::Inherited,

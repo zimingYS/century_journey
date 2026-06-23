@@ -1,8 +1,9 @@
+use crate::engine::asset::identifier::AssetId;
+use crate::engine::asset::manager::AssetManager;
 use crate::game::inventory::item::definition::{ItemCategory, ItemDefinition};
 use crate::game::inventory::item::id::ItemId;
 use bevy::prelude::*;
 use std::collections::HashMap;
-use std::fs;
 use std::path::PathBuf;
 
 /// 物品注册表
@@ -59,8 +60,10 @@ impl ItemRegistry {
     }
 }
 
-/// 从 assets/definitions/items/ 加载所有物品JSON并注册
-pub fn load_item_definitions_system(mut item_registry: ResMut<ItemRegistry>) {
+pub fn load_item_definitions_system(
+    mut item_registry: ResMut<ItemRegistry>,
+    asset: Res<AssetManager>,
+) {
     let items_dir = PathBuf::from("assets/definitions/items");
     if !items_dir.exists() {
         info!("[ItemRegistry] items/ 目录不存在，跳过 JSON 加载");
@@ -68,19 +71,25 @@ pub fn load_item_definitions_system(mut item_registry: ResMut<ItemRegistry>) {
     }
 
     let mut count = 0usize;
-    scan_and_load(&items_dir, &items_dir, &mut item_registry, &mut count);
+    scan_and_load(
+        &asset,
+        &items_dir,
+        &items_dir,
+        &mut item_registry,
+        &mut count,
+    );
 
     info!("[物品注册] 从 JSON 加载 {} 个物品定义", count);
 }
 
-/// 递归扫描目录，加载所有物品JSON
 fn scan_and_load(
+    asset: &AssetManager,
     base: &PathBuf,
     current: &PathBuf,
     registry: &mut ItemRegistry,
     count: &mut usize,
 ) {
-    let Ok(entries) = fs::read_dir(current) else {
+    let Ok(entries) = std::fs::read_dir(current) else {
         return;
     };
 
@@ -88,7 +97,7 @@ fn scan_and_load(
         let path = entry.path();
 
         if path.is_dir() {
-            scan_and_load(base, &path, registry, count);
+            scan_and_load(asset, base, &path, registry, count);
             continue;
         }
 
@@ -96,19 +105,21 @@ fn scan_and_load(
             continue;
         }
 
-        let Ok(content) = fs::read_to_string(&path) else {
-            warn!("[ItemRegistry] 无法读取: {:?}", path);
-            continue;
-        };
-
-        match serde_json::from_str::<ItemDefinition>(&content) {
+        // 通过 AssetManager 读取 JSON
+        let relative = path.strip_prefix(base).unwrap_or(&path);
+        let asset_path = format!(
+            "definitions/items/{}",
+            relative.to_str().unwrap_or("").replace('\\', "/")
+        );
+        let id = AssetId::default_namespace(&asset_path);
+        match asset.read_json_sync::<ItemDefinition>(&id) {
             Ok(mut def) => {
                 def.finalize_id();
                 registry.register(def);
                 *count += 1;
             }
             Err(e) => {
-                error!("[物品注册] JSON解析失败 {:?}: {}", path, e);
+                error!("[物品注册] JSON加载失败 {:?}: {}", path, e);
             }
         }
     }

@@ -139,7 +139,7 @@ pub fn cursor_texture_system(
                             }
                             IconDefinition::Texture(path) => {
                                 if let Some(ireg) = item_texture_registry.as_ref() {
-                                    if let Some(handle) = ireg.get(&path) {
+                                    if let Some(handle) = ireg.get_handle(&path) {
                                         img.image = handle.clone();
                                         img.texture_atlas = None;
                                     }

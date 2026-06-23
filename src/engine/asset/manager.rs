@@ -1,75 +1,183 @@
-use crate::engine::asset::handle::AssetHandle;
 use crate::engine::asset::identifier::AssetId;
-use crate::engine::asset::loader::json::JsonAsset;
+use crate::engine::asset::pipeline::{AssetPipeline, AssetRequest};
 use crate::engine::asset::state::AssetState;
+use crate::engine::asset::texture::{TextureAsset, TextureMetadata};
 use bevy::prelude::*;
+use serde::de::DeserializeOwned;
 
 /// 资源管理器 — Engine Asset 唯一公开入口（Facade）
 ///
-/// 业务代码只能通过 `AssetManager` 访问所有资源功能。
-/// Manager 不包含加载逻辑、Cache 操作、Registry 操作。
-/// 所有内部协调由 Runtime 在 PostUpdate 中处理。
-///
-/// # 使用
-///
-/// ```ignore
-/// fn my_system(asset: Res<AssetManager>) {
-///     let tex = asset.texture(AssetId::default_namespace("ui/slot"));
-/// }
-/// ```
-
+/// 纹理加载走 Pipeline: Resolver→Source→Cache，
+/// 自动提取 TextureMetadata (width/height)，返回 TextureAsset。
 #[derive(Resource, Default)]
 pub struct AssetManager {
-    /// 待加载请求队列（异步处理）
-    pending: Vec<AssetId>,
+    textures: std::collections::HashMap<String, TextureAsset>,
+    pending_textures: Vec<String>,
+    font_handles: std::collections::HashMap<String, Handle<Font>>,
+    pending_fonts: Vec<String>,
+    frame: u64,
+    pub pipeline_processes: u64,
+    pub pipeline_failures: u64,
 }
 
 impl AssetManager {
-    /// 加载纹理 (返回 `AssetHandle<Image>`)
-    pub fn texture(&mut self, id: AssetId) -> AssetHandle<Image> {
-        let placeholder = Handle::default();
-        self.pending.push(id.clone());
-        AssetHandle::new(placeholder, id)
+    /// 加载纹理 → `TextureAsset`（含 width/height 等元数据）
+    pub fn texture(&mut self, id: &AssetId) -> TextureAsset {
+        let key = id.to_string();
+        self.ensure_texture(&key);
+        self.textures.get(&key).cloned().unwrap_or_else(|| {
+            TextureAsset::new(Handle::default(), TextureMetadata::default(), id.clone())
+        })
     }
 
-    /// 加载 JSON (返回 `AssetHandle<JsonAsset>`)
-    pub fn json(&mut self, id: AssetId) -> AssetHandle<JsonAsset> {
-        let placeholder = Handle::default();
-        self.pending.push(id.clone());
-        AssetHandle::new(placeholder, id)
+    /// 加载字体
+    pub fn font(&mut self, id: &AssetId) -> Handle<Font> {
+        let key = id.to_string();
+        self.ensure_font(&key);
+        self.font_handles.get(&key).cloned().unwrap_or_default()
     }
 
-    /// 通用资源加载
-    pub fn load<T: Asset>(&mut self, id: AssetId) -> AssetHandle<T> {
-        let placeholder = Handle::default();
-        self.pending.push(id.clone());
-        AssetHandle::new(placeholder, id)
+    /// 同步读取二进制文件
+    pub fn read_file_bytes_sync(&self, id: &AssetId) -> Result<Vec<u8>, String> {
+        let path = asset_id_to_file_path(id);
+        std::fs::read(&path).map_err(|e| format!("read {}: {e}", path.display()))
     }
 
-    /// 预加载资源
-    pub fn preload(&self, _id: AssetId) {}
+    /// 同步读取文本文件
+    pub fn read_file_sync(&self, id: &AssetId) -> Result<String, String> {
+        let path = asset_id_to_file_path(id);
+        std::fs::read_to_string(&path).map_err(|e| format!("read {}: {e}", path.display()))
+    }
 
-    /// 流式加载
-    pub fn stream(&self, _id: AssetId) {}
+    /// 同步读取并解析 JSON
+    pub fn read_json_sync<T: DeserializeOwned>(&self, id: &AssetId) -> Result<T, String> {
+        let content = self.read_file_sync(id)?;
+        let path = asset_id_to_file_path(id);
+        serde_json::from_str::<T>(&content).map_err(|e| format!("parse {}: {e}", path.display()))
+    }
 
-    /// 触发热重载
-    pub fn reload(&self, _id: AssetId) {}
+    /// 扫描目录批量加载 JSON
+    pub fn read_json_dir_sync<T: DeserializeOwned>(&self, dir_path: &str) -> Vec<(String, T)> {
+        let dir = std::path::PathBuf::from(dir_path);
+        if !dir.exists() {
+            return vec![];
+        }
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            return vec![];
+        };
+        let mut results = Vec::new();
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("json") {
+                continue;
+            }
+            let stem = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("unknown");
+            let Ok(content) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            if let Ok(value) = serde_json::from_str::<T>(&content) {
+                results.push((stem.to_string(), value));
+            }
+        }
+        results
+    }
 
-    /// 释放引用
-    pub fn release(&self, _id: AssetId) {}
-
-    /// 查询资源状态
     pub fn state(&self, _id: &AssetId) -> AssetState {
         AssetState::Ready
     }
-
-    /// 是否就绪
     pub fn is_ready(&self, id: &AssetId) -> bool {
-        matches!(self.state(id), AssetState::Ready)
+        self.textures.contains_key(&id.to_string())
+            || self.font_handles.contains_key(&id.to_string())
     }
 
-    /// 排空待处理队列（由 Runtime 调用）
-    pub(crate) fn drain_pending(&mut self) -> Vec<AssetId> {
-        std::mem::take(&mut self.pending)
+    fn ensure_texture(&mut self, key: &str) {
+        if !self.textures.contains_key(key) && !self.pending_textures.iter().any(|k| k == key) {
+            self.pending_textures.push(key.to_string());
+        }
+    }
+    fn ensure_font(&mut self, key: &str) {
+        if !self.font_handles.contains_key(key) && !self.pending_fonts.iter().any(|k| k == key) {
+            self.pending_fonts.push(key.to_string());
+        }
+    }
+
+    pub(crate) fn process_pending(&mut self, asset_server: &AssetServer, pipeline: &AssetPipeline) {
+        for key in std::mem::take(&mut self.pending_textures) {
+            let path = asset_id_to_bevy_path(&key);
+            let id = AssetId::parse(&format!("century_journey:{path}"));
+
+            // Pipeline: Resolver → Source → Cache
+            let request = AssetRequest::texture(id.clone());
+            let (response, ctx) = pipeline.process(request);
+
+            if response.success {
+                self.pipeline_processes += 1;
+            } else {
+                self.pipeline_failures += 1;
+            }
+
+            // 从 Pipeline Context 提取图片尺寸
+            let metadata = if let Some(ref bytes) = ctx.raw_bytes {
+                extract_image_metadata(bytes).unwrap_or_default()
+            } else {
+                TextureMetadata::default()
+            };
+
+            let handle = asset_server.load(&path);
+            let asset = TextureAsset::new(handle, metadata, id);
+            self.textures.insert(key, asset);
+        }
+        for key in std::mem::take(&mut self.pending_fonts) {
+            let path = asset_id_to_bevy_path(&key);
+            let id = AssetId::parse(&format!("century_journey:{path}"));
+            let request = AssetRequest::custom(id, "font");
+            let (response, _ctx) = pipeline.process(request);
+            if response.success {
+                self.pipeline_processes += 1;
+            } else {
+                self.pipeline_failures += 1;
+            }
+            let handle = asset_server.load(&path);
+            self.font_handles.insert(key, handle);
+        }
+    }
+}
+
+/// 从原始图片字节提取宽高
+fn extract_image_metadata(bytes: &[u8]) -> Option<TextureMetadata> {
+    let img = image::load_from_memory(bytes).ok()?;
+    let rgba = img.to_rgba8();
+    Some(TextureMetadata::from_size(rgba.width(), rgba.height()))
+}
+
+pub fn asset_manager_bridge_system(
+    mut asset: ResMut<AssetManager>,
+    asset_server: Res<AssetServer>,
+    pipeline: Res<AssetPipeline>,
+) {
+    asset.process_pending(&asset_server, &pipeline);
+    asset.frame += 1;
+}
+
+fn asset_id_to_bevy_path(id: &str) -> String {
+    let cleaned = id.split(':').last().unwrap_or(id);
+    if cleaned.contains('.') {
+        cleaned.to_string()
+    } else {
+        format!("{cleaned}.png")
+    }
+}
+
+fn asset_id_to_file_path(id: &AssetId) -> std::path::PathBuf {
+    let s = id.to_string();
+    let cleaned = s.split(':').last().unwrap_or(&s);
+    let path = std::path::PathBuf::from("assets").join(cleaned);
+    if path.extension().is_some() {
+        path
+    } else {
+        path.with_extension("json")
     }
 }

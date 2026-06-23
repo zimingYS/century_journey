@@ -1,5 +1,6 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::engine::constant::world::*;
+use crate::engine::task::{TaskManager, TaskPriority, TaskResult};
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::storage::WorldStorage;
 use crate::game::world::systems::{
@@ -7,7 +8,6 @@ use crate::game::world::systems::{
     build_greedy_mesh,
 };
 use bevy::prelude::*;
-use bevy::tasks::AsyncComputeTaskPool;
 use std::sync::Arc;
 
 /// 在BlockRegistry变化时重建缓存的系统
@@ -27,6 +27,7 @@ pub fn spawn_mesh_build_tasks(
     registry: Option<Res<BlockRegistry>>,
     world_storage: Res<WorldStorage>,
     cached_block_info: Res<CachedBlockInfo>,
+    task: Res<TaskManager>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
 ) {
     let Some(reg) = registry else { return };
@@ -90,12 +91,11 @@ pub fn spawn_mesh_build_tasks(
             block_info: block_info.clone(),
         };
 
-        AsyncComputeTaskPool::get()
-            .spawn(async move {
-                let result = build_greedy_mesh(input);
-                let _ = sender.send(result);
-            })
-            .detach();
+        task.spawn_cpu(TaskPriority::Normal, move || {
+            let result = build_greedy_mesh(input);
+            let _ = sender.send(result);
+            TaskResult::Success
+        });
 
         *state = ChunkState::GeneratingMesh;
         spawned += 1;

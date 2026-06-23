@@ -4,6 +4,7 @@ pub mod loader;
 pub mod registry;
 
 use crate::app::state::AppState;
+use crate::engine::asset::manager::AssetManager;
 use crate::shared::tag::cache::{CachedTagCache, TagCache};
 use bevy::prelude::*;
 
@@ -17,9 +18,10 @@ impl Plugin for TagPlugin {
 
 fn init_tag_registry_system(
     mut commands: Commands,
+    asset: Res<AssetManager>,
     block_registry: Res<crate::content::block::registry::BlockRegistry>,
 ) {
-    let tag_registry = loader::load_tags_from_assets();
+    let tag_registry = loader::load_tags_from_assets(&asset);
     loader::validate_tags_against_block_registry(&tag_registry, &block_registry);
     let tag_cache = TagCache::build(&tag_registry, &block_registry);
     commands.insert_resource(tag_registry);

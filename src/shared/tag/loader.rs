@@ -14,11 +14,12 @@
     10. 返回最终构建完成的TagRegistry
 */
 
+use crate::engine::asset::identifier::AssetId;
+use crate::engine::asset::manager::AssetManager;
 use crate::shared::tag::identifier::{TagId, TagRegistryType};
 use crate::shared::tag::registry::{TagRegistry, TypedTagRegistry};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::path::{Path, PathBuf};
 
 /// 标签定义文件格式
@@ -39,35 +40,30 @@ struct UnresolvedTag {
     tag_references: HashSet<TagId>,
 }
 
-/// 从 `assets/definitions/tags/` 加载所有标签到 TagRegistry
-pub fn load_tags_from_assets() -> TagRegistry {
+/// 从 `assets/definitions/tags/` 通过 AssetManager 加载所有标签
+pub fn load_tags_from_assets(asset: &AssetManager) -> TagRegistry {
     let mut registry = TagRegistry::default();
-    // 指定加载目录
     let tags_root = PathBuf::from("assets/definitions/tags");
 
-    // 没有标签目录则记录在日志，同时返回空的已注册标签
     if !tags_root.exists() {
         log::info!("[标签] 标签目录不存在，跳过加载: {:?}", tags_root);
         return registry;
     }
 
-    // 获取读取的目录，若读取失败则记录在日志同时返回空的已注册标签
-    let Ok(registry_dirs) = fs::read_dir(&tags_root) else {
+    let Ok(registry_dirs) = std::fs::read_dir(&tags_root) else {
         log::warn!("[标签] 无法读取标签目录: {:?}", tags_root);
         return registry;
     };
 
     for registry_dir in registry_dirs.flatten() {
-        // 获取子目录的名称
         let file_name = registry_dir.file_name();
         let dir_name = match file_name.to_str() {
             Some(name) => name,
             None => continue,
         };
 
-        // 根据子目录名称进行标签类的分配并注册
         let registry_type = TagRegistryType::from_dir_name(&dir_name);
-        let unresolved = load_typed_tags(&registry_dir.path());
+        let unresolved = load_typed_tags(asset, &registry_dir.path());
         let typed = resolve_and_build_typed(unresolved);
         registry.registries.insert(registry_type, typed);
     }
@@ -81,49 +77,43 @@ pub fn load_tags_from_assets() -> TagRegistry {
     registry
 }
 
-// 递归扫描目录，加载所有标签JSON文件
-fn load_typed_tags(dir: &Path) -> Vec<UnresolvedTag> {
+fn load_typed_tags(asset: &AssetManager, dir: &Path) -> Vec<UnresolvedTag> {
     let mut results = Vec::new();
-    scan_tag_dir(dir, dir, &mut results);
+    scan_tag_dir(asset, dir, dir, &mut results);
     results
 }
 
-/// 递归扫描标签目录
-fn scan_tag_dir(base: &Path, current: &Path, results: &mut Vec<UnresolvedTag>) {
-    // 读取目录
-    let Ok(entries) = fs::read_dir(current) else {
+fn scan_tag_dir(
+    asset: &AssetManager,
+    base: &Path,
+    current: &Path,
+    results: &mut Vec<UnresolvedTag>,
+) {
+    let Ok(entries) = std::fs::read_dir(current) else {
         return;
     };
 
-    // 在目录中逐个文件进行判断
     for entry in entries.flatten() {
         let path = entry.path();
-
-        // 子目录进行递归处理
         if path.is_dir() {
-            scan_tag_dir(base, &path, results);
+            scan_tag_dir(asset, base, &path, results);
             continue;
         }
-
-        // 不是JSON跳过
         if path.extension().and_then(|s| s.to_str()) != Some("json") {
             continue;
         }
 
-        // 从文件路径推导标签ID
         let relative = path.strip_prefix(base).unwrap_or(&path);
         let Some(tag_id) = path_to_tag_id(relative) else {
             log::warn!("[标签] 无法从路径推导标签ID: {:?}", path);
             continue;
         };
 
-        // 读取并解析 JSON
-        let Ok(content) = fs::read_to_string(&path) else {
-            log::warn!("[标签] 无法读取文件: {:?}", path);
-            continue;
-        };
-
-        let definition = match serde_json::from_str::<TagDefinition>(&content) {
+        // 通过 AssetManager 读取
+        let relative_str = relative.to_str().unwrap_or("");
+        let asset_path = format!("definitions/tags/{}", relative_str.replace('\\', "/"));
+        let id = AssetId::default_namespace(&asset_path);
+        let definition = match asset.read_json_sync::<TagDefinition>(&id) {
             Ok(d) => d,
             Err(e) => {
                 log::error!("[标签] 解析失败 {:?}: {}", path, e);
@@ -131,16 +121,13 @@ fn scan_tag_dir(base: &Path, current: &Path, results: &mut Vec<UnresolvedTag>) {
             }
         };
 
-        // 分离直接条目和标签引用
         let mut direct_entries = HashSet::new();
         let mut tag_references = HashSet::new();
 
         for value in definition.values {
             if let Some(ref_id) = TagId::from_reference(&value) {
-                // 标签引用
                 tag_references.insert(ref_id);
             } else if let Some(entry_id) = validate_entry_id(&value) {
-                // 直接条目
                 direct_entries.insert(entry_id);
             } else {
                 log::warn!("[标签] 标签 {} 中的无效条目被忽略: '{}'", tag_id, value);

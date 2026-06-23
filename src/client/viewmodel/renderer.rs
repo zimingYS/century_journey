@@ -7,6 +7,7 @@ use crate::client::viewmodel::{
     HeldItemEntity, ViewModelAnimator, ViewModelRenderState, ViewModelRoot,
 };
 use crate::content::block::registry::BlockRegistry;
+use crate::engine::asset::manager::AssetManager;
 use crate::game::inventory::item::id::ItemId;
 use crate::game::inventory::item::registry::ItemRegistry;
 use crate::game::inventory::item::texture_registry::ItemTextureRegistry;
@@ -19,7 +20,7 @@ pub fn view_model_sync_system(
     item_registry: Option<Res<ItemRegistry>>,
     item_textures: Res<ItemTextureRegistry>,
     block_registry: Option<Res<BlockRegistry>>,
-    asset_server: Res<AssetServer>,
+    mut asset: ResMut<AssetManager>,
     images: Res<Assets<Image>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -67,7 +68,7 @@ pub fn view_model_sync_system(
         &mut commands,
         &mut meshes,
         &mut materials,
-        &asset_server,
+        &mut asset,
         &mut render_state,
         vm_root,
     );
@@ -157,7 +158,7 @@ fn ensure_hand(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
-    asset_server: &AssetServer,
+    mut asset: &mut AssetManager,
     render_state: &mut ResMut<ViewModelRenderState>,
     vm_root: Entity,
 ) {
@@ -168,7 +169,7 @@ fn ensure_hand(
 
     // 生成手部实体
     let hand_mesh = HandRenderer::build_hand_mesh(meshes);
-    let hand_mat = HandRenderer::create_hand_material(materials, asset_server);
+    let hand_mat = HandRenderer::create_hand_material(materials, &mut asset);
     let hand = commands
         .spawn((
             Name::new("HandMesh"),
@@ -272,7 +273,10 @@ fn spawn_flat_item(
     };
 
     // 从纹理注册表获取对应物品的纹理句柄
-    let image_handle = item_textures.get(tex_key).cloned().unwrap_or_default();
+    let image_handle = item_textures
+        .get_handle(tex_key)
+        .cloned()
+        .unwrap_or_default();
     if image_handle == Handle::<Image>::default() {
         warn!("[HeldRender] 纹理不存在: {}", tex_key);
         return None;
@@ -328,15 +332,14 @@ fn spawn_flat_item(
 /// 生成3D模型类型的手持物品实体 （预留）
 fn spawn_model_item(
     commands: &mut Commands,
-    asset_server: &AssetServer,
+    mut asset: &mut AssetManager,
     parent: Entity,
     path: &str,
     transform: &Transform,
 ) -> Entity {
     // 通过模型渲染器加载GLTF场景
     let scene = crate::client::renderer::held_render::model_renderer::HeldModelRenderer::load_model(
-        asset_server,
-        path,
+        &mut asset, path,
     );
     let root = commands
         .spawn((Name::new(format!("HeldModel_{}", path)), *transform))

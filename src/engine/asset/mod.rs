@@ -1,4 +1,4 @@
-//! # Engine Asset V4
+//! # Engine Asset
 //!
 //! 统一资源管道（Asset Pipeline）+ 运行时（Asset Runtime）。
 //! 支持多资源来源、引用计数、热重载、流加载、内存管理、诊断统计。
@@ -21,6 +21,7 @@ pub mod runtime;
 pub mod service;
 pub mod source;
 pub mod state;
+pub mod texture;
 
 pub use cache::AssetCache;
 pub use dependency::{DependencyGraph, DependencyTracker};
@@ -44,3 +45,4 @@ pub use source::{
     SourceFileMetadata, SourceManager, SourceMetadata, SourcePriority, SourceRegistry,
 };
 pub use state::{AssetMetadata, AssetState};
+pub use texture::{TextureAsset, TextureMetadata, TextureUsage};

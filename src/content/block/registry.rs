@@ -3,10 +3,10 @@ use crate::content::block::behavior::{BlockBehavior, DefaultBlockBehavior};
 use crate::content::block::properties::BlockProperty;
 use crate::content::block::sound::SoundMaterial;
 use crate::content::block::texture_atlas::build_texture_atlas;
+use crate::engine::asset::manager::AssetManager;
 use crate::engine::constant::world::CHUNK_SIZE;
 use bevy::prelude::*;
 use std::collections::HashMap;
-use std::fs;
 
 #[derive(Resource, Default)]
 pub struct BlockRegistry {
@@ -216,13 +216,13 @@ impl BlockRegistry {
 /// 注册方块系统
 pub fn init_block_registry_system(
     mut commands: Commands,
+    asset: Res<AssetManager>,
     mut images: ResMut<Assets<Image>>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
-    // 加载方块配置
-    let raw_configs = load_block_configs();
+    let raw_configs = load_block_configs(&asset);
 
     // 注册方块并分配动态ID
     let mut registry = BlockRegistry::default();
@@ -237,6 +237,7 @@ pub fn init_block_registry_system(
         &mut images,
         &mut layouts,
         &mut materials,
+        &asset,
     );
 
     // 插入资源并切换状态
@@ -246,33 +247,12 @@ pub fn init_block_registry_system(
     info!("[方块注册] 核心方块资产注册完毕，游戏状态切入 InGame，正在生成 3D 噪声地形...");
 }
 
-/// 从文件系统加载所有方块的JSON配置
-fn load_block_configs() -> Vec<BlockProperty> {
-    let block_dir = "assets/definitions/blocks";
-    let mut raw_configs: Vec<BlockProperty> = Vec::new();
-
-    if let Ok(entries) = fs::read_dir(block_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                if let Ok(json_content) = fs::read_to_string(&path) {
-                    match serde_json::from_str::<BlockProperty>(&json_content) {
-                        Ok(prop) => raw_configs.push(prop),
-                        Err(err) => error!("解析方块配置文件出错 {:?}: {:?}!", path, err),
-                    }
-                }
-            }
-        }
-    } else {
-        error!("找不到方块资产定义目录: {}!", block_dir);
-        let _ = fs::create_dir_all(block_dir);
-    }
-
-    info!(
-        "[方块注册] 成功扫描并加载了 {} 个独立方块配置文件！",
-        raw_configs.len()
-    );
-    raw_configs
+/// 通过 AssetManager 加载所有方块 JSON 配置
+fn load_block_configs(asset: &AssetManager) -> Vec<BlockProperty> {
+    let pairs = asset.read_json_dir_sync::<BlockProperty>("assets/definitions/blocks");
+    let count = pairs.len();
+    info!("[方块注册] 通过 AssetManager 加载了 {} 个方块配置", count);
+    pairs.into_iter().map(|(_, prop)| prop).collect()
 }
 
 /// 注册方块动态ID

@@ -1,4 +1,5 @@
 use crate::engine::constant::world::*;
+use crate::engine::task::{TaskManager, TaskPriority, TaskResult};
 use crate::game::player::components::Player;
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::generation::WorldGenerator;
@@ -14,7 +15,6 @@ use crate::game::world::systems::{
     DIRECTIONS, PlayerChunkCache, TerrainGenChannel, TerrainGenResult,
 };
 use bevy::prelude::*;
-use bevy::tasks::AsyncComputeTaskPool;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -126,6 +126,7 @@ pub fn spawn_terrain_gen_tasks(
     cached_ids: Res<CachedBlockIds>,
     save_config: Res<SaveConfig>,
     cached_remap: Res<CachedBlockIdRemap>,
+    task: Res<TaskManager>,
     mut world_storage: ResMut<WorldStorage>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
 ) {
@@ -156,7 +157,7 @@ pub fn spawn_terrain_gen_tasks(
         let climate_sampler = Arc::clone(&world_generator.shared_climate);
         let current_season = world_generator.pipeline.climate_sampler.current_season;
 
-        AsyncComputeTaskPool::get().spawn(async move {
+        task.spawn_cpu(TaskPriority::Normal, move || {
             match RegionManager::read_chunk(&world_name, chunk_pos) {
                 Ok(Some(mut saved)) => {
                     // 只在有映射表时才重映射
@@ -178,20 +179,29 @@ pub fn spawn_terrain_gen_tasks(
                 }
                 _ => {
                     // 磁盘未命中 → 程序化生成
-                    let ctx = crate::game::world::generation::terrain::TerrainGenerator::sample_context(
-                        &noise_sampler,
-                        &climate_sampler,
-                        current_season,
-                        &biome_registry,
+                    let ctx =
+                        crate::game::world::generation::terrain::TerrainGenerator::sample_context(
+                            &noise_sampler,
+                            &climate_sampler,
+                            current_season,
+                            &biome_registry,
+                            chunk_pos,
+                        );
+                    let chunk_data =
+                        crate::game::world::generation::terrain::TerrainGenerator::generate_terrain(
+                            &ctx,
+                            &block_ids,
+                            &biome_registry,
+                        );
+                    let _ = sender.send(TerrainGenResult {
                         chunk_pos,
-                    );
-                    let chunk_data = crate::game::world::generation::terrain::TerrainGenerator::generate_terrain(
-                        &ctx, &block_ids, &biome_registry,
-                    );
-                    let _ = sender.send(TerrainGenResult { chunk_pos, chunk_data, gen_context: ctx });
+                        chunk_data,
+                        gen_context: ctx,
+                    });
                 }
             }
-        }).detach();
+            TaskResult::Success
+        });
 
         *chunk_state = ChunkState::GeneratingTerrain;
         spawned += 1;
@@ -241,6 +251,7 @@ pub fn generate_structures_system(
     channel: Res<StructureGenChannel>,
     world_generator: Res<WorldGenerator>,
     cached_ids: Res<CachedBlockIds>,
+    task: Res<TaskManager>,
     mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
 ) {
     let mut spawned = 0u32;
@@ -289,37 +300,36 @@ pub fn generate_structures_system(
         let biome_registry = world_generator.pipeline.biome_registry.clone();
         let seed = world_generator.seed;
 
-        AsyncComputeTaskPool::get()
-            .spawn(async move {
-                // 构建临时 WorldStorage，复用现有 generate_structures_world_aware
-                let mut temp_storage = crate::game::world::storage::WorldStorage::default();
-                temp_storage.loaded_chunks.insert(chunk_pos, chunk_data);
-                for (pos, data) in neighbor_data {
-                    temp_storage.loaded_chunks.insert(pos, Arc::from(data));
-                }
+        task.spawn_cpu(TaskPriority::Normal, move || {
+            // 构建临时 WorldStorage，复用现有 generate_structures_world_aware
+            let mut temp_storage = crate::game::world::storage::WorldStorage::default();
+            temp_storage.loaded_chunks.insert(chunk_pos, chunk_data);
+            for (pos, data) in neighbor_data {
+                temp_storage.loaded_chunks.insert(pos, Arc::from(data));
+            }
 
-                StructureGenerator::generate_structures_world_aware(
-                    chunk_pos,
-                    &ctx,
-                    &block_ids,
-                    &biome_registry,
-                    seed,
-                    &mut temp_storage,
-                );
+            StructureGenerator::generate_structures_world_aware(
+                chunk_pos,
+                &ctx,
+                &block_ids,
+                &biome_registry,
+                seed,
+                &mut temp_storage,
+            );
 
-                // 收集所有被修改的区块
-                let modified_chunks: Vec<(IVec3, ChunkData)> = temp_storage
-                    .loaded_chunks
-                    .into_iter()
-                    .map(|(pos, arc)| (pos, Arc::unwrap_or_clone(arc)))
-                    .collect();
+            // 收集所有被修改的区块
+            let modified_chunks: Vec<(IVec3, ChunkData)> = temp_storage
+                .loaded_chunks
+                .into_iter()
+                .map(|(pos, arc)| (pos, Arc::unwrap_or_clone(arc)))
+                .collect();
 
-                let _ = sender.send(StructureGenResult {
-                    chunk_pos,
-                    modified_chunks,
-                });
-            })
-            .detach();
+            let _ = sender.send(StructureGenResult {
+                chunk_pos,
+                modified_chunks,
+            });
+            TaskResult::Success
+        });
 
         *chunk_state = ChunkState::GeneratingStructure;
         spawned += 1;

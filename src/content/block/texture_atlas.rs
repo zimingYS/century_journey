@@ -1,4 +1,6 @@
 use crate::content::block::registry::BlockRegistry;
+use crate::engine::asset::identifier::AssetId;
+use crate::engine::asset::manager::AssetManager;
 use crate::engine::constant::texture::TILE_SIZE;
 use crate::engine::constant::world::CHUNK_SIZE;
 use bevy::asset::{Assets, RenderAssetUsages};
@@ -18,6 +20,7 @@ pub fn build_texture_atlas(
     images: &mut Assets<Image>,
     layouts: &mut Assets<TextureAtlasLayout>,
     materials: &mut Assets<StandardMaterial>,
+    asset: &AssetManager,
 ) {
     // 获取纹理层数量，计算图集总宽度
     let layer_count = unique_paths.len() as u32;
@@ -33,14 +36,18 @@ pub fn build_texture_atlas(
 
     // 遍历所有唯一贴图路径，依次绘制到纹理图集对应图层位置
     for (layer_idx, path) in unique_paths.iter().enumerate() {
-        // 拼接完整贴图资源路径
-        let full_path = std::path::Path::new("assets").join(path);
-
-        // 加载贴图文件，加载失败则使用缺失占位图
-        let image = match image::open(&full_path) {
-            Ok(img) => img.to_rgba8(),
+        // 通过 AssetManager 加载纹理文件
+        let id = AssetId::default_namespace(path);
+        let image = match asset.read_file_bytes_sync(&id) {
+            Ok(bytes) => match image::load_from_memory(&bytes) {
+                Ok(img) => img.to_rgba8(),
+                Err(e) => {
+                    error!("无法解码贴图 {}: {}", path, e);
+                    create_missing_texture_placeholder()
+                }
+            },
             Err(e) => {
-                error!("无法加载贴图 {}: {}", full_path.display(), e);
+                error!("无法加载贴图 {}: {}", path, e);
                 create_missing_texture_placeholder()
             }
         };
