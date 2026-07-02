@@ -15,7 +15,7 @@ pub struct JsonLoader;
 impl AssetLoader for JsonLoader {
     type Output = JsonAsset;
 
-    fn load(&self, path: &str, _asset_server: &AssetServer) -> Handle<JsonAsset> {
+    fn load(&self, _path: &str, _asset_server: &AssetServer) -> Handle<JsonAsset> {
         Handle::default()
     }
 }

@@ -1,8 +1,8 @@
 use crate::content::block::properties::BlockProperty;
 use crate::content::block::sound::SoundMaterial;
 use crate::content::block::texture_atlas::build_texture_atlas;
-use crate::engine::asset::manager::AssetManager;
 use crate::content::constant::world::CHUNK_SIZE;
+use crate::engine::asset::manager::AssetManager;
 use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 use std::collections::HashMap;

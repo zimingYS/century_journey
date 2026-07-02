@@ -126,4 +126,3 @@
 
 #[cfg(test)]
 mod inventory_interaction;
-

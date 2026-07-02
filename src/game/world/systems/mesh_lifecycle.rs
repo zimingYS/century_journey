@@ -30,7 +30,9 @@ pub fn spawn_mesh_build_tasks(
     task: Res<TaskManager>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
 ) {
-    let Some(reg) = registry else { return };
+    if registry.is_none() {
+        return;
+    }
 
     let ready_count = chunk_query
         .iter()

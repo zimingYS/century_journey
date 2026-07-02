@@ -110,7 +110,9 @@ pub fn view_model_sync_system(
             }
         }
         // 物品
-        HeldRenderDefinition::FlatItem { thickness } => {
+        HeldRenderDefinition::FlatItem {
+            thickness: _thickness,
+        } => {
             let tex_key = item_str.strip_prefix("item:").unwrap_or(&item_str);
             spawn_flat_item(
                 &mut commands,
@@ -328,6 +330,7 @@ fn spawn_flat_item(
 }
 
 /// 生成3D模型类型的手持物品实体 （预留）
+#[allow(dead_code)]
 fn spawn_model_item(
     commands: &mut Commands,
     mut asset: &mut AssetManager,

@@ -47,7 +47,7 @@ pub fn raycast_voxel(
     let max_distance = 8.0;
 
     // 计算射线实际起点
-    let mut pos = *origin + *direction * start_offset;
+    let pos = *origin + *direction * start_offset;
 
     // 计算起点坐标
     let mut x = pos.x.floor() as i32;

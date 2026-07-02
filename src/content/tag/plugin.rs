@@ -1,9 +1,11 @@
 use bevy::prelude::*;
 
 use crate::content::block::registry::BlockRegistry;
-use crate::content::tag::block_tags::{auto_populate_from_block_tags, validate_tags_against_block_registry};
-use crate::content::tag::cache::CachedTagCache;
 use crate::content::tag::block_tags::TagCache;
+use crate::content::tag::block_tags::{
+    auto_populate_from_block_tags, validate_tags_against_block_registry,
+};
+use crate::content::tag::cache::CachedTagCache;
 use crate::engine::asset::manager::AssetManager;
 use crate::shared::states::app_state::AppState;
 use crate::shared::tag::loader;

@@ -49,7 +49,7 @@ impl TaskScheduler {
 
     /// 添加任务间依赖关系
     /// 基于队列中的任务建立依赖关联，实际的依赖判定与解算由依赖图组件统一管理
-    pub fn add_dependency(&mut self, from: TaskId, to: TaskId) {
+    pub fn add_dependency(&mut self, _from: TaskId, _to: TaskId) {
         // 通过队列中的任务建立依赖
         // 实际依赖解决由 DependencyGraph 管理
     }

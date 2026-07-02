@@ -6,10 +6,12 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 struct ReloadState {
     /// 旧 Handle（等待替换）
+    #[allow(dead_code)]
     old_handle_exists: bool,
     /// 新 Handle 是否已加载
     new_loaded: bool,
     /// 重载时间戳
+    #[allow(dead_code)]
     timestamp: f64,
 }
 
@@ -123,7 +125,7 @@ impl crate::engine::asset::runtime::service::RuntimeService for ReloadService {
 
     fn update(&mut self, ctx: &mut RuntimeContext) {
         let changed = self.poll();
-        for key in &changed {
+        for _key in &changed {
             ctx.diagnostics.reload_count = self.reload_count;
         }
     }

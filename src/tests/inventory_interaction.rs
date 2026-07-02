@@ -42,11 +42,7 @@ impl InventoryContainer for TestContainer {
         if slot.is_empty() {
             self.slots[index] = None;
         }
-        if old.is_empty() {
-            None
-        } else {
-            Some(old)
-        }
+        if old.is_empty() { None } else { Some(old) }
     }
 }
 

@@ -173,7 +173,6 @@ pub fn handle_hotbar_switch_system(
         (KeyCode::Digit8, 7),
         (KeyCode::Digit9, 8),
     ];
-    let old = state.hotbar.active_index;
     for (key, idx) in num_keys {
         if keyboard.just_pressed(key) {
             state.hotbar.active_index = idx;

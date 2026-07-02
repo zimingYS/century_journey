@@ -1,8 +1,9 @@
 use crate::content::block::event::{BlockBreakEvent, BlockInteractEvent, BlockPlaceEvent};
 use crate::content::block::registry::BlockRegistry;
 use crate::content::block::sound::{BlockSoundEvent, SoundAction};
-use crate::content::loot::block_registry::BlockLootRegistry;
 use crate::content::constant::world::CHUNK_SIZE;
+use crate::content::loot::block_registry::BlockLootRegistry;
+use crate::content::tag::cache::CachedTagCache;
 use crate::game::block::BlockBehaviorRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::container::InventoryContainer;
@@ -15,7 +16,6 @@ use crate::game::world::chunk::{ChunkComponents, ChunkState};
 use crate::game::world::entity::dropped_item::spawn_dropped_item;
 use crate::game::world::storage::WorldStorage;
 use crate::shared::states::input_blocked::InputBlocked;
-use crate::content::tag::cache::CachedTagCache;
 use bevy::prelude::*;
 
 use bevy::ecs::system::SystemParam;

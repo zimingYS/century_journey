@@ -82,7 +82,7 @@ impl GenerationPipeline {
         from_stage: GenerationStage,
         context: Option<ChunkGenContext>,
         chunk_data: Option<ChunkData>,
-        world_storage: &mut WorldStorage,
+        _world_storage: &mut WorldStorage,
     ) -> (Option<ChunkData>, ChunkGenContext, GenerationStage) {
         match from_stage {
             GenerationStage::ClimateAndBiome => {

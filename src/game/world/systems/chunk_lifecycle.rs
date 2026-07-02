@@ -112,7 +112,7 @@ pub fn manage_chunks_system(
             world_storage.chunk_modified_times.remove(&pos);
             commands
                 .entity(entity)
-                .queue_silenced(|mut entity: EntityWorldMut| {
+                .queue_silenced(|entity: EntityWorldMut| {
                     entity.despawn();
                 });
         }
@@ -127,7 +127,7 @@ pub fn spawn_terrain_gen_tasks(
     save_config: Res<SaveConfig>,
     cached_remap: Res<CachedBlockIdRemap>,
     task: Res<TaskManager>,
-    mut world_storage: ResMut<WorldStorage>,
+    world_storage: ResMut<WorldStorage>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
 ) {
     let mut spawned = 0u32;

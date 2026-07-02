@@ -454,7 +454,7 @@ pub fn load_player_on_enter_system(
     mut player_query: Query<(&mut Transform, &mut Health, &mut Hunger), With<Player>>,
     mut camera_query: Query<&mut FpsCamera, With<Camera3d>>,
     mut save_manager: ResMut<PlayerSaveManager>,
-    time: Res<Time>,
+    _time: Res<Time>,
 ) {
     let save_path = player_save_path(&save_config.world_name);
     let raw_data = if save_path.exists() {

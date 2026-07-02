@@ -84,7 +84,7 @@ pub fn right_click_slot<C: InventoryContainer>(
             } else {
                 container.get_stack_mut(index).unwrap().count = remaining;
 
-                let mut cursor_stack =
+                let cursor_stack =
                     ItemStack::new(container.get_stack(index).unwrap().item.clone(), half);
                 cursor.set_stack(cursor_stack);
             }
@@ -186,4 +186,3 @@ pub fn shift_click<C1: InventoryContainer, C2: InventoryContainer>(
         }
     }
 }
-

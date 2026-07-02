@@ -1,10 +1,6 @@
 use bevy::prelude::*;
 
-pub fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+pub fn setup(mut commands: Commands) {
     // 添加光源
     commands.spawn((
         PointLight {

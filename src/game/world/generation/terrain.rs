@@ -118,6 +118,7 @@ impl TerrainGenerator {
     }
 
     /// 根据上下文填充方块数据
+    #[allow(deprecated)]
     pub fn generate_terrain(
         ctx: &ChunkGenContext,
         block_ids: &GenerationBlockIds,

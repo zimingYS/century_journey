@@ -1,9 +1,9 @@
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::content::block::registry::BlockRegistry;
+use crate::content::constant::world::CHUNK_SIZE;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::icon::IconDefinition;
 use crate::content::item::texture::registry::ItemTextureRegistry;
-use crate::content::constant::world::CHUNK_SIZE;
 use crate::game::inventory::slot::SlotAction;
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
@@ -70,6 +70,7 @@ pub struct CategoryClickedEvent {
     pub category_index: usize,
 }
 
+#[allow(dead_code)]
 fn layer_to_atlas_index(layer_idx: u32) -> usize {
     (layer_idx as usize) * CHUNK_SIZE * CHUNK_SIZE
 }

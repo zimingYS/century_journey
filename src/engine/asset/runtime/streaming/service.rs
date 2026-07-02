@@ -23,7 +23,7 @@ impl StreamingService {
     }
 
     /// 提交流加载请求
-    pub fn stream(&mut self, key: &str, priority: StreamPriority, ctx: &mut RuntimeContext) {
+    pub fn stream(&mut self, key: &str, _priority: StreamPriority, ctx: &mut RuntimeContext) {
         if self.pending.contains(key) {
             return;
         }

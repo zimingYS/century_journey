@@ -1,8 +1,8 @@
 use crate::content::block::registry::BlockRegistry;
+use crate::content::constant::world::CHUNK_SIZE;
 use crate::engine::asset::identifier::AssetId;
 use crate::engine::asset::manager::AssetManager;
 use crate::engine::constant::texture::TILE_SIZE;
-use crate::content::constant::world::CHUNK_SIZE;
 use bevy::asset::{Assets, RenderAssetUsages};
 use bevy::color::Color;
 use bevy::image::{Image, ImageSampler, TextureAtlasLayout};

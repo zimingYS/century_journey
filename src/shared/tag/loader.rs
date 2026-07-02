@@ -291,4 +291,3 @@ fn resolve_tag_references(
         }
     }
 }
-

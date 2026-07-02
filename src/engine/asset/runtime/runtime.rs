@@ -6,7 +6,6 @@ use crate::engine::asset::runtime::diagnostics::DiagnosticsService;
 use crate::engine::asset::runtime::memory::{EvictionPolicy, MemoryService};
 use crate::engine::asset::runtime::reload::ReloadService;
 use crate::engine::asset::runtime::scheduler::RuntimeScheduler;
-use crate::engine::asset::runtime::service::RuntimeService;
 use crate::engine::asset::runtime::streaming::StreamingService;
 use bevy::prelude::*;
 

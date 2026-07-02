@@ -7,7 +7,7 @@ use bevy::prelude::*;
 pub struct InventoryPlugin;
 
 impl Plugin for InventoryPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         // Game 层目前没有额外的 Inventory 运行时系统需要注册。
         // ItemStack/SlotData/Container 等类型通过 ECS Resources 在各系统中使用。
     }

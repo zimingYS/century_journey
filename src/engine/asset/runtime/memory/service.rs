@@ -28,6 +28,7 @@ pub struct MemoryService {
     /// 逐出策略
     policy: EvictionPolicy,
     /// 类型预算
+    #[allow(dead_code)]
     type_budgets: HashMap<String, u64>,
     /// 自动卸载计数
     unload_count: u32,

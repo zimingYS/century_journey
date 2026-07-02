@@ -86,6 +86,7 @@ pub fn load_item_definitions_system(
     info!("[物品注册] 从 JSON 加载 {} 个物品定义", count);
 }
 
+#[allow(dead_code)]
 fn scan_and_load(
     asset: &AssetManager,
     base: &PathBuf,

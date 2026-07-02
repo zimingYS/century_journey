@@ -1,15 +1,16 @@
 use crate::content::biome::definition::BiomeRegistry;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::constant::world::*;
+use crate::content::tag::block_tags::TagCache;
 use crate::game::world::generation::climate::{ClimateSampler, Season};
 use crate::game::world::generation::context::{ChunkGenContext, ColumnContext};
-use crate::content::tag::block_tags::TagCache;
 use bevy::prelude::*;
 use noise::{NoiseFn, Perlin};
 use std::collections::HashSet;
 
 /// 地形生成器
 pub struct TerrainGenerator {
+    #[allow(dead_code)]
     perlin: Perlin,
 }
 

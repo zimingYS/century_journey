@@ -181,7 +181,7 @@ fn spawn_joint(
     commands: &mut Commands,
     parent: Entity,
     part: PlayerPart,
-    config: &PlayerModelConfig,
+    _config: &PlayerModelConfig,
 ) -> Entity {
     let offset = PlayerModelConfig::joint_offset(part);
     let entity = commands

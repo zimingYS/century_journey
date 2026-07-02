@@ -72,13 +72,15 @@ pub fn load_item_textures_system(mut commands: Commands, asset_server: Res<Asset
 
         let asset_path = format!("textures/items/{stem}.png");
         // 通过 AssetServer 直接获取即时 Handle（启动阶段）
-        let handle: Handle<Image> =
-            asset_server.load_with_settings(&asset_path, |s: &mut ImageLoaderSettings| {
+        let handle: Handle<Image> = asset_server
+            .load_builder()
+            .with_settings(|s: &mut ImageLoaderSettings| {
                 s.sampler = ImageSampler::nearest();
-            });
+            })
+            .load(asset_path);
 
         // 从文件提取元数据
-        let metadata = std::fs::read(&path)
+        let metadata = fs::read(&path)
             .ok()
             .and_then(|bytes| {
                 image::load_from_memory(&bytes).ok().map(|img| {

@@ -55,7 +55,7 @@ pub fn player_look_system(
     }
 
     // 上下旋转
-    if let Ok((mut camera_transform, mut fps_camera)) = camera_query.single_mut() {
+    if let Ok((mut camera_transform, _fps_camera)) = camera_query.single_mut() {
         camera_transform.rotate_local_x(-delta.y * 0.0015);
     }
 }

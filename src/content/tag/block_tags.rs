@@ -1,7 +1,7 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::shared::tag::identifier::{TagId, TagRegistryType};
 use crate::shared::tag::registry::TagRegistry;
-use log::{info, warn};
+use log::info;
 use std::collections::HashSet;
 
 /// 通过方块运行时ID查询是否拥有指定标签
@@ -122,9 +122,7 @@ impl TagCache {
                 .iter()
                 .filter_map(|id| block_registry.get_id_by_identifier(id))
                 .collect();
-            cache
-                .block_tags
-                .insert(tag_id.to_full(), runtime_ids);
+            cache.block_tags.insert(tag_id.to_full(), runtime_ids);
         }
         log::info!("[标签缓存] 已缓存 {} 个方块标签", cache.block_tags.len());
         cache

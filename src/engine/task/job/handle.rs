@@ -23,6 +23,7 @@ impl TaskHandle {
 
     /// 创建关联调度器的句柄实例
     /// 该实例可通过调度器注册任务间的依赖关系
+    #[allow(dead_code)]
     pub(crate) fn with_scheduler(id: TaskId, scheduler: Arc<Mutex<TaskScheduler>>) -> Self {
         Self {
             id,
