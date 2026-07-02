@@ -102,10 +102,12 @@ Server
 ---
 
 # 📦 Modding Support 模组开发
+
 Century Journey is designed from the beginning to fully support modding.
 《世纪之旅》在立项之初便将模组生态纳入核心设计，原生支持模组开发。
 The project is currently under active development.
 项目目前处于积极开发阶段。
+
 ---
 
 # 🚀 Building 构建
