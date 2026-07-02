@@ -42,7 +42,7 @@ impl InventoryState {
     }
 
     /// 添加最近使用物品（兼容旧 API）
-    pub fn add_recent(&mut self, item: crate::game::inventory::item::id::ItemId) {
+    pub fn add_recent(&mut self, item: crate::shared::item_id::ItemId) {
         self.recent.push(item);
     }
 

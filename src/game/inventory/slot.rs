@@ -1,4 +1,4 @@
-use crate::game::inventory::item::id::ItemId;
+use crate::shared::item_id::ItemId;
 use crate::game::inventory::item::stack::ItemStack;
 
 /// 单个槽位对应的数据 （纯数据，非UI组件）

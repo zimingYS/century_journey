@@ -1,4 +1,4 @@
-use crate::game::inventory::item::id::ItemId;
+use crate::shared::item_id::ItemId;
 
 /// 生存模式玩家背包
 /// TODO（未来扩展）

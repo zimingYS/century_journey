@@ -1,28 +1,28 @@
 use bevy::prelude::*;
 
 use crate::app::state::AppState;
+use crate::content::item::registry::registry::{
+    auto_generate_block_items_system, load_item_definitions_system, ItemRegistry,
+};
+use crate::content::item::texture::registry::load_item_textures_system;
 
-/// Inventory 模块 Plugin — 负责物品注册表的初始化和物品系统的自动生成。
+/// Inventory 模块 Plugin
+///
+/// 负责: 初始化 Content 层的 ItemRegistry 和 ItemTextureRegistry。
+/// Game 层不再拥有 Definition/Registry/Loader/Texture 职责。
 pub struct InventoryPlugin;
 
 impl Plugin for InventoryPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<crate::game::inventory::item::registry::ItemRegistry>()
+        app.init_resource::<ItemRegistry>()
             .add_systems(
                 OnEnter(AppState::Loading),
-                (crate::game::inventory::item::texture_registry::load_item_textures_system,),
+                (load_item_textures_system,),
             )
-            .add_systems(
-                Startup,
-                (crate::game::inventory::item::texture_registry::load_item_textures_system,),
-            )
+            .add_systems(Startup, (load_item_textures_system,))
             .add_systems(
                 OnEnter(AppState::InGame),
-                (
-                    crate::game::inventory::item::registry::auto_generate_block_items_system,
-                    crate::game::inventory::item::registry::load_item_definitions_system,
-                )
-                    .chain(),
+                (auto_generate_block_items_system, load_item_definitions_system).chain(),
             );
     }
 }

@@ -1,5 +1,5 @@
 use crate::game::world::chunk::ChunkData;
-use crate::game::world::generation::biome::BiomeRegistry;
+use crate::content::biome::definition::BiomeRegistry;
 use crate::game::world::generation::climate::{ClimateConfig, ClimateSampler};
 use crate::game::world::generation::context::ChunkGenContext;
 use crate::game::world::generation::noise::{GenerationBlockIds, NoiseSampler};

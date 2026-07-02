@@ -1,5 +1,5 @@
 use crate::engine::constant::world::CHUNK_SIZE;
-use crate::game::world::generation::biome::BiomeRegistry;
+use crate::content::biome::definition::BiomeRegistry;
 use crate::game::world::generation::context::ChunkGenContext;
 use crate::game::world::generation::noise::GenerationBlockIds;
 use crate::game::world::storage::{PendingVoxel, WorldStorage};

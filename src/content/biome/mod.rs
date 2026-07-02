@@ -1,5 +1,3 @@
-//! # Biome
-//!
-//! 生物群系定义。
-//!
-//! 定义生物群系属性及生成配置。
+pub mod definition;
+
+pub use definition::{BiomeDefinition, BiomeRegistry, BiomeTerrainParams};

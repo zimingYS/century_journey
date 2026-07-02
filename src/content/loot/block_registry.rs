@@ -1,6 +1,6 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::content::loot::table::{LootEntry, LootTable};
-use crate::game::inventory::item::id::ItemId;
+use crate::shared::item_id::ItemId;
 use crate::game::inventory::item::stack::ItemStack;
 use bevy::prelude::*;
 use std::collections::HashMap;

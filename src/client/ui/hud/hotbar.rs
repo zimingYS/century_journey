@@ -5,9 +5,9 @@ use crate::client::ui::widgets::slot::{
 };
 use crate::content::block::registry::BlockRegistry;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
-use crate::game::inventory::item::id::ItemId;
-use crate::game::inventory::item::registry::ItemRegistry;
-use crate::game::inventory::item::texture_registry::ItemTextureRegistry;
+use crate::shared::item_id::ItemId;
+use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::state::InventoryState;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;

@@ -1,4 +1,4 @@
-use crate::game::inventory::item::id::ItemId;
+use crate::shared::item_id::ItemId;
 use crate::shared::tag::identifier::TagId;
 
 /// 创造模式物品栏的分类

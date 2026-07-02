@@ -112,6 +112,7 @@ pub mod errors;
 pub mod events;
 pub mod held_item;
 pub mod identifier;
+pub mod item_id;
 pub mod math;
 pub mod position;
 pub mod registry;

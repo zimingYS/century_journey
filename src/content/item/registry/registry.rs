@@ -1,12 +1,16 @@
 use crate::engine::asset::identifier::AssetId;
 use crate::engine::asset::manager::AssetManager;
-use crate::game::inventory::item::definition::{ItemCategory, ItemDefinition};
-use crate::game::inventory::item::id::ItemId;
+use crate::content::item::definition::{ItemCategory, ItemDefinition};
+use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// 物品注册表
+///
+/// Registry 是 RuntimeId (ItemId) 的唯一拥有者。
+/// 负责：Identifier -> ItemId -> ItemDefinition 的映射和查询。
+/// 不负责：JSON 加载、纹理加载、模型加载。
 #[derive(Resource, Default)]
 pub struct ItemRegistry {
     /// ItemId → ItemDefinition
@@ -16,14 +20,21 @@ pub struct ItemRegistry {
 }
 
 impl ItemRegistry {
-    /// 注册一个物品定义
-    pub fn register(&mut self, def: ItemDefinition) {
+    /// 注册一个物品定义。
+    /// 自动从 ItemDefinition::identifier 和 category 推导 ItemId。
+    /// 返回分配的 ItemId (RuntimeId)。
+    pub fn register(&mut self, def: ItemDefinition) -> ItemId {
+        let id = match def.category {
+            ItemCategory::Block => ItemId::block(&def.identifier),
+            _ => ItemId::item(&def.identifier),
+        };
         self.by_category
             .entry(def.category)
             .or_default()
-            .push(def.id.clone());
+            .push(id.clone());
 
-        self.entries.insert(def.id.clone(), def);
+        self.entries.insert(id.clone(), def);
+        id
     }
 
     /// 获取物品定义
@@ -44,7 +55,7 @@ impl ItemRegistry {
     /// 获取指定分类下的所有的物品ID
     pub fn items_by_category(&self, category: &ItemCategory) -> &[ItemId] {
         self.by_category
-            .get(&category)
+            .get(category)
             .map(|v| v.as_slice())
             .unwrap_or(&[])
     }
@@ -60,25 +71,18 @@ impl ItemRegistry {
     }
 }
 
+/// 从 JSON 文件加载物品定义到 Registry。
+/// Loader 负责读取 JSON，Registry 负责分配 ItemId (RuntimeId)。
 pub fn load_item_definitions_system(
     mut item_registry: ResMut<ItemRegistry>,
     asset: Res<AssetManager>,
 ) {
-    let items_dir = PathBuf::from("assets/definitions/items");
-    if !items_dir.exists() {
-        info!("[ItemRegistry] items/ 目录不存在，跳过 JSON 加载");
-        return;
-    }
-
     let mut count = 0usize;
-    scan_and_load(
-        &asset,
-        &items_dir,
-        &items_dir,
-        &mut item_registry,
-        &mut count,
-    );
-
+    for (_path, def) in asset.read_json_dir_recursive_sync::<ItemDefinition>("definitions/items") {
+        // Registry 自动从 definition 推导 ItemId (RuntimeId)
+        item_registry.register(def);
+        count += 1;
+    }
     info!("[物品注册] 从 JSON 加载 {} 个物品定义", count);
 }
 
@@ -105,7 +109,6 @@ fn scan_and_load(
             continue;
         }
 
-        // 通过 AssetManager 读取 JSON
         let relative = path.strip_prefix(base).unwrap_or(&path);
         let asset_path = format!(
             "definitions/items/{}",
@@ -113,8 +116,7 @@ fn scan_and_load(
         );
         let id = AssetId::default_namespace(&asset_path);
         match asset.read_json_sync::<ItemDefinition>(&id) {
-            Ok(mut def) => {
-                def.finalize_id();
+            Ok(def) => {
                 registry.register(def);
                 *count += 1;
             }
@@ -125,7 +127,8 @@ fn scan_and_load(
     }
 }
 
-/// 从物品注册表自动生成ItemDefinition
+/// 从 BlockRegistry 自动生成 ItemDefinition (Block→Item Bridge)
+/// 桥接逻辑属于 Content 层，不属于 Game 层。
 pub fn auto_generate_block_items_system(
     block_registry: Option<Res<crate::content::block::registry::BlockRegistry>>,
     mut item_registry: ResMut<ItemRegistry>,

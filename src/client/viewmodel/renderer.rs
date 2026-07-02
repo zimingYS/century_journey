@@ -8,9 +8,9 @@ use crate::client::viewmodel::{
 };
 use crate::content::block::registry::BlockRegistry;
 use crate::engine::asset::manager::AssetManager;
-use crate::game::inventory::item::id::ItemId;
-use crate::game::inventory::item::registry::ItemRegistry;
-use crate::game::inventory::item::texture_registry::ItemTextureRegistry;
+use crate::shared::item_id::ItemId;
+use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::state::InventoryState;
 use bevy::prelude::*;
 
@@ -188,7 +188,7 @@ fn resolve_held_config(
     item_registry: Option<&ItemRegistry>,
 ) -> Option<HeldItemConfig> {
     use crate::client::renderer::held_render::HeldItemConfig;
-    use crate::game::inventory::item::definition::ItemCategory;
+    use crate::content::item::definition::ItemCategory;
 
     // 方块类物品直接返回默认方块配置
     if item.is_block() {

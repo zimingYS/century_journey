@@ -10,3 +10,12 @@ pub mod model;
 pub mod registry;
 pub mod tag;
 pub mod texture;
+
+// Re-export commonly used types
+pub use definition::ItemCategory;
+pub use definition::ItemDefinition;
+pub use definition::tool::{ToolData, ToolTier, ToolType};
+pub use registry::registry::ItemRegistry;
+pub use texture::icon::IconDefinition;
+pub use texture::registry::ItemTextureRegistry;
+pub use texture::registry::load_item_textures_system;

@@ -16,11 +16,11 @@ use crate::client::ui::widgets::tab::spawn_category_tab;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::inventory::container::creative::CreativeCategory;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
-use crate::game::inventory::item::definition::ItemCategory;
-use crate::game::inventory::item::id::ItemId;
-use crate::game::inventory::item::registry::ItemRegistry;
+use crate::content::item::definition::ItemCategory;
+use crate::shared::item_id::ItemId;
+use crate::content::item::registry::registry::ItemRegistry;
 use crate::game::inventory::item::stack::ItemStack;
-use crate::game::inventory::item::texture_registry::ItemTextureRegistry;
+use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::state::InventoryState;
 use crate::shared::tag::identifier::TagRegistryType;
 use crate::shared::tag::registry::TagRegistry;
@@ -183,8 +183,9 @@ pub fn update_creative_filter_system(
         // 追加ItemRegistry中的非Block物品
         if let Some(item_reg) = item_registry.as_ref() {
             for def in item_reg.all_items() {
-                if def.id.is_pure_item() {
-                    all.push(def.id.clone());
+                let item_id = ItemId::item(&def.identifier);
+                if item_id.is_pure_item() {
+                    all.push(item_id);
                 }
             }
         }

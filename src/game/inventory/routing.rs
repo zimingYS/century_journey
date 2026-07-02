@@ -2,7 +2,7 @@ use crate::client::ui::widgets::slot::SlotKind;
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::cursor::{CursorData, CursorSource};
 use crate::game::inventory::interaction::{left_click_slot, right_click_slot, shift_click};
-use crate::game::inventory::item::id::ItemId;
+use crate::shared::item_id::ItemId;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::slot::SlotAction;
 use crate::game::inventory::state::InventoryState;

@@ -1,4 +1,4 @@
-use crate::game::inventory::item::id::ItemId;
+use crate::shared::item_id::ItemId;
 
 // 这边先临时使用全部物品最大堆叠64个
 // 以后会根据物品种类进行最大堆叠分类

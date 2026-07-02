@@ -1,4 +1,4 @@
-use crate::game::inventory::item::id::ItemId;
+use crate::shared::item_id::ItemId;
 use crate::game::inventory::item::stack::ItemStack;
 
 #[derive(Debug, Clone)]

@@ -143,6 +143,71 @@ impl AssetManager {
             let handle = asset_server.load(&path);
             self.font_handles.insert(key, handle);
         }
+    } /// 递归遍历目录，返回所有匹配扩展名的文件路径
+    pub fn list_files_recursive(&self, dir_path: &str, extension: &str) -> Vec<(String, std::path::PathBuf)> {
+        let mut results = Vec::new();
+        let base = std::path::PathBuf::from(dir_path);
+        Self::scan_dir_recursive(&base, &base, extension, &mut results);
+        results
+    }
+
+    // 提示：这是个关联函数（没有 &self），因为纯粹是路径操作，不需要访问 AssetManager 的状态
+    fn scan_dir_recursive(
+        base: &std::path::Path,
+        current: &std::path::Path,
+        extension: &str,
+        results: &mut Vec<(String, std::path::PathBuf)>,
+    ) {
+        let Ok(entries) = std::fs::read_dir(current) else {
+            return;
+        };
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+
+            if path.is_dir() {
+                Self::scan_dir_recursive(base, &path, extension, results);
+                continue;
+            }
+
+            if path.extension().and_then(|s| s.to_str()) != Some(extension) {
+                continue;
+            }
+
+            let Ok(relative) = path.strip_prefix(base) else {
+                continue;
+            };
+
+            let relative = relative
+                .to_string_lossy()
+                .replace('\\', "/");
+
+            results.push((relative, path));
+        }
+    }
+
+    /// 递归扫描目录下所有 JSON 文件并解析为 T
+    pub fn read_json_dir_recursive_sync<T: DeserializeOwned>(
+        &self,
+        dir_path: &str,
+    ) -> Vec<(String, T)> {
+        let mut results = Vec::new();
+
+        for (relative_path, _) in self.list_files_recursive(dir_path, "json") {
+            let relative_no_ext = relative_path
+                .strip_suffix(".json")
+                .unwrap_or(&relative_path);
+            
+            let asset_path = format!("{dir_path}/{relative_no_ext}");
+            let id = AssetId::default_namespace(&asset_path);
+
+            match self.read_json_sync::<T>(&id) {
+                Ok(value) => results.push((asset_path, value)),
+                Err(err) => warn!("Failed to load asset '{}': {}", id, err),
+            }
+        }
+
+        results
     }
 }
 

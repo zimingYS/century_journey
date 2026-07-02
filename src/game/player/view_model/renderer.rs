@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use crate::engine::asset::manager::AssetManager;
 use crate::game::player::view_model::{ViewModelRoot, HeldItemEntity, ViewModelAnimator, ViewModelRenderState};
-use crate::game::inventory::item::id::ItemId;
-use crate::game::inventory::item::registry::ItemRegistry;
-use crate::game::inventory::item::texture_registry::ItemTextureRegistry;
+use crate::shared::item_id::ItemId;
+use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::state::InventoryState;
 use crate::client::renderer::held_render::{HeldRenderDefinition, block_renderer::HeldBlockRenderer, flat_item_renderer::HeldFlatItemRenderer, hand_renderer::HandRenderer, HeldItemConfig};
 use crate::client::renderer::mesh_cache::HeldMeshCache;

@@ -1,6 +1,6 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::engine::constant::world::*;
-use crate::game::world::generation::biome::BiomeRegistry;
+use crate::content::biome::definition::BiomeRegistry;
 use crate::game::world::generation::climate::{ClimateSampler, Season};
 use crate::game::world::generation::context::{ChunkGenContext, ColumnContext};
 use crate::shared::tag::cache::TagCache;

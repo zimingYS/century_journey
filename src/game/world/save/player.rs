@@ -1,7 +1,7 @@
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
-use crate::game::inventory::item::id::ItemId;
+use crate::shared::item_id::ItemId;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::Player;
