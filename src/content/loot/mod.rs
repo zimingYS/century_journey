@@ -1,7 +1,7 @@
 pub mod block_registry;
 pub mod table;
 
-use crate::app::state::AppState;
+use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 
 pub struct LootPlugin;

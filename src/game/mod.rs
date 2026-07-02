@@ -185,8 +185,10 @@
 //! 它们全部共享同一套 Game，实现真正的单一权威逻辑（Single Source of Truth）。
 
 pub mod advancement;
+pub mod block;
 pub mod combat;
 pub mod command;
+pub mod constant;
 pub mod crafting;
 pub mod effect;
 pub mod entity;

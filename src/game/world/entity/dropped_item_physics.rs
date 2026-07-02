@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::engine::constant::world::CHUNK_SIZE;
+use crate::content::constant::world::CHUNK_SIZE;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::world::entity::dropped_item::DroppedItem;
 use crate::game::world::storage::WorldStorage;

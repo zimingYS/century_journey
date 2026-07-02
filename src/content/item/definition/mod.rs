@@ -1,7 +1,7 @@
 pub mod tool;
 
-use crate::content::item::texture::icon::IconDefinition;
 use crate::content::item::definition::tool::ToolData;
+use crate::content::item::texture::icon::IconDefinition;
 use crate::shared::held_item::{AnimationConfig, HeldRenderDefinition};
 use serde::{Deserialize, Serialize};
 

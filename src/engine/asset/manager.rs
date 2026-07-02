@@ -143,8 +143,13 @@ impl AssetManager {
             let handle = asset_server.load(&path);
             self.font_handles.insert(key, handle);
         }
-    } /// 递归遍历目录，返回所有匹配扩展名的文件路径
-    pub fn list_files_recursive(&self, dir_path: &str, extension: &str) -> Vec<(String, std::path::PathBuf)> {
+    }
+    /// 递归遍历目录，返回所有匹配扩展名的文件路径
+    pub fn list_files_recursive(
+        &self,
+        dir_path: &str,
+        extension: &str,
+    ) -> Vec<(String, std::path::PathBuf)> {
         let mut results = Vec::new();
         let base = std::path::PathBuf::from(dir_path);
         Self::scan_dir_recursive(&base, &base, extension, &mut results);
@@ -178,9 +183,7 @@ impl AssetManager {
                 continue;
             };
 
-            let relative = relative
-                .to_string_lossy()
-                .replace('\\', "/");
+            let relative = relative.to_string_lossy().replace('\\', "/");
 
             results.push((relative, path));
         }
@@ -197,7 +200,7 @@ impl AssetManager {
             let relative_no_ext = relative_path
                 .strip_suffix(".json")
                 .unwrap_or(&relative_path);
-            
+
             let asset_path = format!("{dir_path}/{relative_no_ext}");
             let id = AssetId::default_namespace(&asset_path);
 

@@ -4,11 +4,11 @@ use crate::client::ui::widgets::slot::{
     InventorySlot, SearchInputState, SlotKind, SlotVisual, spawn_empty_slot, sync_slot_icon,
 };
 use crate::content::block::registry::BlockRegistry;
-use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
-use crate::shared::item_id::ItemId;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
+use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::state::InventoryState;
+use crate::shared::item_id::ItemId;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 

@@ -1,5 +1,5 @@
 use crate::content::block::registry::BlockRegistry;
-use crate::engine::constant::world::*;
+use crate::content::constant::world::*;
 use crate::engine::task::{TaskManager, TaskPriority, TaskResult};
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::storage::WorldStorage;

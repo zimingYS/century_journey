@@ -1,6 +1,6 @@
 use crate::content::block::properties::RenderMode;
 use crate::content::block::registry::BlockRegistry;
-use crate::engine::constant::world::CHUNK_SIZE;
+use crate::content::constant::world::CHUNK_SIZE;
 use crate::game::world::storage::WorldStorage;
 use bevy::prelude::*;
 

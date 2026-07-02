@@ -1,4 +1,4 @@
-use crate::engine::constant::world::*;
+use crate::content::constant::world::*;
 use crate::engine::task::{TaskManager, TaskPriority, TaskResult};
 use crate::game::player::components::Player;
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};

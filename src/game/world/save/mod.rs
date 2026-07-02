@@ -5,7 +5,6 @@ pub mod player;
 pub mod region;
 pub mod system;
 
-use crate::app::state::AppState;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::player::components::Player;
 use crate::game::world::save::events::SaveDirtyEvent;
@@ -14,6 +13,7 @@ use crate::game::world::save::system::{
     AutoSaveTimer, CachedBlockIdRemap, LoadQueue, SaveConfig, SaveQueue,
 };
 use crate::game::world::storage::WorldStorage;
+use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 
 pub struct SaveLoadPlugin;

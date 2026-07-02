@@ -1,6 +1,6 @@
 use crate::game::inventory::container::InventoryContainer;
-use crate::shared::item_id::ItemId;
 use crate::game::inventory::item::stack::ItemStack;
+use crate::shared::item_id::ItemId;
 use std::array;
 use std::sync::LazyLock;
 

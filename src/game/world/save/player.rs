@@ -1,7 +1,6 @@
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
-use crate::shared::item_id::ItemId;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::Player;
@@ -9,6 +8,7 @@ use crate::game::player::components::stats::{Health, Hunger};
 use crate::game::world::save::events::SaveDirtySource;
 use crate::game::world::save::system::SaveConfig;
 use crate::shared::components::camera::FpsCamera;
+use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 use bincode::Options;
 use flate2::Compression;

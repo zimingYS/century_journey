@@ -1,4 +1,3 @@
-use crate::client::state::InputBlocked;
 use crate::client::ui::theme::category_theme::CategoryTheme;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
@@ -6,6 +5,7 @@ use crate::client::ui::widgets::slot::{
 };
 use crate::game::inventory::events::DropItemEvent;
 use crate::game::inventory::state::InventoryState;
+use crate::shared::states::input_blocked::InputBlocked;
 use bevy::prelude::*;
 
 pub mod components;

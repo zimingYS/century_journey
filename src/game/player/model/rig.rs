@@ -1,6 +1,5 @@
 use crate::game::player::model::components::{
-    BackAnchor, ChestAnchor, HeldItemAnchor, HelmetAnchor, OffHandAnchor, PlayerJoint, PlayerMesh,
-    PlayerModelMarker, PlayerPart, PlayerRig,
+    HeldItemAnchor, PlayerJoint, PlayerMesh, PlayerModelMarker, PlayerPart, PlayerRig,
 };
 use crate::game::player::model::config::PlayerModelConfig;
 use bevy::prelude::*;

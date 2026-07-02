@@ -1,5 +1,5 @@
-use crate::client::state::InputBlocked;
 use crate::game::player::components::Player;
+use crate::shared::states::input_blocked::InputBlocked;
 use bevy::camera::Exposure;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::input::mouse::MouseMotion;

@@ -1,5 +1,5 @@
-use crate::shared::item_id::ItemId;
 use crate::game::inventory::item::stack::ItemStack;
+use crate::shared::item_id::ItemId;
 
 #[derive(Debug, Clone)]
 pub struct RecentItems {

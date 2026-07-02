@@ -1,10 +1,9 @@
-use crate::app::state::AppState;
-use crate::content::block::behavior::{BlockBehavior, DefaultBlockBehavior};
 use crate::content::block::properties::BlockProperty;
 use crate::content::block::sound::SoundMaterial;
 use crate::content::block::texture_atlas::build_texture_atlas;
 use crate::engine::asset::manager::AssetManager;
-use crate::engine::constant::world::CHUNK_SIZE;
+use crate::content::constant::world::CHUNK_SIZE;
+use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -28,8 +27,6 @@ pub struct BlockRegistry {
     pub cutout_material: Handle<StandardMaterial>,
     /// 透明材质
     pub transparent_material: Handle<StandardMaterial>,
-    /// 方块行为
-    pub behaviors: HashMap<String, Box<dyn BlockBehavior>>,
     /// 音效路径
     pub sound_paths: HashMap<SoundMaterial, SoundPaths>,
 }
@@ -90,24 +87,6 @@ impl BlockRegistry {
         Some(layer * CHUNK_SIZE * CHUNK_SIZE)
     }
 
-    /// 获取方块行为
-    pub fn get_behavior(&self, behavior_type: &str) -> Option<&dyn BlockBehavior> {
-        self.behaviors.get(behavior_type).map(|b| b.as_ref())
-    }
-
-    /// 通过ID获取方块行为
-    pub fn get_behavior_by_id(&self, id: u16) -> &dyn BlockBehavior {
-        let prop = self.id_to_properties.get(&id);
-        match prop {
-            Some(p) if !p.behavior_type.is_empty() => self
-                .behaviors
-                .get(&p.behavior_type)
-                .map(|b| b.as_ref())
-                .unwrap_or(&DefaultBlockBehavior),
-            _ => &DefaultBlockBehavior,
-        }
-    }
-
     /// 构建保存存档的ID映射表(将动态ID转换为方块标识符)
     pub fn build_save_id_map(&self) -> Vec<(u16, String)> {
         // self.blocks: HashMap<String, BlockProperty>
@@ -133,16 +112,6 @@ impl BlockRegistry {
             // 加载时未映射的 ID 会被替换为空气
         }
         remap
-    }
-
-    /// 注册内置行为
-    fn register_builtin_behaviors(&mut self) {
-        self.behaviors
-            .insert("default".to_string(), Box::new(DefaultBlockBehavior));
-        // self.behaviors.insert(
-        //     "falling".to_string(),
-        //     Box::new(FallingBlockBehavior),
-        // );
     }
 
     /// 注册内置音效路径
@@ -226,7 +195,6 @@ pub fn init_block_registry_system(
 
     // 注册方块并分配动态ID
     let mut registry = BlockRegistry::default();
-    registry.register_builtin_behaviors();
     registry.register_builtin_sounds();
     let unique_paths = register_blocks(&mut registry, raw_configs);
 

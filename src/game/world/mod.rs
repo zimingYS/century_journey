@@ -7,11 +7,11 @@ pub mod storage;
 pub mod systems;
 pub mod time;
 
-use crate::app::state::AppState;
 use crate::content::block::registry::BlockRegistry;
+use crate::content::tag::block_tags::TagCache;
 use crate::game::world::generation::noise::CachedBlockIds;
-use crate::shared::tag;
-use crate::shared::tag::cache::CachedTagCache;
+use crate::shared::states::app_state::AppState;
+use crate::content::tag::cache::CachedTagCache;
 use bevy::prelude::*;
 
 pub struct WorldPlugin;
@@ -19,6 +19,8 @@ pub struct WorldPlugin;
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<storage::WorldStorage>()
+            .init_resource::<crate::game::block::BlockBehaviorRegistry>()
+            .add_systems(Startup, crate::game::block::init_behavior_registry_system)
             .insert_resource(generation::WorldGenerator::new(12345))
             .insert_resource(time::TimeOfDay::default())
             .init_resource::<generation::climate::SeasonResource>()
@@ -66,7 +68,7 @@ fn cache_block_ids_system(
         log::warn!("[世界] CachedTagCache 尚未初始化，使用空标签缓存");
         generation::noise::GenerationBlockIds::from_registry(
             &registry,
-            &tag::cache::TagCache::default(),
+            &TagCache::default(),
         )
     };
     commands.insert_resource(CachedBlockIds(block_ids));

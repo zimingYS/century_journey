@@ -1,6 +1,6 @@
 pub mod stats;
 
-use crate::engine::constant::player::*;
+use crate::game::constant::player::*;
 use bevy::prelude::*;
 
 #[derive(Component)]

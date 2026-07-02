@@ -2,26 +2,26 @@ use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 use crate::client::ui::components::{
-    CreativeCategoryPanel, CreativeHotbarPanel, CreativeInventoryOverlay, CreativeInventoryRoot,
-    CreativeItemGrid, CreativeRecentPanel, CreativeSearchBox,
+    CreativeCategoryPanel, CreativeHotbarPanel, CreativeInventoryOverlay, CreativeItemGrid,
+    CreativeRecentPanel,
 };
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::category_theme::CategoryTheme;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
-    CategoryTab, CreativeSearchInput, InventorySlot, SearchInputState, SlotKind, SlotVisual,
-    spawn_slot_with_item, sync_slot_icon,
+    CategoryTab, InventorySlot, SearchInputState, SlotKind, SlotVisual, spawn_slot_with_item,
+    sync_slot_icon,
 };
 use crate::client::ui::widgets::tab::spawn_category_tab;
 use crate::content::block::registry::BlockRegistry;
+use crate::content::item::definition::ItemCategory;
+use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::container::creative::CreativeCategory;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
-use crate::content::item::definition::ItemCategory;
-use crate::shared::item_id::ItemId;
-use crate::content::item::registry::registry::ItemRegistry;
 use crate::game::inventory::item::stack::ItemStack;
-use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::state::InventoryState;
+use crate::shared::item_id::ItemId;
 use crate::shared::tag::identifier::TagRegistryType;
 use crate::shared::tag::registry::TagRegistry;
 

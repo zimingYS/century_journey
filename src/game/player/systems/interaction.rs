@@ -1,20 +1,21 @@
-use crate::client::state::InputBlocked;
 use crate::content::block::event::{BlockBreakEvent, BlockInteractEvent, BlockPlaceEvent};
 use crate::content::block::registry::BlockRegistry;
 use crate::content::block::sound::{BlockSoundEvent, SoundAction};
 use crate::content::loot::block_registry::BlockLootRegistry;
-use crate::engine::constant::world::CHUNK_SIZE;
+use crate::content::constant::world::CHUNK_SIZE;
+use crate::game::block::BlockBehaviorRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::container::InventoryContainer;
+use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::Player;
 use crate::game::player::systems::raycast::TargetVoxel;
 use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
 use crate::game::world::chunk::{ChunkComponents, ChunkState};
 use crate::game::world::entity::dropped_item::spawn_dropped_item;
-use crate::game::world::save::player::PlayerSaveManager;
 use crate::game::world::storage::WorldStorage;
-use crate::shared::tag::cache::CachedTagCache;
+use crate::shared::states::input_blocked::InputBlocked;
+use crate::content::tag::cache::CachedTagCache;
 use bevy::prelude::*;
 
 use bevy::ecs::system::SystemParam;
@@ -31,6 +32,7 @@ pub struct VoxelEventWriters<'w> {
 pub fn voxel_interaction_system(
     target_voxel: Res<TargetVoxel>,
     registry: Option<Res<BlockRegistry>>,
+    behavior_registry: Res<BlockBehaviorRegistry>,
     input_blocked: Res<InputBlocked>,
     mut inventory_state: ResMut<InventoryState>,
     tag_cache: Option<Res<CachedTagCache>>,
@@ -76,24 +78,25 @@ pub fn voxel_interaction_system(
             // 调用方块行为
             if gamemode.is_creative() {
                 // 创造模式：直接删除，无掉落
-                let behavior = reg.get_behavior_by_id(hit_id);
+                let behavior = behavior_registry.get_behavior_by_id(hit_id, &reg);
                 behavior.on_break(hit_pos, hit_id, &mut world_storage, &mut commands);
                 set_voxel_at_world(hit_pos, 0, &mut world_storage);
             } else {
                 // 生存模式：执行破坏流水线（方块行为 + 删除 + 掉落）
-                let behavior = reg.get_behavior_by_id(hit_id);
+                let behavior = behavior_registry.get_behavior_by_id(hit_id, &reg);
                 behavior.on_break(hit_pos, hit_id, &mut world_storage, &mut commands);
                 set_voxel_at_world(hit_pos, 0, &mut world_storage);
 
                 if let Some(ref loot) = loot_registry {
                     let drops = loot.roll(hit_id);
                     let center = hit_pos.as_vec3();
-                    for (j, stack) in drops.into_iter().enumerate() {
+                    for (j, (item_id, count)) in drops.into_iter().enumerate() {
                         let offset = Vec3::new(
                             (j as f32 * 0.3) % 1.0 - 0.5,
                             0.5,
                             (j as f32 * 0.7) % 1.0 - 0.5,
                         );
+                        let stack = ItemStack::new(item_id, count);
                         spawn_dropped_item(&mut commands, center + offset, stack);
                     }
                 }
@@ -133,7 +136,7 @@ pub fn voxel_interaction_system(
                     });
 
                     // 调用方块行为
-                    let behavior = reg.get_behavior_by_id(hit_id);
+                    let behavior = behavior_registry.get_behavior_by_id(hit_id, &reg);
                     behavior.on_interact(
                         hit_pos,
                         hit_id,
@@ -183,7 +186,7 @@ pub fn voxel_interaction_system(
             }
 
             // 调用方块行为的 on_place
-            let behavior = reg.get_behavior_by_id(block_id);
+            let behavior = behavior_registry.get_behavior_by_id(block_id, &reg);
             let allowed = behavior.on_place(
                 place_pos,
                 block_id,

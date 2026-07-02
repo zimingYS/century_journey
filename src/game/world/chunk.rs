@@ -1,4 +1,4 @@
-use crate::engine::constant::world::{CHUNK_SIZE, CHUNK_VOLUME};
+use crate::content::constant::world::{CHUNK_SIZE, CHUNK_VOLUME};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 

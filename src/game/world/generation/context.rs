@@ -1,5 +1,5 @@
-use crate::engine::constant::world::{CHUNK_SIZE, SEA_LEVEL};
 use crate::content::biome::definition::BiomeRegistry;
+use crate::content::constant::world::{CHUNK_SIZE, SEA_LEVEL};
 use bevy::prelude::*;
 
 /// 区块内单个坐标(每列)共享的上下文

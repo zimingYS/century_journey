@@ -1,6 +1,6 @@
-use crate::engine::constant::world::*;
-use crate::game::world::chunk::ChunkData;
 use crate::content::biome::definition::BiomeRegistry;
+use crate::content::constant::world::*;
+use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::climate::{ClimateSampler, Season};
 use crate::game::world::generation::context::ChunkGenContext;
 use crate::game::world::generation::noise::{GenerationBlockIds, NoiseSampler};

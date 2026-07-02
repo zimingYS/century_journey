@@ -1,6 +1,6 @@
+use crate::content::item::definition::{ItemCategory, ItemDefinition};
 use crate::engine::asset::identifier::AssetId;
 use crate::engine::asset::manager::AssetManager;
-use crate::content::item::definition::{ItemCategory, ItemDefinition};
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 use std::collections::HashMap;

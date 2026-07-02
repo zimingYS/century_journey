@@ -1,7 +1,6 @@
 use crate::content::block::registry::BlockRegistry;
-use crate::content::loot::table::{LootEntry, LootTable};
+use crate::content::loot::table::{LootDrop, LootEntry, LootTable};
 use crate::shared::item_id::ItemId;
-use crate::game::inventory::item::stack::ItemStack;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -23,7 +22,8 @@ impl BlockLootRegistry {
     }
 
     /// 计算方块的掉落物品列表
-    pub fn roll(&self, block_id: u16) -> Vec<ItemStack> {
+    /// 返回 (ItemId, count) tokens，由 Game 层转换为 ItemStack
+    pub fn roll(&self, block_id: u16) -> Vec<LootDrop> {
         self.tables
             .get(&block_id)
             .map(|t| t.roll())

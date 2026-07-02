@@ -1,4 +1,4 @@
-use crate::engine::constant::world::HOURS_PER_DAY;
+use crate::content::constant::world::HOURS_PER_DAY;
 use bevy::prelude::*;
 use noise::{NoiseFn, Perlin, Seedable};
 use serde::{Deserialize, Serialize};

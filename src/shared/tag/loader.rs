@@ -292,34 +292,3 @@ fn resolve_tag_references(
     }
 }
 
-/// 验证标签中的条目是否在方块注册表中存在
-pub fn validate_tags_against_block_registry(
-    tag_registry: &TagRegistry,
-    block_registry: &crate::content::block::registry::BlockRegistry,
-) {
-    let Some(typed) = tag_registry.get_registry(&TagRegistryType::Block) else {
-        return;
-    };
-
-    let mut missing_count = 0usize;
-    for tag_id in typed.all_tag_ids() {
-        if let Some(entries) = typed.get_tag_entries(tag_id) {
-            for entry in entries {
-                if block_registry.get_id_by_identifier(entry).is_none() {
-                    log::warn!(
-                        "[标签验证] 标签 {} 中的条目 '{}' 在方块注册表中不存在",
-                        tag_id,
-                        entry
-                    );
-                    missing_count += 1;
-                }
-            }
-        }
-    }
-
-    if missing_count == 0 {
-        log::info!("[标签验证] 所有标签条目验证通过");
-    } else {
-        log::warn!("[标签验证] 共发现 {} 个不匹配的条目", missing_count);
-    }
-}

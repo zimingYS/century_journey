@@ -1,9 +1,9 @@
-use crate::client::ui::widgets::slot::SearchInputState;
 use crate::content::block::registry::BlockRegistry;
-use crate::engine::constant::player::STEP_HEIGHT;
+use crate::game::constant::player::STEP_HEIGHT;
 use crate::game::player::components::{Player, PlayerCollider, PlayerGravity, PlayerMovement};
 use crate::game::player::systems::collision::check_collision_at;
 use crate::game::world::storage::WorldStorage;
+use crate::shared::ui_types::SearchInputState;
 use bevy::prelude::*;
 
 pub fn player_movement_system(

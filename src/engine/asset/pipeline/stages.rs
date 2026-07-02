@@ -1,7 +1,6 @@
 use crate::engine::asset::identifier::AssetId;
 use crate::engine::asset::pipeline::context::AssetPipelineContext;
 use crate::engine::asset::pipeline::stage::AssetStage;
-use crate::engine::asset::source::SourceManager;
 use crate::engine::asset::state::AssetState;
 use std::path::PathBuf;
 

@@ -21,7 +21,7 @@ pub fn insert_into_container<C: InventoryContainer + ?Sized>(
         return InventoryInsertResult::AllInserted;
     }
 
-    /// 尝试合并到已有同种堆叠
+    // 尝试合并到已有同种堆叠
     for i in 0..container.slot_count() {
         if stack.is_empty() {
             return InventoryInsertResult::AllInserted;

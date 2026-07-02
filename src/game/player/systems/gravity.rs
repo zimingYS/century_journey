@@ -1,5 +1,5 @@
 use crate::content::block::registry::BlockRegistry;
-use crate::engine::constant::player::{GRAVITY, MAX_FALL_SPEED};
+use crate::game::constant::player::{GRAVITY, MAX_FALL_SPEED};
 use crate::game::player::components::{Player, PlayerCollider, PlayerGravity};
 use crate::game::player::systems::collision::{
     check_collision_at, find_safe_position, is_grounded_at,

@@ -2,7 +2,6 @@ use crate::game::inventory::insert;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::Player;
 use crate::game::world::entity::dropped_item::DroppedItem;
-use crate::game::world::save::player::PlayerSaveManager;
 use bevy::prelude::*;
 
 /// 拾取范围半径

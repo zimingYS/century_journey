@@ -1,5 +1,10 @@
 use crate::shared::item_id::ItemId;
-use crate::game::inventory::item::stack::ItemStack;
+
+// LootTable 返回 tokens (ItemId, count) 而非 ItemStack，
+// 以避免 Content 层依赖 Game 层。ItemStack 转换由 Game 层负责。
+
+/// 掉落结果：物品ID和数量
+pub type LootDrop = (ItemId, u32);
 
 /// 单个掉落条目
 #[derive(Debug, Clone)]
@@ -63,7 +68,8 @@ impl LootTable {
     }
 
     /// 根据概率计算实际掉落的物品列表
-    pub fn roll(&self) -> Vec<ItemStack> {
+    /// 返回 (ItemId, count) tokens，由 Game 层转换为 ItemStack
+    pub fn roll(&self) -> Vec<LootDrop> {
         let mut results = Vec::new();
         for entry in &self.entries {
             if rand::random::<f32>() < entry.chance {
@@ -74,7 +80,7 @@ impl LootTable {
                         + (rand::random::<u32>() % (entry.max_count - entry.min_count + 1))
                 };
                 if count > 0 {
-                    results.push(ItemStack::new(entry.item.clone(), count));
+                    results.push((entry.item.clone(), count));
                 }
             }
         }

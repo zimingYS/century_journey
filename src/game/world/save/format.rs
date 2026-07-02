@@ -55,7 +55,7 @@ pub struct SavedChunk {
 /// 计算区块坐标对应的 Region 坐标
 #[inline]
 pub fn chunk_to_region_pos(chunk_pos: IVec3) -> IVec3 {
-    use crate::engine::constant::world::REGION_SIZE;
+    use crate::content::constant::world::REGION_SIZE;
     IVec3::new(
         chunk_pos.x.div_euclid(REGION_SIZE),
         chunk_pos.y.div_euclid(REGION_SIZE),
@@ -66,7 +66,7 @@ pub fn chunk_to_region_pos(chunk_pos: IVec3) -> IVec3 {
 /// 计算区块在 Region 内的局部索引
 #[inline]
 pub fn chunk_local_index(chunk_pos: IVec3) -> (usize, usize, usize) {
-    use crate::engine::constant::world::REGION_SIZE;
+    use crate::content::constant::world::REGION_SIZE;
     let local = |v: i32| v.rem_euclid(REGION_SIZE) as usize;
     (local(chunk_pos.x), local(chunk_pos.y), local(chunk_pos.z))
 }
@@ -74,7 +74,7 @@ pub fn chunk_local_index(chunk_pos: IVec3) -> (usize, usize, usize) {
 /// 三维局部索引转一维索引
 #[inline]
 pub fn local_index_to_flat(lx: usize, ly: usize, lz: usize) -> usize {
-    use crate::engine::constant::world::REGION_SIZE;
+    use crate::content::constant::world::REGION_SIZE;
     let rs = REGION_SIZE as usize;
     ly * rs * rs + lz * rs + lx
 }

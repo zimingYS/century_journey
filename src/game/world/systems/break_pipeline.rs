@@ -1,6 +1,8 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::content::loot::block_registry::BlockLootRegistry;
+use crate::game::block::BlockBehaviorRegistry;
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
+use crate::game::inventory::item::stack::ItemStack;
 use crate::game::world::block_ops::set_voxel_at_world;
 use crate::game::world::entity::dropped_item::spawn_dropped_item;
 use crate::game::world::storage::WorldStorage;
@@ -15,12 +17,13 @@ pub fn execute_block_break(
     block_id: u16,
     gamemode: &PlayerGameMode,
     block_registry: &BlockRegistry,
+    behavior_registry: &BlockBehaviorRegistry,
     loot_registry: &BlockLootRegistry,
     world_storage: &mut WorldStorage,
     commands: &mut Commands,
 ) {
-    // 调用方块行为
-    let behavior = block_registry.get_behavior_by_id(block_id);
+    // 调用方块行为（Game 层 BehaviorRegistry）
+    let behavior = behavior_registry.get_behavior_by_id(block_id, block_registry);
     behavior.on_break(world_pos, block_id, world_storage, commands);
 
     // 实际移除方块
@@ -36,13 +39,14 @@ pub fn execute_block_break(
             let drops = loot_registry.roll(block_id);
             let center = world_pos.as_vec3();
 
-            for (i, stack) in drops.into_iter().enumerate() {
+            for (i, (item_id, count)) in drops.into_iter().enumerate() {
                 // 略微随机偏移位置，避免掉落物堆叠
                 let offset = Vec3::new(
                     (i as f32 * 0.3) % 1.0 - 0.5,
                     0.3,
                     (i as f32 * 0.7) % 1.0 - 0.5,
                 );
+                let stack = ItemStack::new(item_id, count);
                 spawn_dropped_item(commands, center + offset, stack);
             }
         }

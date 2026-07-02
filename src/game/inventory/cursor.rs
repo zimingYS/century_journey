@@ -1,5 +1,5 @@
-use crate::shared::item_id::ItemId;
 use crate::game::inventory::item::stack::ItemStack;
+use crate::shared::item_id::ItemId;
 
 /// 光标物品的来源槽位（用于 E 关闭时返回原位）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

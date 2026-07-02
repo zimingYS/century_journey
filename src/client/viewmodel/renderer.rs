@@ -3,15 +3,13 @@ use crate::client::renderer::held_render::{
     flat_item_renderer::HeldFlatItemRenderer, hand_renderer::HandRenderer,
 };
 use crate::client::renderer::mesh_cache::HeldMeshCache;
-use crate::client::viewmodel::{
-    HeldItemEntity, ViewModelAnimator, ViewModelRenderState, ViewModelRoot,
-};
+use crate::client::viewmodel::{HeldItemEntity, ViewModelRenderState, ViewModelRoot};
 use crate::content::block::registry::BlockRegistry;
-use crate::engine::asset::manager::AssetManager;
-use crate::shared::item_id::ItemId;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
+use crate::engine::asset::manager::AssetManager;
 use crate::game::inventory::state::InventoryState;
+use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 
 /// 第一人称模型同步渲染

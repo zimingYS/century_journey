@@ -1,6 +1,6 @@
-use crate::app::state::AppState;
 use crate::content::block::event::*;
 use crate::content::block::sound::BlockSoundEvent;
+use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 
 pub mod behavior;

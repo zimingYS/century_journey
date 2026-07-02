@@ -1,5 +1,5 @@
-use crate::shared::item_id::ItemId;
 use crate::game::inventory::item::stack::ItemStack;
+use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 
 /// 物品被拾取到鼠标

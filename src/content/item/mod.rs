@@ -7,6 +7,7 @@
 pub mod definition;
 pub mod loader;
 pub mod model;
+pub mod plugin;
 pub mod registry;
 pub mod tag;
 pub mod texture;

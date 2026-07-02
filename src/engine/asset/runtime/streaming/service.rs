@@ -1,7 +1,7 @@
 use crate::engine::asset::runtime::context::RuntimeContext;
 use crate::engine::asset::runtime::job::AssetJob;
 use crate::engine::asset::runtime::streaming::priority::StreamPriority;
-use std::collections::{HashSet, VecDeque};
+use std::collections::HashSet;
 
 /// 流加载服务
 ///

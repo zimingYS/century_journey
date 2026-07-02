@@ -1,4 +1,4 @@
-use crate::engine::constant::world::CHUNK_SIZE;
+use crate::content::constant::world::CHUNK_SIZE;
 use crate::game::world::storage::WorldStorage;
 use bevy::prelude::*;
 use std::sync::Arc;

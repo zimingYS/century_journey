@@ -146,6 +146,7 @@
 
 pub mod biome;
 pub mod block;
+pub mod constant;
 pub mod entity;
 pub mod item;
 pub mod language;
@@ -155,3 +156,4 @@ pub mod particle;
 pub mod recipe;
 pub mod sound;
 pub mod structure;
+pub mod tag;

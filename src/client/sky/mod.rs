@@ -2,7 +2,7 @@ pub mod components;
 pub mod systems;
 pub mod texture;
 
-use crate::app::state::AppState;
+use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 
 pub struct SkyPlugin;
