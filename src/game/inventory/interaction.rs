@@ -33,23 +33,31 @@ pub fn left_click_slot<C: InventoryContainer>(
             }
         }
         (true, true) => {
-            let slot_item = container.get_stack(index).unwrap().item.clone();
-            let cursor_item = cursor.stack().unwrap().item.clone();
-            let is_same = cursor_item == slot_item;
+            let Some(slot_stack) = container.get_stack(index) else {
+                return;
+            };
+            let Some(cursor_stack) = cursor.stack() else {
+                return;
+            };
+            let is_same = cursor_stack.item == slot_stack.item;
 
             if is_same {
-                let slot_stack = container.get_stack_mut(index).unwrap();
-                slot_stack.merge_from(cursor.stack_mut().unwrap());
+                if let Some(slot_stack) = container.get_stack_mut(index) {
+                    if let Some(cursor_stack) = cursor.stack_mut() {
+                        slot_stack.merge_from(cursor_stack);
+                    }
+                }
 
-                // 如果槽位满或光标空，清除光标；否则保留剩余
+                // 如果光标空，清除光标
                 if cursor.stack().map_or(true, |s| s.is_empty()) {
                     cursor.clear();
                 }
             } else {
-                let slot_stack = container.replace_stack(index, ItemStack::empty()).unwrap();
-                let cursor_stack = cursor.take_stack().unwrap();
-                cursor.set_stack(slot_stack);
-                container.set_stack(index, cursor_stack);
+                if let Some(slot_stack) = container.replace_stack(index, ItemStack::empty()) {
+                    let cursor_stack = cursor.take_stack().unwrap_or(ItemStack::empty());
+                    cursor.set_stack(slot_stack);
+                    container.set_stack(index, cursor_stack);
+                }
             }
         }
         (false, false) => {}
@@ -73,7 +81,10 @@ pub fn right_click_slot<C: InventoryContainer>(
 
     match (cursor_has, slot_has) {
         (false, true) => {
-            let total = container.get_stack(index).unwrap().count;
+            let Some(stack) = container.get_stack(index) else {
+                return;
+            };
+            let total = stack.count;
             let half = (total + 1) / 2;
             let remaining = total - half;
 
@@ -82,21 +93,28 @@ pub fn right_click_slot<C: InventoryContainer>(
                     cursor.set_stack(stack);
                 }
             } else {
-                container.get_stack_mut(index).unwrap().count = remaining;
+                if let Some(slot_stack) = container.get_stack_mut(index) {
+                    slot_stack.count = remaining;
+                }
 
-                let cursor_stack =
-                    ItemStack::new(container.get_stack(index).unwrap().item.clone(), half);
+                let Some(stack) = container.get_stack(index) else {
+                    return;
+                };
+                let cursor_stack = ItemStack::new(stack.item.clone(), half);
                 cursor.set_stack(cursor_stack);
             }
         }
         (true, false) => {
-            let cursor_count = cursor.stack().unwrap().count;
+            let Some(cursor_stack) = cursor.stack() else {
+                return;
+            };
+            let cursor_count = cursor_stack.count;
             let take = 1.min(cursor_count);
 
-            let mut new_cursor = cursor.stack().unwrap().clone();
+            let mut new_cursor = cursor_stack.clone();
             new_cursor.count = cursor_count - take;
 
-            let mut new_slot = cursor.stack().unwrap().clone();
+            let mut new_slot = cursor_stack.clone();
             new_slot.count = take;
 
             if new_cursor.count == 0 {
@@ -107,17 +125,19 @@ pub fn right_click_slot<C: InventoryContainer>(
             container.set_stack(index, new_slot);
         }
         (true, true) => {
-            let slot_item = container.get_stack(index).unwrap().item.clone();
-            let cursor_item = cursor.stack().unwrap().item.clone();
-            let is_same = cursor_item == slot_item;
+            let Some(slot) = container.get_stack(index) else {
+                return;
+            };
+            let Some(cursor_item) = cursor.stack() else {
+                return;
+            };
+            let is_same = cursor_item.item == slot.item;
 
-            if is_same {
-                let slot = container.get_stack(index).unwrap();
-                if slot.count < ItemStack::MAX_STACK_SIZE {
-                    let slot_stack = container.get_stack_mut(index).unwrap();
+            if is_same && slot.count < ItemStack::MAX_STACK_SIZE {
+                if let Some(slot_stack) = container.get_stack_mut(index) {
                     slot_stack.count += 1;
-
-                    let cursor_stack = cursor.stack_mut().unwrap();
+                }
+                if let Some(cursor_stack) = cursor.stack_mut() {
                     cursor_stack.count -= 1;
                     if cursor_stack.count == 0 {
                         cursor.take_stack();

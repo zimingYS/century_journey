@@ -1,9 +1,9 @@
 use crate::content::item::definition::{ItemCategory, ItemDefinition};
 use crate::engine::asset::manager::AssetManager;
+use crate::shared::identifier::Identifier;
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 /// 物品注册表
 ///
@@ -24,8 +24,8 @@ impl ItemRegistry {
     /// 返回分配的 ItemId (RuntimeId)。
     pub fn register(&mut self, def: ItemDefinition) -> ItemId {
         let id = match def.category {
-            ItemCategory::Block => ItemId::block(&def.identifier),
-            _ => ItemId::item(&def.identifier),
+            ItemCategory::Block => ItemId::new(def.identifier.clone()),
+            _ => ItemId::new(def.identifier.clone()),
         };
         self.by_category
             .entry(def.category)
@@ -77,8 +77,8 @@ impl ItemRegistry {
     }
 
     /// 若为方块类物品，返回对应的方块标识符（用于查 BlockRegistry）
-    pub fn block_identifier(&self, id: &ItemId) -> Option<&str> {
-        self.get(id)?.placeable_block.as_deref()
+    pub fn block_identifier(&self, id: &ItemId) -> Option<&Identifier> {
+        self.get(id)?.placeable_block.as_ref()
     }
 }
 
@@ -95,48 +95,6 @@ pub fn load_item_definitions_system(
         count += 1;
     }
     info!("[物品注册] 从 JSON 加载 {} 个物品定义", count);
-}
-
-#[allow(dead_code)]
-fn scan_and_load(
-    asset: &AssetManager,
-    base: &PathBuf,
-    current: &PathBuf,
-    registry: &mut ItemRegistry,
-    count: &mut usize,
-) {
-    let Ok(entries) = std::fs::read_dir(current) else {
-        return;
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-
-        if path.is_dir() {
-            scan_and_load(asset, base, &path, registry, count);
-            continue;
-        }
-
-        if path.extension().and_then(|s| s.to_str()) != Some("json") {
-            continue;
-        }
-
-        let relative = path.strip_prefix(base).unwrap_or(&path);
-        let asset_path = format!(
-            "definitions/items/{}",
-            relative.to_str().unwrap_or("").replace('\\', "/")
-        );
-        let id = crate::engine::asset::identifier::asset_id(&asset_path);
-        match asset.read_json_sync::<ItemDefinition>(&id) {
-            Ok(def) => {
-                registry.register(def);
-                *count += 1;
-            }
-            Err(e) => {
-                error!("[物品注册] JSON加载失败 {:?}: {}", path, e);
-            }
-        }
-    }
 }
 
 /// 从 BlockRegistry 自动生成 ItemDefinition (Block→Item Bridge)
@@ -160,10 +118,10 @@ pub fn auto_generate_block_items_system(
         }
 
         let display_name = reg
-            .get_id_by_identifier(identifier)
+            .get_id_by_identifier(&identifier.to_string())
             .and_then(|id| reg.get(id))
             .map(|p| p.display_name.clone())
-            .unwrap_or_else(|| identifier.clone());
+            .unwrap_or_else(|| identifier.path().to_string());
 
         let def = ItemDefinition::from_block(identifier, &display_name);
         item_registry.register(def);

@@ -41,10 +41,11 @@ pub fn init_default_loot_system(
             continue; // 空气不掉落
         }
 
-        let item_id = ItemId::block(identifier.as_str());
+        let id_str = identifier.to_string();
+        let item_id = ItemId::new(identifier.clone());
 
         // 特殊覆盖
-        let table = match identifier.as_str() {
+        let table = match id_str.as_str() {
             "century_journey:grass" | "century_journey:grass_block" => {
                 LootTable::single(ItemId::block("century_journey:dirt"), 1)
             }

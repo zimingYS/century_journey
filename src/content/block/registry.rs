@@ -3,6 +3,7 @@ use crate::content::block::sound::SoundMaterial;
 use crate::content::block::texture_atlas::build_texture_atlas;
 use crate::content::constant::world::CHUNK_SIZE;
 use crate::engine::asset::manager::AssetManager;
+use crate::shared::identifier::Identifier;
 use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -12,9 +13,9 @@ pub struct BlockRegistry {
     /// 根据运行时分配的动态ID查找属性
     pub id_to_properties: HashMap<u16, BlockProperty>,
     /// 通过唯一名标识进行查找动态ID
-    pub identifier_to_id: HashMap<String, u16>,
+    pub identifier_to_id: HashMap<Identifier, u16>,
     /// 反向映射：通过动态ID查找唯一名标识
-    pub id_to_identifier: HashMap<u16, String>,
+    pub id_to_identifier: HashMap<u16, Identifier>,
     /// 纹理映射
     pub texture_layers: HashMap<(u16, usize), u32>,
     /// 保存基础长条图集纹理
@@ -57,12 +58,13 @@ impl BlockRegistry {
 
     /// 通过字符串唯一标识获取运行时数字 ID
     pub fn get_id_by_identifier(&self, identifier: &str) -> Option<u16> {
-        self.identifier_to_id.get(identifier).copied()
+        let key = Identifier::parse(identifier).ok()?;
+        self.identifier_to_id.get(&key).copied()
     }
 
-    /// 通过动态ID获取字符串唯一标识
-    pub fn get_identifier_by_id(&self, id: u16) -> Option<&str> {
-        self.id_to_identifier.get(&id).map(|s| s.as_str())
+    /// 通过动态ID获取标识符
+    pub fn get_identifier_by_id(&self, id: u16) -> Option<&Identifier> {
+        self.id_to_identifier.get(&id)
     }
 
     /// 查询某个方块对应的某个面在 GPU 纹理数组中的 Layer 索引
@@ -89,12 +91,10 @@ impl BlockRegistry {
 
     /// 构建保存存档的ID映射表(将动态ID转换为方块标识符)
     pub fn build_save_id_map(&self) -> Vec<(u16, String)> {
-        // self.blocks: HashMap<String, BlockProperty>
-        // BlockProperty.runtime_id: u16 (#[serde(skip)])
         let mut map: Vec<(u16, String)> = self
             .id_to_identifier
             .iter()
-            .map(|(&id, name)| (id, name.clone()))
+            .map(|(&id, ident)| (id, ident.to_string()))
             .collect();
         map.sort_by_key(|(id, _)| *id);
         map
@@ -105,8 +105,10 @@ impl BlockRegistry {
         let mut remap = HashMap::new();
 
         for (saved_id, identifier) in saved_map {
-            if let Some(&current_id) = self.identifier_to_id.get(identifier) {
-                remap.insert(*saved_id, current_id);
+            if let Some(key) = Identifier::parse(identifier).ok() {
+                if let Some(&current_id) = self.identifier_to_id.get(&key) {
+                    remap.insert(*saved_id, current_id);
+                }
             }
             // 如果标识符在当前注册表中不存在，不添加映射
             // 加载时未映射的 ID 会被替换为空气

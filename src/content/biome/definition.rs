@@ -1,17 +1,18 @@
+use crate::shared::identifier::Identifier;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// 生物群系定义
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiomeDefinition {
-    pub identifier: String,
+    pub identifier: Identifier,
     pub display_name: String,
     pub temperature_range: (f64, f64),
     pub humidity_range: (f64, f64),
     pub terrain: BiomeTerrainParams,
-    pub surface_block: String,
-    pub subsurface_block: String,
-    pub beach_block: String,
+    pub surface_block: Identifier,
+    pub subsurface_block: Identifier,
+    pub beach_block: Identifier,
     pub tree_density: f32,
     pub ore_config: String,
 }

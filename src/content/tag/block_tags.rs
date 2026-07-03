@@ -13,7 +13,7 @@ pub fn is_block_id_tagged(
 ) -> bool {
     block_registry
         .get_identifier_by_id(block_runtime_id)
-        .map(|id| tag_registry.is_block_tagged(id, tag))
+        .map(|id| tag_registry.is_block_tagged(&id.to_string(), tag))
         .unwrap_or(false)
 }
 
@@ -47,7 +47,7 @@ pub fn auto_populate_from_block_tags(
         }
 
         let tags = block_registry
-            .get_id_by_identifier(identifier)
+            .get_id_by_identifier(&identifier.to_string())
             .and_then(|id| block_registry.get(id))
             .map(|prop| prop.tags.as_slice())
             .unwrap_or(&[]);
@@ -67,7 +67,7 @@ pub fn auto_populate_from_block_tags(
             } else {
                 TagId::new("century_journey", tag_str)
             };
-            typed.insert(tag_id, identifier.clone());
+            typed.insert(tag_id, identifier.to_string());
             added += 1;
         }
     }

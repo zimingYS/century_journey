@@ -83,7 +83,7 @@ pub fn resolve_item_icon(
 ) -> Option<IconDefinition> {
     let reg = item_registry?;
     if let Some(block_id) = reg.block_identifier(item) {
-        Some(IconDefinition::block(block_id))
+        Some(IconDefinition::block(block_id.to_string()))
     } else {
         reg.get(item).map(|def| def.icon.clone())
     }

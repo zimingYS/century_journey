@@ -65,6 +65,27 @@ impl fmt::Display for IdentifierError {
 
 impl std::error::Error for IdentifierError {}
 
+impl PartialEq<str> for Identifier {
+    fn eq(&self, other: &str) -> bool {
+        self.to_string().as_str() == other
+    }
+}
+
+impl PartialEq<&str> for Identifier {
+    fn eq(&self, other: &&str) -> bool {
+        self.to_string().as_str() == *other
+    }
+}
+
+impl Default for Identifier {
+    fn default() -> Self {
+        Self {
+            namespace: DEFAULT_NAMESPACE.to_string(),
+            path: "unknown".to_string(),
+        }
+    }
+}
+
 impl Serialize for Identifier {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         s.serialize_str(&self.to_string())

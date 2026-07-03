@@ -5,6 +5,7 @@ use crate::content::tag::block_tags::TagCache;
 use crate::game::world::generation::biome_selector::{blend_terrain_params, select_biome};
 use crate::game::world::generation::climate::{ClimateSampler, Season};
 use crate::game::world::generation::context::{ChunkGenContext, ColumnContext};
+use crate::shared::identifier::Identifier;
 use bevy::prelude::*;
 use noise::{NoiseFn, Perlin};
 use std::collections::HashSet;
@@ -242,18 +243,17 @@ impl GenerationBlockIds {
         self.overworld_replaceable_ids.contains(&block_id)
     }
 
-    /// 从方块标识符解析到ID
-    #[deprecated(note = "请使用标签查询替代硬编码标识符匹配")]
-    pub fn resolve_block_id(&self, _identifier: &str) -> u16 {
-        match _identifier {
-            "century_journey:grass" => self.grass,
-            "century_journey:dirt" => self.dirt,
-            "century_journey:stone" => self.stone,
-            "century_journey:sand" => self.sand,
-            "century_journey:water" => self.water,
-            "century_journey:snow" => self.snow,
-            "century_journey:leaves" => self.leaves,
-            "century_journey:wood" => self.wood,
+    /// 从方块标识符解析到ID（支持群系定义中的 Identifier 类型）
+    pub fn resolve_block_id(&self, identifier: &Identifier) -> u16 {
+        match (identifier.namespace(), identifier.path()) {
+            ("century_journey", "grass") => self.grass,
+            ("century_journey", "dirt") => self.dirt,
+            ("century_journey", "stone") => self.stone,
+            ("century_journey", "sand") => self.sand,
+            ("century_journey", "water") => self.water,
+            ("century_journey", "snow") => self.snow,
+            ("century_journey", "leaves") => self.leaves,
+            ("century_journey", "wood") => self.wood,
             _ => self.grass,
         }
     }

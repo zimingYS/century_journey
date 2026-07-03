@@ -1,8 +1,9 @@
+use crate::shared::identifier::Identifier;
 use crate::shared::tag::identifier::{TagId, TagRegistryType};
 use crate::shared::tag::registry::TagRegistry;
 
 pub trait Taggable {
-    fn identifier(&self) -> &str;
+    fn identifier(&self) -> &Identifier;
     fn tags(&self) -> &[String];
 }
 

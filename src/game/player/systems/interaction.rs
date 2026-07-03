@@ -176,12 +176,13 @@ pub fn voxel_interaction_system(
             }
 
             let current_hand_item = inventory_state.hotbar.active_item();
-            let current_hand_identifier = item_registry
+            let current_hand_identifier: String = item_registry
                 .as_ref()
                 .and_then(|ir| ir.block_identifier(&current_hand_item))
-                .unwrap_or("century_journey:air");
+                .map(|id| id.to_string())
+                .unwrap_or_else(|| "century_journey:air".to_string());
             // 翻译成运行时对应的动态ID
-            let Some(block_id) = reg.get_id_by_identifier(current_hand_identifier) else {
+            let Some(block_id) = reg.get_id_by_identifier(&current_hand_identifier) else {
                 return;
             };
             if block_id == 0 {

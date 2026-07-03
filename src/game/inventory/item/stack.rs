@@ -1,4 +1,5 @@
 use crate::content::item::ItemRegistry;
+use crate::shared::identifier::Identifier;
 use crate::shared::item_id::ItemId;
 
 // 这边先临时使用全部物品最大堆叠64个
@@ -99,7 +100,7 @@ impl ItemStack {
     }
 
     /// 获取方块标识符引用
-    pub fn block_identifier<'a>(&self, item_registry: &'a ItemRegistry) -> Option<&'a str> {
+    pub fn block_identifier<'a>(&self, item_registry: &'a ItemRegistry) -> Option<&'a Identifier> {
         item_registry.block_identifier(&self.item)
     }
 

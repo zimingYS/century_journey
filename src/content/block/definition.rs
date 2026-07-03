@@ -2,6 +2,7 @@ use crate::content::block::model::BlockModelConfig;
 use crate::content::block::sound::BlockSoundConfig;
 use crate::content::block::state::BlockStateDefinition;
 use crate::content::tag::populate::Taggable;
+use crate::shared::identifier::Identifier;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +10,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockProperty {
     /// 方块编号
-    pub identifier: String,
+    pub identifier: Identifier,
     /// 显示名称
     pub display_name: String,
     /// 渲染归类
@@ -48,7 +49,7 @@ pub struct BlockProperty {
 
     /// 掉落物（None = 自身，Some = 指定掉落物标识符）
     #[serde(default)]
-    pub drop_identifier: Option<String>,
+    pub drop_identifier: Option<Identifier>,
 
     /// 是否可被右键交互
     #[serde(default)]
@@ -71,7 +72,7 @@ pub struct BlockProperty {
 impl Default for BlockProperty {
     fn default() -> Self {
         Self {
-            identifier: String::new(),
+            identifier: Identifier::new("century_journey", ""),
             display_name: String::new(),
             render_mode: RenderMode::Opaque,
             is_solid: true,
@@ -93,7 +94,7 @@ impl Default for BlockProperty {
 }
 
 impl Taggable for BlockProperty {
-    fn identifier(&self) -> &str {
+    fn identifier(&self) -> &Identifier {
         &self.identifier
     }
     fn tags(&self) -> &[String] {

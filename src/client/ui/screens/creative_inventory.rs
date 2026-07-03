@@ -182,7 +182,7 @@ pub fn update_creative_filter_system(
             if id == "century_journey:air" {
                 continue;
             }
-            let item_id = ItemId::block(id.as_str());
+            let item_id = ItemId::new(id.clone());
             if seen.insert(item_id.clone()) {
                 all.push(item_id);
             }
@@ -191,10 +191,7 @@ pub fn update_creative_filter_system(
         // ItemRegistry 中的物品（包括自动生成方块物品）
         if let Some(item_reg) = item_registry.as_ref() {
             for def in item_reg.all_items() {
-                let item_id = match def.category {
-                    ItemCategory::Block => ItemId::block(&def.identifier),
-                    _ => ItemId::item(&def.identifier),
-                };
+                let item_id = ItemId::new(def.identifier.clone());
                 if seen.insert(item_id.clone()) {
                     all.push(item_id);
                 }

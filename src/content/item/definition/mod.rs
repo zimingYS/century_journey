@@ -4,6 +4,7 @@ use crate::content::item::definition::tool::ToolData;
 use crate::content::item::texture::icon::IconDefinition;
 use crate::content::tag::populate::Taggable;
 use crate::shared::held_item::{AnimationConfig, HeldRenderDefinition};
+use crate::shared::identifier::Identifier;
 use serde::{Deserialize, Serialize};
 
 /// 物品分类
@@ -31,7 +32,7 @@ pub enum ItemCategory {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ItemDefinition {
     /// 唯一标识符
-    pub identifier: String,
+    pub identifier: Identifier,
     /// 显示名称
     pub display_name: String,
     /// 物品分类
@@ -51,7 +52,7 @@ pub struct ItemDefinition {
 
     /// 可放置的方块 ID (仅 Block 物品)
     #[serde(default)]
-    pub placeable_block: Option<String>,
+    pub placeable_block: Option<Identifier>,
 
     /// 工具数据 (仅 Tool 物品)
     #[serde(default)]
@@ -73,15 +74,15 @@ fn default_max_stack() -> u32 {
 impl ItemDefinition {
     /// 从方块属性自动创建 Block Item (保留兼容 bridge 系统)
     /// 此部分后续应迁移到别的模块
-    pub fn from_block(identifier: &str, display_name: &str) -> Self {
+    pub fn from_block(identifier: &Identifier, display_name: &str) -> Self {
         Self {
-            identifier: identifier.to_string(),
+            identifier: identifier.clone(),
             display_name: display_name.to_string(),
             category: ItemCategory::Block,
             max_stack: 64,
             tags: Vec::new(),
-            icon: IconDefinition::block(identifier),
-            placeable_block: Some(identifier.to_string()),
+            icon: IconDefinition::block(&identifier.to_string()),
+            placeable_block: Some(identifier.clone()),
             tool: None,
             held_renderer: HeldRenderDefinition::Block,
             animations: AnimationConfig::default(),
@@ -121,7 +122,7 @@ impl ItemDefinition {
 }
 
 impl Taggable for ItemDefinition {
-    fn identifier(&self) -> &str {
+    fn identifier(&self) -> &Identifier {
         &self.identifier
     }
     fn tags(&self) -> &[String] {
