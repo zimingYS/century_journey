@@ -25,6 +25,7 @@ serde_arrays = "0.2.0"
 serde_json = "1.0.150"
 rand = "0.10.1"
 anyhow = "1.0.102"
+icu_provider = { version = "2.2.0", features = ["logging"] }
 
 # 为开发构建配置启用少量优化
 [profile.dev]
