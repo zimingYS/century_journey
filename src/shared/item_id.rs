@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// 物品唯一标识符
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ItemId(Identifier);
 
 impl ItemId {
@@ -48,15 +48,5 @@ impl fmt::Display for ItemId {
 impl Default for ItemId {
     fn default() -> Self {
         Self::air()
-    }
-}
-impl Serialize for ItemId {
-    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        self.0.serialize(s)
-    }
-}
-impl<'de> Deserialize<'de> for ItemId {
-    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        Identifier::deserialize(d).map(Self)
     }
 }

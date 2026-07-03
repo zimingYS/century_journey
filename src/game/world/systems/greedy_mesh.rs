@@ -1,4 +1,4 @@
-use crate::content::block::properties::RenderMode;
+use crate::content::block::definition::RenderMode;
 use crate::content::constant::world::*;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::systems::{BlockInfoSnapshot, DIRECTIONS, MeshBufferData, MeshBuildInput};

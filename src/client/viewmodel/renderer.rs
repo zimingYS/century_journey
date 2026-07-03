@@ -1,4 +1,4 @@
-use crate::client::renderer::held_render::{
+use crate::client::renderer::held_renderer::{
     HeldItemConfig, HeldRenderDefinition, block_renderer::HeldBlockRenderer,
     flat_item_renderer::HeldFlatItemRenderer, hand_renderer::HandRenderer,
 };
@@ -187,7 +187,7 @@ fn resolve_held_config(
     item: &ItemId,
     item_registry: Option<&ItemRegistry>,
 ) -> Option<HeldItemConfig> {
-    use crate::client::renderer::held_render::HeldItemConfig;
+    use crate::client::renderer::held_renderer::HeldItemConfig;
     use crate::content::item::definition::ItemCategory;
 
     let Some(reg) = item_registry else {
@@ -340,9 +340,10 @@ fn spawn_model_item(
     transform: &Transform,
 ) -> Entity {
     // 通过模型渲染器加载GLTF场景
-    let scene = crate::client::renderer::held_render::model_renderer::HeldModelRenderer::load_model(
-        &mut asset, path,
-    );
+    let scene =
+        crate::client::renderer::held_renderer::model_renderer::HeldModelRenderer::load_model(
+            &mut asset, path,
+        );
     let root = commands
         .spawn((Name::new(format!("HeldModel_{}", path)), *transform))
         .id();

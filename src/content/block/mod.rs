@@ -4,9 +4,9 @@ use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 
 pub mod behavior;
+pub mod definition;
 pub mod event;
 pub mod model;
-pub mod properties;
 pub mod registry;
 pub mod sound;
 pub mod state;

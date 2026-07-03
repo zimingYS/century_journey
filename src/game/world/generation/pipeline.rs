@@ -1,4 +1,4 @@
-use crate::content::biome::definition::BiomeRegistry;
+use crate::content::biome::registry::BiomeRegistry;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::climate::{ClimateConfig, ClimateSampler};
 use crate::game::world::generation::context::ChunkGenContext;

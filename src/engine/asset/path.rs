@@ -15,12 +15,12 @@ impl AssetPathResolver {
     /// 将 AssetId 解析为文件路径。
     /// 示例: `century_journey:block/grass` → `assets/block/grass.png`
     pub fn resolve(&self, id: &AssetId) -> String {
-        format!("{}/{}.png", self.root, id.path)
+        format!("{}/{}.png", self.root, id.path())
     }
 
     /// 将 AssetId 解析为不带扩展名的路径。
     pub fn resolve_raw(&self, id: &AssetId) -> String {
-        format!("{}/{}", self.root, id.path)
+        format!("{}/{}", self.root, id.path())
     }
 }
 

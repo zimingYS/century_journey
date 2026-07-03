@@ -1,4 +1,4 @@
-use crate::content::block::properties::RenderMode;
+use crate::content::block::definition::RenderMode;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::context::ChunkGenContext;

@@ -1,3 +1,4 @@
+use crate::client::ui::widgets::slot::resolve_item_icon;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::icon::IconDefinition;
@@ -117,15 +118,7 @@ pub fn cursor_texture_system(
         for child in children.iter() {
             if let Ok(mut img) = image_query.get_mut(child) {
                 if let Some((item_id, _count)) = &current {
-                    let icon_def = if let Some(reg) = &item_registry {
-                        if let Some(block_id) = reg.block_identifier(item_id) {
-                            Some(IconDefinition::block(block_id))
-                        } else {
-                            reg.get(item_id).map(|def| def.icon.clone())
-                        }
-                    } else {
-                        None
-                    };
+                    let icon_def = resolve_item_icon(item_id, item_registry.as_deref());
 
                     if let Some(icon) = icon_def {
                         match icon {

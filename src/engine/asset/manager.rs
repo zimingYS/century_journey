@@ -107,7 +107,9 @@ impl AssetManager {
     pub(crate) fn process_pending(&mut self, asset_server: &AssetServer, pipeline: &AssetPipeline) {
         for key in std::mem::take(&mut self.pending_textures) {
             let path = asset_id_to_bevy_path(&key);
-            let id = AssetId::parse(&format!("century_journey:{path}"));
+            let id = crate::engine::asset::identifier::asset_id_parse(&format!(
+                "century_journey:{path}"
+            ));
 
             // Pipeline: Resolver → Source → Cache
             let request = AssetRequest::texture(id.clone());
@@ -132,7 +134,9 @@ impl AssetManager {
         }
         for key in std::mem::take(&mut self.pending_fonts) {
             let path = asset_id_to_bevy_path(&key);
-            let id = AssetId::parse(&format!("century_journey:{path}"));
+            let id = crate::engine::asset::identifier::asset_id_parse(&format!(
+                "century_journey:{path}"
+            ));
             let request = AssetRequest::custom(id, "font");
             let (response, _ctx) = pipeline.process(request);
             if response.success {
@@ -206,7 +210,7 @@ impl AssetManager {
                 .unwrap_or(&relative_path);
 
             let asset_path = format!("{dir_path}/{relative_no_ext}");
-            let id = AssetId::default_namespace(&asset_path);
+            let id = crate::engine::asset::identifier::asset_id(&asset_path);
 
             match self.read_json_sync::<T>(&id) {
                 Ok(value) => results.push((asset_path, value)),
@@ -244,9 +248,7 @@ fn asset_id_to_bevy_path(id: &str) -> String {
 }
 
 fn asset_id_to_file_path(id: &AssetId) -> std::path::PathBuf {
-    let s = id.to_string();
-    let cleaned = s.split(':').last().unwrap_or(&s);
-    let path = std::path::PathBuf::from("assets").join(cleaned);
+    let path = std::path::PathBuf::from("assets").join(id.path());
     if path.extension().is_some() {
         path
     } else {

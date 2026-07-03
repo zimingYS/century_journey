@@ -1,3 +1,4 @@
+pub mod biome_selector;
 pub mod climate;
 pub mod context;
 pub mod noise;
@@ -5,7 +6,7 @@ pub mod pipeline;
 pub mod structure;
 pub mod terrain;
 
-use crate::content::biome::definition::BiomeRegistry;
+use crate::content::biome::registry::BiomeRegistry;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::climate::ClimateSampler;
 use crate::game::world::generation::noise::{GenerationBlockIds, NoiseSampler};

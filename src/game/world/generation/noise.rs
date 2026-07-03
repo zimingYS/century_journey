@@ -1,7 +1,8 @@
-use crate::content::biome::definition::BiomeRegistry;
+use crate::content::biome::registry::BiomeRegistry;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::constant::world::*;
 use crate::content::tag::block_tags::TagCache;
+use crate::game::world::generation::biome_selector::{blend_terrain_params, select_biome};
 use crate::game::world::generation::climate::{ClimateSampler, Season};
 use crate::game::world::generation::context::{ChunkGenContext, ColumnContext};
 use bevy::prelude::*;
@@ -48,7 +49,7 @@ impl TerrainGenerator {
 
                 let t = climate_sampler.sample_temperature_with_season(world_x, world_z, season);
                 let h = climate_sampler.sample_humidity_with_season(world_x, world_z, season);
-                let blended = biome_registry.blend_terrain_params(t, h);
+                let blended = blend_terrain_params(biome_registry, t, h);
 
                 sparse_temp[sx][sz] = t;
                 sparse_humid[sx][sz] = h;
@@ -127,7 +128,7 @@ impl TerrainGenerator {
                 let temperature = temp[x + 1][z + 1];
                 let humidity = humid[x + 1][z + 1];
 
-                let biome_index = biome_registry.select_biome(temperature, humidity);
+                let biome_index = select_biome(biome_registry, temperature, humidity);
 
                 let mut smoothed = 0.0;
                 for dx in -1..=1 {

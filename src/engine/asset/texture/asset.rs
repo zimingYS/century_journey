@@ -60,7 +60,7 @@ impl Default for TextureAsset {
         Self {
             handle: Handle::default(),
             metadata: TextureMetadata::default(),
-            asset_id: AssetId::default_namespace(""),
+            asset_id: crate::engine::asset::identifier::asset_id(""),
         }
     }
 }

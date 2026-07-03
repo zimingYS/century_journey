@@ -1,5 +1,4 @@
-use bevy::reflect::erased_serde::__private::serde::{Deserializer, Serializer};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::str::FromStr;
 

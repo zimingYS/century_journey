@@ -1,5 +1,4 @@
 use crate::content::item::definition::{ItemCategory, ItemDefinition};
-use crate::engine::asset::identifier::AssetId;
 use crate::engine::asset::manager::AssetManager;
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
@@ -127,7 +126,7 @@ fn scan_and_load(
             "definitions/items/{}",
             relative.to_str().unwrap_or("").replace('\\', "/")
         );
-        let id = AssetId::default_namespace(&asset_path);
+        let id = crate::engine::asset::identifier::asset_id(&asset_path);
         match asset.read_json_sync::<ItemDefinition>(&id) {
             Ok(def) => {
                 registry.register(def);

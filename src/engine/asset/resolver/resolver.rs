@@ -26,7 +26,7 @@ impl DefaultResolver {
 
 impl AssetResolver for DefaultResolver {
     fn resolve(&self, id: &AssetId) -> Option<String> {
-        Some(format!("{}/{}.png", self.root, id.path))
+        Some(format!("{}/{}.png", self.root, id.path()))
     }
 
     fn name(&self) -> &str {

@@ -93,7 +93,7 @@ pub fn load_item_textures_system(mut commands: Commands, asset_server: Res<Asset
         let texture_asset = TextureAsset::new(
             handle,
             metadata,
-            crate::engine::asset::identifier::AssetId::parse(&identifier),
+            crate::engine::asset::identifier::asset_id_parse(&identifier),
         );
 
         registry.textures.insert(identifier.clone(), texture_asset);

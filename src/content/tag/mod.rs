@@ -1,5 +1,6 @@
 pub mod block_tags;
 pub mod cache;
+pub mod loader;
 pub mod plugin;
 pub mod populate;
 

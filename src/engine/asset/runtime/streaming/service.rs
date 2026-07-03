@@ -1,3 +1,4 @@
+use crate::engine::asset::identifier::asset_id_parse;
 use crate::engine::asset::runtime::context::RuntimeContext;
 use crate::engine::asset::runtime::job::AssetJob;
 use crate::engine::asset::runtime::streaming::priority::StreamPriority;
@@ -33,9 +34,7 @@ impl StreamingService {
         // 记录到 context 的 assets
         ctx.assets.entry(key.to_string()).or_insert_with(|| {
             crate::engine::asset::runtime::context::AssetInfo {
-                id: crate::engine::asset::identifier::AssetId::parse(&format!(
-                    "century_journey:{key}"
-                )),
+                id: asset_id_parse(&format!("century_journey:{key}")),
                 asset_type: String::new(),
                 size_bytes: 0,
                 state: String::new(),

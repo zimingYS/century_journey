@@ -1,4 +1,4 @@
-use crate::content::block::properties::BlockProperty;
+use crate::content::block::definition::BlockProperty;
 use crate::content::block::sound::SoundMaterial;
 use crate::content::block::texture_atlas::build_texture_atlas;
 use crate::content::constant::world::CHUNK_SIZE;

@@ -1,4 +1,4 @@
-use crate::content::biome::definition::BiomeRegistry;
+use crate::content::biome::registry::BiomeRegistry;
 use crate::content::constant::world::{CHUNK_SIZE, SEA_LEVEL};
 use bevy::prelude::*;
 

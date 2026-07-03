@@ -75,6 +75,20 @@ fn layer_to_atlas_index(layer_idx: u32) -> usize {
     (layer_idx as usize) * CHUNK_SIZE * CHUNK_SIZE
 }
 
+/// 统一解析物品图标定义。
+/// 优先查询 BlockRegistry 获取方块别名，再回退到 ItemRegistry 的 icon 字段。
+pub fn resolve_item_icon(
+    item: &ItemId,
+    item_registry: Option<&ItemRegistry>,
+) -> Option<IconDefinition> {
+    let reg = item_registry?;
+    if let Some(block_id) = reg.block_identifier(item) {
+        Some(IconDefinition::block(block_id))
+    } else {
+        reg.get(item).map(|def| def.icon.clone())
+    }
+}
+
 /// 生成空槽位（用于HUD快捷栏初始化）
 pub fn spawn_empty_slot(
     parent: &mut ChildSpawnerCommands,
@@ -192,15 +206,7 @@ pub fn spawn_icon_child(
     item_texture_registry: Option<&ItemTextureRegistry>,
 ) {
     // 确定纹理标识符
-    let icon_def = if let Some(reg) = item_registry {
-        if let Some(block_id) = reg.block_identifier(item) {
-            Some(IconDefinition::block(block_id))
-        } else {
-            reg.get(item).map(|def| def.icon.clone())
-        }
-    } else {
-        None
-    };
+    let icon_def = resolve_item_icon(item, item_registry);
 
     let Some(icon) = icon_def else {
         // 无图标: 隐藏占位
@@ -293,15 +299,7 @@ pub fn sync_slot_icon(
         if item.is_air() {
             commands.entity(icon_entity).insert(Visibility::Hidden);
         } else {
-            let icon_def = if let Some(reg) = item_registry {
-                if let Some(block_id) = reg.block_identifier(item) {
-                    Some(IconDefinition::block(block_id))
-                } else {
-                    reg.get(item).map(|def| def.icon.clone())
-                }
-            } else {
-                None
-            };
+            let icon_def = resolve_item_icon(item, item_registry);
 
             if let Some(icon) = icon_def {
                 match icon {
@@ -347,5 +345,84 @@ pub fn sync_slot_icon(
         } else {
             commands.entity(count_entity).insert(Visibility::Hidden);
         }
+    }
+}
+
+/// 通用快捷栏视觉同步。
+/// 供 creative/survival/HUD 的 hotbar sync 系统复用。
+pub fn sync_hotbar_panel_visuals(
+    state: &crate::game::inventory::state::InventoryState,
+    reg: &BlockRegistry,
+    panel_entity: Entity,
+    children_query: &Query<&Children>,
+    item_registry: Option<&ItemRegistry>,
+    item_texture_registry: Option<&ItemTextureRegistry>,
+    slot_query: &mut Query<(Entity, &InventorySlot, &mut SlotVisual)>,
+    border_query: &mut Query<(&InventorySlot, &mut BorderColor)>,
+    theme: &UiTheme,
+    commands: &mut Commands,
+    last_snapshot: &mut Option<Vec<(crate::shared::item_id::ItemId, u32)>>,
+    force_reset: bool,
+) {
+    use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
+    use crate::shared::item_id::ItemId;
+
+    if force_reset {
+        *last_snapshot = None;
+    }
+
+    let current: Vec<(ItemId, u32)> = (0..HOTBAR_SIZE)
+        .map(|i| {
+            state
+                .hotbar
+                .get_stack(i)
+                .map(|s| (s.item.clone(), s.count))
+                .unwrap_or((ItemId::air(), 0))
+        })
+        .collect();
+
+    let force = last_snapshot.is_none();
+    if !force && last_snapshot.as_ref().map_or(false, |old| old == &current) {
+        return;
+    }
+    *last_snapshot = Some(current.clone());
+
+    if let Ok(children) = children_query.get(panel_entity) {
+        for child in children.iter() {
+            if let Ok((entity, slot, mut visual)) = slot_query.get_mut(child) {
+                if slot.kind != SlotKind::Hotbar {
+                    continue;
+                }
+                let (item, count) = current
+                    .get(slot.index)
+                    .cloned()
+                    .unwrap_or((ItemId::air(), 0));
+                if force || visual.item != item || visual.count != count {
+                    sync_slot_icon(
+                        commands,
+                        entity,
+                        &item,
+                        count,
+                        reg,
+                        children_query,
+                        item_registry,
+                        item_texture_registry,
+                    );
+                    visual.item = item;
+                    visual.count = count;
+                }
+            }
+        }
+    }
+
+    for (slot, mut border) in border_query.iter_mut() {
+        if slot.kind != SlotKind::Hotbar {
+            continue;
+        }
+        *border = BorderColor::all(if slot.index == state.hotbar.active_index {
+            theme.border_selected
+        } else {
+            theme.border_default
+        });
     }
 }

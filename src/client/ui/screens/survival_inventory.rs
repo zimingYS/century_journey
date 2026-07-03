@@ -1,9 +1,10 @@
 use crate::client::ui::components::{
     SurvivalHotbarPanel, SurvivalInventoryOverlay, SurvivalInventoryRoot, SurvivalItemGrid,
 };
+use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
-    InventorySlot, SearchInputState, SlotKind, SlotVisual, spawn_empty_slot, sync_slot_icon,
+    InventorySlot, SlotKind, SlotVisual, spawn_empty_slot, sync_slot_icon,
 };
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
@@ -14,10 +15,13 @@ use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::state::InventoryState;
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
-use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 /// 生成生存背包 UI 结构
-pub fn spawn_survival_inventory_system(mut commands: Commands, theme: Res<UiTheme>) {
+pub fn spawn_survival_inventory_system(
+    mut commands: Commands,
+    theme: Res<UiTheme>,
+    ui_font: Res<UiFont>,
+) {
     commands
         .spawn((
             SurvivalInventoryOverlay,
@@ -66,6 +70,7 @@ pub fn spawn_survival_inventory_system(mut commands: Commands, theme: Res<UiThem
                         header.spawn((
                             Text::new("生存模式背包"),
                             TextFont {
+                                font: FontSource::from(ui_font.default.clone()),
                                 font_size: FontSize::Px(theme.title_font_size),
                                 ..default()
                             },
@@ -111,36 +116,6 @@ fn build_survival_hotbar_panel(root: &mut ChildSpawnerCommands, theme: &UiTheme)
         },
         BorderColor::all(theme.border_default),
     ));
-}
-
-/// 切换背包打开/关闭（E 键 → 路由到此处）
-pub fn toggle_survival_inventory_system(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    search_state: Res<SearchInputState>,
-    mut state: ResMut<InventoryState>,
-    mut cursor_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
-) {
-    if !keyboard.just_pressed(KeyCode::KeyE) {
-        return;
-    }
-    if search_state.active {
-        return;
-    }
-
-    state.toggle();
-
-    let Ok(mut cursor) = cursor_query.single_mut() else {
-        return;
-    };
-    if state.opened {
-        cursor.visible = true;
-        cursor.grab_mode = CursorGrabMode::None;
-    } else {
-        cursor.visible = false;
-        cursor.grab_mode = CursorGrabMode::Locked;
-        // Survival: 尝试放回背包, 不直接丢弃
-        handle_inventory_close(&mut state);
-    }
 }
 
 /// 更新生存背包覆盖层可见性
@@ -287,11 +262,12 @@ pub fn survival_hotbar_visual_sync_system(
         return;
     };
 
-    // 背包打开时强制重置缓存（解决 init 系统延迟创建槽位的时序问题）
-    if state.opened && !*was_opened {
+    let force_reset = state.opened && !*was_opened;
+    *was_opened = state.opened;
+
+    if force_reset {
         *last_hotbar = None;
     }
-    *was_opened = state.opened;
 
     let current: Vec<(ItemId, u32)> = (0..HOTBAR_SIZE)
         .map(|i| {
@@ -332,7 +308,6 @@ pub fn survival_hotbar_visual_sync_system(
         }
     }
 
-    // 边框高亮 — 仅在 active_index 变化时更新
     if *last_active != state.hotbar.active_index {
         *last_active = state.hotbar.active_index;
         for (slot, mut border) in &mut border_query {

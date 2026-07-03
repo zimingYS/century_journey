@@ -1,6 +1,7 @@
-use crate::content::biome::definition::BiomeRegistry;
+use crate::content::biome::registry::BiomeRegistry;
 use crate::content::constant::world::*;
 use crate::game::world::chunk::ChunkData;
+use crate::game::world::generation::biome_selector::{blend_terrain_params, select_biome};
 use crate::game::world::generation::climate::{ClimateSampler, Season};
 use crate::game::world::generation::context::ChunkGenContext;
 use crate::game::world::generation::noise::{GenerationBlockIds, NoiseSampler};
@@ -45,7 +46,7 @@ impl TerrainGenerator {
                 cached_temperature[x][z] = temperature;
                 cached_humidity[x][z] = humidity;
 
-                let blended = biome_registry.blend_terrain_params(temperature, humidity);
+                let blended = blend_terrain_params(biome_registry, temperature, humidity);
 
                 // 采样噪声（统一缩放，与群系无关）
                 let primary = noise_sampler.terrain_primary.get([
@@ -85,7 +86,7 @@ impl TerrainGenerator {
                 let humidity = cached_humidity[x + 1][z + 1];
 
                 // 主要群系（用于 surface_block、tree_density 等）
-                let biome_index = biome_registry.select_biome(temperature, humidity);
+                let biome_index = select_biome(biome_registry, temperature, humidity);
 
                 // 平滑后的高度（在 padded 数组中偏移 +1）
                 let mut smoothed = 0.0;

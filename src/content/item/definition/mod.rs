@@ -59,7 +59,7 @@ pub struct ItemDefinition {
 
     /// 手持渲染配置 (用于第一人称 ViewModel)
     #[serde(default)]
-    pub held_render: HeldRenderDefinition,
+    pub held_renderer: HeldRenderDefinition,
 
     /// 动画配置
     #[serde(default)]
@@ -83,7 +83,7 @@ impl ItemDefinition {
             icon: IconDefinition::block(identifier),
             placeable_block: Some(identifier.to_string()),
             tool: None,
-            held_render: HeldRenderDefinition::Block,
+            held_renderer: HeldRenderDefinition::Block,
             animations: AnimationConfig::default(),
         }
     }

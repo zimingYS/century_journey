@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-pub mod held_render;
+pub mod held_renderer;
 pub mod mesh_cache;
 
 pub struct RenderingPlugin;

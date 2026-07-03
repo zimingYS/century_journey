@@ -12,7 +12,7 @@ use crate::client::ui::theme::category_theme::CategoryTheme;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
     CategoryTab, InventorySlot, SearchInputState, SlotKind, SlotVisual, spawn_slot_with_item,
-    sync_slot_icon,
+    sync_hotbar_panel_visuals, sync_slot_icon,
 };
 use crate::client::ui::widgets::tab::spawn_category_tab;
 use crate::content::block::registry::BlockRegistry;
@@ -20,7 +20,6 @@ use crate::content::item::definition::ItemCategory;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::container::creative::CreativeCategory;
-use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
 use crate::shared::item_id::ItemId;
@@ -469,73 +468,27 @@ pub fn creative_hotbar_visual_sync_system(
     let Some(reg) = block_registry.as_ref() else {
         return;
     };
-
-    // 背包打开时强制重置缓存（解决 init 系统延迟创建槽位的时序问题）
-    if state.opened && !*was_opened {
-        *last_hotbar = None;
-    }
-    *was_opened = state.opened;
-
-    let current: Vec<(ItemId, u32)> = (0..HOTBAR_SIZE)
-        .map(|i| {
-            state
-                .hotbar
-                .get_stack(i)
-                .map(|s| (s.item.clone(), s.count))
-                .unwrap_or((ItemId::air(), 0))
-        })
-        .collect();
-
-    let force = last_hotbar.is_none();
-    let unchanged = !force && last_hotbar.as_ref().map_or(false, |old| old == &current);
-    if unchanged {
-        return;
-    }
-    *last_hotbar = Some(current.clone());
-
-    // 原地更新图标
     let Ok(hotbar_entity) = hotbar_query.single() else {
         return;
     };
-    if let Ok(children) = children_query.get(hotbar_entity) {
-        for child in children.iter() {
-            if let Ok((entity, slot, mut visual)) = slot_query.get_mut(child) {
-                if slot.kind != SlotKind::Hotbar {
-                    continue;
-                }
-                let (item, count) = current
-                    .get(slot.index)
-                    .cloned()
-                    .unwrap_or((ItemId::air(), 0));
-                if force || visual.item != item || visual.count != count {
-                    sync_slot_icon(
-                        &mut commands,
-                        entity,
-                        &item,
-                        count,
-                        reg,
-                        &children_query,
-                        item_registry.as_deref(),
-                        item_texture_registry.as_deref(),
-                    );
-                    visual.item = item;
-                    visual.count = count;
-                }
-            }
-        }
-    }
 
-    // 更新选中边框
-    for (slot, mut border) in &mut border_query {
-        if slot.kind != SlotKind::Hotbar {
-            continue;
-        }
-        *border = BorderColor::all(if slot.index == state.hotbar.active_index {
-            theme.border_selected
-        } else {
-            theme.border_default
-        });
-    }
+    let force_reset = state.opened && !*was_opened;
+    *was_opened = state.opened;
+
+    sync_hotbar_panel_visuals(
+        &state,
+        reg,
+        hotbar_entity,
+        &children_query,
+        item_registry.as_deref(),
+        item_texture_registry.as_deref(),
+        &mut slot_query,
+        &mut border_query,
+        &theme,
+        &mut commands,
+        &mut last_hotbar,
+        force_reset,
+    );
 }
 
 /// 关闭物品栏时清理创造模式快捷栏子实体

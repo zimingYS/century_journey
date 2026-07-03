@@ -14,7 +14,6 @@
     10. 返回最终构建完成的TagRegistry
 */
 
-use crate::engine::asset::identifier::AssetId;
 use crate::engine::asset::manager::AssetManager;
 use crate::shared::tag::identifier::{TagId, TagRegistryType};
 use crate::shared::tag::registry::{TagRegistry, TypedTagRegistry};
@@ -112,7 +111,7 @@ fn scan_tag_dir(
         // 通过 AssetManager 读取
         let relative_str = relative.to_str().unwrap_or("");
         let asset_path = format!("definitions/tags/{}", relative_str.replace('\\', "/"));
-        let id = AssetId::default_namespace(&asset_path);
+        let id = crate::engine::asset::identifier::asset_id(&asset_path);
         let definition = match asset.read_json_sync::<TagDefinition>(&id) {
             Ok(d) => d,
             Err(e) => {

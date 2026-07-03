@@ -1,4 +1,3 @@
-use crate::engine::asset::identifier::AssetId;
 use crate::engine::asset::manager::AssetManager;
 use bevy::prelude::*;
 
@@ -15,7 +14,7 @@ impl HandRenderer {
         materials: &mut ResMut<Assets<StandardMaterial>>,
         asset: &mut AssetManager,
     ) -> Handle<StandardMaterial> {
-        let id = AssetId::default_namespace("textures/player/hand.png");
+        let id = crate::engine::asset::identifier::asset_id("textures/player/hand.png");
         let texture: Handle<Image> = asset.texture(&id).handle;
         materials.add(StandardMaterial {
             base_color_texture: Some(texture),
