@@ -1,61 +1,37 @@
+use crate::shared::identifier::Identifier;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// 标签标识符
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TagId {
-    /// 标签ID
-    namespace: String,
-    /// 标签ID路径
-    path: String,
-}
+pub struct TagId(Identifier);
 
 impl TagId {
-    // 支持自动接收&str等可转为String的类型
     pub fn new(namespace: impl Into<String>, path: impl Into<String>) -> Self {
-        Self {
-            namespace: namespace.into(),
-            path: path.into(),
-        }
+        Self(Identifier::new(namespace, path))
     }
-
     pub fn namespace(&self) -> &str {
-        &self.namespace
+        self.0.namespace()
     }
-
     pub fn path(&self) -> &str {
-        &self.path
+        self.0.path()
     }
-
-    /// 从完整标识符解析成TAG
     pub fn from_full(id: &str) -> Option<Self> {
-        let (namespace, path) = id.split_once(':')?;
-        if namespace.is_empty() || path.is_empty() {
-            return None;
-        }
-        Some(Self::new(namespace, path))
+        Identifier::parse(id).ok().map(Self)
     }
-
-    /// 转为完整标识符字符串
     pub fn to_full(&self) -> String {
-        format!("{}:{}", self.namespace, self.path)
+        self.0.to_string()
     }
-
-    /// 标签引用格式
     pub fn to_reference(&self) -> String {
-        format!("#{}", self.to_full())
+        format!("#{}", self.0)
     }
-
-    /// 从标签引用字符串解析
-    pub fn from_reference(ref_str: &str) -> Option<Self> {
-        let trimmed = ref_str.strip_prefix('#')?;
-        Self::from_full(trimmed)
+    pub fn from_reference(s: &str) -> Option<Self> {
+        s.strip_prefix('#').and_then(Self::from_full)
     }
 }
-
 impl fmt::Display for TagId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}:{}", self.namespace, self.path)
+        write!(f, "{}", self.0)
     }
 }
 

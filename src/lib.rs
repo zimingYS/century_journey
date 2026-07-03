@@ -8,4 +8,3 @@ pub mod game;
 pub mod protocol;
 pub mod server;
 pub mod shared;
-pub mod tests;

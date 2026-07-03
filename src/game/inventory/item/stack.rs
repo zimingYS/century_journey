@@ -1,3 +1,4 @@
+use crate::content::item::ItemRegistry;
 use crate::shared::item_id::ItemId;
 
 // 这边先临时使用全部物品最大堆叠64个
@@ -98,8 +99,8 @@ impl ItemStack {
     }
 
     /// 获取方块标识符引用
-    pub fn as_block_id(&self) -> Option<&str> {
-        self.item.as_block_id()
+    pub fn block_identifier<'a>(&self, item_registry: &'a ItemRegistry) -> Option<&'a str> {
+        item_registry.block_identifier(&self.item)
     }
 
     /// 检查剩余空间（还能合并多少个同种物品）

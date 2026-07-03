@@ -69,6 +69,18 @@ impl ItemRegistry {
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
+
+    /// 该物品是否为方块类物品
+    pub fn is_block(&self, id: &ItemId) -> bool {
+        self.get(id)
+            .map(|def| def.category == ItemCategory::Block)
+            .unwrap_or(false)
+    }
+
+    /// 若为方块类物品，返回对应的方块标识符（用于查 BlockRegistry）
+    pub fn block_identifier(&self, id: &ItemId) -> Option<&str> {
+        self.get(id)?.placeable_block.as_deref()
+    }
 }
 
 /// 从 JSON 文件加载物品定义到 Registry。

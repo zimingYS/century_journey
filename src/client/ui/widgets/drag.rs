@@ -117,10 +117,12 @@ pub fn cursor_texture_system(
         for child in children.iter() {
             if let Ok(mut img) = image_query.get_mut(child) {
                 if let Some((item_id, _count)) = &current {
-                    let icon_def = if let Some(block_id) = item_id.as_block_id() {
-                        Some(IconDefinition::block(block_id))
-                    } else if let Some(ireg) = item_registry.as_ref() {
-                        ireg.get(item_id).map(|def| def.icon.clone())
+                    let icon_def = if let Some(reg) = &item_registry {
+                        if let Some(block_id) = reg.block_identifier(item_id) {
+                            Some(IconDefinition::block(block_id))
+                        } else {
+                            reg.get(item_id).map(|def| def.icon.clone())
+                        }
                     } else {
                         None
                     };

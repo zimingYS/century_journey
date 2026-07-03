@@ -192,11 +192,12 @@ pub fn spawn_icon_child(
     item_texture_registry: Option<&ItemTextureRegistry>,
 ) {
     // 确定纹理标识符
-    let icon_def = if let Some(block_id) = item.as_block_id() {
-        // Block 变体: 直接使用 block_id 作为图标
-        Some(IconDefinition::block(block_id))
-    } else if let Some(reg) = item_registry {
-        reg.get(item).map(|def| def.icon.clone())
+    let icon_def = if let Some(reg) = item_registry {
+        if let Some(block_id) = reg.block_identifier(item) {
+            Some(IconDefinition::block(block_id))
+        } else {
+            reg.get(item).map(|def| def.icon.clone())
+        }
     } else {
         None
     };
@@ -292,10 +293,12 @@ pub fn sync_slot_icon(
         if item.is_air() {
             commands.entity(icon_entity).insert(Visibility::Hidden);
         } else {
-            let icon_def = if let Some(block_id) = item.as_block_id() {
-                Some(IconDefinition::block(block_id))
-            } else if let Some(reg) = item_registry {
-                reg.get(item).map(|def| def.icon.clone())
+            let icon_def = if let Some(reg) = item_registry {
+                if let Some(block_id) = reg.block_identifier(item) {
+                    Some(IconDefinition::block(block_id))
+                } else {
+                    reg.get(item).map(|def| def.icon.clone())
+                }
             } else {
                 None
             };

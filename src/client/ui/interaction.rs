@@ -11,7 +11,7 @@ use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 
 /// 槽位左键/Shift点击交互系统
-/// 使用 Changed<Interaction> + Pressed（仅左键触发 Pressed）
+/// 使用 `Changed<Interaction>` + Pressed（仅左键触发 Pressed）
 pub fn slot_interaction_system(
     query: Query<(&Interaction, &InventorySlot), (Changed<Interaction>, With<Button>)>,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -64,7 +64,7 @@ pub fn slot_right_click_system(
     }
 }
 
-/// Q 丢弃系统（需要持续检测 Hovered 状态，不能用 Changed<Interaction>）
+/// Q 丢弃系统（需要持续检测 Hovered 状态，不能用 `Changed<Interaction>`）
 pub fn slot_q_drop_system(
     query: Query<(&Interaction, &InventorySlot), With<Button>>,
     keyboard: Res<ButtonInput<KeyCode>>,

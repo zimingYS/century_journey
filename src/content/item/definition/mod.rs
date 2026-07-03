@@ -2,6 +2,7 @@ pub mod tool;
 
 use crate::content::item::definition::tool::ToolData;
 use crate::content::item::texture::icon::IconDefinition;
+use crate::content::tag::populate::Taggable;
 use crate::shared::held_item::{AnimationConfig, HeldRenderDefinition};
 use serde::{Deserialize, Serialize};
 
@@ -116,5 +117,14 @@ impl ItemDefinition {
             IconDefinition::Block(id) => Some(id.as_str()),
             IconDefinition::Texture(path) => Some(path.as_str()),
         }
+    }
+}
+
+impl Taggable for ItemDefinition {
+    fn identifier(&self) -> &str {
+        &self.identifier
+    }
+    fn tags(&self) -> &[String] {
+        &self.tags
     }
 }

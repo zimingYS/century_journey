@@ -190,19 +190,20 @@ fn resolve_held_config(
     use crate::client::renderer::held_render::HeldItemConfig;
     use crate::content::item::definition::ItemCategory;
 
+    let Some(reg) = item_registry else {
+        return Some(HeldItemConfig::default_flat(0.04));
+    };
+
     // 方块类物品直接返回默认方块配置
-    if item.is_block() {
+    if reg.is_block(item) {
         return Some(HeldItemConfig::default_block());
     }
 
-    // 若物品注册表已加载，根据物品分类返回对应配置
-    if let Some(reg) = item_registry {
-        if let Some(def) = reg.get(item) {
-            return Some(match def.category {
-                ItemCategory::Tool | ItemCategory::Weapon => HeldItemConfig::default_tool(0.04),
-                _ => HeldItemConfig::default_flat(0.04),
-            });
-        }
+    if let Some(def) = reg.get(item) {
+        return Some(match def.category {
+            ItemCategory::Tool | ItemCategory::Weapon => HeldItemConfig::default_tool(0.04),
+            _ => HeldItemConfig::default_flat(0.04),
+        });
     }
 
     // 未知物品统一用默认平面配置

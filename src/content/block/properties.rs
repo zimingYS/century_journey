@@ -1,6 +1,7 @@
 use crate::content::block::model::BlockModelConfig;
 use crate::content::block::sound::BlockSoundConfig;
 use crate::content::block::state::BlockStateDefinition;
+use crate::content::tag::populate::Taggable;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -88,6 +89,15 @@ impl Default for BlockProperty {
             behavior_type: String::new(),
             tags: Vec::new(),
         }
+    }
+}
+
+impl Taggable for BlockProperty {
+    fn identifier(&self) -> &str {
+        &self.identifier
+    }
+    fn tags(&self) -> &[String] {
+        &self.tags
     }
 }
 

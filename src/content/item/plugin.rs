@@ -15,10 +15,8 @@ pub struct ItemContentPlugin;
 impl Plugin for ItemContentPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ItemRegistry>()
-            // 纹理在 Loading 阶段提前加载
+            // 纹理在 Loading 阶段加载
             .add_systems(OnEnter(AppState::Loading), (load_item_textures_system,))
-            // Startup 时也加载纹理（兼容不同启动路径）
-            .add_systems(Startup, (load_item_textures_system,))
             // 进入游戏后加载物品定义 + 自动生成方块物品
             .add_systems(
                 OnEnter(AppState::InGame),

@@ -190,13 +190,17 @@ impl AssetManager {
     }
 
     /// 递归扫描目录下所有 JSON 文件并解析为 T
+    ///
+    /// `dir_path` 是相对于 assets/ 的逻辑路径（如 "definitions/items"），
+    /// 文件系统扫描时自动添加 "assets/" 前缀。
     pub fn read_json_dir_recursive_sync<T: DeserializeOwned>(
         &self,
         dir_path: &str,
     ) -> Vec<(String, T)> {
         let mut results = Vec::new();
 
-        for (relative_path, _) in self.list_files_recursive(dir_path, "json") {
+        let fs_dir = format!("assets/{dir_path}");
+        for (relative_path, _) in self.list_files_recursive(&fs_dir, "json") {
             let relative_no_ext = relative_path
                 .strip_suffix(".json")
                 .unwrap_or(&relative_path);

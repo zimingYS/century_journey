@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
@@ -172,19 +174,29 @@ pub fn update_creative_filter_system(
     let search = state.creative.search_text.clone();
 
     let mut new_items = if tab == 0 {
-        // "全部"标签页
-        let mut all: Vec<ItemId> = reg
-            .identifier_to_id
-            .keys()
-            .filter(|id| *id != "century_journey:air")
-            .map(|id| ItemId::block(id.as_str()))
-            .collect::<Vec<_>>();
+        // "全部"标签页：方块 + 物品，去重
+        let mut seen = HashSet::new();
+        let mut all: Vec<ItemId> = Vec::new();
 
-        // 追加ItemRegistry中的非Block物品
+        // BlockRegistry 中的方块
+        for id in reg.identifier_to_id.keys() {
+            if id == "century_journey:air" {
+                continue;
+            }
+            let item_id = ItemId::block(id.as_str());
+            if seen.insert(item_id.clone()) {
+                all.push(item_id);
+            }
+        }
+
+        // ItemRegistry 中的物品（包括自动生成方块物品）
         if let Some(item_reg) = item_registry.as_ref() {
             for def in item_reg.all_items() {
-                let item_id = ItemId::item(&def.identifier);
-                if item_id.is_pure_item() {
+                let item_id = match def.category {
+                    ItemCategory::Block => ItemId::block(&def.identifier),
+                    _ => ItemId::item(&def.identifier),
+                };
+                if seen.insert(item_id.clone()) {
                     all.push(item_id);
                 }
             }

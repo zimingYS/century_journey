@@ -2,6 +2,7 @@ use crate::content::block::event::{BlockBreakEvent, BlockInteractEvent, BlockPla
 use crate::content::block::registry::BlockRegistry;
 use crate::content::block::sound::{BlockSoundEvent, SoundAction};
 use crate::content::constant::world::CHUNK_SIZE;
+use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::loot::block_registry::BlockLootRegistry;
 use crate::content::tag::cache::CachedTagCache;
 use crate::game::block::BlockBehaviorRegistry;
@@ -32,6 +33,7 @@ pub struct VoxelEventWriters<'w> {
 pub fn voxel_interaction_system(
     target_voxel: Res<TargetVoxel>,
     registry: Option<Res<BlockRegistry>>,
+    item_registry: Option<Res<ItemRegistry>>,
     behavior_registry: Res<BlockBehaviorRegistry>,
     input_blocked: Res<InputBlocked>,
     mut inventory_state: ResMut<InventoryState>,
@@ -174,8 +176,9 @@ pub fn voxel_interaction_system(
             }
 
             let current_hand_item = inventory_state.hotbar.active_item();
-            let current_hand_identifier = current_hand_item
-                .as_block_id()
+            let current_hand_identifier = item_registry
+                .as_ref()
+                .and_then(|ir| ir.block_identifier(&current_hand_item))
                 .unwrap_or("century_journey:air");
             // 翻译成运行时对应的动态ID
             let Some(block_id) = reg.get_id_by_identifier(current_hand_identifier) else {
