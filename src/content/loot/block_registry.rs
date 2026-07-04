@@ -36,7 +36,7 @@ pub fn init_default_loot_system(
     block_registry: Res<BlockRegistry>,
     mut loot_registry: ResMut<BlockLootRegistry>,
 ) {
-    for (&block_id, identifier) in &block_registry.id_to_identifier {
+    for (&block_id, identifier) in block_registry.id_identifier_pairs() {
         if block_id == 0 {
             continue; // 空气不掉落
         }

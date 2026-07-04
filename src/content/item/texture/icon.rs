@@ -1,3 +1,4 @@
+use crate::shared::identifier::Identifier;
 use serde::{Deserialize, Serialize};
 
 /// 物品图标定义
@@ -6,7 +7,7 @@ use serde::{Deserialize, Serialize};
 pub enum IconDefinition {
     /// 方块图标
     /// 使用方块注册表中方块的纹理
-    Block(String),
+    Block(Identifier),
     /// 独立纹理
     /// 使用独立的纹理路径
     Texture(String),
@@ -15,7 +16,7 @@ pub enum IconDefinition {
 impl IconDefinition {
     /// 从方块标识符创建方块图标
     pub fn block(id: impl Into<String>) -> Self {
-        IconDefinition::Block(id.into())
+        IconDefinition::Block(Identifier::parse(&id.into()).unwrap_or_default())
     }
 
     /// 从路径创建图标
@@ -24,9 +25,9 @@ impl IconDefinition {
     }
 
     /// 获取用于方块注册表纹理查找的方块标识符
-    pub fn as_block_id(&self) -> Option<&str> {
+    pub fn as_block_id(&self) -> Option<&Identifier> {
         match self {
-            IconDefinition::Block(id) => Some(id.as_str()),
+            IconDefinition::Block(id) => Some(id),
             IconDefinition::Texture(_) => None,
         }
     }
@@ -42,6 +43,6 @@ impl IconDefinition {
 
 impl Default for IconDefinition {
     fn default() -> Self {
-        IconDefinition::Block("century_journey:air".into())
+        IconDefinition::Block(Identifier::new("century_journey", "air"))
     }
 }

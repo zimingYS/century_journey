@@ -10,14 +10,8 @@ use std::collections::HashMap;
 /// 具体行为实现和执行由 Game 层负责。
 #[derive(Resource, Default)]
 pub struct BlockBehaviorRegistry {
-    pub behaviors: HashMap<
-        String,
-        Box<
-            dyn crate::content::block::behavior::BlockBehavior<
-                    crate::game::world::storage::WorldStorage,
-                >,
-        >,
-    >,
+    pub behaviors:
+        HashMap<String, Box<dyn BlockBehavior<crate::game::world::storage::WorldStorage>>>,
 }
 
 impl BlockBehaviorRegistry {
@@ -35,7 +29,7 @@ impl BlockBehaviorRegistry {
         id: u16,
         block_registry: &BlockRegistry,
     ) -> &dyn BlockBehavior<crate::game::world::storage::WorldStorage> {
-        let prop = block_registry.id_to_properties.get(&id);
+        let prop = block_registry.get(id);
         match prop {
             Some(p) if !p.behavior_type.is_empty() => self
                 .behaviors

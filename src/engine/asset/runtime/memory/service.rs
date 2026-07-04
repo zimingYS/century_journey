@@ -27,9 +27,6 @@ pub struct MemoryService {
     budget: u64,
     /// 逐出策略
     policy: EvictionPolicy,
-    /// 类型预算
-    #[allow(dead_code)]
-    type_budgets: HashMap<String, u64>,
     /// 自动卸载计数
     unload_count: u32,
     /// 上次 cleanup 时间
@@ -40,16 +37,11 @@ pub struct MemoryService {
 
 impl MemoryService {
     pub fn new(budget: u64, policy: EvictionPolicy) -> Self {
-        let mut type_budgets = HashMap::new();
-        type_budgets.insert("texture".into(), 512 * 1024 * 1024);
-        type_budgets.insert("audio".into(), 256 * 1024 * 1024);
-        type_budgets.insert("shader".into(), 128 * 1024 * 1024);
         Self {
             sizes: HashMap::new(),
             current_usage: 0,
             budget,
             policy,
-            type_budgets,
             unload_count: 0,
             last_cleanup: 0.0,
             cleanup_interval: 5.0,

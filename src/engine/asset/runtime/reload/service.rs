@@ -5,14 +5,8 @@ use std::collections::HashMap;
 /// 热重载状态
 #[derive(Debug, Clone)]
 struct ReloadState {
-    /// 旧 Handle（等待替换）
-    #[allow(dead_code)]
-    old_handle_exists: bool,
     /// 新 Handle 是否已加载
     new_loaded: bool,
-    /// 重载时间戳
-    #[allow(dead_code)]
-    timestamp: f64,
 }
 
 /// 热重载服务（原子替换版）
@@ -69,14 +63,8 @@ impl ReloadService {
                         let key = path.to_string_lossy().to_string();
                         if !self.reload_states.contains_key(&key) {
                             changed.push(key.clone());
-                            self.reload_states.insert(
-                                key,
-                                ReloadState {
-                                    old_handle_exists: true,
-                                    new_loaded: false,
-                                    timestamp: now,
-                                },
-                            );
+                            self.reload_states
+                                .insert(key, ReloadState { new_loaded: false });
                         }
                     }
                 }

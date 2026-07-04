@@ -120,6 +120,5 @@ pub mod resources;
 pub mod states;
 pub mod tag;
 pub mod time;
-pub mod types;
 pub mod ui_types;
 pub mod util;

@@ -114,9 +114,9 @@ pub fn receive_mesh_results(
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
 ) {
     let Some(reg) = registry else { return };
-    let opaque_mat = reg.opaque_material.clone();
-    let cutout_mat = reg.cutout_material.clone();
-    let transparent_mat = reg.transparent_material.clone();
+    let opaque_mat = reg.opaque_material().clone();
+    let cutout_mat = reg.cutout_material().clone();
+    let transparent_mat = reg.transparent_material().clone();
 
     let receiver = channel.receiver.lock().unwrap();
     let mut received = 0usize;

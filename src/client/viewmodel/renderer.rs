@@ -41,15 +41,13 @@ pub fn view_model_sync_system(
         .map(|s| s.item.clone())
         .unwrap_or(ItemId::air());
 
-    // 将物品ID转为字符串标识
-    let item_str = if item.is_air() {
-        "air".to_string()
-    } else {
-        item.to_string()
-    };
+    // 将物品ID转为字符串标识（用于日志和纹理查找）
+    let item_identifier = item.identifier();
+    let is_air = item.is_air();
 
     // 若当前渲染的物品与选中物品一致，直接跳过
-    if render_state.current_item.as_deref() == Some(&item_str) && render_state.held_entity.is_some()
+    if render_state.current_item.as_ref() == Some(item_identifier)
+        && render_state.held_entity.is_some()
     {
         return;
     }
@@ -72,8 +70,8 @@ pub fn view_model_sync_system(
     );
 
     // 更新渲染状态中的当前物品标记
-    if item.is_air() {
-        render_state.current_item = Some(item_str);
+    if is_air {
+        render_state.current_item = Some(item_identifier.clone());
         return;
     }
 
@@ -86,10 +84,11 @@ pub fn view_model_sync_system(
 
     info!(
         "[视图模型] 生成: item={} render={:?} pos={:.2?}",
-        item_str, config.render, transform.translation,
+        item_identifier, config.render, transform.translation,
     );
 
     // 根据类型，生成对应手持实体
+    let item_str = item_identifier.to_string();
     let held_entity = match &config.render {
         // 方块
         HeldRenderDefinition::Block => {
@@ -139,10 +138,10 @@ pub fn view_model_sync_system(
     // 为生成的手持实体添加标记组件
     if let Some(e) = held_entity {
         commands.entity(e).insert(HeldItemEntity {
-            item_identifier: item_str.clone(),
+            item_identifier: item_identifier.clone(),
         });
 
-        render_state.current_item = Some(item_str);
+        render_state.current_item = Some(item_identifier.clone());
         render_state.held_entity = Some(e);
     } else {
         // 图片可能尚未加载，下一帧继续尝试
@@ -264,7 +263,7 @@ fn spawn_flat_item(
     parent: Entity,
     tex_key: &str,
     config: &HeldItemConfig,
-    item_str: &str,
+    item_name: &str,
     transform: &Transform,
 ) -> Option<Entity> {
     // 从配置中提取挤出厚度
@@ -314,7 +313,7 @@ fn spawn_flat_item(
 
     // 生成根节点实体
     let root = commands
-        .spawn((Name::new(format!("HeldFlat_{}", item_str)), *transform))
+        .spawn((Name::new(format!("HeldFlat_{}", item_name)), *transform))
         .id();
     commands.entity(parent).add_child(root);
     // 生成平面网格子实体

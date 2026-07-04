@@ -37,7 +37,7 @@ impl HeldBlockRenderer {
         block_registry: &BlockRegistry,
     ) -> Handle<StandardMaterial> {
         materials.add(StandardMaterial {
-            base_color_texture: Some(block_registry.base_texture.clone()),
+            base_color_texture: Some(block_registry.base_texture().clone()),
             perceptual_roughness: 0.85,
             ..default()
         })

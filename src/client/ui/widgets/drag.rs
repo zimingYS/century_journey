@@ -124,9 +124,9 @@ pub fn cursor_texture_system(
                         match icon {
                             IconDefinition::Block(id) => {
                                 if let Some(atlas_idx) = block_reg.get_icon_atlas_index(&id) {
-                                    img.image = block_reg.base_texture.clone();
+                                    img.image = block_reg.base_texture().clone();
                                     img.texture_atlas = Some(TextureAtlas {
-                                        layout: block_reg.atlas_layout.clone(),
+                                        layout: block_reg.atlas_layout().clone(),
                                         index: atlas_idx,
                                     });
                                 }

@@ -178,7 +178,7 @@ pub fn update_creative_filter_system(
         let mut all: Vec<ItemId> = Vec::new();
 
         // BlockRegistry 中的方块
-        for id in reg.identifier_to_id.keys() {
+        for id in reg.identifiers() {
             if id == "century_journey:air" {
                 continue;
             }

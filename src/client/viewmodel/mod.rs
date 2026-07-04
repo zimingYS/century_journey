@@ -1,3 +1,4 @@
+use crate::shared::identifier::Identifier;
 use bevy::prelude::*;
 
 pub mod animation;
@@ -10,7 +11,7 @@ pub struct ViewModelRoot;
 /// 当前手持物品实体标记
 #[derive(Component)]
 pub struct HeldItemEntity {
-    pub item_identifier: String,
+    pub item_identifier: Identifier,
 }
 
 /// 动画状态组件
@@ -38,7 +39,7 @@ impl Default for ViewModelAnimator {
 pub struct ViewModelRenderState {
     pub held_entity: Option<Entity>,
     pub hand_entity: Option<Entity>,
-    pub current_item: Option<String>,
+    pub current_item: Option<Identifier>,
 }
 
 /// 动画类型

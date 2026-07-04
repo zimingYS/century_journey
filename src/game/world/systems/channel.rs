@@ -101,25 +101,24 @@ impl BlockInfoSnapshot {
         let water_id = registry
             .get_id_by_identifier("century_journey:water")
             .unwrap_or(0);
-        let total_layers = registry
-            .texture_layers
-            .values()
-            .map(|&v| v + 1)
-            .max()
-            .unwrap_or(1);
+        let total_layers = registry.total_layer_count().max(1) as u32;
 
-        let max_id = registry.id_to_properties.keys().copied().max().unwrap_or(0);
+        let max_id = registry
+            .iter_properties()
+            .map(|(&id, _)| id)
+            .max()
+            .unwrap_or(0);
         let mut is_solid = vec![false; (max_id + 1) as usize];
         let mut render_modes = vec![RenderMode::Opaque; (max_id + 1) as usize];
 
-        for (&id, prop) in &registry.id_to_properties {
+        for (&id, prop) in registry.iter_properties() {
             is_solid[id as usize] = prop.is_solid;
             render_modes[id as usize] = prop.render_mode;
         }
 
         let layer_count = (max_id as usize + 1) * 6;
         let mut flat_layers = vec![0u32; layer_count].into_boxed_slice();
-        for (&(id, face), &layer) in &registry.texture_layers {
+        for (&(id, face), &layer) in registry.texture_layers_iter() {
             let idx = id as usize * 6 + face;
             if idx < layer_count {
                 flat_layers[idx] = layer;

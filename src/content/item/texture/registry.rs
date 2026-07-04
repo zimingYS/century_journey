@@ -1,5 +1,6 @@
 use crate::engine::asset::texture::TextureAsset;
 use crate::engine::asset::texture::TextureMetadata;
+use crate::shared::identifier::Identifier;
 use bevy::image::ImageLoaderSettings;
 use bevy::image::ImageSampler;
 use bevy::prelude::*;
@@ -12,18 +13,20 @@ use std::path::PathBuf;
 /// 启动时扫描 assets/textures/items/ 下所有 PNG，通过 AssetManager 加载。
 #[derive(Resource, Default)]
 pub struct ItemTextureRegistry {
-    textures: HashMap<String, TextureAsset>,
+    textures: HashMap<Identifier, TextureAsset>,
 }
 
 impl ItemTextureRegistry {
-    /// 获取纹理句柄（向后兼容）
+    /// 获取纹理句柄（通过标识符字符串）
     pub fn get_handle(&self, identifier: &str) -> Option<&Handle<Image>> {
-        self.textures.get(identifier).map(|a| &a.handle)
+        let key = Identifier::parse(identifier).unwrap_or_default();
+        self.textures.get(&key).map(|a| &a.handle)
     }
 
-    /// 获取完整 TextureAsset
+    /// 获取完整 TextureAsset（通过标识符字符串）
     pub fn get(&self, identifier: &str) -> Option<&TextureAsset> {
-        self.textures.get(identifier)
+        let key = Identifier::parse(identifier).unwrap_or_default();
+        self.textures.get(&key)
     }
 
     pub fn len(&self) -> usize {
@@ -62,7 +65,7 @@ pub fn load_item_textures_system(mut commands: Commands, asset_server: Res<Asset
             .and_then(|s| s.to_str())
             .unwrap_or("unknown");
 
-        let identifier = format!("century_journey:{}", stem);
+        let identifier = Identifier::new("century_journey", stem);
 
         if path.metadata().map(|m| m.len() == 0).unwrap_or(true) {
             warn!("[ItemTexture] 空文件跳过: {}", path.display());
@@ -90,11 +93,7 @@ pub fn load_item_textures_system(mut commands: Commands, asset_server: Res<Asset
             })
             .unwrap_or_default();
 
-        let texture_asset = TextureAsset::new(
-            handle,
-            metadata,
-            crate::engine::asset::identifier::asset_id_parse(&identifier),
-        );
+        let texture_asset = TextureAsset::new(handle, metadata, identifier.clone());
 
         registry.textures.insert(identifier.clone(), texture_asset);
         loaded += 1;

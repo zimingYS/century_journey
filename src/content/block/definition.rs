@@ -19,9 +19,6 @@ pub struct BlockProperty {
     pub textures: BlockTextureConfig,
     /// 硬度（破坏时间 = 硬度 × 基础时间）
     pub hardness: f32,
-    /// 动态分配id
-    #[serde(skip)]
-    pub runtime_id: u16,
 
     /// 是否拥有物理碰撞
     #[serde(default)]
@@ -79,7 +76,6 @@ impl Default for BlockProperty {
             light_emission: 0,
             textures: BlockTextureConfig::default(),
             hardness: 1.0,
-            runtime_id: 0,
             model: BlockModelConfig::default(),
             sound: BlockSoundConfig::default(),
             states: BlockStateDefinition::default(),

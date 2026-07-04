@@ -1,6 +1,6 @@
+use crate::client::renderer::tex_atlas::build_texture_atlas;
 use crate::content::block::definition::BlockProperty;
 use crate::content::block::sound::SoundMaterial;
-use crate::content::block::texture_atlas::build_texture_atlas;
 use crate::content::constant::world::CHUNK_SIZE;
 use crate::engine::asset::manager::AssetManager;
 use crate::shared::identifier::Identifier;
@@ -11,25 +11,25 @@ use std::collections::HashMap;
 #[derive(Resource, Default)]
 pub struct BlockRegistry {
     /// 根据运行时分配的动态ID查找属性
-    pub id_to_properties: HashMap<u16, BlockProperty>,
+    id_to_properties: HashMap<u16, BlockProperty>,
     /// 通过唯一名标识进行查找动态ID
-    pub identifier_to_id: HashMap<Identifier, u16>,
+    identifier_to_id: HashMap<Identifier, u16>,
     /// 反向映射：通过动态ID查找唯一名标识
-    pub id_to_identifier: HashMap<u16, Identifier>,
-    /// 纹理映射
-    pub texture_layers: HashMap<(u16, usize), u32>,
+    id_to_identifier: HashMap<u16, Identifier>,
+    /// 纹理映射 {(block_id, face_idx) -> layer_id}
+    texture_layers: HashMap<(u16, usize), u32>,
     /// 保存基础长条图集纹理
-    pub base_texture: Handle<Image>,
+    base_texture: Handle<Image>,
     /// 保存图集布局句柄
-    pub atlas_layout: Handle<TextureAtlasLayout>,
+    atlas_layout: Handle<TextureAtlasLayout>,
     /// 不透明材质
-    pub opaque_material: Handle<StandardMaterial>,
+    opaque_material: Handle<StandardMaterial>,
     /// 镂空材质
-    pub cutout_material: Handle<StandardMaterial>,
+    cutout_material: Handle<StandardMaterial>,
     /// 透明材质
-    pub transparent_material: Handle<StandardMaterial>,
+    transparent_material: Handle<StandardMaterial>,
     /// 音效路径
-    pub sound_paths: HashMap<SoundMaterial, SoundPaths>,
+    sound_paths: HashMap<SoundMaterial, SoundPaths>,
 }
 
 /// 某种音效材质的所有音效路径
@@ -83,9 +83,9 @@ impl BlockRegistry {
     }
 
     /// 查询方块图标对应的图集 tile index (仅 Block 图标)
-    pub fn get_icon_atlas_index(&self, block_id: &str) -> Option<usize> {
-        let runtime_id = self.get_id_by_identifier(block_id)?;
-        let layer = self.get_layer(runtime_id, 4) as usize;
+    pub fn get_icon_atlas_index(&self, block_id: &Identifier) -> Option<usize> {
+        let runtime_id = *self.identifier_to_id.get(block_id)? as usize;
+        let layer = self.get_layer(runtime_id as u16, 4) as usize;
         Some(layer * CHUNK_SIZE * CHUNK_SIZE)
     }
 
@@ -114,6 +114,97 @@ impl BlockRegistry {
             // 加载时未映射的 ID 会被替换为空气
         }
         remap
+    }
+
+    // ─── 属性访问 ────────────────────────────────────────
+    /// 按 ID 遍历所有方块属性
+    pub fn iter_properties(&self) -> impl Iterator<Item = (&u16, &BlockProperty)> {
+        self.id_to_properties.iter()
+    }
+
+    /// 获取所有已注册方块标识符的迭代器
+    pub fn identifiers(&self) -> impl Iterator<Item = &Identifier> {
+        self.identifier_to_id.keys()
+    }
+
+    /// 获取所有纹理层映射的迭代器
+    pub fn texture_layers_iter(&self) -> impl Iterator<Item = (&(u16, usize), &u32)> {
+        self.texture_layers.iter()
+    }
+
+    /// 遍历所有 ID→标识符 映射
+    pub fn id_identifier_pairs(&self) -> impl Iterator<Item = (&u16, &Identifier)> {
+        self.id_to_identifier.iter()
+    }
+
+    // ─── 渲染资源访问 ────────────────────────────────────
+    /// 获取基础纹理图集 Handle
+    pub fn base_texture(&self) -> &Handle<Image> {
+        &self.base_texture
+    }
+
+    /// 获取图集布局 Handle
+    pub fn atlas_layout(&self) -> &Handle<TextureAtlasLayout> {
+        &self.atlas_layout
+    }
+
+    /// 设置基础纹理图集 Handle
+    pub fn set_base_texture(&mut self, handle: Handle<Image>) {
+        self.base_texture = handle;
+    }
+
+    /// 设置图集布局 Handle
+    pub fn set_atlas_layout(&mut self, layout: Handle<TextureAtlasLayout>) {
+        self.atlas_layout = layout;
+    }
+
+    /// 获取指定渲染模式的材质 Handle
+    pub fn material(
+        &self,
+        mode: crate::content::block::definition::RenderMode,
+    ) -> &Handle<StandardMaterial> {
+        match mode {
+            crate::content::block::definition::RenderMode::Opaque => &self.opaque_material,
+            crate::content::block::definition::RenderMode::Transparent => {
+                &self.transparent_material
+            }
+            _ => &self.cutout_material,
+        }
+    }
+
+    /// 获取不透明材质 Handle
+    pub fn opaque_material(&self) -> &Handle<StandardMaterial> {
+        &self.opaque_material
+    }
+
+    /// 获取镂空材质 Handle
+    pub fn cutout_material(&self) -> &Handle<StandardMaterial> {
+        &self.cutout_material
+    }
+
+    /// 获取透明材质 Handle
+    pub fn transparent_material(&self) -> &Handle<StandardMaterial> {
+        &self.transparent_material
+    }
+
+    /// 设置不透明材质 Handle
+    pub fn set_opaque_material(&mut self, handle: Handle<StandardMaterial>) {
+        self.opaque_material = handle;
+    }
+
+    /// 设置镂空材质 Handle
+    pub fn set_cutout_material(&mut self, handle: Handle<StandardMaterial>) {
+        self.cutout_material = handle;
+    }
+
+    /// 设置透明材质 Handle
+    pub fn set_transparent_material(&mut self, handle: Handle<StandardMaterial>) {
+        self.transparent_material = handle;
+    }
+
+    /// 获取所有纹理层中最大的层索引 + 1
+    pub fn max_texture_layer(&self) -> u32 {
+        self.texture_layers.values().copied().max().unwrap_or(0) + 1
     }
 
     /// 注册内置音效路径
@@ -256,10 +347,7 @@ fn register_blocks(
         .position(|p| p.identifier == "century_journey:air")
     {
         // 从配置列表中移除空气方块
-        let mut air_block = raw_configs.remove(air_idx);
-
-        // 强制空气方块运行时ID为0
-        air_block.runtime_id = 0;
+        let air_block = raw_configs.remove(air_idx);
 
         // 注册方块标识符
         registry
@@ -284,10 +372,8 @@ fn register_blocks(
 
     // 处理其余所有普通方块
     let mut current_max_id = 1u16;
-    for mut block in raw_configs {
+    for block in raw_configs {
         let assigned_id = current_max_id;
-        // 设置方块运行时ID
-        block.runtime_id = assigned_id;
 
         // 注册标识符与ID映射
         registry

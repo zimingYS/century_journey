@@ -13,6 +13,9 @@ use bevy::prelude::default;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 /// 构建纹理图集
+///
+/// 将方块贴图拼合为 GPU 纹理图集，创建材质和布局。
+/// 属于客户端渲染资源构建，从 content/ 迁移至此以保证 Content 层不依赖 GPU 类型。
 pub fn build_texture_atlas(
     registry: &mut BlockRegistry,
     unique_paths: &[String],
@@ -99,41 +102,41 @@ pub fn build_texture_atlas(
 
     // 将生成的图集添加到资源管理器，保存到方块注册表
     let texture_handle = images.add(array_image);
-    registry.base_texture = texture_handle.clone();
+    registry.set_base_texture(texture_handle.clone());
 
     // 创建并保存纹理图集布局
-    registry.atlas_layout = layouts.add(TextureAtlasLayout::from_grid(
+    registry.set_atlas_layout(layouts.add(TextureAtlasLayout::from_grid(
         UVec2::splat(TILE_SIZE),
         CHUNK_SIZE as u32,
         layer_count * CHUNK_SIZE as u32,
         None,
         None,
-    ));
+    )));
 
     // 创建不透明方块材质
-    registry.opaque_material = materials.add(StandardMaterial {
+    registry.set_opaque_material(materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
         perceptual_roughness: 0.85,
         ..default()
-    });
+    }));
 
     // 创建镂空（树叶等）方块材质
-    registry.cutout_material = materials.add(StandardMaterial {
+    registry.set_cutout_material(materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
         perceptual_roughness: 0.85,
         alpha_mode: AlphaMode::Mask(0.5),
         ..default()
-    });
+    }));
 
     // 创建透明混合（玻璃等）方块材质
-    registry.transparent_material = materials.add(StandardMaterial {
+    registry.set_transparent_material(materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle),
         base_color: Color::srgba(1.0, 1.0, 1.0, 0.85),
         perceptual_roughness: 0.2,
         metallic: 0.05,
         alpha_mode: AlphaMode::Blend,
         ..default()
-    });
+    }));
 }
 
 /// 创建紫黑格缺失贴图占位符
@@ -142,9 +145,9 @@ fn create_missing_texture_placeholder() -> image::RgbaImage {
     for y in 0..TILE_SIZE {
         for x in 0..TILE_SIZE {
             let color = if (x / 4 + y / 4) % 2 == 0 {
-                image::Rgba([255, 0, 255, 255]) // 紫色
+                image::Rgba([255, 0, 255, 255])
             } else {
-                image::Rgba([0, 0, 0, 255]) // 黑色
+                image::Rgba([0, 0, 0, 255])
             };
             img.put_pixel(x, y, color);
         }

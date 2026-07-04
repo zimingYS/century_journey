@@ -10,7 +10,6 @@ pub mod model;
 pub mod registry;
 pub mod sound;
 pub mod state;
-pub mod texture_atlas;
 
 pub struct VoxelPlugin;
 

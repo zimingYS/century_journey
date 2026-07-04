@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 pub mod held_renderer;
 pub mod mesh_cache;
+pub mod tex_atlas;
 
 pub struct RenderingPlugin;
 

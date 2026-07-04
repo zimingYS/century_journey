@@ -6,8 +6,8 @@ use std::collections::HashMap;
 /// 生物群系注册表
 #[derive(Resource, Default, Clone)]
 pub struct BiomeRegistry {
-    pub biomes: Vec<BiomeDefinition>,
-    pub identifier_to_index: HashMap<Identifier, u8>,
+    biomes: Vec<BiomeDefinition>,
+    identifier_to_index: HashMap<Identifier, u8>,
 }
 
 impl BiomeRegistry {
@@ -121,6 +121,16 @@ impl BiomeRegistry {
 
     pub fn get(&self, index: u8) -> Option<&BiomeDefinition> {
         self.biomes.get(index as usize)
+    }
+
+    /// 遍历所有已注册群系
+    pub fn biomes_iter(&self) -> impl Iterator<Item = (usize, &BiomeDefinition)> {
+        self.biomes.iter().enumerate()
+    }
+
+    /// 已注册群系数量
+    pub fn len(&self) -> usize {
+        self.biomes.len()
     }
 
     pub fn get_index(&self, identifier: &str) -> Option<u8> {

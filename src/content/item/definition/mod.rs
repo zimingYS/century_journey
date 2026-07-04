@@ -113,10 +113,10 @@ impl ItemDefinition {
     }
 
     /// 获取用于渲染的纹理标识符
-    pub fn texture_key(&self) -> Option<&str> {
+    pub fn texture_key(&self) -> Option<&Identifier> {
         match &self.icon {
-            IconDefinition::Block(id) => Some(id.as_str()),
-            IconDefinition::Texture(path) => Some(path.as_str()),
+            IconDefinition::Block(id) => Some(id),
+            IconDefinition::Texture(_) => None,
         }
     }
 }

@@ -1,79 +1,18 @@
+pub mod components;
+
+pub use crate::shared::ui_types::{SearchInputState, SlotKind};
+pub use components::{
+    CategoryClickedEvent, CategoryTab, CreativeSearchInput, InventorySlot, SlotCountText, SlotIcon,
+    SlotInteractionEvent, SlotVisual,
+};
+
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::content::block::registry::BlockRegistry;
-use crate::content::constant::world::CHUNK_SIZE;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::icon::IconDefinition;
 use crate::content::item::texture::registry::ItemTextureRegistry;
-use crate::game::inventory::slot::SlotAction;
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
-
-/// 槽位
-#[derive(Component, Debug, Clone, Copy)]
-pub struct InventorySlot {
-    pub kind: SlotKind,
-    pub index: usize,
-}
-
-pub use crate::shared::ui_types::{SearchInputState, SlotKind};
-
-/// 槽位图标子实体标记
-#[derive(Component)]
-pub struct SlotIcon;
-
-/// 槽位数量文本子实体标记
-#[derive(Component)]
-pub struct SlotCountText;
-
-/// 槽位的视觉状态缓存
-#[derive(Component, Debug, Clone)]
-pub struct SlotVisual {
-    pub item: ItemId,
-    pub count: u32,
-}
-
-/// 默认槽位为空气
-impl Default for SlotVisual {
-    fn default() -> Self {
-        Self {
-            item: ItemId::air(),
-            count: 0,
-        }
-    }
-}
-
-/// 分类标签按钮
-#[derive(Component, Debug, Clone, Copy)]
-pub struct CategoryTab {
-    pub category_index: usize,
-}
-
-/// 搜索框标记
-#[derive(Component)]
-pub struct CreativeSearchInput;
-
-/// 搜索状态 — 已迁移到 shared/ui_types.rs，此类型通过上方 re-export 提供。
-#[deprecated(note = "请使用 SlotInteractionEvent")]
-pub type SlotClickedEvent = SlotInteractionEvent;
-
-/// 槽位点击事件
-#[derive(Message, Debug)]
-pub struct SlotInteractionEvent {
-    pub kind: SlotKind,
-    pub index: usize,
-    pub action: SlotAction,
-}
-
-/// 分类切换事件
-#[derive(Message, Debug)]
-pub struct CategoryClickedEvent {
-    pub category_index: usize,
-}
-
-#[allow(dead_code)]
-fn layer_to_atlas_index(layer_idx: u32) -> usize {
-    (layer_idx as usize) * CHUNK_SIZE * CHUNK_SIZE
-}
 
 /// 统一解析物品图标定义。
 /// 优先查询 BlockRegistry 获取方块别名，再回退到 ItemRegistry 的 icon 字段。
@@ -241,9 +180,9 @@ pub fn spawn_icon_child(
             parent.spawn((
                 SlotIcon,
                 ImageNode {
-                    image: block_registry.base_texture.clone(),
+                    image: block_registry.base_texture().clone(),
                     texture_atlas: Some(TextureAtlas {
-                        layout: block_registry.atlas_layout.clone(),
+                        layout: block_registry.atlas_layout().clone(),
                         index: atlas_idx,
                     }),
                     ..default()
@@ -308,9 +247,9 @@ pub fn sync_slot_icon(
                             commands.entity(icon_entity).insert((
                                 Visibility::Inherited,
                                 ImageNode {
-                                    image: block_registry.base_texture.clone(),
+                                    image: block_registry.base_texture().clone(),
                                     texture_atlas: Some(TextureAtlas {
-                                        layout: block_registry.atlas_layout.clone(),
+                                        layout: block_registry.atlas_layout().clone(),
                                         index: atlas_idx,
                                     }),
                                     ..default()

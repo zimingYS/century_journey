@@ -112,7 +112,7 @@ pub fn auto_generate_block_items_system(
     }
 
     let mut count = 0usize;
-    for identifier in reg.identifier_to_id.keys() {
+    for identifier in reg.identifiers() {
         if identifier == "century_journey:air" {
             continue;
         }

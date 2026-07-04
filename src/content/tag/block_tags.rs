@@ -41,7 +41,7 @@ pub fn auto_populate_from_block_tags(
     let typed = tag_registry.get_or_create_registry(TagRegistryType::Block);
     let mut added = 0usize;
 
-    for (identifier, _runtime_id) in &block_registry.identifier_to_id {
+    for identifier in block_registry.identifiers() {
         if identifier == "century_journey:air" {
             continue;
         }

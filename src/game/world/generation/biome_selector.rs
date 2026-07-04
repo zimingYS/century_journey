@@ -6,7 +6,7 @@ pub fn select_biome(biome_registry: &BiomeRegistry, temperature: f64, humidity: 
     let mut best_index = 0u8;
     let mut best_score = f64::MAX;
 
-    for (idx, biome) in biome_registry.biomes.iter().enumerate() {
+    for (idx, biome) in biome_registry.biomes_iter() {
         let temp_center = (biome.temperature_range.0 + biome.temperature_range.1) * 0.5;
         let humid_center = (biome.humidity_range.0 + biome.humidity_range.1) * 0.5;
         let temp_dist = (temperature - temp_center).abs();
@@ -34,7 +34,7 @@ pub fn blend_terrain_params(
         roughness: 0.0,
     };
 
-    for biome in &biome_registry.biomes {
+    for (_, biome) in biome_registry.biomes_iter() {
         let temp_center = (biome.temperature_range.0 + biome.temperature_range.1) * 0.5;
         let humid_center = (biome.humidity_range.0 + biome.humidity_range.1) * 0.5;
         let temp_dist = (temperature - temp_center).abs();
