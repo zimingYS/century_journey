@@ -34,38 +34,3 @@ impl fmt::Display for TagId {
         write!(f, "{}", self.0)
     }
 }
-
-/// 标签注册表类型
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
-pub enum TagRegistryType {
-    Block,
-    Item,
-    Biome,
-    Fluid,
-    // 其他
-    Custom(String),
-}
-
-impl TagRegistryType {
-    /// 根据目录名进行标签分类
-    pub fn from_dir_name(dir: &str) -> Self {
-        match dir {
-            "block" => Self::Block,
-            "item" => Self::Item,
-            "biome" => Self::Biome,
-            "fluid" => Self::Fluid,
-            _ => Self::Custom(dir.to_owned()),
-        }
-    }
-
-    /// 根据标签转换为目录名进行分类
-    pub fn to_dir_name(&self) -> &str {
-        match self {
-            Self::Block => "block",
-            Self::Item => "item",
-            Self::Biome => "biome",
-            Self::Fluid => "fluid",
-            Self::Custom(dir) => dir.as_str(),
-        }
-    }
-}

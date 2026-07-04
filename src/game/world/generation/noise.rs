@@ -1,11 +1,12 @@
 use crate::content::biome::registry::BiomeRegistry;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::constant::world::*;
-use crate::content::tag::block_tags::TagCache;
+use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::world::generation::biome_selector::{blend_terrain_params, select_biome};
 use crate::game::world::generation::climate::{ClimateSampler, Season};
 use crate::game::world::generation::context::{ChunkGenContext, ColumnContext};
 use crate::shared::identifier::Identifier;
+use crate::shared::tag::identifier::TagId;
 use bevy::prelude::*;
 use noise::{NoiseFn, Perlin};
 use std::collections::HashSet;
@@ -179,7 +180,11 @@ pub struct GenerationBlockIds {
 
 impl GenerationBlockIds {
     /// 游戏在调用生成前，从 Bevy 的中央注册表中一次性把名字翻译成数字 ID
-    pub fn from_registry(registry: &BlockRegistry, tag_cache: &TagCache) -> Self {
+    pub fn from_registry(registry: &BlockRegistry, tag_registry: &RuntimeTagRegistry) -> Self {
+        let tree_plantable_tag = TagId::new("century_journey", "tree_plantable");
+        let natural_tag = TagId::new("century_journey", "natural");
+        let overworld_replaceable_tag = TagId::new("century_journey", "overworld_replaceable");
+
         Self {
             air: 0,
             grass: registry
@@ -206,23 +211,22 @@ impl GenerationBlockIds {
             wood: registry
                 .get_id_by_identifier("century_journey:wood")
                 .unwrap_or(0),
-            tree_plantable_ids: tag_cache
-                .get_block_tag_ids("century_journey:tree_plantable")
+            tree_plantable_ids: tag_registry
+                .get_ids(&tree_plantable_tag)
                 .cloned()
                 .unwrap_or_else(|| {
-                    // 标签不存在时回退：默认只有草方块可种树
                     let mut set = HashSet::new();
                     if let Some(id) = registry.get_id_by_identifier("century_journey:grass") {
                         set.insert(id);
                     }
                     set
                 }),
-            natural_ids: tag_cache
-                .get_block_tag_ids("century_journey:natural")
+            natural_ids: tag_registry
+                .get_ids(&natural_tag)
                 .cloned()
                 .unwrap_or_default(),
-            overworld_replaceable_ids: tag_cache
-                .get_block_tag_ids("century_journey:overworld_replaceable")
+            overworld_replaceable_ids: tag_registry
+                .get_ids(&overworld_replaceable_tag)
                 .cloned()
                 .unwrap_or_default(),
         }

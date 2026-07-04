@@ -4,7 +4,7 @@ use crate::content::block::sound::{BlockSoundEvent, SoundAction};
 use crate::content::constant::world::CHUNK_SIZE;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::loot::block_registry::BlockLootRegistry;
-use crate::content::tag::cache::CachedTagCache;
+use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::block::BlockBehaviorRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::container::InventoryContainer;
@@ -17,6 +17,7 @@ use crate::game::world::chunk::{ChunkComponents, ChunkState};
 use crate::game::world::entity::dropped_item::spawn_dropped_item;
 use crate::game::world::storage::WorldStorage;
 use crate::shared::states::input_blocked::InputBlocked;
+use crate::shared::tag::identifier::TagId;
 use bevy::prelude::*;
 
 use bevy::ecs::system::SystemParam;
@@ -37,7 +38,7 @@ pub fn voxel_interaction_system(
     behavior_registry: Res<BlockBehaviorRegistry>,
     input_blocked: Res<InputBlocked>,
     mut inventory_state: ResMut<InventoryState>,
-    tag_cache: Option<Res<CachedTagCache>>,
+    tag_registry: Option<Res<RuntimeTagRegistry>>,
     mouse_button: Res<ButtonInput<MouseButton>>,
     player_query: Query<Entity, With<Player>>,
     gamemode: Res<PlayerGameMode>,
@@ -71,8 +72,8 @@ pub fn voxel_interaction_system(
             let hit_id = get_voxel_at_world(hit_pos, &world_storage);
 
             // 检查不可破坏方块
-            if tag_cache.as_ref().map_or(false, |tc| {
-                tc.0.is_block_in_tag(hit_id, "century_journey:unbreakable")
+            if tag_registry.as_ref().map_or(false, |tr| {
+                tr.contains(&TagId::new("century_journey", "unbreakable"), hit_id)
             }) {
                 return;
             }
@@ -167,9 +168,11 @@ pub fn voxel_interaction_system(
             let existing_id = get_voxel_at_world(place_pos, &world_storage);
             if existing_id != 0 {
                 // 目标位置已有方块，只有可替换的才允许覆盖
-                if tag_cache.as_ref().map_or(true, |tc| {
-                    !tc.0
-                        .is_block_in_tag(existing_id, "century_journey:overworld_replaceable")
+                if tag_registry.as_ref().map_or(true, |tr| {
+                    !tr.contains(
+                        &TagId::new("century_journey", "overworld_replaceable"),
+                        existing_id,
+                    )
                 }) {
                     return;
                 }

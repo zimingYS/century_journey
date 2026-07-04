@@ -8,8 +8,7 @@ pub mod systems;
 pub mod time;
 
 use crate::content::block::registry::BlockRegistry;
-use crate::content::tag::block_tags::TagCache;
-use crate::content::tag::cache::CachedTagCache;
+use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::world::generation::noise::CachedBlockIds;
 use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
@@ -59,14 +58,17 @@ impl Plugin for WorldPlugin {
 
 fn cache_block_ids_system(
     registry: Res<BlockRegistry>,
-    cached_tag_cache: Option<Res<CachedTagCache>>,
+    tag_registry: Option<Res<RuntimeTagRegistry>>,
     mut commands: Commands,
 ) {
-    let block_ids = if let Some(ref cache) = cached_tag_cache {
-        generation::noise::GenerationBlockIds::from_registry(&registry, &cache.0)
+    let block_ids = if let Some(ref tr) = tag_registry {
+        generation::noise::GenerationBlockIds::from_registry(&registry, tr)
     } else {
-        log::warn!("[世界] CachedTagCache 尚未初始化，使用空标签缓存");
-        generation::noise::GenerationBlockIds::from_registry(&registry, &TagCache::default())
+        log::warn!("[世界] RuntimeTagRegistry 尚未初始化，使用空标签");
+        generation::noise::GenerationBlockIds::from_registry(
+            &registry,
+            &RuntimeTagRegistry::default(),
+        )
     };
     commands.insert_resource(CachedBlockIds(block_ids));
 }

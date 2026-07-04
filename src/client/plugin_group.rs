@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 use crate::app::plugin::CorePlugin;
 use crate::client::player::ClientPlayerPlugin;
-use crate::client::renderer::RenderingPlugin;
+use crate::client::renderer::ClientRenderingPlugin;
 use crate::client::sky::SkyPlugin;
 use crate::client::startup::plugin::ClientStartupPlugin;
 use crate::client::ui::UIPlugin;
@@ -38,7 +38,7 @@ impl PluginGroup for ClientPluginGroup {
             // App 层
             .add(CorePlugin)
             // Client 层（渲染/UI，依赖 Content+Game）
-            .add(RenderingPlugin)
+            .add(ClientRenderingPlugin)
             .add(ClientPlayerPlugin)
             .add(SkyPlugin)
             .add(UIPlugin)

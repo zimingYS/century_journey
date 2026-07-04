@@ -19,12 +19,11 @@ use crate::content::block::registry::BlockRegistry;
 use crate::content::item::definition::ItemCategory;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
+use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::inventory::container::creative::CreativeCategory;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
 use crate::shared::item_id::ItemId;
-use crate::shared::tag::identifier::TagRegistryType;
-use crate::shared::tag::registry::TagRegistry;
 
 pub use crate::client::ui::screens::setup::spawn_creative_inventory_system;
 
@@ -84,7 +83,7 @@ pub fn update_creative_visibility_system(
 
 /// 构造标签数据
 pub fn build_creative_categories_system(
-    tag_registry: Option<Res<TagRegistry>>,
+    tag_registry: Option<Res<RuntimeTagRegistry>>,
     block_registry: Option<Res<BlockRegistry>>,
     mut state: ResMut<InventoryState>,
     category_panel: Query<Entity, With<CreativeCategoryPanel>>,
@@ -107,14 +106,17 @@ pub fn build_creative_categories_system(
         .categories
         .push(CreativeCategory::virtual_category("全部", ""));
 
-    let tags = tag_reg.all_tags(&TagRegistryType::Block);
-    for tag in tags {
-        let entries = tag_reg.get_block_tag_entries(tag);
-        let items: Vec<ItemId> = entries
-            .into_iter()
-            .filter(|id| block_reg.get_id_by_identifier(id).is_some())
-            .map(ItemId::block)
-            .collect();
+    let tags: Vec<_> = tag_reg.all_tags().cloned().collect();
+    for tag in &tags {
+        let items: Vec<ItemId> = tag_reg
+            .get_ids(tag)
+            .map(|ids| {
+                ids.iter()
+                    .filter_map(|&id| block_reg.get_identifier_by_id(id))
+                    .map(|ident| ItemId::new(ident.clone()))
+                    .collect()
+            })
+            .unwrap_or_default();
 
         state.creative.categories.push(CreativeCategory::from_tag(
             tag.clone(),
