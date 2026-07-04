@@ -154,6 +154,7 @@ pub mod localization;
 pub mod loot;
 pub mod particle;
 pub mod recipe;
+pub mod registry;
 pub mod sound;
 pub mod structure;
 pub mod tag;

@@ -1,3 +1,4 @@
+use crate::engine::asset::identifier::AssetId;
 use crate::engine::asset::texture::TextureAsset;
 use crate::engine::asset::texture::TextureMetadata;
 use crate::shared::identifier::Identifier;
@@ -93,7 +94,11 @@ pub fn load_item_textures_system(mut commands: Commands, asset_server: Res<Asset
             })
             .unwrap_or_default();
 
-        let texture_asset = TextureAsset::new(handle, metadata, identifier.clone());
+        let texture_asset = TextureAsset::new(
+            handle,
+            metadata,
+            AssetId::new(identifier.namespace(), identifier.path()),
+        );
 
         registry.textures.insert(identifier.clone(), texture_asset);
         loaded += 1;
