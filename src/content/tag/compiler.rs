@@ -1,8 +1,9 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::tag::definition::TagAction;
-use crate::content::tag::runtime::RuntimeTagRegistry;
+use crate::content::tag::runtime::{ItemTagIndex, RuntimeTagRegistry};
 use crate::shared::identifier::Identifier;
+use crate::shared::item_id::ItemId;
 use crate::shared::tag::identifier::TagId;
 use std::collections::{HashMap, HashSet};
 
@@ -180,22 +181,28 @@ impl TagRegistryCompiler {
     pub fn build_runtime(
         self,
         block_registry: &BlockRegistry,
-        _item_registry: &ItemRegistry,
-    ) -> RuntimeTagRegistry {
-        let mut runtime = RuntimeTagRegistry::default();
+    ) -> (RuntimeTagRegistry, ItemTagIndex) {
+        let mut block_runtime = RuntimeTagRegistry::default();
+        let mut item_index = ItemTagIndex::default();
 
-        for (tag_id, identifiers) in self.pending {
-            let runtime_ids: HashSet<u16> = identifiers
+        for (tag_id, identifiers) in &self.pending {
+            // 方块侧：仍然只收录能在 BlockRegistry 查到 u16 的成员
+            let block_ids: HashSet<u16> = identifiers
                 .iter()
                 .filter_map(|id| block_registry.get_id_by_identifier(&id.to_string()))
                 .collect();
+            if !block_ids.is_empty() {
+                block_runtime.insert(tag_id.clone(), block_ids);
+            }
 
-            if !runtime_ids.is_empty() {
-                runtime.insert(tag_id, runtime_ids);
+            // 物品侧：不筛选，pending 里所有 Identifier 直接作为 ItemId 收录
+            let items: HashSet<ItemId> = identifiers.iter().cloned().map(ItemId::new).collect();
+            if !items.is_empty() {
+                item_index.insert(tag_id.clone(), items);
             }
         }
 
-        runtime
+        (block_runtime, item_index)
     }
 
     // ─── 辅助 ───────────────────────────────────────────

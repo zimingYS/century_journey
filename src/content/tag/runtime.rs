@@ -1,3 +1,4 @@
+use crate::shared::item_id::ItemId;
 use crate::shared::tag::identifier::TagId;
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -71,5 +72,35 @@ impl RuntimeTagRegistry {
     /// 获取标签的完整 ID 集合 (用于批量操作)
     pub fn get_ids(&self, tag: &TagId) -> Option<&HashSet<u16>> {
         self.tags.get(tag)
+    }
+}
+
+/// 物品标签索引 — 与 RuntimeTagRegistry 平行存在。
+///
+/// RuntimeTagRegistry 面向方块调色板 (u16)，服务于 chunk 存储优化。
+/// 物品没有紧凑数字 ID 的需求，ItemId 本身已经是 HashMap key，
+/// 所以物品标签直接用 Identifier 索引，不走 u16 转换。
+#[derive(Resource, Default, Clone)]
+pub struct ItemTagIndex {
+    tags: HashMap<TagId, HashSet<ItemId>>,
+}
+
+impl ItemTagIndex {
+    pub(crate) fn insert(&mut self, tag: TagId, items: HashSet<ItemId>) {
+        self.tags.insert(tag, items);
+    }
+
+    /// 检查物品是否属于某个标签
+    pub fn contains(&self, tag: &TagId, item: &ItemId) -> bool {
+        self.tags.get(tag).map_or(false, |set| set.contains(item))
+    }
+
+    /// 获取标签下所有物品
+    pub fn get_items(&self, tag: &TagId) -> Option<&HashSet<ItemId>> {
+        self.tags.get(tag)
+    }
+
+    pub fn total_tags(&self) -> usize {
+        self.tags.len()
     }
 }

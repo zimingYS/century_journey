@@ -62,13 +62,15 @@ fn init_tag_registry_system(
     }
 
     // 7. 构建 Runtime
-    let runtime = compiler.build_runtime(
-        &block_registry,
-        item_registry.as_deref().unwrap_or(&ItemRegistry::default()),
+    let (block_runtime, item_index) = compiler.build_runtime(&block_registry);
+
+    log::info!(
+        "[标签系统] 编译完成: {} 个方块标签, {} 个物品标签",
+        block_runtime.total_tags(),
+        item_index.total_tags()
     );
 
-    log::info!("[标签系统] 编译完成: {} 个标签", runtime.total_tags());
-
     // 8. 插入 Resource
-    commands.insert_resource(runtime);
+    commands.insert_resource(block_runtime);
+    commands.insert_resource(item_index);
 }
