@@ -1,4 +1,4 @@
-use crate::client::ui::components::HudRoot;
+use crate::client::ui::hud::bottom::bars::LeftBarsHud;
 use crate::game::player::components::Player;
 use crate::game::player::components::stats::Health;
 use bevy::prelude::*;
@@ -7,18 +7,16 @@ use bevy::prelude::*;
 pub struct HealthBar;
 
 /// 生成生命值
-pub fn spawn_health_bar(mut commands: Commands, hud: Query<Entity, With<HudRoot>>) {
-    let Ok(hud_entity) = hud.single() else {
-        log::error!("HUD ROOT NOT FOUND — cannot spawn health bar");
+pub fn spawn_health_bar(mut commands: Commands, bars_hud: Query<Entity, With<LeftBarsHud>>) {
+    let Ok(bars_hud_entity) = bars_hud.single() else {
+        log::error!("LEFT BARS HUD NOT FOUND — cannot spawn health bar");
         return;
     };
-    commands.entity(hud_entity).with_children(|parent| {
+
+    commands.entity(bars_hud_entity).with_children(|parent| {
         parent.spawn((
             HealthBar,
             Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(10.0),
-                top: Val::Px(10.0),
                 flex_direction: FlexDirection::Row,
                 column_gap: Val::Px(2.0),
                 ..default()
@@ -69,17 +67,5 @@ pub fn health_bar_sync_system(
                 BackgroundColor(color),
             ));
         }
-        bar.spawn((
-            Text::new(format!("{}", health.current as u32)),
-            TextFont {
-                font_size: FontSize::Px(14.0),
-                ..default()
-            },
-            TextColor(Color::WHITE),
-            Node {
-                margin: UiRect::left(Val::Px(6.0)),
-                ..default()
-            },
-        ));
     });
 }

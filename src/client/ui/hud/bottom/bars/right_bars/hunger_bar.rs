@@ -1,4 +1,4 @@
-use crate::client::ui::components::HudRoot;
+use crate::client::ui::hud::bottom::bars::RightBarsHud;
 use crate::game::player::components::Player;
 use crate::game::player::components::stats::Hunger;
 use bevy::prelude::*;
@@ -7,18 +7,15 @@ use bevy::prelude::*;
 pub struct HungerBar;
 
 /// 生成饥饿值HUD
-pub fn spawn_hunger_bar(mut commands: Commands, hud: Query<Entity, With<HudRoot>>) {
-    let Ok(hud_entity) = hud.single() else {
-        log::error!("HUD ROOT NOT FOUND — cannot spawn hunger bar");
+pub fn spawn_hunger_bar(mut commands: Commands, bars_hud: Query<Entity, With<RightBarsHud>>) {
+    let Ok(bars_hud_entity) = bars_hud.single() else {
+        log::error!("BARS HUD NOT FOUND — cannot spawn hunger bar");
         return;
     };
-    commands.entity(hud_entity).with_children(|parent| {
+    commands.entity(bars_hud_entity).with_children(|parent| {
         parent.spawn((
             HungerBar,
             Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(10.0),
-                top: Val::Px(28.0),
                 flex_direction: FlexDirection::Row,
                 column_gap: Val::Px(2.0),
                 ..default()

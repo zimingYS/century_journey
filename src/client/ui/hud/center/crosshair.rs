@@ -1,9 +1,13 @@
-use crate::client::ui::components::{Crosshair, HudRoot};
+use crate::client::ui::hud::center::CenterHud;
 use bevy::prelude::*;
 
-pub fn setup_crosshair(mut commands: Commands, hud: Query<Entity, With<HudRoot>>) {
+/// 十字准心组件
+#[derive(Component)]
+pub struct Crosshair;
+
+pub fn spawn_crosshair(mut commands: Commands, hud: Query<Entity, With<CenterHud>>) {
     let Ok(hud_entity) = hud.single() else {
-        log::error!("HUD ROOT NOT FOUND — cannot spawn crosshair");
+        log::error!("CENTER HUD NOT FOUND — cannot spawn crosshair");
         return;
     };
     commands.entity(hud_entity).with_children(|parent| {

@@ -1,4 +1,4 @@
-use crate::client::ui::components::{HudHotbarContainer, HudRoot};
+use crate::client::ui::hud::bottom::BottomHud;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
     InventorySlot, SearchInputState, SlotKind, SlotVisual, spawn_empty_slot, sync_slot_icon,
@@ -12,35 +12,28 @@ use crate::shared::item_id::ItemId;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
-/// 生成HUD根节点
-pub fn spawn_hud_root_system(mut commands: Commands) {
-    commands.spawn((
-        HudRoot,
-        Name::new("HudRoot"),
-        Node {
-            position_type: PositionType::Absolute,
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::End,
-            ..default()
-        },
-    ));
-}
+/// HUD快捷栏(物品栏)
+#[derive(Component)]
+pub struct Hotbar;
+
+/// HUD快捷栏(物品栏)外的高亮选择框
+#[derive(Component)]
+pub struct HotbarSelector;
 
 /// 生成HUD快捷栏
 pub fn spawn_hotbar_ui_system(
     mut commands: Commands,
     theme: Res<UiTheme>,
-    hud: Query<Entity, With<HudRoot>>,
+    bottom_hud: Query<Entity, With<BottomHud>>,
 ) {
-    let Ok(hud_entity) = hud.single() else {
-        log::error!("HUD ROOT NOT FOUND — cannot spawn hotbar");
+    let Ok(bottom_hud_entity) = bottom_hud.single() else {
+        log::error!("BOTTOM HUD NOT FOUND — cannot spawn hotbar");
         return;
     };
-    commands.entity(hud_entity).with_children(|root| {
+
+    commands.entity(bottom_hud_entity).with_children(|root| {
         root.spawn((
-            HudHotbarContainer,
+            Hotbar,
             Name::new("HudHotbar"),
             Node {
                 flex_direction: FlexDirection::Row,

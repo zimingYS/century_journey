@@ -1,4 +1,4 @@
-use crate::client::ui::components::HudRoot;
+use crate::client::ui::hud::bottom::bars::LeftBarsHud;
 use crate::game::player::components::Player;
 use crate::game::player::components::stats::Defense;
 use bevy::prelude::*;
@@ -6,18 +6,15 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub struct ArmorBar;
 
-pub fn spawn_armor_bar(mut commands: Commands, hud: Query<Entity, With<HudRoot>>) {
-    let Ok(e) = hud.single() else {
-        log::error!("HUD ROOT NOT FOUND — cannot spawn armor bar");
+pub fn spawn_armor_bar(mut commands: Commands, bars_hud: Query<Entity, With<LeftBarsHud>>) {
+    let Ok(bars_hud_entity) = bars_hud.single() else {
+        log::error!("LEFT BARS HUD NOT FOUND — cannot spawn armor bar");
         return;
     };
-    commands.entity(e).with_children(|p| {
+    commands.entity(bars_hud_entity).with_children(|p| {
         p.spawn((
             ArmorBar,
             Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(10.0),
-                top: Val::Px(46.0),
                 flex_direction: FlexDirection::Row,
                 column_gap: Val::Px(2.0),
                 ..default()

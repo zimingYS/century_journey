@@ -1,3 +1,4 @@
+use crate::client::ui::hud::plugin::HudPlugin;
 use crate::client::ui::theme::category_theme::CategoryTheme;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
@@ -30,19 +31,7 @@ impl Plugin for UIPlugin {
             .init_resource::<CategoryTheme>()
             .init_resource::<resources::ui_font::UiFont>()
             .init_resource::<SearchInputState>()
-            // ── Startup: HudRoot + 所有 HUD 子元素 (chain 保证顺序) ──
-            .add_systems(
-                Startup,
-                (
-                    hud::hotbar::spawn_hud_root_system,
-                    hud::crosshair::setup_crosshair,
-                    hud::hotbar::spawn_hotbar_ui_system,
-                    hud::health_bar::spawn_health_bar,
-                    hud::hunger_bar::spawn_hunger_bar,
-                    hud::armor_bar::spawn_armor_bar,
-                )
-                    .chain(),
-            )
+            .add_plugins(HudPlugin)
             // ── Startup: 独立元素 ──
             .add_systems(
                 Startup,
@@ -130,24 +119,7 @@ impl Plugin for UIPlugin {
                 )
                     .chain(),
             )
-            // ── Update: HUD ──
-            .add_systems(
-                Update,
-                (
-                    hud::sync_hud_visibility_system,
-                    hud::hotbar::hud_hotbar_visual_sync_system,
-                    hud::hotbar::handle_hotbar_switch_system,
-                    hud::health_bar::health_bar_sync_system,
-                ),
-            )
-            .add_systems(
-                Update,
-                (
-                    hud::hunger_bar::hunger_bar_sync_system,
-                    hud::armor_bar::armor_bar_sync_system,
-                    sync_input_blocked_system,
-                ),
-            )
+            .add_systems(Update, (sync_input_blocked_system,))
             // ── Update: 光标 ──
             .add_systems(
                 Update,

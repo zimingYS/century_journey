@@ -1,19 +1,5 @@
 use bevy::prelude::Component;
 
-// ━━ HUD ━━
-/// 十字准心组件
-#[derive(Component)]
-pub struct Crosshair;
-/// 处理HUD的根节点
-#[derive(Component)]
-pub struct HudRoot;
-/// HUD快捷栏(物品栏)
-#[derive(Component)]
-pub struct HudHotbarContainer;
-/// HUD快捷栏(物品栏)外的高亮选择框
-#[derive(Component)]
-pub struct HudHotbarSelector;
-
 // ━━ 创造模式物品栏 ━━
 /// 创造模式物品栏显示根目录
 #[derive(Component)]
