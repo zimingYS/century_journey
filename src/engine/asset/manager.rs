@@ -37,6 +37,22 @@ impl AssetManager {
         self.font_handles.get(&key).cloned().unwrap_or_default()
     }
 
+    pub fn request_font(&mut self, id: &AssetId, asset_server: &AssetServer) -> Handle<Font> {
+        let key = id.to_string();
+
+        if let Some(handle) = self.font_handles.get(&key) {
+            return handle.clone();
+        }
+
+        let path = asset_id_to_bevy_path(&key);
+        let handle = asset_server.load(path);
+
+        self.font_handles.insert(key.clone(), handle.clone());
+        self.ensure_font(&key);
+
+        handle
+    }
+
     /// 同步读取二进制文件
     pub fn read_file_bytes_sync(&self, id: &AssetId) -> Result<Vec<u8>, String> {
         let path = asset_id_to_file_path(id);

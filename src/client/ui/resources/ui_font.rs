@@ -1,3 +1,4 @@
+use crate::engine::asset::identifier::asset_id;
 use crate::engine::asset::manager::AssetManager;
 use bevy::prelude::*;
 
@@ -7,7 +8,11 @@ pub struct UiFont {
 }
 
 /// 加载字体（通过 AssetManager）
-pub fn load_ui_font_system(mut ui_font: ResMut<UiFont>, mut asset: ResMut<AssetManager>) {
-    let id = crate::engine::asset::identifier::asset_id("fonts/NotoSansSC-VariableFont_wght.ttf");
-    ui_font.default = asset.font(&id);
+pub fn load_ui_font_system(
+    mut ui_font: ResMut<UiFont>,
+    mut asset: ResMut<AssetManager>,
+    asset_server: Res<AssetServer>,
+) {
+    let id = asset_id("fonts/NotoSansSC-VariableFont_wght.ttf");
+    ui_font.default = asset.request_font(&id, &asset_server);
 }
