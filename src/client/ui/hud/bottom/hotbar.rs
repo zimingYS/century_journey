@@ -1,7 +1,7 @@
 use crate::client::ui::hud::bottom::BottomHud;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
-    InventorySlot, SearchInputState, SlotKind, SlotVisual, spawn_empty_slot, sync_slot_icon,
+    InventorySlot, SearchInputState, SlotKind, SlotVisual, spawn_display_only_slot, sync_slot_icon,
 };
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
@@ -51,7 +51,7 @@ pub fn spawn_hotbar_ui_system(
         ))
         .with_children(|parent| {
             for index in 0..HOTBAR_SIZE {
-                spawn_empty_slot(parent, SlotKind::Hotbar, index, &theme);
+                spawn_display_only_slot(parent, SlotKind::Hotbar, index, &theme);
             }
         });
     });

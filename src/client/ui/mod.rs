@@ -71,7 +71,8 @@ impl Plugin for UIPlugin {
                     interaction::slot_q_drop_system,
                     interaction::category_tab_interaction_system,
                     interaction::search_box_interaction_system,
-                ),
+                )
+                    .run_if(|state: Res<InventoryState>| state.opened),
             )
             // ── Update: 事件 → 状态 ──
             .add_systems(
@@ -80,7 +81,8 @@ impl Plugin for UIPlugin {
                     interaction::handle_slot_interaction_system,
                     interaction::handle_category_clicked_system,
                     interaction::cancel_drag_system,
-                ),
+                )
+                    .run_if(|state: Res<InventoryState>| state.opened),
             )
             // ── Update: 搜索 ──
             .add_systems(

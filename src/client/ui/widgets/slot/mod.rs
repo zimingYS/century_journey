@@ -365,3 +365,58 @@ pub fn sync_hotbar_panel_visuals(
         });
     }
 }
+
+/// 生成纯展示槽位（用于常驰HUD，不响应鼠标交互）
+pub fn spawn_display_only_slot(
+    parent: &mut ChildSpawnerCommands,
+    kind: SlotKind,
+    index: usize,
+    theme: &UiTheme,
+) {
+    parent
+        .spawn((
+            InventorySlot { kind, index },
+            SlotVisual {
+                item: ItemId::air(),
+                count: 0,
+            },
+            // 不再附加 Button / Pickable
+            Node {
+                width: Val::Px(theme.slot_size),
+                height: Val::Px(theme.slot_size),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(Val::Px(theme.slot_border)),
+                ..default()
+            },
+            BackgroundColor(theme.bg_slot),
+            BorderColor::all(theme.border_default),
+        ))
+        .with_children(|slot| {
+            slot.spawn((
+                SlotIcon,
+                Node {
+                    width: Val::Percent(80.0),
+                    height: Val::Percent(80.0),
+                    ..default()
+                },
+                Visibility::Hidden,
+            ));
+            slot.spawn((
+                SlotCountText,
+                Text::new(""),
+                TextFont {
+                    font_size: FontSize::Px(11.0),
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Node {
+                    position_type: PositionType::Absolute,
+                    bottom: Val::Px(1.0),
+                    right: Val::Px(3.0),
+                    ..default()
+                },
+                Visibility::Hidden,
+            ));
+        });
+}
