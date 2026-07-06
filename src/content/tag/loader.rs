@@ -1,7 +1,7 @@
 use crate::content::tag::definition::TagAction;
+use crate::engine::asset::AssetFiles;
 use crate::engine::asset::manager::AssetManager;
 use crate::shared::tag::identifier::TagId;
-use std::path::PathBuf;
 
 /// 从 `assets/definitions/tags/` 加载所有 TagAction
 ///
@@ -13,112 +13,48 @@ use std::path::PathBuf;
 ///
 /// 返回: Vec<(TagId, TagAction)> — tag_id 和目标操作
 pub fn load_tag_actions(asset: &AssetManager) -> Vec<(TagId, TagAction)> {
-    let tags_root = PathBuf::from("assets/definitions/tags");
+    let files = AssetFiles::new(asset.resolver());
+    let pairs = files.read_json_dir::<TagAction>("definitions/tags");
 
-    if !tags_root.exists() {
-        log::info!("[标签] 标签目录不存在，跳过加载: {:?}", tags_root);
-        return Vec::new();
-    }
+    let mut actions = Vec::with_capacity(pairs.len());
 
-    let Ok(registry_dirs) = std::fs::read_dir(&tags_root) else {
-        log::warn!("[标签] 无法读取标签目录: {:?}", tags_root);
-        return Vec::new();
-    };
-
-    let mut actions = Vec::new();
-
-    for registry_dir in registry_dirs.flatten() {
-        if !registry_dir.path().is_dir() {
-            continue;
-        }
-        // 收集该类型目录下的所有标签定义
-        collect_tag_files(asset, &registry_dir.path(), &mut actions);
-    }
-
-    actions
-}
-
-/// 递归扫描目录，收集所有 .json 标签文件
-fn collect_tag_files(
-    asset: &AssetManager,
-    dir: &std::path::Path,
-    actions: &mut Vec<(TagId, TagAction)>,
-) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-
-        if path.is_dir() {
-            // 递归扫描子目录（深度路径 → TagId path 部分用 / 连接）
-            collect_tag_files(asset, &path, actions);
-            continue;
-        }
-
-        if path.extension().and_then(|s| s.to_str()) != Some("json") {
-            continue;
-        }
-
-        // 从文件路径推导 TagId
-        let Some(tag_id) = path_to_tag_id(&path) else {
+    for (asset_path, action) in pairs {
+        // 剥离统一前缀，提取标签类型、命名空间与相对路径
+        let Some(relative) = asset_path.strip_prefix("definitions/tags/") else {
+            log::warn!("[标签] 跳过无效路径的标签定义: {}", asset_path);
             continue;
         };
 
-        // 通过 AssetManager 读取 JSON
-        let asset_path = format!(
-            "definitions/tags/{}",
-            path.strip_prefix("assets/definitions/tags/")
-                .unwrap_or(&path)
-                .to_string_lossy()
-                .replace('\\', "/")
-        );
+        // 统一路径分隔符，兼容 Windows 反斜杠
+        let relative = relative.replace('\\', "/");
+        let parts: Vec<&str> = relative.split('/').collect();
 
-        let asset_id = crate::engine::asset::identifier::asset_id(&asset_path);
-
-        match asset.read_json_sync::<TagAction>(&asset_id) {
-            Ok(action) => {
-                log::info!("[标签] 加载: {} ({:?})", tag_id.to_full(), &action);
-                actions.push((tag_id, action));
-            }
-            Err(e) => {
-                log::error!("[标签] JSON 加载失败 {:?}: {}", path, e);
-            }
+        // 路径至少需要 类型/命名空间/文件名 三级，与原校验逻辑完全对齐
+        if parts.len() < 3 {
+            log::warn!("[标签] 标签路径层级不足，跳过: {}", asset_path);
+            continue;
         }
-    }
-}
 
-/// 从文件路径推导 TagId
-///
-/// 路径格式: tags/{type}/namespace/path.json (或嵌套子目录)
-/// → TagId(namespace, "path") 或 TagId(namespace, "nested/path")
-fn path_to_tag_id(path: &std::path::Path) -> Option<TagId> {
-    // 跳过 tags root + type_dir 两级
-    let components: Vec<&str> = path
-        .iter()
-        .rev()
-        .take_while(|c| *c != "tags")
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .filter_map(|c| c.to_str())
-        .collect();
+        // 解析命名空间，对应原 path_to_tag_id 中 components[1] 的取值
+        let namespace = parts[1].to_string();
+        // 提取文件名主体（去除 .json 后缀）
+        let filename = parts.last().unwrap();
+        let stem = filename.strip_suffix(".json").unwrap_or(filename);
 
-    if components.len() < 3 {
-        // 至少需要 type_dir/namespace/path.json
-        return None;
+        // 拼接嵌套路径 + 文件名主体，生成 TagId 的路径段
+        // 等价于原逻辑中 components[2..len-1] + stem 的拼接规则
+        let mut path_parts: Vec<&str> = parts[2..parts.len() - 1].to_vec();
+        path_parts.push(stem);
+        let path_str = path_parts.join("/");
+
+        let tag_id = TagId::new(namespace, path_str);
+        log::info!("[标签] 加载: {} ({:?})", tag_id.to_full(), &action);
+        actions.push((tag_id, action));
     }
 
-    // components = [type_dir, namespace, ...paths..., filename]
-    // e.g. ["block", "century_journey", "solid.json"]
-    let namespace = components[1].to_string();
-    let stem = path.file_stem()?.to_str()?;
+    if actions.is_empty() {
+        log::info!("[标签] 未加载到任何标签定义");
+    }
 
-    // 路径部分：components[2..-1] + stem
-    let mut path_parts: Vec<&str> = components[2..components.len() - 1].to_vec();
-    path_parts.push(stem);
-
-    let path_str = path_parts.join("/");
-    Some(TagId::new(namespace, path_str))
+    actions
 }

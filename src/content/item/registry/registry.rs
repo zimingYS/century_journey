@@ -1,4 +1,5 @@
 use crate::content::item::definition::{ItemCategory, ItemDefinition};
+use crate::engine::asset::AssetFiles;
 use crate::engine::asset::manager::AssetManager;
 use crate::shared::identifier::Identifier;
 use crate::shared::item_id::ItemId;
@@ -88,8 +89,9 @@ pub fn load_item_definitions_system(
     mut item_registry: ResMut<ItemRegistry>,
     asset: Res<AssetManager>,
 ) {
+    let files = AssetFiles::new(asset.resolver());
     let mut count = 0usize;
-    for (_path, def) in asset.read_json_dir_recursive_sync::<ItemDefinition>("definitions/items") {
+    for (_path, def) in files.read_json_dir::<ItemDefinition>("definitions/items") {
         // Registry 自动从 definition 推导 ItemId (RuntimeId)
         item_registry.register(def);
         count += 1;

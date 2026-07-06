@@ -14,5 +14,5 @@ pub fn load_ui_font_system(
     asset_server: Res<AssetServer>,
 ) {
     let id = asset_id("fonts/NotoSansSC-VariableFont_wght.ttf");
-    ui_font.default = asset.request_font(&id, &asset_server);
+    ui_font.default = asset.font(&id, &asset_server);
 }

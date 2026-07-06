@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// 统一资源标识符（engine 层自有类型，不依赖 shared::Identifier）
+/// 统一资源标识符，格式：`namespace:path`。
 ///
-/// 格式：`namespace:path`
+/// 这是路径解析的唯一入口——任何模块要读资源，先构造 `AssetId`，
+/// 再交给 [`AssetResolver`](super::resolver::AssetResolver)，不允许自己拼字符串路径。
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AssetId(String, String);
 
@@ -37,22 +38,11 @@ impl fmt::Display for AssetId {
 
 impl Default for AssetId {
     fn default() -> Self {
-        Self("".into(), "".into())
+        Self("century_journey".into(), "".into())
     }
 }
 
 /// 使用默认命名空间 `century_journey` 构造 `AssetId`
 pub fn asset_id(path: &str) -> AssetId {
     AssetId::new("century_journey", path)
-}
-
-/// 从 `namespace:path` 字符串解析 `AssetId`（失败时 panic）
-pub fn asset_id_parse(raw: &str) -> AssetId {
-    AssetId::parse(raw)
-        .unwrap_or_else(|_| panic!("AssetId must be 'namespace:path' format, got: {raw}"))
-}
-
-/// 安全解析 `AssetId`，失败返回 `None`
-pub fn asset_id_try_parse(raw: &str) -> Option<AssetId> {
-    AssetId::parse(raw).ok()
 }

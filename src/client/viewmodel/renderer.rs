@@ -19,6 +19,7 @@ pub fn view_model_sync_system(
     item_textures: Res<ItemTextureRegistry>,
     block_registry: Option<Res<BlockRegistry>>,
     mut asset: ResMut<AssetManager>,
+    asset_server: Res<AssetServer>,
     images: Res<Assets<Image>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -65,6 +66,7 @@ pub fn view_model_sync_system(
         &mut meshes,
         &mut materials,
         &mut asset,
+        &asset_server,
         &mut render_state,
         vm_root,
     );
@@ -158,6 +160,7 @@ fn ensure_hand(
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
     mut asset: &mut AssetManager,
+    asset_server: &AssetServer,
     render_state: &mut ResMut<ViewModelRenderState>,
     vm_root: Entity,
 ) {
@@ -168,7 +171,7 @@ fn ensure_hand(
 
     // 生成手部实体
     let hand_mesh = HandRenderer::build_hand_mesh(meshes);
-    let hand_mat = HandRenderer::create_hand_material(materials, &mut asset);
+    let hand_mat = HandRenderer::create_hand_material(materials, &mut asset, &asset_server);
     let hand = commands
         .spawn((
             Name::new("HandMesh"),

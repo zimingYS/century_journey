@@ -1,93 +1,38 @@
 use crate::content::recipe::definition::recipe_definition::RecipeDefinition;
-use crate::engine::asset::identifier::asset_id;
+use crate::engine::asset::AssetFiles;
 use crate::engine::asset::manager::AssetManager;
 use crate::shared::identifier::Identifier;
-use std::path::PathBuf;
 
 /// 从 assets/definitions/recipes 加载所有 RecipeDefinition
 pub fn load_recipe_definitions(asset: &AssetManager) -> Vec<(Identifier, RecipeDefinition)> {
-    let root = PathBuf::from("assets/definitions/recipes");
+    let files = AssetFiles::new(asset.resolver());
+    let pairs = files.read_json_dir::<RecipeDefinition>("definitions/recipes");
+    let mut recipes = Vec::with_capacity(pairs.len());
 
-    if !root.exists() {
-        log::info!("[Recipe] 配方目录不存在，跳过加载：{:?}", root);
-        return Vec::new();
-    }
-
-    let mut recipes = Vec::new();
-
-    collect_recipe_files(asset, &root, &mut recipes);
-
-    recipes
-}
-
-fn collect_recipe_files(
-    asset: &AssetManager,
-    dir: &std::path::Path,
-    recipes: &mut Vec<(Identifier, RecipeDefinition)>,
-) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-
-        if path.is_dir() {
-            collect_recipe_files(asset, &path, recipes);
-            continue;
-        }
-
-        if path.extension().and_then(|s| s.to_str()) != Some("json") {
-            continue;
-        }
-
-        let Some(identifier) = path_to_identifier(&path) else {
+    for (asset_path, recipe) in pairs {
+        // 去掉统一前缀，提取命名空间与相对路径，与原逻辑等价
+        let Some(relative) = asset_path.strip_prefix("definitions/recipes/") else {
+            log::warn!("[Recipe] 跳过无效路径的配方: {}", asset_path);
             continue;
         };
 
-        let asset_path = format!(
-            "definitions/recipes/{}",
-            path.strip_prefix("assets/definitions/recipes/")
-                .unwrap_or(&path)
-                .to_string_lossy()
-                .replace('\\', "/")
-        );
+        // 统一路径分隔符，兼容 Windows 反斜杠，与原逻辑保持一致
+        let relative = relative.replace('\\', "/");
 
-        let asset_id = asset_id(&asset_path);
+        // 分割出命名空间 + 资源路径，对应原 path_to_identifier 的解析规则
+        let Some((namespace, path)) = relative.split_once('/') else {
+            log::warn!("[Recipe] 配方路径缺少命名空间: {}", asset_path);
+            continue;
+        };
 
-        match asset.read_json_sync::<RecipeDefinition>(&asset_id) {
-            Ok(recipe) => {
-                log::info!("[Recipe] 加载 {}", identifier);
-                recipes.push((identifier, recipe));
-            }
-            Err(err) => {
-                log::error!("[Recipe] 加载失败 {:?}: {}", path, err);
-            }
-        }
-    }
-}
-
-fn path_to_identifier(path: &std::path::Path) -> Option<Identifier> {
-    let components: Vec<&str> = path
-        .iter()
-        .rev()
-        .take_while(|c| *c != "recipes")
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .filter_map(|c| c.to_str())
-        .collect();
-
-    if components.len() < 2 {
-        return None;
+        let identifier = Identifier::new(namespace, path.to_string());
+        log::info!("[Recipe] 加载 {}", identifier);
+        recipes.push((identifier, recipe));
     }
 
-    let namespace = components[0];
+    if recipes.is_empty() {
+        log::info!("[Recipe] 未加载到任何配方定义");
+    }
 
-    let stem = path.file_stem()?.to_str()?;
-
-    let mut path_parts = components[1..components.len() - 1].to_vec();
-    path_parts.push(stem);
-
-    Some(Identifier::new(namespace, path_parts.join("/")))
+    recipes
 }

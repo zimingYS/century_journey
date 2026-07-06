@@ -13,9 +13,10 @@ impl HandRenderer {
     pub fn create_hand_material(
         materials: &mut ResMut<Assets<StandardMaterial>>,
         asset: &mut AssetManager,
+        asset_server: &AssetServer,
     ) -> Handle<StandardMaterial> {
         let id = crate::engine::asset::identifier::asset_id("textures/player/hand.png");
-        let texture: Handle<Image> = asset.texture(&id).handle;
+        let texture = asset.texture(&id, asset_server).handle;
         materials.add(StandardMaterial {
             base_color_texture: Some(texture),
             base_color: Color::srgb(0.9, 0.75, 0.6),

@@ -1,5 +1,6 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::content::constant::world::CHUNK_SIZE;
+use crate::engine::asset::AssetFiles;
 use crate::engine::asset::manager::AssetManager;
 use crate::engine::constant::texture::TILE_SIZE;
 use bevy::asset::{Assets, RenderAssetUsages};
@@ -36,11 +37,13 @@ pub fn build_texture_atlas(
     let data_len = pixel_count as usize * 4;
     let mut atlas_data = vec![0u8; data_len];
 
+    let files = AssetFiles::new(asset.resolver());
+
     // 遍历所有唯一贴图路径，依次绘制到纹理图集对应图层位置
     for (layer_idx, path) in unique_paths.iter().enumerate() {
         // 通过 AssetManager 加载纹理文件
         let id = crate::engine::asset::identifier::asset_id(path);
-        let image = match asset.read_file_bytes_sync(&id) {
+        let image = match files.read_bytes(&id) {
             Ok(bytes) => match image::load_from_memory(&bytes) {
                 Ok(img) => img.to_rgba8(),
                 Err(e) => {

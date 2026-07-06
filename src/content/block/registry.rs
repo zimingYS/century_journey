@@ -2,6 +2,7 @@ use crate::client::renderer::tex_atlas::build_texture_atlas;
 use crate::content::block::definition::BlockProperty;
 use crate::content::block::sound::SoundMaterial;
 use crate::content::constant::world::CHUNK_SIZE;
+use crate::engine::asset::AssetFiles;
 use crate::engine::asset::manager::AssetManager;
 use crate::shared::identifier::Identifier;
 use crate::shared::states::app_state::AppState;
@@ -310,7 +311,8 @@ pub fn init_block_registry_system(
 
 /// 通过 AssetManager 加载所有方块 JSON 配置
 fn load_block_configs(asset: &AssetManager) -> Vec<BlockProperty> {
-    let pairs = asset.read_json_dir_sync::<BlockProperty>("assets/definitions/blocks");
+    let files = AssetFiles::new(asset.resolver());
+    let pairs = files.read_json_dir::<BlockProperty>("definitions/blocks");
     let count = pairs.len();
     info!("[方块注册] 通过 AssetManager 加载了 {} 个方块配置", count);
     pairs.into_iter().map(|(_, prop)| prop).collect()

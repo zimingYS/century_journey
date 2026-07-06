@@ -1,48 +1,27 @@
 //! # Engine Asset
 //!
-//! 统一资源管道（Asset Pipeline）+ 运行时（Asset Runtime）。
-//! 支持多资源来源、引用计数、热重载、流加载、内存管理、诊断统计。
+//! AssetId → AssetResolver → AssetLocation → AssetPipeline → Bevy AssetServer/AssetSource。
+//!
+//! - 需要 `Handle<T>` 的资源（纹理、字体……）用 [`AssetManager`]。
+//! - 同步读配置/数据文件（JSON 定义等）用 [`AssetFiles`]，与 `AssetManager` 完全分离。
+//! - 生命周期状态、引用计数、热重载、多来源覆盖全部复用 Bevy 自身的 Asset 系统，不重复实现。
 
 pub mod cache;
-pub mod dependency;
-pub mod event;
-pub mod handle;
+pub mod files;
 pub mod identifier;
-pub mod loader;
+pub mod location;
 pub mod manager;
-pub mod metadata;
-pub mod path;
 pub mod pipeline;
 pub mod plugin;
-pub mod processor;
-pub mod registry;
 pub mod resolver;
-pub mod runtime;
-pub mod service;
-pub mod source;
-pub mod state;
 pub mod texture;
 
 pub use cache::AssetCache;
-pub use dependency::{DependencyGraph, DependencyTracker};
-pub use handle::AssetHandle;
-pub use identifier::AssetId;
+pub use files::AssetFiles;
+pub use identifier::{AssetId, asset_id};
+pub use location::AssetLocation;
 pub use manager::AssetManager;
-pub use pipeline::{AssetPipeline, AssetPipelineContext, AssetRequest, AssetResponse, AssetStage};
+pub use pipeline::AssetPipeline;
 pub use plugin::AssetPlugin;
-pub use processor::{AssetProcessor as AssetProcessorTrait, ProcessorChain};
-pub use registry::AssetRegistry;
-pub use resolver::{AssetResolver, DefaultResolver};
-pub use runtime::{
-    AssetDatabase, AssetJob, AssetRuntime, AssetRuntimePlugin, DiagnosticsService, EvictionPolicy,
-    MemoryService, ReferenceEntry, ReloadService, RuntimeContext, RuntimeScheduler, RuntimeService,
-    StreamPriority, StreamingService,
-};
-pub use service::ReloadService as AssetReloadService;
-pub use service::{AssetService, QueryService, RegisterService};
-pub use source::{
-    AssetSource, FilesystemSource, MemorySource, ModSource, ResourcePackManager,
-    SourceFileMetadata, SourceManager, SourceMetadata, SourcePriority, SourceRegistry,
-};
-pub use state::{AssetMetadata, AssetState};
+pub use resolver::AssetResolver;
 pub use texture::{TextureAsset, TextureMetadata, TextureUsage};
