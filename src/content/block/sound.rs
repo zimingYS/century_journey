@@ -2,9 +2,10 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// 方块音效材质分类（决定破坏/放置/脚步声的音色）
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 pub enum SoundMaterial {
     /// 石头类
+    #[default]
     Stone,
     /// 泥土类
     Dirt,
@@ -24,12 +25,6 @@ pub enum SoundMaterial {
     Snow,
     /// 水
     Water,
-}
-
-impl Default for SoundMaterial {
-    fn default() -> Self {
-        Self::Stone
-    }
 }
 
 /// 方块音效配置

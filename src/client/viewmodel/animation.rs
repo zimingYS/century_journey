@@ -21,8 +21,8 @@ pub fn view_model_animation_system(
 
         // ── Idle sway ──
         anim.idle_phase += dt * 1.5;
-        let sway_x = (anim.idle_phase.sin() * 0.012) as f32;
-        let sway_y = (anim.idle_phase.cos() * 0.008) as f32;
+        let sway_x = anim.idle_phase.sin() * 0.012;
+        let sway_y = anim.idle_phase.cos() * 0.008;
 
         // ── 组合 ──
         let swing_rot = if anim.swing_progress > 0.0 {

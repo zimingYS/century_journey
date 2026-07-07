@@ -42,19 +42,19 @@ pub fn left_click_slot<C: InventoryContainer>(
             let is_same = cursor_stack.item == slot_stack.item;
 
             if is_same {
-                if let Some(slot_stack) = container.get_stack_mut(index) {
-                    if let Some(cursor_stack) = cursor.stack_mut() {
-                        slot_stack.merge_from(cursor_stack);
-                    }
+                if let Some(slot_stack) = container.get_stack_mut(index)
+                    && let Some(cursor_stack) = cursor.stack_mut()
+                {
+                    slot_stack.merge_from(cursor_stack);
                 }
 
                 // 如果光标空，清除光标
-                if cursor.stack().map_or(true, |s| s.is_empty()) {
+                if cursor.stack().is_none_or(|s| s.is_empty()) {
                     cursor.clear();
                 }
             } else {
                 if let Some(slot_stack) = container.replace_stack(index, ItemStack::empty()) {
-                    let cursor_stack = cursor.take_stack().unwrap_or(ItemStack::empty());
+                    let cursor_stack = cursor.take_stack().unwrap_or_default();
                     cursor.set_stack(slot_stack);
                     container.set_stack(index, cursor_stack);
                 }
@@ -85,7 +85,7 @@ pub fn right_click_slot<C: InventoryContainer>(
                 return;
             };
             let total = stack.count;
-            let half = (total + 1) / 2;
+            let half = total.div_ceil(2);
             let remaining = total - half;
 
             if remaining == 0 {
@@ -173,10 +173,10 @@ pub fn shift_click<C1: InventoryContainer, C2: InventoryContainer>(
         if remaining.is_empty() {
             break;
         }
-        if let Some(dest_stack) = dest.get_stack_mut(i) {
-            if dest_stack.is_same_item(&remaining) {
-                dest_stack.merge_from(&mut remaining);
-            }
+        if let Some(dest_stack) = dest.get_stack_mut(i)
+            && dest_stack.is_same_item(&remaining)
+        {
+            dest_stack.merge_from(&mut remaining);
         }
     }
 

@@ -80,11 +80,11 @@ fn item_id_to_string(id: &ItemId) -> String {
 
 fn string_to_item_id(s: &str) -> ItemId {
     if let Some(rest) = s.strip_prefix("item:") {
-        ItemId::item(rest.to_string())
+        ItemId::item(rest)
     } else if let Some(rest) = s.strip_prefix("block:") {
-        ItemId::block(rest.to_string())
+        ItemId::block(rest)
     } else {
-        ItemId::block(s.to_string())
+        ItemId::block(s)
     }
 }
 

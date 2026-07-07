@@ -50,7 +50,11 @@ impl CategoryTheme {
             .map(|e| e.display_name.clone())
             .unwrap_or_else(|| {
                 // eg:从 "century_journey:solid" 提取 "solid" 并首字母大写
-                tag_full.split(':').last().unwrap_or(tag_full).to_string()
+                tag_full
+                    .split(':')
+                    .next_back()
+                    .unwrap_or(tag_full)
+                    .to_string()
             })
     }
 

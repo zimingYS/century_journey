@@ -13,14 +13,8 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 /// 缓存的 block_id 重映射表
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Default)]
 pub struct CachedBlockIdRemap(pub HashMap<u16, u16>);
-
-impl Default for CachedBlockIdRemap {
-    fn default() -> Self {
-        Self(HashMap::new())
-    }
-}
 
 /// 保存配置
 #[derive(Resource, Clone, Debug)]
@@ -257,40 +251,39 @@ pub fn load_entire_world(
         for entry in std::fs::read_dir(&regions_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "bin") {
+            if path.extension().is_some_and(|ext| ext == "bin") {
                 // 解析文件名获取 region 坐标
                 let stem = path.file_stem().unwrap().to_string_lossy();
                 let parts: Vec<&str> = stem.split('.').collect();
-                if parts.len() == 4 && parts[0] == REGION_FILE_PREFIX {
-                    if let (Ok(rx), Ok(ry), Ok(rz)) = (
+                if parts.len() == 4
+                    && parts[0] == REGION_FILE_PREFIX
+                    && let (Ok(rx), Ok(ry), Ok(rz)) = (
                         parts[1].parse::<i32>(),
                         parts[2].parse::<i32>(),
                         parts[3].parse::<i32>(),
-                    ) {
-                        let region_pos = IVec3::new(rx, ry, rz);
+                    )
+                {
+                    let region_pos = IVec3::new(rx, ry, rz);
 
-                        // 读取该 region 中所有区块
-                        let region_path = RegionManager::region_path(world_name, region_pos);
-                        if let Ok(mut file) = std::fs::File::open(&region_path) {
-                            if let Ok(region) = RegionManager::read_region_file(&mut file) {
-                                for compressed in &region.chunks {
-                                    if let Ok(decompressed) = RegionManager::decompress(compressed)
-                                    {
-                                        if let Ok(mut saved) = bincode::DefaultOptions::new()
-                                            .with_varint_encoding()
-                                            .deserialize::<SavedChunk>(&decompressed)
-                                        {
-                                            level::remap_chunk_block_ids(
-                                                &mut saved.data,
-                                                &level.block_id_map,
-                                                block_registry,
-                                            );
-                                            storage
-                                                .loaded_chunks
-                                                .insert(saved.position, Arc::from(saved.data));
-                                        }
-                                    }
-                                }
+                    // 读取该 region 中所有区块
+                    let region_path = RegionManager::region_path(world_name, region_pos);
+                    if let Ok(mut file) = std::fs::File::open(&region_path)
+                        && let Ok(region) = RegionManager::read_region_file(&mut file)
+                    {
+                        for compressed in &region.chunks {
+                            if let Ok(decompressed) = RegionManager::decompress(compressed)
+                                && let Ok(mut saved) = bincode::DefaultOptions::new()
+                                    .with_varint_encoding()
+                                    .deserialize::<SavedChunk>(&decompressed)
+                            {
+                                level::remap_chunk_block_ids(
+                                    &mut saved.data,
+                                    &level.block_id_map,
+                                    block_registry,
+                                );
+                                storage
+                                    .loaded_chunks
+                                    .insert(saved.position, Arc::from(saved.data));
                             }
                         }
                     }

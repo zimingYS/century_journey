@@ -32,7 +32,7 @@ pub trait InventoryContainer {
     fn replace_stack(&mut self, index: usize, stack: ItemStack) -> Option<ItemStack> {
         let slot = self.get_stack_mut(index)?;
         if stack.is_empty() {
-            Some(std::mem::replace(slot, ItemStack::empty()))
+            Some(std::mem::take(slot))
         } else {
             Some(std::mem::replace(slot, stack))
         }

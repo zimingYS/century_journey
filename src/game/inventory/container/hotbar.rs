@@ -30,7 +30,7 @@ impl Default for HotbarData {
 impl HotbarData {
     /// 选中当前物品
     pub fn active_stack(&self) -> &ItemStack {
-        static EMPTY: LazyLock<ItemStack> = LazyLock::new(|| ItemStack::empty());
+        static EMPTY: LazyLock<ItemStack> = LazyLock::new(ItemStack::empty);
         self.stacks[self.active_index].as_ref().unwrap_or(&EMPTY)
     }
 
@@ -60,7 +60,7 @@ impl HotbarData {
 impl HotbarData {
     /// 选中当前物品（兼容旧 API，返回 &ItemId）
     pub fn active_item(&self) -> &ItemId {
-        static AIR: LazyLock<ItemId> = LazyLock::new(|| ItemId::air());
+        static AIR: LazyLock<ItemId> = LazyLock::new(ItemId::air);
         self.stacks[self.active_index]
             .as_ref()
             .map(|s| &s.item)

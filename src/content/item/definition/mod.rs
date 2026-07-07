@@ -80,7 +80,7 @@ impl ItemDefinition {
             category: ItemCategory::Block,
             max_stack: 64,
             tags: Vec::new(),
-            icon: IconDefinition::block(&identifier.to_string()),
+            icon: IconDefinition::block(identifier.to_string()),
             placeable_block: Some(identifier.clone()),
             tool: None,
             held_renderer: HeldRenderDefinition::Block,

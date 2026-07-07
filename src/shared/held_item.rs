@@ -4,9 +4,11 @@ use serde::{Deserialize, Serialize};
 /// 手持渲染统一描述符
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[derive(Default)]
 pub enum HeldRenderDefinition {
     /// 空手
     #[serde(rename = "empty")]
+    #[default]
     Empty,
 
     /// 方块立方体
@@ -35,12 +37,6 @@ pub enum HeldRenderDefinition {
 /// 默认厚度设置
 fn default_thickness() -> f32 {
     0.1
-}
-
-impl Default for HeldRenderDefinition {
-    fn default() -> Self {
-        HeldRenderDefinition::Empty
-    }
 }
 
 /// 手持物品的完整渲染配置

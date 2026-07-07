@@ -33,10 +33,10 @@ fn is_voxel_solid(
     }
 
     // 水面不碰撞
-    if let Some(identifier) = registry.get_identifier_by_id(voxel_id) {
-        if identifier.path() == "water" {
-            return false;
-        }
+    if let Some(identifier) = registry.get_identifier_by_id(voxel_id)
+        && identifier.path() == "water"
+    {
+        return false;
     }
 
     let Some(prop) = registry.get(voxel_id) else {

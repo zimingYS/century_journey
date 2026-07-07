@@ -321,7 +321,7 @@ pub fn sync_hotbar_panel_visuals(
         .collect();
 
     let force = last_snapshot.is_none();
-    if !force && last_snapshot.as_ref().map_or(false, |old| old == &current) {
+    if !force && (last_snapshot.as_ref() == Some(&current)) {
         return;
     }
     *last_snapshot = Some(current.clone());

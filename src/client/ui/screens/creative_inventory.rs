@@ -249,10 +249,10 @@ pub fn populate_creative_grid_system(
     let mut slot_indices: Vec<(Entity, usize)> = Vec::new();
     if let Ok(children) = children_query.get(grid_entity) {
         for child in children.iter() {
-            if let Ok(slot) = existing_slots.get(child) {
-                if slot.1.kind == SlotKind::CreativeGrid {
-                    slot_indices.push((child, slot.1.index));
-                }
+            if let Ok(slot) = existing_slots.get(child)
+                && slot.1.kind == SlotKind::CreativeGrid
+            {
+                slot_indices.push((child, slot.1.index));
             }
         }
     }
@@ -332,10 +332,10 @@ pub fn populate_recent_panel_system(
     if let Ok(children) = children_query.get(panel_entity) {
         for child in children.iter().skip(1) {
             // skip label
-            if let Ok(slot) = existing_slots.get(child) {
-                if slot.1.kind == SlotKind::Recent {
-                    slot_entities.push((child, slot.1.index));
-                }
+            if let Ok(slot) = existing_slots.get(child)
+                && slot.1.kind == SlotKind::Recent
+            {
+                slot_entities.push((child, slot.1.index));
             }
         }
     }
@@ -424,7 +424,7 @@ pub fn init_creative_hotbar_system(
             children.iter().any(|child| {
                 slot_query
                     .get(child)
-                    .map_or(false, |s| s.kind == SlotKind::Hotbar)
+                    .is_ok_and(|s| s.kind == SlotKind::Hotbar)
             })
         })
         .unwrap_or(false);
@@ -498,13 +498,13 @@ pub fn cleanup_creative_hotbar_system(
     mut commands: Commands,
     mut was_opened: Local<bool>,
 ) {
-    if *was_opened && !state.opened {
-        if let Ok(panel_entity) = hotbar_query.single() {
-            if let Ok(children) = children_query.get(panel_entity) {
-                for child in children.iter() {
-                    commands.entity(child).despawn();
-                }
-            }
+    if *was_opened
+        && !state.opened
+        && let Ok(panel_entity) = hotbar_query.single()
+        && let Ok(children) = children_query.get(panel_entity)
+    {
+        for child in children.iter() {
+            commands.entity(child).despawn();
         }
     }
     *was_opened = state.opened;

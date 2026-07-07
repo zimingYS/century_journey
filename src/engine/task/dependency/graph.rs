@@ -27,19 +27,19 @@ impl DependencyGraph {
     pub fn add_dependency(&mut self, from: u64, to: u64) {
         self.register(from);
         self.register(to);
-        if let Some(node) = self.nodes.get_mut(&from) {
-            if !node.depends_on.contains(&to) {
-                node.depends_on.push(to);
-            }
+        if let Some(node) = self.nodes.get_mut(&from)
+            && !node.depends_on.contains(&to)
+        {
+            node.depends_on.push(to);
         }
     }
 
     /// 检查某个任务的所有依赖是否已解决
     pub fn all_resolved(&self, task_id: u64) -> bool {
-        self.nodes.get(&task_id).map_or(true, |node| {
+        self.nodes.get(&task_id).is_none_or(|node| {
             node.depends_on
                 .iter()
-                .all(|dep| self.nodes.get(dep).map_or(true, |n| n.resolved))
+                .all(|dep| self.nodes.get(dep).is_none_or(|n| n.resolved))
         })
     }
 
@@ -79,10 +79,8 @@ impl DependencyGraph {
                 if in_stack.contains(&dep) {
                     return true;
                 }
-                if !visited.contains(&dep) {
-                    if self.dfs_cycle(dep, visited, in_stack) {
-                        return true;
-                    }
+                if !visited.contains(&dep) && self.dfs_cycle(dep, visited, in_stack) {
+                    return true;
                 }
             }
         }

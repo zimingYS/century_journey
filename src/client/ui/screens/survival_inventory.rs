@@ -208,7 +208,7 @@ pub fn survival_grid_visual_sync_system(
         .collect();
 
     let force = last_snapshot.is_none();
-    let unchanged = !force && last_snapshot.as_ref().map_or(false, |old| old == &current);
+    let unchanged = !force && (last_snapshot.as_ref() == Some(&current));
     if unchanged {
         return;
     }
@@ -280,7 +280,7 @@ pub fn survival_hotbar_visual_sync_system(
         .collect();
 
     let force = last_hotbar.is_none();
-    let changed = force || last_hotbar.as_ref().map_or(true, |old| old != &current);
+    let changed = force || (last_hotbar.as_ref() != Some(&current));
     if changed {
         *last_hotbar = Some(current.clone());
         for (entity, slot, mut visual) in &mut slot_query {
@@ -348,7 +348,7 @@ pub fn init_survival_hotbar_system(
             children.iter().any(|child| {
                 slot_query
                     .get(child)
-                    .map_or(false, |s| s.kind == SlotKind::Hotbar)
+                    .is_ok_and(|s| s.kind == SlotKind::Hotbar)
             })
         })
         .unwrap_or(false);
@@ -381,13 +381,13 @@ pub fn cleanup_survival_hotbar_system(
     mut commands: Commands,
     mut was_opened: Local<bool>,
 ) {
-    if *was_opened && !state.opened {
-        if let Ok(panel_entity) = hotbar_query.single() {
-            if let Ok(children) = children_query.get(panel_entity) {
-                for child in children.iter() {
-                    commands.entity(child).despawn();
-                }
-            }
+    if *was_opened
+        && !state.opened
+        && let Ok(panel_entity) = hotbar_query.single()
+        && let Ok(children) = children_query.get(panel_entity)
+    {
+        for child in children.iter() {
+            commands.entity(child).despawn();
         }
     }
     *was_opened = state.opened;
@@ -444,10 +444,10 @@ pub fn handle_inventory_close(state: &mut InventoryState) {
             if remaining.is_empty() {
                 break;
             }
-            if let Some(s) = state.hotbar.get_stack_mut(i) {
-                if s.item == remaining.item {
-                    remaining.merge_from(s);
-                }
+            if let Some(s) = state.hotbar.get_stack_mut(i)
+                && s.item == remaining.item
+            {
+                remaining.merge_from(s);
             }
         }
     }
@@ -470,10 +470,10 @@ pub fn handle_inventory_close(state: &mut InventoryState) {
             if remaining.is_empty() {
                 break;
             }
-            if let Some(s) = state.survival.get_stack_mut(i) {
-                if s.item == remaining.item {
-                    remaining.merge_from(s);
-                }
+            if let Some(s) = state.survival.get_stack_mut(i)
+                && s.item == remaining.item
+            {
+                remaining.merge_from(s);
             }
         }
     }
@@ -502,10 +502,10 @@ fn return_to_container<C: crate::game::inventory::container::InventoryContainer>
         return remaining;
     }
     // 先尝试合并到该槽位
-    if let Some(s) = container.get_stack_mut(index) {
-        if s.item == remaining.item {
-            remaining.merge_from(s);
-        }
+    if let Some(s) = container.get_stack_mut(index)
+        && s.item == remaining.item
+    {
+        remaining.merge_from(s);
     }
     // 如果槽位为空，直接放入
     if !remaining.is_empty() && container.get_stack(index).is_none() {

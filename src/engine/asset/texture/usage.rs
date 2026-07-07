@@ -1,8 +1,9 @@
 /// 纹理用途标签
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TextureUsage {
     Block,
     Item,
+    #[default]
     UI,
     Font,
     Particle,
@@ -10,10 +11,4 @@ pub enum TextureUsage {
     Sky,
     Icon,
     Cursor,
-}
-
-impl Default for TextureUsage {
-    fn default() -> Self {
-        Self::UI
-    }
 }

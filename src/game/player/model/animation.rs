@@ -69,8 +69,8 @@ pub fn walk_animation_system(
     } else {
         1.0
     };
-    let t = time.elapsed_secs() as f32 * 8.0 * factor;
-    let swing = (t.sin() * 0.6) as f32;
+    let t = time.elapsed_secs() * 8.0 * factor;
+    let swing = t.sin() * 0.6;
 
     for (joint, mut transform) in &mut joint_query {
         let part = joint.0;

@@ -67,7 +67,7 @@ impl CursorData {
 
     /// 是否有物品
     pub fn has_item(&self) -> bool {
-        self.stack.as_ref().map_or(false, |s| !s.is_empty())
+        self.stack.as_ref().is_some_and(|s| !s.is_empty())
     }
 
     /// 清除光标

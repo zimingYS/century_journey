@@ -43,7 +43,7 @@ pub fn load_item_textures_system(
     for relative in scan_dir(&base, "png") {
         let stem = relative.trim_end_matches(".png");
         let identifier = Identifier::new("century_journey", stem);
-        let id = AssetId::new("century_journey", &format!("textures/items/{stem}"));
+        let id = AssetId::new("century_journey", format!("textures/items/{stem}"));
         let texture_asset = asset.texture(&id, &asset_server);
         registry.textures.insert(identifier, texture_asset);
     }

@@ -26,10 +26,10 @@ pub fn insert_into_container<C: InventoryContainer + ?Sized>(
         if stack.is_empty() {
             return InventoryInsertResult::AllInserted;
         }
-        if let Some(slot_stack) = container.get_stack_mut(i) {
-            if slot_stack.can_merge(&stack) {
-                stack.merge_from(slot_stack);
-            }
+        if let Some(slot_stack) = container.get_stack_mut(i)
+            && slot_stack.can_merge(&stack)
+        {
+            stack.merge_from(slot_stack);
         }
     }
 

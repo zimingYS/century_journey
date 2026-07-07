@@ -21,7 +21,7 @@ impl Partition {
     ) -> Vec<Vec<T>> {
         let total = data.len();
         let batch_count = match strategy {
-            PartitionStrategy::Fixed(size) => (total + size - 1) / size,
+            PartitionStrategy::Fixed(size) => total.div_ceil(size),
             PartitionStrategy::Dynamic => worker_count * 4,
             PartitionStrategy::Auto => {
                 let base = (total / worker_count).max(1);
@@ -33,7 +33,7 @@ impl Partition {
             return vec![];
         }
 
-        let batch_size = (total + batch_count - 1) / batch_count;
+        let batch_size = total.div_ceil(batch_count);
         data.chunks(batch_size.max(1)).map(|c| c.to_vec()).collect()
     }
 }

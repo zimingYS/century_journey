@@ -38,7 +38,7 @@ pub fn view_model_sync_system(
         .hotbar
         .get_stack(inventory.hotbar.active_index)
         .map(|s| s.item.clone())
-        .unwrap_or(ItemId::air());
+        .unwrap_or_default();
 
     let item_identifier = item.identifier();
     let is_air = item.is_air();
@@ -50,10 +50,10 @@ pub fn view_model_sync_system(
     }
 
     // 清除旧物品
-    if let Some(old_e) = render_state.held_entity.take() {
-        if let Ok(e) = held_query.get(old_e) {
-            commands.entity(e).despawn();
-        }
+    if let Some(old_e) = render_state.held_entity.take()
+        && let Ok(e) = held_query.get(old_e)
+    {
+        commands.entity(e).despawn();
     }
 
     // 始终确保手部存在（ViewModelRoot 子节点）

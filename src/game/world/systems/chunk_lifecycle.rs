@@ -63,7 +63,9 @@ pub fn manage_chunks_system(
 
     let mut spawned = 0u32;
     for &chunk_pos in &player_cache.expected_chunks {
-        if !world_storage.chunk_entities.contains_key(&chunk_pos) {
+        if let std::collections::hash_map::Entry::Vacant(e) =
+            world_storage.chunk_entities.entry(chunk_pos)
+        {
             if spawned >= MAX_SPAWN_PER_FRAME {
                 break;
             }
@@ -83,29 +85,29 @@ pub fn manage_chunks_system(
                     Visibility::default(),
                 ))
                 .id();
-            world_storage.chunk_entities.insert(chunk_pos, entity);
+            e.insert(entity);
         }
     }
 
     for (entity, chunk_components) in chunk_query.iter() {
         let pos = chunk_components.position;
         if !player_cache.expected_chunks.contains(&pos) {
-            if save_config.save_on_unload {
-                if let Some(chunk_data) = world_storage.loaded_chunks.get(&pos) {
-                    let now = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs_f64();
-                    save_queue.queue.push_back(SavedChunk {
-                        position: pos,
-                        data: chunk_data.as_ref().clone(),
-                        modified_time: world_storage
-                            .chunk_modified_times
-                            .get(&pos)
-                            .copied()
-                            .unwrap_or(now),
-                    });
-                }
+            if save_config.save_on_unload
+                && let Some(chunk_data) = world_storage.loaded_chunks.get(&pos)
+            {
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs_f64();
+                save_queue.queue.push_back(SavedChunk {
+                    position: pos,
+                    data: chunk_data.as_ref().clone(),
+                    modified_time: world_storage
+                        .chunk_modified_times
+                        .get(&pos)
+                        .copied()
+                        .unwrap_or(now),
+                });
             }
             world_storage.chunk_entities.remove(&pos);
             world_storage.loaded_chunks.remove(&pos);

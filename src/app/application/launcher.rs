@@ -9,8 +9,17 @@ use crate::app::config::AppConfig;
 pub fn launch() -> anyhow::Result<()> {
     let config = AppConfig::default();
     match config.mode {
-        AppMode::Client => Ok(ClientApplication::run(config)),
-        AppMode::Server => Ok(ServerApplication::run(config)),
-        AppMode::Editor => Ok(EditorApplication::run(config)),
+        AppMode::Client => {
+            let _: () = ClientApplication::run(config);
+            Ok(())
+        }
+        AppMode::Server => {
+            let _: () = ServerApplication::run(config);
+            Ok(())
+        }
+        AppMode::Editor => {
+            let _: () = EditorApplication::run(config);
+            Ok(())
+        }
     }
 }

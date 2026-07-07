@@ -6,7 +6,7 @@ use crate::game::inventory::recent::RecentItems;
 use bevy::prelude::*;
 
 /// 统一的物品栏状态资源
-#[derive(Resource, Debug)]
+#[derive(Resource, Debug, Default)]
 pub struct InventoryState {
     /// 快捷栏
     pub hotbar: HotbarData,
@@ -20,19 +20,6 @@ pub struct InventoryState {
     pub recent: RecentItems,
     /// 任意物品栏界面是否打开
     pub opened: bool,
-}
-
-impl Default for InventoryState {
-    fn default() -> Self {
-        Self {
-            hotbar: HotbarData::default(),
-            creative: CreativeData::default(),
-            survival: SurvivalInventory::default(),
-            cursor: CursorData::default(),
-            recent: RecentItems::default(),
-            opened: false,
-        }
-    }
 }
 
 impl InventoryState {

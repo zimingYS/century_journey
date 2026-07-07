@@ -158,7 +158,7 @@ pub enum LogLevel {
 }
 
 /// 调试配置
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DebugConfig {
     /// 是否开启诊断
     pub diagnostics: bool,
@@ -166,14 +166,4 @@ pub struct DebugConfig {
     pub wireframe: bool,
     /// 是否开启分析器
     pub profiler: bool,
-}
-
-impl Default for DebugConfig {
-    fn default() -> Self {
-        Self {
-            diagnostics: false,
-            wireframe: false,
-            profiler: false,
-        }
-    }
 }

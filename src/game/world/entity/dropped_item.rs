@@ -49,9 +49,9 @@ fn solid_below(pos: Vec3, storage: &WorldStorage, reg: &BlockRegistry) -> bool {
         by.rem_euclid(CHUNK_SIZE as i32),
         bz.rem_euclid(CHUNK_SIZE as i32),
     );
-    storage.loaded_chunks.get(&cp).map_or(true, |c| {
+    storage.loaded_chunks.get(&cp).is_none_or(|c| {
         let id = c.get_voxel(lp.x as usize, lp.y as usize, lp.z as usize);
-        id != 0 && reg.get(id).map_or(false, |p| p.is_solid)
+        id != 0 && reg.get(id).is_some_and(|p| p.is_solid)
     })
 }
 
@@ -104,7 +104,7 @@ pub fn dropped_item_gravity_system(
             &storage,
             reg,
         ) {
-            let ground_y = (ny - 0.3).floor() as f32 + 1.0 + 0.3;
+            let ground_y = (ny - 0.3).floor() + 1.0 + 0.3;
             commands.entity(e).insert((
                 Transform::from_translation(Vec3::new(t.translation.x, ground_y, t.translation.z))
                     .with_scale(Vec3::splat(0.25)),

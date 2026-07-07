@@ -19,19 +19,10 @@ pub struct SlotIcon;
 pub struct SlotCountText;
 
 /// 槽位的视觉状态缓存
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Default)]
 pub struct SlotVisual {
     pub item: ItemId,
     pub count: u32,
-}
-
-impl Default for SlotVisual {
-    fn default() -> Self {
-        Self {
-            item: ItemId::air(),
-            count: 0,
-        }
-    }
 }
 
 /// 分类标签按钮

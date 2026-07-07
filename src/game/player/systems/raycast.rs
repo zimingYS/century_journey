@@ -140,7 +140,7 @@ fn calculate_t_max(pos: f32, voxel_coord: i32, step: i32, t_delta: f32) -> f32 {
 
 // 限制垂直高度判断
 fn is_valid_height(y: i32) -> bool {
-    y >= -64 && y < 256
+    (-64..256).contains(&y)
 }
 
 // 检查方块

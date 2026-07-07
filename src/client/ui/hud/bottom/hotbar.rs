@@ -96,7 +96,7 @@ pub fn hud_hotbar_visual_sync_system(
 
     // 图标同步 — 仅物品或数量变化时执行
     let force = last_hotbar.is_none();
-    let changed = force || last_hotbar.as_ref().map_or(true, |old| old != &current);
+    let changed = force || (last_hotbar.as_ref() != Some(&current));
     if changed {
         *last_hotbar = Some(current.clone());
 
@@ -109,21 +109,21 @@ pub fn hud_hotbar_visual_sync_system(
                 .cloned()
                 .unwrap_or((ItemId::air(), 0));
 
-            if let Ok(mut visual) = slot_visual_query.get_mut(entity) {
-                if force || visual.item != item || visual.count != count {
-                    sync_slot_icon(
-                        &mut commands,
-                        entity,
-                        &item,
-                        count,
-                        reg,
-                        &children_query,
-                        item_registry.as_deref(),
-                        item_texture_registry.as_deref(),
-                    );
-                    visual.item = item;
-                    visual.count = count;
-                }
+            if let Ok(mut visual) = slot_visual_query.get_mut(entity)
+                && (force || visual.item != item || visual.count != count)
+            {
+                sync_slot_icon(
+                    &mut commands,
+                    entity,
+                    &item,
+                    count,
+                    reg,
+                    &children_query,
+                    item_registry.as_deref(),
+                    item_texture_registry.as_deref(),
+                );
+                visual.item = item;
+                visual.count = count;
             }
         }
     }

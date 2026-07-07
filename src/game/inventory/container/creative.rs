@@ -38,7 +38,7 @@ impl CreativeCategory {
 }
 
 /// 创造模式物品栏数据
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct CreativeData {
     /// 当前选中的分类索引
     pub selected_tab: usize,
@@ -50,16 +50,4 @@ pub struct CreativeData {
     pub visible_items: Vec<ItemId>,
     /// 收藏的物品
     pub favorites: Vec<ItemId>,
-}
-
-impl Default for CreativeData {
-    fn default() -> Self {
-        Self {
-            selected_tab: 0,
-            search_text: String::new(),
-            categories: Vec::new(),
-            visible_items: Vec::new(),
-            favorites: Vec::new(),
-        }
-    }
 }

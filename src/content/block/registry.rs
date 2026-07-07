@@ -106,10 +106,10 @@ impl BlockRegistry {
         let mut remap = HashMap::new();
 
         for (saved_id, identifier) in saved_map {
-            if let Some(key) = Identifier::parse(identifier).ok() {
-                if let Some(&current_id) = self.identifier_to_id.get(&key) {
-                    remap.insert(*saved_id, current_id);
-                }
+            if let Ok(key) = Identifier::parse(identifier)
+                && let Some(&current_id) = self.identifier_to_id.get(&key)
+            {
+                remap.insert(*saved_id, current_id);
             }
             // 如果标识符在当前注册表中不存在，不添加映射
             // 加载时未映射的 ID 会被替换为空气

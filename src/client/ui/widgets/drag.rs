@@ -116,28 +116,28 @@ pub fn cursor_texture_system(
     for children in &cursor_query {
         // 更新图标
         for child in children.iter() {
-            if let Ok(mut img) = image_query.get_mut(child) {
-                if let Some((item_id, _count)) = &current {
-                    let icon_def = resolve_item_icon(item_id, item_registry.as_deref());
+            if let Ok(mut img) = image_query.get_mut(child)
+                && let Some((item_id, _count)) = &current
+            {
+                let icon_def = resolve_item_icon(item_id, item_registry.as_deref());
 
-                    if let Some(icon) = icon_def {
-                        match icon {
-                            IconDefinition::Block(id) => {
-                                if let Some(atlas_idx) = block_reg.get_icon_atlas_index(&id) {
-                                    img.image = block_reg.base_texture().clone();
-                                    img.texture_atlas = Some(TextureAtlas {
-                                        layout: block_reg.atlas_layout().clone(),
-                                        index: atlas_idx,
-                                    });
-                                }
+                if let Some(icon) = icon_def {
+                    match icon {
+                        IconDefinition::Block(id) => {
+                            if let Some(atlas_idx) = block_reg.get_icon_atlas_index(&id) {
+                                img.image = block_reg.base_texture().clone();
+                                img.texture_atlas = Some(TextureAtlas {
+                                    layout: block_reg.atlas_layout().clone(),
+                                    index: atlas_idx,
+                                });
                             }
-                            IconDefinition::Texture(path) => {
-                                if let Some(ireg) = item_texture_registry.as_ref() {
-                                    if let Some(handle) = ireg.get_handle(&path) {
-                                        img.image = handle.clone();
-                                        img.texture_atlas = None;
-                                    }
-                                }
+                        }
+                        IconDefinition::Texture(path) => {
+                            if let Some(ireg) = item_texture_registry.as_ref()
+                                && let Some(handle) = ireg.get_handle(&path)
+                            {
+                                img.image = handle.clone();
+                                img.texture_atlas = None;
                             }
                         }
                     }

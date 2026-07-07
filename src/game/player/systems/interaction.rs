@@ -72,7 +72,7 @@ pub fn voxel_interaction_system(
             let hit_id = get_voxel_at_world(hit_pos, &world_storage);
 
             // 检查不可破坏方块
-            if tag_registry.as_ref().map_or(false, |tr| {
+            if tag_registry.as_ref().is_some_and(|tr| {
                 tr.contains(&TagId::new("century_journey", "unbreakable"), hit_id)
             }) {
                 return;
@@ -128,38 +128,38 @@ pub fn voxel_interaction_system(
             let hit_id = get_voxel_at_world(hit_pos, &world_storage);
 
             // 检查目标方块是否可交互
-            if let Some(prop) = reg.get(hit_id) {
-                if prop.is_interactable {
-                    // 发送交互事件
-                    events.interact_events.write(BlockInteractEvent {
-                        world_pos: hit_pos,
-                        block_id: hit_id,
-                        face_normal: ray_result.normal,
-                        interactor: player_entity,
-                    });
+            if let Some(prop) = reg.get(hit_id)
+                && prop.is_interactable
+            {
+                // 发送交互事件
+                events.interact_events.write(BlockInteractEvent {
+                    world_pos: hit_pos,
+                    block_id: hit_id,
+                    face_normal: ray_result.normal,
+                    interactor: player_entity,
+                });
 
-                    // 调用方块行为
-                    let behavior = behavior_registry.get_behavior_by_id(hit_id, &reg);
-                    behavior.on_interact(
-                        hit_pos,
-                        hit_id,
-                        ray_result.normal,
-                        None,
-                        &mut world_storage,
-                        &mut commands,
-                    );
+                // 调用方块行为
+                let behavior = behavior_registry.get_behavior_by_id(hit_id, &reg);
+                behavior.on_interact(
+                    hit_pos,
+                    hit_id,
+                    ray_result.normal,
+                    None,
+                    &mut world_storage,
+                    &mut commands,
+                );
 
-                    // 发送音效
-                    events.sound_events.write(BlockSoundEvent {
-                        position: hit_pos.as_vec3(),
-                        sound_material: prop.sound.sound_material,
-                        action: SoundAction::Step, // 交互音效用 step 类型
-                        volume: 0.5,
-                    });
+                // 发送音效
+                events.sound_events.write(BlockSoundEvent {
+                    position: hit_pos.as_vec3(),
+                    sound_material: prop.sound.sound_material,
+                    action: SoundAction::Step, // 交互音效用 step 类型
+                    volume: 0.5,
+                });
 
-                    // 交互型方块不放置新方块，直接返回
-                    return;
-                }
+                // 交互型方块不放置新方块，直接返回
+                return;
             }
 
             // 右键放置
@@ -168,7 +168,7 @@ pub fn voxel_interaction_system(
             let existing_id = get_voxel_at_world(place_pos, &world_storage);
             if existing_id != 0 {
                 // 目标位置已有方块，只有可替换的才允许覆盖
-                if tag_registry.as_ref().map_or(true, |tr| {
+                if tag_registry.as_ref().is_none_or(|tr| {
                     !tr.contains(
                         &TagId::new("century_journey", "overworld_replaceable"),
                         existing_id,
@@ -181,7 +181,7 @@ pub fn voxel_interaction_system(
             let current_hand_item = inventory_state.hotbar.active_item();
             let current_hand_identifier: String = item_registry
                 .as_ref()
-                .and_then(|ir| ir.block_identifier(&current_hand_item))
+                .and_then(|ir| ir.block_identifier(current_hand_item))
                 .map(|id| id.to_string())
                 .unwrap_or_else(|| "century_journey:air".to_string());
             // 翻译成运行时对应的动态ID

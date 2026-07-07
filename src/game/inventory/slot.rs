@@ -53,12 +53,12 @@ impl SlotData {
 
     /// 槽位是否为空
     pub fn is_empty(&self) -> bool {
-        self.stack.as_ref().map_or(true, |s| s.is_empty())
+        self.stack.as_ref().is_none_or(|s| s.is_empty())
     }
 
     /// 槽位是否为满
     pub fn is_full(&self) -> bool {
-        self.stack.as_ref().map_or(false, |s| s.is_full())
+        self.stack.as_ref().is_some_and(|s| s.is_full())
     }
 
     /// 获取到物品ID

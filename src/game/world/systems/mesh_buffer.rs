@@ -20,6 +20,12 @@ pub struct MeshBufferData {
     pub indices: Vec<u32>,
 }
 
+impl Default for MeshBufferData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MeshBufferData {
     pub fn new() -> Self {
         Self::with_capacity(512)

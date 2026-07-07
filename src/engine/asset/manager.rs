@@ -13,21 +13,11 @@ use std::collections::HashMap;
 /// → 缓存 Handle（`AssetCache`）。状态查询直接问 Bevy，不自建状态机。
 ///
 /// 同步读配置/JSON 用 [`AssetFiles`](super::files::AssetFiles)，不属于这里。
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct AssetManager {
     resolver: AssetResolver,
     cache: AssetCache,
     textures: HashMap<String, TextureAsset>,
-}
-
-impl Default for AssetManager {
-    fn default() -> Self {
-        Self {
-            resolver: AssetResolver::default(),
-            cache: AssetCache::default(),
-            textures: HashMap::new(),
-        }
-    }
 }
 
 impl AssetManager {
@@ -111,11 +101,9 @@ impl AssetManager {
     pub(crate) fn sync_pending_texture_metadata(&mut self, images: &Assets<Image>) {
         for asset in self.textures.values_mut() {
             let is_placeholder = asset.metadata.width <= 1 && asset.metadata.height <= 1;
-            if is_placeholder {
-                if let Some(image) = images.get(&asset.handle) {
-                    let size = image.size();
-                    asset.metadata = TextureMetadata::from_size(size.x, size.y);
-                }
+            if is_placeholder && let Some(image) = images.get(&asset.handle) {
+                let size = image.size();
+                asset.metadata = TextureMetadata::from_size(size.x, size.y);
             }
         }
     }

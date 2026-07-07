@@ -106,7 +106,7 @@ pub enum RenderMode {
 }
 
 /// 方块纹理配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BlockTextureConfig {
     // 顶面为首要索引
     pub top: String,
@@ -115,19 +115,6 @@ pub struct BlockTextureConfig {
     pub south: Option<String>,
     pub west: Option<String>,
     pub east: Option<String>,
-}
-
-impl Default for BlockTextureConfig {
-    fn default() -> Self {
-        Self {
-            top: String::new(),
-            bottom: None,
-            north: None,
-            south: None,
-            west: None,
-            east: None,
-        }
-    }
 }
 
 impl BlockTextureConfig {

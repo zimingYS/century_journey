@@ -27,11 +27,11 @@ impl TimeOfDay {
         use crate::engine::constant::sky::*;
         let t = self.current_time;
 
-        if t >= SUNRISE_START && t < SUNRISE_END {
+        if (SUNRISE_START..SUNRISE_END).contains(&t) {
             TimePhase::Sunrise
-        } else if t >= SUNRISE_END && t < SUNSET_START {
+        } else if (SUNRISE_END..SUNSET_START).contains(&t) {
             TimePhase::Day
-        } else if t >= SUNSET_START && t < SUNSET_END {
+        } else if (SUNSET_START..SUNSET_END).contains(&t) {
             TimePhase::Sunset
         } else {
             TimePhase::Night
@@ -43,11 +43,11 @@ impl TimeOfDay {
         use crate::engine::constant::sky::*;
         let t = self.current_time;
 
-        if t >= SUNRISE_START && t < SUNRISE_END {
+        if (SUNRISE_START..SUNRISE_END).contains(&t) {
             (t - SUNRISE_START) / (SUNRISE_END - SUNRISE_START)
-        } else if t >= SUNRISE_END && t < SUNSET_START {
+        } else if (SUNRISE_END..SUNSET_START).contains(&t) {
             1.0
-        } else if t >= SUNSET_START && t < SUNSET_END {
+        } else if (SUNSET_START..SUNSET_END).contains(&t) {
             1.0 - (t - SUNSET_START) / (SUNSET_END - SUNSET_START)
         } else {
             0.0

@@ -2,9 +2,10 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// 方块几何模型类型
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum BlockModel {
     /// 标准完整立方体
+    #[default]
     Cube,
     /// 十字形
     Cross,
@@ -18,12 +19,6 @@ pub enum BlockModel {
         /// 每个面的定义
         faces: Vec<CustomFace>,
     },
-}
-
-impl Default for BlockModel {
-    fn default() -> Self {
-        Self::Cube
-    }
 }
 
 /// 自定义模型中的单个面

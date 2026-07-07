@@ -39,7 +39,7 @@ pub fn handle_slot_interaction(
                     state.add_recent(item);
                 }
                 SlotAction::RightClick => {
-                    let half = (ItemStack::MAX_STACK_SIZE + 1) / 2;
+                    let half = ItemStack::MAX_STACK_SIZE.div_ceil(2);
                     state.cursor.set_stack(ItemStack::new(item.clone(), half));
                     state.cursor.source = None;
                     state.add_recent(item);
@@ -73,7 +73,7 @@ pub fn handle_slot_interaction(
                     state.add_recent(stack.item.clone());
                 }
                 SlotAction::RightClick => {
-                    let half = (ItemStack::MAX_STACK_SIZE + 1) / 2;
+                    let half = ItemStack::MAX_STACK_SIZE.div_ceil(2);
                     state
                         .cursor
                         .set_stack(ItemStack::new(stack.item.clone(), half));
@@ -141,10 +141,10 @@ fn shift_into_hotbar(state: &mut InventoryState, stack: &ItemStack) {
         if remaining.is_empty() {
             break;
         }
-        if let Some(hotbar_stack) = state.hotbar.get_stack_mut(i) {
-            if hotbar_stack.is_same_item(&remaining) {
-                remaining.merge_from(hotbar_stack);
-            }
+        if let Some(hotbar_stack) = state.hotbar.get_stack_mut(i)
+            && hotbar_stack.is_same_item(&remaining)
+        {
+            remaining.merge_from(hotbar_stack);
         }
     }
 

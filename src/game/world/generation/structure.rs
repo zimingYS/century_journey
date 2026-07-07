@@ -131,7 +131,7 @@ impl StructureGenerator {
 /// 简单确定性哈希
 fn simple_hash(x: i32, z: i32, seed: u32) -> u32 {
     use std::num::Wrapping;
-    let mut h = Wrapping(seed as u32);
+    let mut h = Wrapping(seed);
     h ^= Wrapping(x as u32).0.wrapping_mul(0x45d9f3b);
     h ^= Wrapping(z as u32).0.wrapping_mul(0x1f83d9ab);
     h ^= h >> 16;

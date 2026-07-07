@@ -19,7 +19,7 @@ impl Reducer {
         F: Fn(Vec<T>) -> R + Send + Sync + 'static,
         G: Fn(R, R) -> R + Send + Sync + 'static,
     {
-        let chunk_size = (data.len() + worker_count - 1) / worker_count;
+        let chunk_size = data.len().div_ceil(worker_count);
         let chunks: Vec<_> = data.chunks(chunk_size.max(1)).map(|c| c.to_vec()).collect();
 
         let map = Arc::new(map);
@@ -32,6 +32,6 @@ impl Reducer {
 
         let results: Vec<R> = handles.into_iter().filter_map(|h| h.join().ok()).collect();
 
-        results.into_iter().fold(identity, |acc, r| reduce(acc, r))
+        results.into_iter().fold(identity, reduce)
     }
 }

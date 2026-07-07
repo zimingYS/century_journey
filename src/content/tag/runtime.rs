@@ -36,7 +36,7 @@ impl RuntimeTagRegistry {
     pub fn contains(&self, tag: &TagId, runtime_id: u16) -> bool {
         self.tags
             .get(tag)
-            .map_or(false, |ids| ids.contains(&runtime_id))
+            .is_some_and(|ids| ids.contains(&runtime_id))
     }
 
     /// 获取某个标签的所有运行时 ID 引用（带生命周期）
@@ -92,7 +92,7 @@ impl ItemTagIndex {
 
     /// 检查物品是否属于某个标签
     pub fn contains(&self, tag: &TagId, item: &ItemId) -> bool {
-        self.tags.get(tag).map_or(false, |set| set.contains(item))
+        self.tags.get(tag).is_some_and(|set| set.contains(item))
     }
 
     /// 获取标签下所有物品
