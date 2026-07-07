@@ -40,7 +40,7 @@ jobs:
               -DestinationPath ${env:APP_NAME}-Windows.zip
 
       - name: Upload Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             CenturyJourney-Windows.zip
@@ -80,7 +80,7 @@ jobs:
 #          zip -r ../${APP_NAME}-Linux.zip .
 #
 #      - name: Upload Release
-#        uses: softprops/action-gh-release@v2
+#        uses: softprops/action-gh-release@v3
 #        with:
 #          files: |
 #            CenturyJourney-Linux.zip
@@ -111,7 +111,7 @@ jobs:
 #          zip -r ../${APP_NAME}-macOS.zip .
 #
 #      - name: Upload Release
-#        uses: softprops/action-gh-release@v2
+#        uses: softprops/action-gh-release@v3
 #        with:
 #          files: |
 #            CenturyJourney-macOS.zip
