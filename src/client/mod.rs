@@ -177,7 +177,6 @@
 //! Client 的职责是将这些规则以自然、流畅、直观的方式呈现给玩家。
 
 pub mod animation;
-pub mod asset;
 pub mod camera;
 pub mod debug;
 pub mod effect;

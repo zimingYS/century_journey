@@ -67,9 +67,9 @@ pub struct HeldItemConfig {
     pub animations: AnimationConfig,
 }
 
-/// 默认第一人称位置
+/// 默认第一人称位置（相对手掌的局部偏移）
 fn default_fp_translation() -> [f32; 3] {
-    [0.30, -0.05, -0.40]
+    [0.0, -0.06, 0.0]
 }
 /// 默认第一人称缩放
 fn default_fp_scale() -> f32 {
@@ -125,7 +125,7 @@ impl HeldItemConfig {
     pub fn default_block() -> Self {
         Self {
             render: HeldRenderDefinition::Block,
-            first_person_translation: [0.30, -0.20, -0.50],
+            first_person_translation: [0.0, -0.04, -0.06],
             first_person_rotation: [-15.0, 25.0, 0.0],
             first_person_scale: 0.2,
             animations: AnimationConfig {
@@ -139,7 +139,7 @@ impl HeldItemConfig {
     pub fn default_tool(thickness: f32) -> Self {
         Self {
             render: HeldRenderDefinition::FlatItem { thickness },
-            first_person_translation: [0.30, -0.10, -0.50],
+            first_person_translation: [0.0, -0.04, -0.08],
             first_person_rotation: [0.0, -75.0, 60.0],
             first_person_scale: 0.50,
             animations: AnimationConfig {
@@ -153,7 +153,7 @@ impl HeldItemConfig {
     pub fn default_flat(thickness: f32) -> Self {
         Self {
             render: HeldRenderDefinition::FlatItem { thickness },
-            first_person_translation: [0.30, -0.10, -0.50],
+            first_person_translation: [0.0, -0.04, -0.06],
             first_person_rotation: [0.0, -75.0, 60.0],
             first_person_scale: 0.50,
             animations: AnimationConfig::default(),
@@ -166,7 +166,7 @@ impl HeldItemConfig {
             render: HeldRenderDefinition::Model {
                 path: path.to_string(),
             },
-            first_person_translation: [0.25, -0.10, -0.40],
+            first_person_translation: [0.0, -0.04, -0.06],
             first_person_rotation: [0.0, -60.0, 60.0],
             first_person_scale: 0.60,
             animations: AnimationConfig::default(),

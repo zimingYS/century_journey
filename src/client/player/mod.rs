@@ -8,7 +8,6 @@ use crate::game::player::model::PlayerModelPlugin;
 use crate::game::player::model::animation::PlayerAnimationState;
 use crate::game::player::model::components::{PlayerJoint, PlayerMesh};
 use crate::game::player::model::config::PlayerModelConfig;
-use crate::game::player::model::rig::PlayerRigEntities;
 use crate::game::player::plugin::GamePlayerPlugin;
 
 /// 客户端玩家 Plugin。
@@ -79,10 +78,12 @@ fn spawn_player(
         .add_child(camera);
 }
 
-/// 第一人称: 隐藏全身, 仅显示右臂
+/// 第一人称: 隐藏全身; 第三人称: 全部显示
+///
+/// 第一人称手持物由 ViewModelRoot (Camera 子节点) 单独渲染,
+/// 骨骼手臂不再需要特殊保留——抬头/低头时骨骼手臂跟不上的 bug 已消除。
 fn first_person_visibility_system(
     camera_query: Query<&FpsCamera, With<Camera3d>>,
-    rig: Option<Res<PlayerRigEntities>>,
     mut joint_query: Query<(Entity, &PlayerJoint, &mut Visibility), Without<PlayerMesh>>,
     mut mesh_query: Query<(Entity, &PlayerMesh, &mut Visibility), Without<PlayerJoint>>,
 ) {
@@ -90,31 +91,17 @@ fn first_person_visibility_system(
         .single()
         .map(|c| c.is_first_person)
         .unwrap_or(true);
-    let Some(rig) = rig.as_ref() else { return };
 
-    let right_arm_joints = [rig.upper_arm_r, rig.forearm_r, rig.hand_r];
-    let right_arm_meshes = [rig.upper_arm_r, rig.forearm_r, rig.hand_r];
+    let target = if is_fp {
+        Visibility::Hidden
+    } else {
+        Visibility::Inherited
+    };
 
-    for (entity, _joint, mut vis) in &mut joint_query {
-        if is_fp && right_arm_joints.contains(&entity) {
-            *vis = Visibility::Inherited;
-        } else {
-            *vis = if is_fp {
-                Visibility::Hidden
-            } else {
-                Visibility::Inherited
-            };
-        }
+    for (_entity, _joint, mut vis) in &mut joint_query {
+        *vis = target;
     }
-    for (entity, _mesh, mut vis) in &mut mesh_query {
-        if is_fp && right_arm_meshes.contains(&entity) {
-            *vis = Visibility::Inherited;
-        } else {
-            *vis = if is_fp {
-                Visibility::Hidden
-            } else {
-                Visibility::Inherited
-            };
-        }
+    for (_entity, _mesh, mut vis) in &mut mesh_query {
+        *vis = target;
     }
 }

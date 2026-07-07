@@ -2,5 +2,7 @@
 /.idea
 /saves
 /NVIDIA Corporation
-/Cargo.lock
-/tests/
+*.log
+.env
+.env.*
+!.env.example

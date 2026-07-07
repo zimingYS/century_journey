@@ -61,6 +61,43 @@ impl AssetManager {
         handle
     }
 
+    /// 加载 glTF/GLB 模型。
+    /// 返回 `Handle<Gltf>`——场景、网格、材质可通过 `Assets<Gltf>` 查询。
+    /// Bevy 自动识别 `.glb`/`.gltf` 文件并解码。
+    pub fn model(&mut self, id: &AssetId, asset_server: &AssetServer) -> Handle<Gltf> {
+        use bevy::gltf::Gltf;
+        let key = id.to_string();
+        if let Some(handle) = self.cache.get::<Gltf>(&key) {
+            return handle;
+        }
+        let location = self.resolver.resolve(id, "glb");
+        let handle = AssetPipeline::load::<Gltf>(asset_server, &location);
+        self.cache.insert(&key, handle.clone());
+        handle
+    }
+
+    /// 聚合查询：所有已发出的 `texture()` / `font()` / `model()` 请求是否都已加载完成。
+    ///
+    /// 用于 Loading → InGame 的状态切换条件，避免进入 InGame 时 UI 上出现
+    /// 空白占位纹理（物品图标的 Handle 可能还在后台解码）。
+    pub fn all_loaded(&self, asset_server: &AssetServer) -> bool {
+        for (_, handle) in self.cache.iter() {
+            if !matches!(
+                asset_server.get_load_state(handle.id()),
+                Some(LoadState::Loaded)
+            ) {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// 清空所有资源缓存（场景切换时调用）。
+    pub fn clear(&mut self) {
+        self.cache.clear();
+        self.textures.clear();
+    }
+
     /// 是否加载完成——直接委托给 Bevy 的 `LoadState`。
     pub fn is_loaded<T: Asset>(&self, handle: &Handle<T>, asset_server: &AssetServer) -> bool {
         matches!(asset_server.get_load_state(handle), Some(LoadState::Loaded))

@@ -38,7 +38,8 @@ pub fn view_model_animation_system(
         let idle_rot = Quat::from_rotation_z(sway_x) * Quat::from_rotation_x(sway_y);
 
         transform.rotation = swing_rot * equip_rot * idle_rot;
-        transform.translation += swing_trans + equip_trans;
+        let idle_trans = Vec3::new(sway_x * 0.25, sway_y * 0.25, 0.0);
+        transform.translation = swing_trans + equip_trans + idle_trans;
     }
 }
 

@@ -1,0 +1,46 @@
+name: Bug Report
+description: Report a reproducible problem in Century Journey.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve Century Journey. Please include enough detail for someone else to reproduce the issue.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Start the game
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: OS, GPU, Rust version, game commit/version
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or Screenshots
+      description: Remove secrets or private paths before sharing.
+    validations:
+      required: false

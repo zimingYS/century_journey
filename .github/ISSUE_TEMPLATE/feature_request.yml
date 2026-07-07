@@ -1,0 +1,33 @@
+name: Feature Request
+description: Suggest a feature, improvement, or gameplay idea.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Motivation
+      description: What should this improve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe the change you would like to see.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other approaches you considered.
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+    validations:
+      required: false

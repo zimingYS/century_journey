@@ -2,6 +2,7 @@ use crate::shared::identifier::Identifier;
 use bevy::prelude::*;
 
 pub mod animation;
+pub mod hand_view;
 pub mod renderer;
 
 /// 第一人称物品根节点

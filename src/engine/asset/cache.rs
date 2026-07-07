@@ -25,6 +25,15 @@ impl AssetCache {
         self.handles.remove(key);
     }
 
+    pub fn clear(&mut self) {
+        self.handles.clear();
+    }
+
+    /// 内部迭代——供 AssetManager::all_loaded() 聚合查询使用
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (&String, &UntypedHandle)> {
+        self.handles.iter()
+    }
+
     pub fn len(&self) -> usize {
         self.handles.len()
     }

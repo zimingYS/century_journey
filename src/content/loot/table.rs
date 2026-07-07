@@ -1,4 +1,5 @@
 use crate::shared::item_id::ItemId;
+use serde::{Deserialize, Serialize};
 
 // LootTable 返回 tokens (ItemId, count) 而非 ItemStack，
 // 以避免 Content 层依赖 Game 层。ItemStack 转换由 Game 层负责。
@@ -6,16 +7,19 @@ use crate::shared::item_id::ItemId;
 /// 掉落结果：物品ID和数量
 pub type LootDrop = (ItemId, u32);
 
-/// 单个掉落条目
-#[derive(Debug, Clone)]
+/// 单个掉落条目（JSON 可序列化）
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LootEntry {
     /// 掉落物品
     pub item: ItemId,
     /// 掉落数量（最小）
+    #[serde(default = "default_min_count")]
     pub min_count: u32,
     /// 掉落数量（最大）
+    #[serde(default = "default_max_count")]
     pub max_count: u32,
     /// 掉落概率 (0.0 ~ 1.0)
+    #[serde(default = "default_chance")]
     pub chance: f32,
 }
 
@@ -41,9 +45,10 @@ impl LootEntry {
     }
 }
 
-/// 掉落表 — 一组掉落条目
-#[derive(Debug, Clone, Default)]
+/// 掉落表 — 一组掉落条目（JSON 可序列化）
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LootTable {
+    #[serde(default)]
     pub entries: Vec<LootEntry>,
 }
 
@@ -86,4 +91,15 @@ impl LootTable {
         }
         results
     }
+}
+
+// ─── serde 默认值 ────────────────────────────────────
+fn default_min_count() -> u32 {
+    1
+}
+fn default_max_count() -> u32 {
+    1
+}
+fn default_chance() -> f32 {
+    1.0
 }

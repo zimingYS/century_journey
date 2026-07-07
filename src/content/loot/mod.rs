@@ -1,4 +1,5 @@
 pub mod block_registry;
+pub mod loader;
 pub mod table;
 
 use crate::shared::states::app_state::AppState;
