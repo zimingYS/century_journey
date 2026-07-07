@@ -14,4 +14,10 @@ pub enum TagAction {
     Remove { remove: Vec<String> },
     /// 替换整个 Tag
     Replace { replace: Vec<String> },
+    /// Minecraft-style tag file: `{ "replace": bool, "values": [...] }`.
+    Values {
+        #[serde(default)]
+        replace: bool,
+        values: Vec<String>,
+    },
 }

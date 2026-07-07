@@ -373,10 +373,7 @@ fn register_blocks(
     }
 
     // 处理其余所有普通方块
-    let mut current_max_id = 1u16;
-    for block in raw_configs {
-        let assigned_id = current_max_id;
-
+    for (assigned_id, block) in (1u16..).zip(raw_configs) {
         // 注册标识符与ID映射
         registry
             .identifier_to_id
@@ -399,7 +396,6 @@ fn register_blocks(
         registry.id_to_properties.insert(assigned_id, block);
 
         // 动态增加ID编号
-        current_max_id += 1;
     }
     unique_paths
 }

@@ -8,6 +8,7 @@ use std::collections::HashMap;
 ///
 /// 目录结构:
 ///   loot/blocks/namespace/block_name.json → Identifier(namespace, "block_name")
+///   loot/blocks/block_name.json → Identifier("century_journey", "block_name")
 ///
 /// 格式:
 ///   ```json
@@ -27,11 +28,13 @@ pub fn load_loot_tables(asset: &AssetManager) -> HashMap<Identifier, LootTable> 
         };
 
         let relative = relative.replace('\\', "/");
-        if let Some((namespace, path)) = relative.split_once('/') {
-            let id = Identifier::new(namespace, path.to_string());
-            log::info!("[Loot] 加载 {} ({} entries)", id, table.entries.len());
-            tables.insert(id, table);
-        }
+        let id = if let Some((namespace, path)) = relative.split_once('/') {
+            Identifier::new(namespace, path.to_string())
+        } else {
+            Identifier::new("century_journey", relative)
+        };
+        log::info!("[Loot] 加载 {} ({} entries)", id, table.entries.len());
+        tables.insert(id, table);
     }
 
     tables

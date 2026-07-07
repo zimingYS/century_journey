@@ -30,6 +30,10 @@ impl ItemTextureRegistry {
     pub fn len(&self) -> usize {
         self.textures.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.textures.is_empty()
+    }
 }
 
 /// 启动时扫描并加载物品纹理

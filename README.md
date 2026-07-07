@@ -1,4 +1,5 @@
 # Century Journey
+# 世纪之旅
 
 <div align="center">
 
@@ -9,214 +10,275 @@
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 
 **A modern voxel sandbox game built with Rust and Bevy.**
-**使用 Rust 与 Bevy 开发的新一代体素沙盒游戏。**
+
+**使用 Rust 和 Bevy 开发的现代体素沙盒游戏。**
 
 </div>
 
 ---
 
-## ✨ Overview 项目概述
+## Overview
+## 项目概述
+
 Century Journey is a modern voxel sandbox game focused on performance, moddability, and long-term extensibility.
-Unlike traditional sandbox games, almost every game system is data-driven. Blocks, items, entities, recipes, biomes, structures, world generation, and more can all be extended without modifying the engine.
 
-《世纪之旅(Century Journey)》是一款现代体素沙盒游戏，主打高性能、高可模组性与长期可拓展性。
-区别于传统沙盒游戏，本项目整套游戏体系均采用数据驱动设计。方块、物品、实体、合成配方、生物群系、建筑结构、世界生成等内容均可直接拓展，无需改动引擎底层源码。
+《世纪之旅》是一款现代体素沙盒游戏，重点关注性能、可模组性和长期可扩展性。
 
+Unlike traditional sandbox games, almost every game system is designed to be data-driven. Blocks, items, entities, recipes, biomes, structures, world generation, and other content can be extended without modifying the engine core.
 
----
+区别于传统沙盒游戏，本项目几乎所有游戏系统都采用数据驱动设计。方块、物品、实体、合成配方、生物群系、建筑结构、世界生成等内容都可以在不修改引擎核心的情况下扩展。
 
-# ✨ Features 特性
-| English                                    | 中文                  |
-|--------------------------------------------|---------------------|
-| ⚡ Built with Rust                          | ⚡ 基于 Rust 语言开发      |
-| 🎮 Powered by Bevy Engine                  | 🎮 Bevy 游戏引擎驱动      |
-| 🌍 Infinite voxel world                    | 🌍 超大无限体素世界         |
-| 📦 Data-driven content system              | 📦 完整数据驱动内容架构       |
-| 🔧 Powerful Mod API                        | 🔧 完善的模组开发API       |
-| 🎨 Full Resource Pack support              | 🎨 完整资源包支持          |
-| 🌊 Dynamic world simulation (planned)      | 🌊 动态世界模拟（开发规划中）    |
-| ☀️ Complete Day/Night cycle                | ☀️ 完整昼夜循环系统         |
-| 🌧 Dynamic weather system (planned)        | 🌧 动态天气系统（开发规划中）    |
-| 🌱 Ecology & seasonal mechanisms (planned) | 🌱 生态系统与四季机制（开发规划中） |
-| ⚒ Cross-platform Multiplayer (planned)     | ⚒ 跨平台多人联机（开发规划中）    |
-| 🖥 Native Cross-platform support           | 🖥 原生全平台适配          |
+Project status: **early active development**. The playable client is the current focus. Server mode, editor mode, and multiplayer are planned but not available yet.
+
+项目状态：**早期积极开发阶段**。当前重点是可运行客户端；Server 模式、Editor 模式与 Multiplayer 仍处于规划阶段，尚未作为可用功能开放。
 
 ---
 
-# 🏗 Architecture
+## Features
+## 特性
 
-The project adopts a standard layered architecture for easy maintenance and expansion.
-本项目采用标准分层架构，便于维护与二次拓展。
+- Built with Rust.
+  基于 Rust 开发。
+- Powered by the Bevy game engine.
+  由 Bevy 游戏引擎驱动。
+- Infinite voxel world.
+  无限体素世界。
+- Data-driven content system.
+  数据驱动的内容系统。
+- Mod API and resource pack support.
+  支持 Mod API 与资源包。
+- Complete day and night cycle.
+  完整的昼夜循环系统。
+- Dynamic world simulation is planned.
+  动态世界模拟处于规划阶段。
+- Dynamic weather is planned.
+  动态天气系统处于规划阶段。
+- Ecology and seasonal mechanics are planned.
+  生态与季节机制处于规划阶段。
+- Cross-platform multiplayer is planned.
+  跨平台多人联机处于规划阶段。
+- Native cross-platform support is planned for Windows, Linux, and macOS.
+  计划支持 Windows、Linux 与 macOS 原生跨平台运行。
 
-```
+---
+
+## Architecture
+## 架构
+
+The project uses a layered architecture so systems can evolve independently and remain easier to maintain.
+
+项目采用分层架构，使各系统能够独立演进，并保持较好的可维护性。
+
+```text
 Engine
-│
-├── Rendering
-├── Asset System
-├── ECS Extensions
-├── Resource Runtime
-└── Core Infrastructure
+|-- Rendering
+|-- Asset System
+|-- ECS Extensions
+|-- Resource Runtime
+`-- Core Infrastructure
 
 Shared
-│
-├── Identifier
-├── Runtime Types
-├── Registry Traits
-└── Utilities
+|-- Identifier
+|-- Runtime Types
+|-- Registry Traits
+`-- Utilities
 
 Content
-│
-├── Blocks
-├── Items
-├── Biomes
-├── Recipes
-├── Loot Tables
-├── Entities
-└── Data Loaders
+|-- Blocks
+|-- Items
+|-- Biomes
+|-- Recipes
+|-- Loot Tables
+|-- Entities
+`-- Data Loaders
 
 Game
-│
-├── World
-├── Player
-├── Inventory
-├── Physics
-├── Crafting
-└── Gameplay
+|-- World
+|-- Player
+|-- Inventory
+|-- Physics
+|-- Crafting
+`-- Gameplay
 
 Client
-│
-├── Rendering
-├── UI
-├── Audio
-├── Input
-└── Animation
+|-- Rendering
+|-- UI
+|-- Audio
+|-- Input
+`-- Animation
 
 Server
-│
-├── Networking
-├── Synchronization
-├── Saving
-└── Multiplayer
+|-- Networking
+|-- Synchronization
+|-- Saving
+`-- Multiplayer
 ```
 
 ---
 
-# 📦 Modding Support 模组开发
+## Modding Support
+## 模组支持
 
-Century Journey is designed from the beginning to fully support modding.
-《世纪之旅》在立项之初便将模组生态纳入核心设计，原生支持模组开发。
-The project is currently under active development.
-项目目前处于积极开发阶段。
+Century Journey is designed from the beginning to support modding as a core part of the project.
 
----
+《世纪之旅》从项目早期就将模组生态作为核心方向进行设计。
 
-# 🚀 Building 构建
+The project is still in early active development, so modding APIs and content formats may change before stabilization.
 
-Ensure you have a full Rust environment (with Cargo) installed locally.
-Pull the project repository locally, run cargo build for compilation, 
-and use cargo run to start the application.
-
-配置好完整的本地 Rust 运行环境（包含 Cargo 工具），
-拉取项目代码至本地，执行 cargo build 命令完成项目构建，
-执行 cargo run 命令即可运行程序。
+项目仍处于早期积极开发阶段，因此模组 API 与内容格式在稳定前可能发生变化。
 
 ---
 
-# 🤝 Contributing
+## Building
+## 构建
 
-Contributions are warmly welcome!
-欢迎各位开发者提交代码与内容贡献！
-Before submitting a Pull Request, please check the documents below:
-提交 PR 前，请务必阅读以下规范文件（待完善）:
-CONTRIBUTING.md（开发贡献规范・待编写）
-CODE_OF_CONDUCT.md（行为准则・待编写）
-CLA.md（贡献者协议・待编写）
+Install a complete Rust toolchain with Cargo before building the project.
 
+构建项目之前，请先安装包含 Cargo 的完整 Rust 工具链。
 
----
-
-# 📚 Documentation
-
-All official documents will be placed in the repository.
-官方全套开发文档后续将统一放置于仓库内。
-TODO
+1. Clone the repository.
+   克隆本仓库。
+2. Run `cargo build` to build the project.
+   执行 `cargo build` 构建项目。
+3. Run `cargo run` to start the application.
+   执行 `cargo run` 启动应用。
 
 ---
 
-# 🗺 Development Roadmap 开发路线图
-- [x] Chunk System 区块系统
-- [x] Block System 方块系统
-- [x] Inventory    背包系统(待优化)
-- [x] ViewModel    手持物品渲染(待优化)
-- [x] Item System  物品系统
-- [ ] Entity System 实体系统
-- [ ] World Generation 2.0   二代世界生成器
-- [ ] Mod SDK     官方模组开发套件
-- [ ] Multiplayer  多人联机
-- [ ] Dedicated Server   独立专用服务器
-- [ ] Steam Release      平台正式上线
+## Contributing
+## 贡献
+
+Contributions are welcome. Focused issues and small pull requests are the easiest to review while the project is still evolving quickly.
+
+欢迎提交贡献。在项目仍快速演进的阶段，聚焦的问题反馈和范围较小的 Pull Request 更容易被审阅。
+
+Before submitting a pull request, please read these documents:
+
+提交 Pull Request 前，请阅读以下文档：
+
+- `CONTRIBUTING.md`
+- `CODE_OF_CONDUCT.md`
+- `SECURITY.md`
 
 ---
 
-# 📄 License 许可证
+## Documentation
+## 文档
 
-Century Journey uses **multiple licenses** depending on the project component.
-《世纪之旅》根据项目组成部分使用**多个许可证**。
+Official documentation will be kept in this repository.
 
-| Component            | License                                        |
-|----------------------|------------------------------------------------|
-| Source Code 项目源码     | **Mozilla Public License 2.0 (MPL-2.0)**       |
-| Game Assets 游戏资源     | **Century Journey Assets License (CJAL v1.0)** |
-| Mod SDK/API 模组SDK接口	 | **MIT License**                                |
-| Documentation 文档     | **CC BY 4.0**                                  |
+官方文档会统一维护在本仓库中。
 
-## Source Code 项目源码
+Documentation is being expanded as the project stabilizes.
 
-The source code located in the `src/` directory is licensed under the **Mozilla Public License 2.0 (MPL-2.0)**.
-
-存放于 src/ 目录下的源代码，遵循 Mozilla 公共许可证 2.0 版（MPL-2.0） 协议。
-
-## Game Assets 游戏资源
-
-All textures, models, sounds, music, icons, animations, shaders, and other game assets are licensed under the **Century Journey Assets License (CJAL v1.0)**.
-Unless explicitly permitted by the asset license, official assets may **not** be used in other games or commercial products.
-
-所有贴图、模型、音效、配乐、图标、动画、着色器及其余游戏资源，均遵循 ** 世纪之旅资源许可证（CJAL v1.0）** 协议。
-
-## Mod SDK  模组开发
-
-The official Mod SDK/API is licensed under the **MIT License** to encourage community development.
-
-为助力社区开发，官方模组 SDK/API 采用 MIT 许可证 开源。
-
-## Documentation 文档
-
-Project documentation is licensed under **Creative Commons Attribution 4.0 International (CC BY 4.0)**.
-
-本项目所有文档遵循 知识共享署名 4.0 国际许可协议（CC BY 4.0）。
+文档会随着项目稳定逐步补充。
 
 ---
 
-# ❤️ Special Thanks
+## Development Roadmap
+## 开发路线图
 
-Thanks to:
-致谢名单：
+- [x] Chunk system.
+  区块系统。
+- [x] Block system.
+  方块系统。
+- [x] Inventory system.
+  背包系统。
+- [x] View model rendering.
+  手持物品渲染。
+- [x] Item system.
+  物品系统。
+- [ ] Entity system.
+  实体系统。
+- [ ] World generation 2.0.
+  二代世界生成。
+- [ ] Official Mod SDK.
+  官方模组开发套件。
+- [ ] Multiplayer.
+  多人联机。
+- [ ] Dedicated server.
+  独立专用服务器。
+- [ ] Steam release.
+  Steam 正式发布。
 
-- Rust Community
-  Rust 官方社区
-- Bevy Community
-  Bevy 引擎社区
-- Every contributor
-  所有项目贡献者
-- Every player
-  每一位游玩的玩家
+---
+
+## License
+## 许可证
+
+Century Journey uses multiple licenses depending on the project component.
+
+《世纪之旅》根据项目组成部分使用不同的许可证。
+
+- Source code: Mozilla Public License 2.0 (MPL-2.0).
+  项目源码：Mozilla Public License 2.0（MPL-2.0）。
+- Official game assets: Century Journey Assets License (CJAL v1.0).
+  官方游戏资源：Century Journey Assets License（CJAL v1.0）。
+- Mod SDK and API: MIT License.
+  模组 SDK 与 API：MIT License。
+- Documentation: Creative Commons Attribution 4.0 International (CC BY 4.0).
+  文档：知识共享署名 4.0 国际许可协议（CC BY 4.0）。
+- Third-party resources: see `THIRD_PARTY_NOTICES.md`.
+  第三方资源：见 `THIRD_PARTY_NOTICES.md`。
+
+### Source Code
+### 项目源码
+
+The source code located in the `src/` directory is licensed under the Mozilla Public License 2.0 (MPL-2.0).
+
+`src/` 目录中的项目源码遵循 Mozilla Public License 2.0（MPL-2.0）。
+
+### Game Assets
+### 游戏资源
+
+Textures, models, sounds, music, icons, animations, shaders, and other official game assets are licensed under the Century Journey Assets License (CJAL v1.0).
+
+纹理、模型、音效、音乐、图标、动画、着色器及其他官方游戏资源遵循 Century Journey Assets License（CJAL v1.0）。
+
+Unless explicitly permitted by the asset license, official assets may not be used in other games or commercial products.
+
+除非资源许可证明确允许，官方资源不得用于其他游戏或商业产品。
+
+### Mod SDK
+### 模组开发套件
+
+The official Mod SDK and API are licensed under the MIT License to encourage community development.
+
+为鼓励社区开发，官方模组 SDK 与 API 使用 MIT License。
+
+### Documentation
+### 文档
+
+Project documentation is licensed under Creative Commons Attribution 4.0 International (CC BY 4.0).
+
+项目文档遵循知识共享署名 4.0 国际许可协议（CC BY 4.0）。
+
+### Third-party Resources
+### 第三方资源
+
+Third-party resources keep their own licenses. See `THIRD_PARTY_NOTICES.md`.
+
+第三方资源遵循其各自许可证，详见 `THIRD_PARTY_NOTICES.md`。
+
+---
+
+## Special Thanks
+## 特别鸣谢
+
+Thanks to the Rust community, the Bevy community, every contributor, and every player who supports the project.
+
+感谢 Rust 社区、Bevy 社区、每一位贡献者，以及每一位支持本项目的玩家。
 
 ---
 
 <div align="center">
 
-**Made with ❤️ using Rust**
+**Made with care using Rust.**
 
-Century Journey © 2026 Contributors
-《世纪之旅》 © 2026 全体项目贡献者
+**用 Rust 用心构建。**
+
+Century Journey (C) 2026 Contributors
+
+《世纪之旅》 (C) 2026 全体贡献者
+
 </div>

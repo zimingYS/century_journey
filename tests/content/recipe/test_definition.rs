@@ -1,4 +1,4 @@
-use CenturyJourney::content::recipe::definition::recipe_definition::RecipeDefinition;
+use century_journey::content::recipe::definition::recipe_definition::RecipeDefinition;
 use serde_json::json;
 
 #[test]

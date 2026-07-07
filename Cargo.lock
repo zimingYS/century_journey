@@ -3,28 +3,6 @@
 version = 4
 
 [[package]]
-name = "CenturyJourney"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bevy",
- "bevy_egui",
- "bevy_kira_audio",
- "bevy_replicon",
- "bincode",
- "flate2",
- "icu_provider",
- "image",
- "log",
- "noise",
- "rand 0.10.2",
- "serde",
- "serde_arrays",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "ab_glyph"
 version = "0.2.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2233,6 +2211,28 @@ dependencies = [
  "jobserver",
  "libc",
  "shlex",
+]
+
+[[package]]
+name = "century_journey"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "bevy_egui",
+ "bevy_kira_audio",
+ "bevy_replicon",
+ "bincode",
+ "flate2",
+ "icu_provider",
+ "image",
+ "log",
+ "noise",
+ "rand 0.10.2",
+ "serde",
+ "serde_arrays",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

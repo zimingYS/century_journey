@@ -1,4 +1,4 @@
-use CenturyJourney::content::tag::definition::TagAction;
+use century_journey::content::tag::definition::TagAction;
 
 #[test]
 fn test_append_deser() {
@@ -31,5 +31,18 @@ fn test_replace_deser() {
     match def {
         TagAction::Replace { replace } => assert_eq!(replace.len(), 2),
         _ => panic!("Expected Replace"),
+    }
+}
+
+#[test]
+fn test_values_deser() {
+    let json = r#"{"replace": false, "values": ["minecraft:stone"]}"#;
+    let def: TagAction = serde_json::from_str(json).unwrap();
+    match def {
+        TagAction::Values { replace, values } => {
+            assert!(!replace);
+            assert_eq!(values, ["minecraft:stone"]);
+        }
+        _ => panic!("Expected Values"),
     }
 }

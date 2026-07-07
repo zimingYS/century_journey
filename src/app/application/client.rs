@@ -16,7 +16,7 @@ const DEFAULT_LOG_FILTER: &str = "info,wgpu_core=warn,wgpu_hal=warn,naga=warn";
 pub struct ClientApplication;
 
 impl Application for ClientApplication {
-    fn build(_config: AppConfig) -> App {
+    fn build(_config: AppConfig) -> anyhow::Result<App> {
         let mut app = App::new();
         app.add_plugins(
             DefaultPlugins
@@ -36,6 +36,6 @@ impl Application for ClientApplication {
                 }),
         );
         app.add_plugins(ClientPluginGroup);
-        app
+        Ok(app)
     }
 }

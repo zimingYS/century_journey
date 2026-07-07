@@ -69,23 +69,7 @@ impl TagRegistryCompiler {
     pub fn apply_action(&mut self, tag_id: TagId, action: &TagAction) {
         match action {
             TagAction::Append { append } => {
-                let entry = self.pending.entry(tag_id.clone()).or_default();
-                for val in append {
-                    if let Some(ref_tag) = val.strip_prefix('#') {
-                        // Tag 引用 — 第三阶段展开
-                        if let Some(ref_tag_id) = TagId::from_full(ref_tag) {
-                            self.tag_refs
-                                .entry(tag_id.clone())
-                                .or_default()
-                                .insert(ref_tag_id);
-                        }
-                    } else {
-                        // 直接 Identifier
-                        if let Ok(id) = Identifier::parse(val) {
-                            entry.insert(id);
-                        }
-                    }
-                }
+                self.append_values(tag_id, append);
             }
             TagAction::Remove { remove } => {
                 if let Some(entry) = self.pending.get_mut(&tag_id) {
@@ -97,22 +81,14 @@ impl TagRegistryCompiler {
                 }
             }
             TagAction::Replace { replace } => {
-                let mut new_set = HashSet::new();
-                for val in replace {
-                    if let Some(ref_tag) = val.strip_prefix('#') {
-                        if let Some(ref_tag_id) = TagId::from_full(ref_tag) {
-                            self.tag_refs
-                                .entry(tag_id.clone())
-                                .or_default()
-                                .insert(ref_tag_id);
-                        }
-                    } else if let Ok(id) = Identifier::parse(val) {
-                        new_set.insert(id);
-                    }
+                self.replace_values(tag_id, replace);
+            }
+            TagAction::Values { replace, values } => {
+                if *replace {
+                    self.replace_values(tag_id, values);
+                } else {
+                    self.append_values(tag_id, values);
                 }
-                // 替换：清除旧 refs + 设置新成员
-                self.tag_refs.remove(&tag_id);
-                self.pending.insert(tag_id.clone(), new_set);
             }
         }
     }
@@ -213,6 +189,43 @@ impl TagRegistryCompiler {
         } else {
             TagId::new("century_journey", tag_str)
         }
+    }
+
+    fn append_values(&mut self, tag_id: TagId, values: &[String]) {
+        let entry = self.pending.entry(tag_id.clone()).or_default();
+        for value in values {
+            if let Some(ref_tag) = value.strip_prefix('#') {
+                if let Some(ref_tag_id) = TagId::from_full(ref_tag) {
+                    self.tag_refs
+                        .entry(tag_id.clone())
+                        .or_default()
+                        .insert(ref_tag_id);
+                }
+            } else if let Ok(id) = Identifier::parse(value) {
+                entry.insert(id);
+            }
+        }
+    }
+
+    fn replace_values(&mut self, tag_id: TagId, values: &[String]) {
+        let mut new_set = HashSet::new();
+        let mut new_refs = HashSet::new();
+
+        for value in values {
+            if let Some(ref_tag) = value.strip_prefix('#') {
+                if let Some(ref_tag_id) = TagId::from_full(ref_tag) {
+                    new_refs.insert(ref_tag_id);
+                }
+            } else if let Ok(id) = Identifier::parse(value) {
+                new_set.insert(id);
+            }
+        }
+
+        self.tag_refs.remove(&tag_id);
+        if !new_refs.is_empty() {
+            self.tag_refs.insert(tag_id.clone(), new_refs);
+        }
+        self.pending.insert(tag_id, new_set);
     }
 }
 

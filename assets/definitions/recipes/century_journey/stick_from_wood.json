@@ -1,0 +1,16 @@
+{
+  "type": "shaped",
+  "pattern": [
+    "A",
+    "A"
+  ],
+  "key": {
+    "A": {
+      "item": "century_journey:wood"
+    }
+  },
+  "result": {
+    "item": "century_journey:stick",
+    "count": 4
+  }
+}

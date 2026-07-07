@@ -133,6 +133,10 @@ impl BiomeRegistry {
         self.biomes.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.biomes.is_empty()
+    }
+
     pub fn get_index(&self, identifier: &str) -> Option<u8> {
         let key = Identifier::parse(identifier).ok()?;
         self.identifier_to_index.get(&key).copied()

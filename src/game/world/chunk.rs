@@ -15,6 +15,12 @@ pub struct ChunkData {
     pub voxels: [u16; CHUNK_VOLUME],
 }
 
+impl Default for ChunkData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ChunkData {
     /// 创建空白区块
     pub fn new() -> Self {

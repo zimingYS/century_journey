@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 env:
-  APP_NAME: CenturyJourney
+  APP_NAME: century_journey
 
 jobs:
   build-windows:
@@ -43,7 +43,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            CenturyJourney-Windows.zip
+            century_journey-Windows.zip
 
 #最初开发阶段暂停多平台支持
 #  build-linux:
@@ -83,7 +83,7 @@ jobs:
 #        uses: softprops/action-gh-release@v3
 #        with:
 #          files: |
-#            CenturyJourney-Linux.zip
+#            century_journey-Linux.zip
 #
 #  build-macos:
 #    name: macOS
@@ -114,4 +114,4 @@ jobs:
 #        uses: softprops/action-gh-release@v3
 #        with:
 #          files: |
-#            CenturyJourney-macOS.zip
+#            century_journey-macOS.zip
