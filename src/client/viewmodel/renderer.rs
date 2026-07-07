@@ -3,6 +3,7 @@ use crate::client::renderer::held_renderer::{
     flat_item_renderer::HeldFlatItemRenderer,
 };
 use crate::client::renderer::mesh_cache::HeldMeshCache;
+use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::viewmodel::hand_view::ViewHandBuilder;
 use crate::client::viewmodel::{HeldItemEntity, ViewModelRenderState, ViewModelRoot};
 use crate::content::block::registry::BlockRegistry;
@@ -19,6 +20,7 @@ pub fn view_model_sync_system(
     item_registry: Option<Res<ItemRegistry>>,
     item_textures: Res<ItemTextureRegistry>,
     block_registry: Option<Res<BlockRegistry>>,
+    block_render_assets: Option<Res<BlockRenderAssets>>,
     images: Res<Assets<Image>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -87,7 +89,9 @@ pub fn view_model_sync_system(
     // 手持物品挂在手掌实体下（hand_entity），而非直接挂 ViewModelRoot
     let held_entity = match &config_item.render {
         HeldRenderDefinition::Block => {
-            if let Some(reg) = block_registry.as_ref() {
+            if let (Some(reg), Some(render_assets)) =
+                (block_registry.as_ref(), block_render_assets.as_ref())
+            {
                 let block_id = item_str.strip_prefix("block:").unwrap_or(&item_str);
                 spawn_block_item(
                     &mut commands,
@@ -95,6 +99,7 @@ pub fn view_model_sync_system(
                     &mut materials,
                     &mut mesh_cache,
                     reg,
+                    render_assets,
                     render_state.hand_entity,
                     block_id,
                     &transform,
@@ -188,6 +193,7 @@ fn spawn_block_item(
     materials: &mut ResMut<Assets<StandardMaterial>>,
     cache: &mut ResMut<HeldMeshCache>,
     block_registry: &BlockRegistry,
+    render_assets: &BlockRenderAssets,
     parent: Option<Entity>,
     block_id: &str,
     transform: &Transform,
@@ -201,7 +207,7 @@ fn spawn_block_item(
         cache.insert(cache_key, h.clone());
         h
     };
-    let mat = HeldBlockRenderer::create_material(materials, block_registry);
+    let mat = HeldBlockRenderer::create_material(materials, render_assets);
 
     let root = commands
         .spawn((Name::new(format!("HeldBlock_{}", block_id)), *transform))

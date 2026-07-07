@@ -1,3 +1,4 @@
+use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::constant::world::*;
 use crate::engine::task::{TaskManager, TaskPriority, TaskResult};
@@ -109,14 +110,16 @@ pub fn receive_mesh_results(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     channel: Res<MeshBuildChannel>,
-    registry: Option<Res<BlockRegistry>>,
+    render_assets: Option<Res<BlockRenderAssets>>,
     world_storage: Res<WorldStorage>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
 ) {
-    let Some(reg) = registry else { return };
-    let opaque_mat = reg.opaque_material().clone();
-    let cutout_mat = reg.cutout_material().clone();
-    let transparent_mat = reg.transparent_material().clone();
+    let Some(render_assets) = render_assets else {
+        return;
+    };
+    let opaque_mat = render_assets.opaque_material().clone();
+    let cutout_mat = render_assets.cutout_material().clone();
+    let transparent_mat = render_assets.transparent_material().clone();
 
     let receiver = channel.receiver.lock().unwrap();
     let mut received = 0usize;

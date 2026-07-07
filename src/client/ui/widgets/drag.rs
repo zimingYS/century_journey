@@ -1,3 +1,4 @@
+use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::widgets::slot::resolve_item_icon;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
@@ -97,6 +98,7 @@ pub fn cursor_visibility_system(
 pub fn cursor_texture_system(
     state: Res<InventoryState>,
     block_registry: Option<Res<BlockRegistry>>,
+    block_render_assets: Option<Res<BlockRenderAssets>>,
     item_registry: Option<Res<ItemRegistry>>,
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
     cursor_query: Query<&Children, With<CursorItemIcon>>,
@@ -105,6 +107,9 @@ pub fn cursor_texture_system(
     mut last_snapshot: Local<Option<(ItemId, u32)>>,
 ) {
     let Some(block_reg) = block_registry.as_ref() else {
+        return;
+    };
+    let Some(render_assets) = block_render_assets.as_ref() else {
         return;
     };
     let current = state.cursor.stack().map(|s| (s.item.clone(), s.count));
@@ -125,9 +130,9 @@ pub fn cursor_texture_system(
                     match icon {
                         IconDefinition::Block(id) => {
                             if let Some(atlas_idx) = block_reg.get_icon_atlas_index(&id) {
-                                img.image = block_reg.base_texture().clone();
+                                img.image = render_assets.base_texture().clone();
                                 img.texture_atlas = Some(TextureAtlas {
-                                    layout: block_reg.atlas_layout().clone(),
+                                    layout: render_assets.atlas_layout().clone(),
                                     index: atlas_idx,
                                 });
                             }

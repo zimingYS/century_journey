@@ -1,7 +1,7 @@
 # Century Journey
 # 世纪之旅
 
-<div align="center">
+<div style="text-align: center;">
 
 ![Rust](https://img.shields.io/badge/Rust-2024-orange?logo=rust)
 ![Bevy](https://img.shields.io/badge/Bevy-Game%20Engine-blue)
@@ -28,9 +28,9 @@ Unlike traditional sandbox games, almost every game system is designed to be dat
 
 区别于传统沙盒游戏，本项目几乎所有游戏系统都采用数据驱动设计。方块、物品、实体、合成配方、生物群系、建筑结构、世界生成等内容都可以在不修改引擎核心的情况下扩展。
 
-Project status: **early active development**. The playable client is the current focus. Server mode, editor mode, and multiplayer are planned but not available yet.
+Project status: **early active development**. The current scope is a local single-player voxel sandbox technical prototype. Server mode, editor mode, multiplayer, and network synchronization are planned but not implemented yet.
 
-项目状态：**早期积极开发阶段**。当前重点是可运行客户端；Server 模式、Editor 模式与 Multiplayer 仍处于规划阶段，尚未作为可用功能开放。
+项目状态：**早期积极开发阶段**。当前定位是本地单机 voxel sandbox 技术原型；Server 模式、Editor 模式、Multiplayer 与网络同步仍处于规划阶段，尚未实现为可用能力。
 
 ---
 
@@ -65,9 +65,9 @@ Project status: **early active development**. The playable client is the current
 ## Architecture
 ## 架构
 
-The project uses a layered architecture so systems can evolve independently and remain easier to maintain.
+The project uses a layered architecture so systems can evolve independently and remain easier to maintain. At this stage, Content and Game are used by the local client prototype; Server, Protocol, and Editor are planned architecture boundaries.
 
-项目采用分层架构，使各系统能够独立演进，并保持较好的可维护性。
+项目采用分层架构，使各系统能够独立演进，并保持较好的可维护性。现阶段 Content 与 Game 主要服务于本地客户端原型；Server、Protocol 与 Editor 是规划中的架构边界。
 
 ```text
 Engine
@@ -107,7 +107,7 @@ Client
 |-- Input
 `-- Animation
 
-Server
+Planned Server
 |-- Networking
 |-- Synchronization
 |-- Saving
@@ -271,7 +271,7 @@ Thanks to the Rust community, the Bevy community, every contributor, and every p
 
 ---
 
-<div align="center">
+<div style="text-align: center;">
 
 **Made with care using Rust.**
 

@@ -1,3 +1,4 @@
+use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::components::{
     SurvivalHotbarPanel, SurvivalInventoryOverlay, SurvivalInventoryRoot, SurvivalItemGrid,
 };
@@ -174,6 +175,7 @@ pub fn populate_survival_grid_system(
 pub fn survival_grid_visual_sync_system(
     state: Res<InventoryState>,
     block_registry: Option<Res<BlockRegistry>>,
+    block_render_assets: Option<Res<BlockRenderAssets>>,
     grid_query: Query<Entity, With<SurvivalItemGrid>>,
     children_query: Query<&Children>,
     item_registry: Option<Res<ItemRegistry>>,
@@ -184,6 +186,9 @@ pub fn survival_grid_visual_sync_system(
     mut was_opened: Local<bool>,
 ) {
     let Some(reg) = block_registry.as_ref() else {
+        return;
+    };
+    let Some(render_assets) = block_render_assets.as_ref() else {
         return;
     };
     let Ok(grid_entity) = grid_query.single() else {
@@ -231,6 +236,7 @@ pub fn survival_grid_visual_sync_system(
                         &item,
                         count,
                         reg,
+                        render_assets,
                         &children_query,
                         item_registry.as_deref(),
                         item_texture_registry.as_deref(),
@@ -247,6 +253,7 @@ pub fn survival_grid_visual_sync_system(
 pub fn survival_hotbar_visual_sync_system(
     state: Res<InventoryState>,
     block_registry: Option<Res<BlockRegistry>>,
+    block_render_assets: Option<Res<BlockRenderAssets>>,
     mut slot_query: Query<(Entity, &InventorySlot, &mut SlotVisual)>,
     children_query: Query<&Children>,
     mut commands: Commands,
@@ -259,6 +266,9 @@ pub fn survival_hotbar_visual_sync_system(
     mut was_opened: Local<bool>,
 ) {
     let Some(reg) = block_registry.as_ref() else {
+        return;
+    };
+    let Some(render_assets) = block_render_assets.as_ref() else {
         return;
     };
 
@@ -298,6 +308,7 @@ pub fn survival_hotbar_visual_sync_system(
                     &item,
                     count,
                     reg,
+                    render_assets,
                     &children_query,
                     item_registry.as_deref(),
                     item_texture_registry.as_deref(),
@@ -327,6 +338,7 @@ pub fn survival_hotbar_visual_sync_system(
 pub fn init_survival_hotbar_system(
     state: Res<InventoryState>,
     block_registry: Option<Res<BlockRegistry>>,
+    block_render_assets: Option<Res<BlockRenderAssets>>,
     hotbar_query: Query<Entity, With<SurvivalHotbarPanel>>,
     children_query: Query<&Children>,
     slot_query: Query<&InventorySlot>,
@@ -336,6 +348,9 @@ pub fn init_survival_hotbar_system(
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
 ) {
     let Some(reg) = block_registry.as_ref() else {
+        return;
+    };
+    let Some(render_assets) = block_render_assets.as_ref() else {
         return;
     };
     let Ok(panel_entity) = hotbar_query.single() else {
@@ -365,6 +380,7 @@ pub fn init_survival_hotbar_system(
                 index,
                 item,
                 reg,
+                render_assets,
                 &theme,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),

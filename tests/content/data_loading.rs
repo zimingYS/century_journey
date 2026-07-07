@@ -1,5 +1,3 @@
-use bevy::image::{Image, TextureAtlasLayout};
-use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 use century_journey::content::block::registry::{BlockRegistry, init_block_registry_system};
@@ -22,9 +20,6 @@ fn load_block_registry() -> App {
     app.add_plugins((MinimalPlugins, StatesPlugin));
     app.init_state::<AppState>();
     app.init_resource::<AssetManager>();
-    app.init_resource::<Assets<Image>>();
-    app.init_resource::<Assets<TextureAtlasLayout>>();
-    app.init_resource::<Assets<StandardMaterial>>();
     app.add_systems(Update, init_block_registry_system);
     app.update();
     app

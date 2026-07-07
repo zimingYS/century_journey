@@ -1,3 +1,4 @@
+use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
 use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
@@ -34,10 +35,10 @@ impl HeldBlockRenderer {
     /// 创建手持方块材质
     pub fn create_material(
         materials: &mut ResMut<Assets<StandardMaterial>>,
-        block_registry: &BlockRegistry,
+        render_assets: &BlockRenderAssets,
     ) -> Handle<StandardMaterial> {
         materials.add(StandardMaterial {
-            base_color_texture: Some(block_registry.base_texture().clone()),
+            base_color_texture: Some(render_assets.base_texture().clone()),
             perceptual_roughness: 0.85,
             ..default()
         })

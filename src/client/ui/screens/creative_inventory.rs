@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
+use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::components::{
     CreativeCategoryPanel, CreativeHotbarPanel, CreativeInventoryOverlay, CreativeItemGrid,
     CreativeRecentPanel,
@@ -224,6 +225,7 @@ pub fn update_creative_filter_system(
 pub fn populate_creative_grid_system(
     state: Res<InventoryState>,
     block_registry: Option<Res<BlockRegistry>>,
+    block_render_assets: Option<Res<BlockRenderAssets>>,
     grid_query: Query<Entity, With<CreativeItemGrid>>,
     children_query: Query<&Children>,
     existing_slots: Query<(Entity, &InventorySlot)>,
@@ -234,6 +236,9 @@ pub fn populate_creative_grid_system(
     mut last_items: Local<Vec<ItemId>>,
 ) {
     let Some(reg) = block_registry.as_ref() else {
+        return;
+    };
+    let Some(render_assets) = block_render_assets.as_ref() else {
         return;
     };
     let Ok(grid_entity) = grid_query.single() else {
@@ -270,6 +275,7 @@ pub fn populate_creative_grid_system(
                 item,
                 0,
                 reg,
+                render_assets,
                 &children_query,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
@@ -293,6 +299,7 @@ pub fn populate_creative_grid_system(
                 index,
                 item,
                 reg,
+                render_assets,
                 &theme,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
@@ -305,6 +312,7 @@ pub fn populate_creative_grid_system(
 pub fn populate_recent_panel_system(
     state: Res<InventoryState>,
     block_registry: Option<Res<BlockRegistry>>,
+    block_render_assets: Option<Res<BlockRenderAssets>>,
     recent_query: Query<Entity, With<CreativeRecentPanel>>,
     children_query: Query<&Children>,
     existing_slots: Query<(Entity, &InventorySlot)>,
@@ -316,6 +324,9 @@ pub fn populate_recent_panel_system(
     mut last_items: Local<Vec<ItemStack>>,
 ) {
     let Some(reg) = block_registry.as_ref() else {
+        return;
+    };
+    let Some(render_assets) = block_render_assets.as_ref() else {
         return;
     };
     let Ok(panel_entity) = recent_query.single() else {
@@ -355,6 +366,7 @@ pub fn populate_recent_panel_system(
                 item,
                 count,
                 reg,
+                render_assets,
                 &children_query,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
@@ -391,6 +403,7 @@ pub fn populate_recent_panel_system(
                 index,
                 &stack.item,
                 reg,
+                render_assets,
                 &theme,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
@@ -403,6 +416,7 @@ pub fn populate_recent_panel_system(
 pub fn init_creative_hotbar_system(
     state: Res<InventoryState>,
     block_registry: Option<Res<BlockRegistry>>,
+    block_render_assets: Option<Res<BlockRenderAssets>>,
     hotbar_query: Query<Entity, With<CreativeHotbarPanel>>,
     children_query: Query<&Children>,
     slot_query: Query<&InventorySlot>,
@@ -412,6 +426,9 @@ pub fn init_creative_hotbar_system(
     mut commands: Commands,
 ) {
     let Some(reg) = block_registry.as_ref() else {
+        return;
+    };
+    let Some(render_assets) = block_render_assets.as_ref() else {
         return;
     };
     let Ok(panel_entity) = hotbar_query.single() else {
@@ -441,6 +458,7 @@ pub fn init_creative_hotbar_system(
                 index,
                 item,
                 reg,
+                render_assets,
                 &theme,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
@@ -453,6 +471,7 @@ pub fn init_creative_hotbar_system(
 pub fn creative_hotbar_visual_sync_system(
     state: Res<InventoryState>,
     block_registry: Option<Res<BlockRegistry>>,
+    block_render_assets: Option<Res<BlockRenderAssets>>,
     hotbar_query: Query<Entity, With<CreativeHotbarPanel>>,
     children_query: Query<&Children>,
     theme: Res<UiTheme>,
@@ -467,6 +486,9 @@ pub fn creative_hotbar_visual_sync_system(
     let Some(reg) = block_registry.as_ref() else {
         return;
     };
+    let Some(render_assets) = block_render_assets.as_ref() else {
+        return;
+    };
     let Ok(hotbar_entity) = hotbar_query.single() else {
         return;
     };
@@ -477,6 +499,7 @@ pub fn creative_hotbar_visual_sync_system(
     sync_hotbar_panel_visuals(
         &state,
         reg,
+        render_assets,
         hotbar_entity,
         &children_query,
         item_registry.as_deref(),

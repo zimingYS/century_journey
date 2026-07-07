@@ -1,3 +1,4 @@
+use crate::content::block::definition::RenderMode;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::constant::world::CHUNK_SIZE;
 use crate::engine::asset::AssetFiles;
@@ -10,54 +11,96 @@ use bevy::log::error;
 use bevy::material::AlphaMode;
 use bevy::math::UVec2;
 use bevy::pbr::StandardMaterial;
-use bevy::prelude::default;
+use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-/// 构建纹理图集
-///
-/// 将方块贴图拼合为 GPU 纹理图集，创建材质和布局。
-/// 属于客户端渲染资源构建，从 content/ 迁移至此以保证 Content 层不依赖 GPU 类型。
+#[derive(Resource, Clone)]
+pub struct BlockRenderAssets {
+    base_texture: Handle<Image>,
+    atlas_layout: Handle<TextureAtlasLayout>,
+    opaque_material: Handle<StandardMaterial>,
+    cutout_material: Handle<StandardMaterial>,
+    transparent_material: Handle<StandardMaterial>,
+}
+
+impl BlockRenderAssets {
+    pub fn base_texture(&self) -> &Handle<Image> {
+        &self.base_texture
+    }
+
+    pub fn atlas_layout(&self) -> &Handle<TextureAtlasLayout> {
+        &self.atlas_layout
+    }
+
+    pub fn material(&self, mode: RenderMode) -> &Handle<StandardMaterial> {
+        match mode {
+            RenderMode::Opaque => &self.opaque_material,
+            RenderMode::Transparent => &self.transparent_material,
+            _ => &self.cutout_material,
+        }
+    }
+
+    pub fn opaque_material(&self) -> &Handle<StandardMaterial> {
+        &self.opaque_material
+    }
+
+    pub fn cutout_material(&self) -> &Handle<StandardMaterial> {
+        &self.cutout_material
+    }
+
+    pub fn transparent_material(&self) -> &Handle<StandardMaterial> {
+        &self.transparent_material
+    }
+}
+
+pub fn init_block_render_assets_system(
+    mut commands: Commands,
+    registry: Res<BlockRegistry>,
+    mut images: ResMut<Assets<Image>>,
+    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    asset: Res<AssetManager>,
+) {
+    let render_assets =
+        build_texture_atlas(&registry, &mut images, &mut layouts, &mut materials, &asset);
+    commands.insert_resource(render_assets);
+}
+
 pub fn build_texture_atlas(
-    registry: &mut BlockRegistry,
-    unique_paths: &[String],
+    registry: &BlockRegistry,
     images: &mut Assets<Image>,
     layouts: &mut Assets<TextureAtlasLayout>,
     materials: &mut Assets<StandardMaterial>,
     asset: &AssetManager,
-) {
-    // 获取纹理层数量，计算图集总宽度
+) -> BlockRenderAssets {
+    let unique_paths = registry.texture_paths();
     let layer_count = unique_paths.len() as u32;
 
-    // 平铺式图集尺寸
     let atlas_width = CHUNK_SIZE as u32 * TILE_SIZE;
     let atlas_height = layer_count * CHUNK_SIZE as u32 * TILE_SIZE;
 
-    // 分配像素缓冲区
     let pixel_count = atlas_width * atlas_height;
     let data_len = pixel_count as usize * 4;
     let mut atlas_data = vec![0u8; data_len];
 
     let files = AssetFiles::new(asset.resolver());
 
-    // 遍历所有唯一贴图路径，依次绘制到纹理图集对应图层位置
     for (layer_idx, path) in unique_paths.iter().enumerate() {
-        // 通过 AssetManager 加载纹理文件
         let id = crate::engine::asset::identifier::asset_id(path);
         let image = match files.read_bytes(&id) {
             Ok(bytes) => match image::load_from_memory(&bytes) {
                 Ok(img) => img.to_rgba8(),
                 Err(e) => {
-                    error!("无法解码贴图 {}: {}", path, e);
+                    error!("cannot decode block texture {path}: {e}");
                     create_missing_texture_placeholder()
                 }
             },
             Err(e) => {
-                error!("无法加载贴图 {}: {}", path, e);
+                error!("cannot load block texture {path}: {e}");
                 create_missing_texture_placeholder()
             }
         };
 
-        // 将贴图缩放到固定方块大小
         let resized = image::imageops::resize(
             &image,
             TILE_SIZE,
@@ -66,10 +109,8 @@ pub fn build_texture_atlas(
         );
         let src_pixels = resized.as_raw();
 
-        // 层起始行
         let layer_pixel_y_start = layer_idx as u32 * CHUNK_SIZE as u32 * TILE_SIZE;
 
-        // 将缩放后的贴图像素数据复制到图集对应图层区域
         for tile_y in 0..CHUNK_SIZE as u32 {
             for tile_x in 0..CHUNK_SIZE as u32 {
                 for row in 0..TILE_SIZE {
@@ -87,7 +128,6 @@ pub fn build_texture_atlas(
         }
     }
 
-    // 创建纹理图集图像
     let mut array_image = Image::new(
         Extent3d {
             width: atlas_width,
@@ -99,50 +139,48 @@ pub fn build_texture_atlas(
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
     );
-
-    // 设置像素风格采样
     array_image.sampler = ImageSampler::nearest();
 
-    // 将生成的图集添加到资源管理器，保存到方块注册表
     let texture_handle = images.add(array_image);
-    registry.set_base_texture(texture_handle.clone());
-
-    // 创建并保存纹理图集布局
-    registry.set_atlas_layout(layouts.add(TextureAtlasLayout::from_grid(
+    let atlas_layout = layouts.add(TextureAtlasLayout::from_grid(
         UVec2::splat(TILE_SIZE),
         CHUNK_SIZE as u32,
         layer_count * CHUNK_SIZE as u32,
         None,
         None,
-    )));
+    ));
 
-    // 创建不透明方块材质
-    registry.set_opaque_material(materials.add(StandardMaterial {
+    let opaque_material = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
         perceptual_roughness: 0.85,
         ..default()
-    }));
+    });
 
-    // 创建镂空（树叶等）方块材质
-    registry.set_cutout_material(materials.add(StandardMaterial {
+    let cutout_material = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
         perceptual_roughness: 0.85,
         alpha_mode: AlphaMode::Mask(0.5),
         ..default()
-    }));
+    });
 
-    // 创建透明混合（玻璃等）方块材质
-    registry.set_transparent_material(materials.add(StandardMaterial {
-        base_color_texture: Some(texture_handle),
+    let transparent_material = materials.add(StandardMaterial {
+        base_color_texture: Some(texture_handle.clone()),
         base_color: Color::srgba(1.0, 1.0, 1.0, 0.85),
         perceptual_roughness: 0.2,
         metallic: 0.05,
         alpha_mode: AlphaMode::Blend,
         ..default()
-    }));
+    });
+
+    BlockRenderAssets {
+        base_texture: texture_handle,
+        atlas_layout,
+        opaque_material,
+        cutout_material,
+        transparent_material,
+    }
 }
 
-/// 创建紫黑格缺失贴图占位符
 fn create_missing_texture_placeholder() -> image::RgbaImage {
     let mut img = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
     for y in 0..TILE_SIZE {

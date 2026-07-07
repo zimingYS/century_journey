@@ -6,6 +6,7 @@ pub use components::{
     SlotInteractionEvent, SlotVisual,
 };
 
+use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
@@ -91,6 +92,7 @@ pub fn spawn_slot_with_item(
     index: usize,
     item: &ItemId,
     registry: &BlockRegistry,
+    render_assets: &BlockRenderAssets,
     theme: &UiTheme,
     item_registry: Option<&ItemRegistry>,
     item_texture_registry: Option<&ItemTextureRegistry>,
@@ -116,7 +118,14 @@ pub fn spawn_slot_with_item(
             BorderColor::all(theme.border_default),
         ))
         .with_children(|slot| {
-            spawn_icon_child(slot, item, registry, item_registry, item_texture_registry);
+            spawn_icon_child(
+                slot,
+                item,
+                registry,
+                render_assets,
+                item_registry,
+                item_texture_registry,
+            );
             slot.spawn((
                 SlotCountText,
                 Text::new(""),
@@ -141,6 +150,7 @@ pub fn spawn_icon_child(
     parent: &mut ChildSpawnerCommands,
     item: &ItemId,
     block_registry: &BlockRegistry,
+    render_assets: &BlockRenderAssets,
     item_registry: Option<&ItemRegistry>,
     item_texture_registry: Option<&ItemTextureRegistry>,
 ) {
@@ -180,9 +190,9 @@ pub fn spawn_icon_child(
             parent.spawn((
                 SlotIcon,
                 ImageNode {
-                    image: block_registry.base_texture().clone(),
+                    image: render_assets.base_texture().clone(),
                     texture_atlas: Some(TextureAtlas {
-                        layout: block_registry.atlas_layout().clone(),
+                        layout: render_assets.atlas_layout().clone(),
                         index: atlas_idx,
                     }),
                     ..default()
@@ -225,6 +235,7 @@ pub fn sync_slot_icon(
     item: &ItemId,
     count: u32,
     block_registry: &BlockRegistry,
+    render_assets: &BlockRenderAssets,
     children_query: &Query<&Children>,
     item_registry: Option<&ItemRegistry>,
     item_texture_registry: Option<&ItemTextureRegistry>,
@@ -247,9 +258,9 @@ pub fn sync_slot_icon(
                             commands.entity(icon_entity).insert((
                                 Visibility::Inherited,
                                 ImageNode {
-                                    image: block_registry.base_texture().clone(),
+                                    image: render_assets.base_texture().clone(),
                                     texture_atlas: Some(TextureAtlas {
-                                        layout: block_registry.atlas_layout().clone(),
+                                        layout: render_assets.atlas_layout().clone(),
                                         index: atlas_idx,
                                     }),
                                     ..default()
@@ -292,6 +303,7 @@ pub fn sync_slot_icon(
 pub fn sync_hotbar_panel_visuals(
     state: &crate::game::inventory::state::InventoryState,
     reg: &BlockRegistry,
+    render_assets: &BlockRenderAssets,
     panel_entity: Entity,
     children_query: &Query<&Children>,
     item_registry: Option<&ItemRegistry>,
@@ -343,6 +355,7 @@ pub fn sync_hotbar_panel_visuals(
                         &item,
                         count,
                         reg,
+                        render_assets,
                         children_query,
                         item_registry,
                         item_texture_registry,
