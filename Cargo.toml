@@ -11,7 +11,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 # 噪声生成算法
 noise = "0.9.0"
 # 数据存储
-bincode = "1.3.3"
+bincode = "2.0.1"
 flate2 = "1.1.9"
 # 图形纹理
 image = "0.25.10"
