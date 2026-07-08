@@ -1,7 +1,8 @@
+use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 
 use crate::client::camera::{CameraPlugin, FpsCamera};
-use crate::client::viewmodel::{ViewModelAnimator, ViewModelPlugin, ViewModelRoot};
+use crate::client::viewmodel::{ViewModelAnimator, ViewModelPart, ViewModelPlugin, ViewModelRoot};
 use crate::game::player::components::stats::{Defense, Health, Hunger};
 use crate::game::player::components::{Player, PlayerCollider, PlayerGravity, PlayerMovement};
 use crate::game::player::model::PlayerModelPlugin;
@@ -10,12 +11,9 @@ use crate::game::player::model::components::{PlayerJoint, PlayerMesh};
 use crate::game::player::model::config::PlayerModelConfig;
 use crate::game::player::plugin::GamePlayerPlugin;
 
-/// 客户端玩家 Plugin。
-///
-/// 负责组装所有玩家相关子 Plugin（Game 逻辑 + Client 表现），
-/// 并生成玩家实体（spawn_player）。
-///
-/// Client → Game 为合法依赖方向。
+const WORLD_RENDER_LAYER: usize = 0;
+const PLAYER_SHADOW_LAYER: usize = 1;
+
 pub struct ClientPlayerPlugin;
 
 impl Plugin for ClientPlayerPlugin {
@@ -47,19 +45,21 @@ fn spawn_player(
             FpsCamera::default(),
             Camera3d::default(),
             Transform::from_xyz(0.0, 0.75, 0.0),
+            RenderLayers::layer(WORLD_RENDER_LAYER),
         ))
         .id();
 
-    let _vm_root = commands
+    let vm_root = commands
         .spawn((
             ViewModelRoot,
+            ViewModelPart,
             ViewModelAnimator::default(),
             Name::new("ViewModelRoot"),
             Transform::default(),
             Visibility::default(),
         ))
         .id();
-    commands.entity(camera).add_child(_vm_root);
+    commands.entity(camera).add_child(vm_root);
 
     commands
         .spawn((
@@ -78,30 +78,36 @@ fn spawn_player(
         .add_child(camera);
 }
 
-/// 第一人称: 隐藏全身; 第三人称: 全部显示
-///
-/// 第一人称手持物由 ViewModelRoot (Camera 子节点) 单独渲染,
-/// 骨骼手臂不再需要特殊保留——抬头/低头时骨骼手臂跟不上的 bug 已消除。
 fn first_person_visibility_system(
+    mut commands: Commands,
     camera_query: Query<&FpsCamera, With<Camera3d>>,
-    mut joint_query: Query<(Entity, &PlayerJoint, &mut Visibility), Without<PlayerMesh>>,
-    mut mesh_query: Query<(Entity, &PlayerMesh, &mut Visibility), Without<PlayerJoint>>,
+    mut joint_query: Query<&mut Visibility, (With<PlayerJoint>, Without<PlayerMesh>)>,
+    mut mesh_query: Query<
+        (Entity, &mut Visibility, Option<&mut RenderLayers>),
+        (With<PlayerMesh>, Without<PlayerJoint>),
+    >,
 ) {
     let is_fp = camera_query
         .single()
         .map(|c| c.is_first_person)
         .unwrap_or(true);
 
-    let target = if is_fp {
-        Visibility::Hidden
-    } else {
-        Visibility::Inherited
-    };
-
-    for (_entity, _joint, mut vis) in &mut joint_query {
-        *vis = target;
+    for mut visibility in &mut joint_query {
+        *visibility = Visibility::Inherited;
     }
-    for (_entity, _mesh, mut vis) in &mut mesh_query {
-        *vis = target;
+
+    for (entity, mut visibility, layers) in &mut mesh_query {
+        *visibility = Visibility::Inherited;
+        let target_layers = if is_fp {
+            RenderLayers::layer(PLAYER_SHADOW_LAYER)
+        } else {
+            RenderLayers::layer(WORLD_RENDER_LAYER)
+        };
+
+        if let Some(mut layers) = layers {
+            *layers = target_layers;
+        } else {
+            commands.entity(entity).insert(target_layers);
+        }
     }
 }

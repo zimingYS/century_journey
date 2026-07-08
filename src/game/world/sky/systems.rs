@@ -1,7 +1,7 @@
 use std::f32::consts::TAU;
 use crate::game::world::sky::components::*;
 use crate::game::world::time::TimeOfDay;
-use bevy::camera::Exposure;
+use bevy::camera::{Exposure, visibility::RenderLayers};
 use bevy::light::atmosphere::ScatteringMedium;
 use bevy::light::{Atmosphere, CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver, VolumetricFog, VolumetricLight};
 use bevy::prelude::*;
@@ -43,6 +43,7 @@ pub fn setup_sky_system(
             ..default()
         },
         Transform::IDENTITY,
+        RenderLayers::layer(0).with(1),
         // 使用体积光计算光线
         VolumetricLight,
         cascade_shadow_config.clone(),
@@ -58,6 +59,7 @@ pub fn setup_sky_system(
             ..default()
         },
         Transform::IDENTITY,
+        RenderLayers::layer(0).with(1),
         cascade_shadow_config,
     ));
 

@@ -1,92 +1,57 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-/// 手持渲染统一描述符
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(tag = "type", rename_all = "snake_case")]
-#[derive(Default)]
 pub enum HeldRenderDefinition {
-    /// 空手
     #[serde(rename = "empty")]
     #[default]
     Empty,
-
-    /// 方块立方体
-    /// 由方块纹理渲染出立方体
     #[serde(rename = "block")]
     Block,
-
-    /// 平面物品
-    /// 根据物品图标生成带厚度的模型
     #[serde(rename = "flat_item")]
     FlatItem {
-        /// 挤出厚度
         #[serde(default = "default_thickness")]
         thickness: f32,
     },
-
-    /// 外部3D模型
-    /// 加载GLB/GLTF文件
     #[serde(rename = "model")]
-    Model {
-        /// 模型文件路径 (相对于 assets/)
-        path: String,
-    },
+    Model { path: String },
 }
 
-/// 默认厚度设置
 fn default_thickness() -> f32 {
-    0.1
+    0.05
 }
 
-/// 手持物品的完整渲染配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HeldItemConfig {
-    /// 渲染方式
     #[serde(default)]
     pub render: HeldRenderDefinition,
-
-    /// 第一人称位置
     #[serde(default = "default_fp_translation")]
     pub first_person_translation: [f32; 3],
-
-    /// 第一人称旋转
     #[serde(default)]
     pub first_person_rotation: [f32; 3],
-
-    /// 统一缩放
     #[serde(default = "default_fp_scale")]
     pub first_person_scale: f32,
-
-    /// 动画配置
     #[serde(default)]
     pub animations: AnimationConfig,
 }
 
-/// 默认第一人称位置（相对手掌的局部偏移）
 fn default_fp_translation() -> [f32; 3] {
-    [0.0, -0.06, 0.0]
+    [0.02, -0.02, -0.04]
 }
-/// 默认第一人称缩放
+
 fn default_fp_scale() -> f32 {
-    0.55
+    0.65
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnimationConfig {
-    /// 支持挥动动画
     #[serde(default)]
     pub swing: bool,
-
-    /// 支持食用动画
     #[serde(default)]
     pub eat: bool,
-
-    /// 支持使用/交互动画
     #[serde(default)]
     pub use_anim: bool,
-
-    /// 支持望远镜/瞄准动画
     #[serde(default)]
     pub spyglass: bool,
 }
@@ -117,13 +82,12 @@ impl HeldItemConfig {
         }
     }
 
-    /// 默认方块手持配置
     pub fn default_block() -> Self {
         Self {
             render: HeldRenderDefinition::Block,
-            first_person_translation: [0.0, -0.04, -0.06],
-            first_person_rotation: [-15.0, 25.0, 0.0],
-            first_person_scale: 0.2,
+            first_person_translation: [0.0, -0.04, -0.7],
+            first_person_rotation: [0.0, 15.0, 0.0],
+            first_person_scale: 0.4,
             animations: AnimationConfig {
                 swing: true,
                 ..default()
@@ -131,13 +95,12 @@ impl HeldItemConfig {
         }
     }
 
-    /// 默认工具手持配置
     pub fn default_tool(thickness: f32) -> Self {
         Self {
             render: HeldRenderDefinition::FlatItem { thickness },
-            first_person_translation: [0.0, -0.04, -0.08],
-            first_person_rotation: [0.0, -75.0, 60.0],
-            first_person_scale: 0.50,
+            first_person_translation: [0.0, 0.2, -0.5],
+            first_person_rotation: [0.0, 105.0, 120.0],
+            first_person_scale: 1.0,
             animations: AnimationConfig {
                 swing: true,
                 ..default()
@@ -145,26 +108,24 @@ impl HeldItemConfig {
         }
     }
 
-    /// 默认普通物品手持配置
     pub fn default_flat(thickness: f32) -> Self {
         Self {
             render: HeldRenderDefinition::FlatItem { thickness },
-            first_person_translation: [0.0, -0.04, -0.06],
-            first_person_rotation: [0.0, -75.0, 60.0],
-            first_person_scale: 0.50,
+            first_person_translation: [0.0, 0.2, -0.5],
+            first_person_rotation: [0.0, 105.0, 120.0],
+            first_person_scale: 1.0,
             animations: AnimationConfig::default(),
         }
     }
 
-    /// 模型物品手持配置
     pub fn default_model(path: &str) -> Self {
         Self {
             render: HeldRenderDefinition::Model {
                 path: path.to_string(),
             },
-            first_person_translation: [0.0, -0.04, -0.06],
-            first_person_rotation: [0.0, -60.0, 60.0],
-            first_person_scale: 0.60,
+            first_person_translation: [0.0, 0.2, -0.5],
+            first_person_rotation: [0.0, 105.0, 120.0],
+            first_person_scale: 1.0,
             animations: AnimationConfig::default(),
         }
     }

@@ -5,16 +5,18 @@ use crate::client::renderer::held_renderer::{
 use crate::client::renderer::mesh_cache::HeldMeshCache;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::viewmodel::hand_view::ViewHandBuilder;
-use crate::client::viewmodel::{HeldItemEntity, ViewModelRenderState, ViewModelRoot};
+use crate::client::viewmodel::{
+    HeldItemEntity, ViewModelPart, ViewModelRenderState, ViewModelRoot,
+};
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::model::config::PlayerModelConfig;
 use crate::shared::item_id::ItemId;
+use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 
-/// 第一人称模型同步渲染
 pub fn view_model_sync_system(
     inventory: Res<InventoryState>,
     item_registry: Option<Res<ItemRegistry>>,
@@ -32,17 +34,18 @@ pub fn view_model_sync_system(
     held_query: Query<Entity, With<HeldItemEntity>>,
 ) {
     let vm_root = match vm_query.iter().next() {
-        Some(e) => e,
+        Some(entity) => entity,
         None => return,
     };
 
     let item = inventory
         .hotbar
         .get_stack(inventory.hotbar.active_index)
-        .map(|s| s.item.clone())
+        .map(|stack| stack.item.clone())
         .unwrap_or_default();
 
     let item_identifier = item.identifier();
+    let item_key = item_identifier.to_string();
     let is_air = item.is_air();
 
     if render_state.current_item.as_ref() == Some(item_identifier)
@@ -51,14 +54,12 @@ pub fn view_model_sync_system(
         return;
     }
 
-    // 清除旧物品
-    if let Some(old_e) = render_state.held_entity.take()
-        && let Ok(e) = held_query.get(old_e)
+    if let Some(old_entity) = render_state.held_entity.take()
+        && let Ok(entity) = held_query.get(old_entity)
     {
-        commands.entity(e).despawn();
+        commands.entity(entity).despawn();
     }
 
-    // 始终确保手部存在（ViewModelRoot 子节点）
     ensure_hand(
         &mut commands,
         &mut meshes,
@@ -73,32 +74,22 @@ pub fn view_model_sync_system(
         return;
     }
 
-    let config_item = resolve_held_config(&item, item_registry.as_deref());
-    let Some(config_item) = config_item else {
+    let Some(config_item) = resolve_held_config(&item, item_registry.as_deref()) else {
         return;
     };
     let transform = config_item.to_transform();
 
-    info!(
-        "[视图模型] 生成: item={} render={:?} pos={:.2?}",
-        item_identifier, config_item.render, transform.translation,
-    );
-
-    let item_str = item_identifier.to_string();
-
-    // 手持物品挂在手掌实体下（hand_entity），而非直接挂 ViewModelRoot
     let held_entity = match &config_item.render {
         HeldRenderDefinition::Block => {
-            if let (Some(reg), Some(render_assets)) =
+            if let (Some(registry), Some(render_assets)) =
                 (block_registry.as_ref(), block_render_assets.as_ref())
             {
-                let block_id = item_str.strip_prefix("block:").unwrap_or(&item_str);
+                let block_id = item_key.strip_prefix("block:").unwrap_or(&item_key);
                 spawn_block_item(
                     &mut commands,
                     &mut meshes,
-                    &mut materials,
                     &mut mesh_cache,
-                    reg,
+                    registry,
                     render_assets,
                     render_state.hand_entity,
                     block_id,
@@ -108,10 +99,8 @@ pub fn view_model_sync_system(
                 None
             }
         }
-        HeldRenderDefinition::FlatItem {
-            thickness: _thickness,
-        } => {
-            let tex_key = item_str.strip_prefix("item:").unwrap_or(&item_str);
+        HeldRenderDefinition::FlatItem { .. } => {
+            let texture_key = item_key.strip_prefix("item:").unwrap_or(&item_key);
             spawn_flat_item(
                 &mut commands,
                 &mut meshes,
@@ -120,32 +109,27 @@ pub fn view_model_sync_system(
                 &item_textures,
                 &images,
                 render_state.hand_entity,
-                tex_key,
+                texture_key,
                 &config_item,
-                &item_str,
+                &item_key,
                 &transform,
             )
         }
-        HeldRenderDefinition::Model { .. } => {
-            info!("[视图模型] 特殊模型渲染尚未可用，跳过：{}", item_str);
-            None
-        }
-        HeldRenderDefinition::Empty => None,
+        HeldRenderDefinition::Model { .. } | HeldRenderDefinition::Empty => None,
     };
 
-    if let Some(e) = held_entity {
-        commands.entity(e).insert(HeldItemEntity {
+    if let Some(entity) = held_entity {
+        commands.entity(entity).insert(HeldItemEntity {
             item_identifier: item_identifier.clone(),
         });
         render_state.current_item = Some(item_identifier.clone());
-        render_state.held_entity = Some(e);
+        render_state.held_entity = Some(entity);
     } else {
         render_state.current_item = None;
         render_state.held_entity = None;
     }
 }
 
-// 确保手部模型实体存在（ViewModelRoot 子节点）
 fn ensure_hand(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
@@ -157,40 +141,38 @@ fn ensure_hand(
     if render_state.hand_entity.is_some() {
         return;
     }
-    let hand_entity = ViewHandBuilder::spawn(commands, meshes, materials, config, vm_root);
-    render_state.hand_entity = Some(hand_entity);
+
+    let item_anchor = ViewHandBuilder::spawn(commands, meshes, materials, config, vm_root);
+    render_state.hand_entity = Some(item_anchor);
 }
 
-// 根据物品ID解析手持渲染配置
 fn resolve_held_config(
     item: &ItemId,
     item_registry: Option<&ItemRegistry>,
 ) -> Option<HeldItemConfig> {
     use crate::content::item::definition::ItemCategory;
 
-    let Some(reg) = item_registry else {
-        return Some(HeldItemConfig::default_flat(0.04));
+    let Some(registry) = item_registry else {
+        return Some(HeldItemConfig::default_flat(0.05));
     };
 
-    if reg.is_block(item) {
+    if registry.is_block(item) {
         return Some(HeldItemConfig::default_block());
     }
 
-    if let Some(def) = reg.get(item) {
-        return Some(match def.category {
-            ItemCategory::Tool | ItemCategory::Weapon => HeldItemConfig::default_tool(0.04),
-            _ => HeldItemConfig::default_flat(0.04),
+    if let Some(definition) = registry.get(item) {
+        return Some(match definition.category {
+            ItemCategory::Tool | ItemCategory::Weapon => HeldItemConfig::default_tool(0.05),
+            _ => HeldItemConfig::default_flat(0.05),
         });
     }
 
-    Some(HeldItemConfig::default_flat(0.04))
+    Some(HeldItemConfig::default_flat(0.05))
 }
 
-// 生成方块类型的手持物品实体（挂载到 parent 实体下）
 fn spawn_block_item(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
     cache: &mut ResMut<HeldMeshCache>,
     block_registry: &BlockRegistry,
     render_assets: &BlockRenderAssets,
@@ -198,39 +180,45 @@ fn spawn_block_item(
     block_id: &str,
     transform: &Transform,
 ) -> Option<Entity> {
-    let cache_key = format!("block:{}", block_id);
-    let mesh_handle = if let Some(h) = cache.get(&cache_key) {
-        h.clone()
+    let cache_key = format!("block:{block_id}");
+    let mesh_handle = if let Some(handle) = cache.get(&cache_key) {
+        handle.clone()
     } else {
         let mesh = HeldBlockRenderer::build_mesh(block_registry, block_id)?;
-        let h = meshes.add(mesh);
-        cache.insert(cache_key, h.clone());
-        h
+        let handle = meshes.add(mesh);
+        cache.insert(cache_key, handle.clone());
+        handle
     };
-    let mat = HeldBlockRenderer::create_material(materials, render_assets);
+    let material = HeldBlockRenderer::material(block_registry, render_assets, block_id)?;
 
     let root = commands
-        .spawn((Name::new(format!("HeldBlock_{}", block_id)), *transform))
+        .spawn((
+            Name::new(format!("HeldBlock_{block_id}")),
+            ViewModelPart,
+            *transform,
+            Visibility::Inherited,
+        ))
         .id();
 
-    // 挂在手掌实体下（有手时），fallback 到 ViewModelRoot
-    if let Some(p) = parent {
-        commands.entity(p).add_child(root);
+    if let Some(parent) = parent {
+        commands.entity(parent).add_child(root);
     }
 
     let cube = commands
         .spawn((
             Name::new("BlockCube"),
+            ViewModelPart,
             Mesh3d(mesh_handle),
-            MeshMaterial3d(mat),
+            MeshMaterial3d(material),
             Transform::default(),
+            Visibility::Inherited,
+            NotShadowCaster,
         ))
         .id();
     commands.entity(root).add_child(cube);
     Some(root)
 }
 
-/// 生成平面挤出类型的手持物品实体
 fn spawn_flat_item(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
@@ -239,66 +227,58 @@ fn spawn_flat_item(
     item_textures: &ItemTextureRegistry,
     images: &Assets<Image>,
     parent: Option<Entity>,
-    tex_key: &str,
+    texture_key: &str,
     config: &HeldItemConfig,
     item_name: &str,
     transform: &Transform,
 ) -> Option<Entity> {
     let thickness = match &config.render {
         HeldRenderDefinition::FlatItem { thickness } => *thickness,
-        _ => 0.04,
+        _ => 0.05,
     };
 
-    let image_handle = item_textures
-        .get_handle(tex_key)
-        .cloned()
-        .unwrap_or_default();
-    if image_handle == Handle::<Image>::default() {
-        warn!("[HeldRender] 纹理不存在: {}", tex_key);
-        return None;
-    }
-
-    let cache_key = format!("flat:{}/t={}", tex_key, thickness);
+    let image_handle = item_textures.get_handle(texture_key).cloned()?;
+    let cache_key = format!("flat:{texture_key}/t={thickness}");
     let mesh_handle = if let Some(handle) = cache.get(&cache_key) {
         handle.clone()
     } else {
-        let Some(image) = images.get(&image_handle) else {
-            info!("[HeldRender] 等待纹理加载: {}", tex_key);
-            return None;
-        };
-
-        info!("[HeldRender] 构建厚度模型: {}", tex_key);
+        let image = images.get(&image_handle)?;
         let mesh = HeldFlatItemRenderer::build_mesh(image, thickness);
         let handle = meshes.add(mesh);
         cache.insert(cache_key, handle.clone());
         handle
     };
 
-    let mat = materials.add(StandardMaterial {
-        base_color_texture: Some(image_handle.clone()),
+    let material = materials.add(StandardMaterial {
+        base_color_texture: Some(image_handle),
         alpha_mode: AlphaMode::Mask(0.1),
         cull_mode: None,
-        double_sided: true,
-        perceptual_roughness: 1.0,
-        unlit: true,
+        perceptual_roughness: 0.9,
         ..default()
     });
 
     let root = commands
-        .spawn((Name::new(format!("HeldFlat_{}", item_name)), *transform))
+        .spawn((
+            Name::new(format!("HeldFlat_{item_name}")),
+            ViewModelPart,
+            *transform,
+            Visibility::Inherited,
+        ))
         .id();
 
-    // 挂在手掌实体下
-    if let Some(p) = parent {
-        commands.entity(p).add_child(root);
+    if let Some(parent) = parent {
+        commands.entity(parent).add_child(root);
     }
 
     let plane = commands
         .spawn((
-            Name::new("FlatPlane"),
+            Name::new("FlatItemMesh"),
+            ViewModelPart,
             Mesh3d(mesh_handle),
-            MeshMaterial3d(mat),
+            MeshMaterial3d(material),
             Transform::default(),
+            Visibility::Inherited,
+            NotShadowCaster,
         ))
         .id();
     commands.entity(root).add_child(plane);

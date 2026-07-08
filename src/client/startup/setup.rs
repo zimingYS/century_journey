@@ -1,14 +1,15 @@
+use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 
 pub fn setup(mut commands: Commands) {
-    // 添加光源
     commands.spawn((
         PointLight {
             shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
+        RenderLayers::layer(0).with(1),
     ));
 
-    info!("[世纪之旅] 游戏已启动！");
+    info!("[Century Journey] game started");
 }

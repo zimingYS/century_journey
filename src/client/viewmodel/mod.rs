@@ -1,3 +1,4 @@
+use crate::shared::components::camera::FpsCamera;
 use crate::shared::identifier::Identifier;
 use bevy::prelude::*;
 
@@ -5,17 +6,17 @@ pub mod animation;
 pub mod hand_view;
 pub mod renderer;
 
-/// 第一人称物品根节点
 #[derive(Component)]
 pub struct ViewModelRoot;
 
-/// 当前手持物品实体标记
+#[derive(Component)]
+pub struct ViewModelPart;
+
 #[derive(Component)]
 pub struct HeldItemEntity {
     pub item_identifier: Identifier,
 }
 
-/// 动画状态组件
 #[derive(Component)]
 pub struct ViewModelAnimator {
     pub equip_progress: f32,
@@ -35,7 +36,6 @@ impl Default for ViewModelAnimator {
     }
 }
 
-/// 持久化渲染状态
 #[derive(Resource, Default)]
 pub struct ViewModelRenderState {
     pub held_entity: Option<Entity>,
@@ -43,7 +43,6 @@ pub struct ViewModelRenderState {
     pub current_item: Option<Identifier>,
 }
 
-/// 动画类型
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ViewAnimation {
     Idle,
@@ -62,7 +61,28 @@ impl Plugin for ViewModelPlugin {
             (
                 renderer::view_model_sync_system,
                 animation::view_model_animation_system,
-            ),
+                view_model_visibility_system,
+            )
+                .chain(),
         );
+    }
+}
+
+fn view_model_visibility_system(
+    camera_query: Query<&FpsCamera, With<Camera3d>>,
+    mut view_model_query: Query<&mut Visibility, With<ViewModelPart>>,
+) {
+    let is_first_person = camera_query
+        .single()
+        .map(|camera| camera.is_first_person)
+        .unwrap_or(true);
+    let target = if is_first_person {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    };
+
+    for mut visibility in &mut view_model_query {
+        *visibility = target;
     }
 }

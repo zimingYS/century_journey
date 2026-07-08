@@ -4,125 +4,105 @@ use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 
-/// 方块手持渲染
+const FACE_COUNT: usize = 6;
+const ATLAS_TILES_PER_ROW: f32 = 16.0;
+
 pub struct HeldBlockRenderer;
 
 impl HeldBlockRenderer {
-    /// 构建完成的网格对象
     pub fn build_mesh(block_registry: &BlockRegistry, block_identifier: &str) -> Option<Mesh> {
-        // 获取动态ID
         let runtime_id = block_registry.get_id_by_identifier(block_identifier)?;
-        // 获取纹理图集
-        let total_layers = block_registry.total_layer_count().max(1);
+        let total_layers = block_registry.total_layer_count().max(1) as f32;
+        let face_layers =
+            std::array::from_fn(|face_idx| block_registry.get_layer(runtime_id, face_idx) as f32);
 
-        // 构建面索引重映射表
-        const FACE_REMAP: [usize; 6] = [3, 2, 0, 1, 4, 5];
-        // 通过重映射索引查询每个面对应的纹理层编号
-        let face_layers: [u32; 6] =
-            std::array::from_fn(|i| block_registry.get_layer(runtime_id, FACE_REMAP[i]));
-        let total = total_layers as f32 * 16.0;
-
-        // 计算每个面的UV坐标矩形
-        let face_uvs: [(f32, f32, f32, f32); 6] = std::array::from_fn(|i| {
-            let layer = face_layers[i] as f32;
-            let row = layer * 16.0;
-            (0.0, row / total, 1.0 / 16.0, (row + 1.0) / total)
-        });
-
-        Some(build_uv_mesh(&face_uvs))
+        Some(build_cube_mesh(face_layers, total_layers))
     }
 
-    /// 创建手持方块材质
-    pub fn create_material(
-        materials: &mut ResMut<Assets<StandardMaterial>>,
+    pub fn material(
+        block_registry: &BlockRegistry,
         render_assets: &BlockRenderAssets,
-    ) -> Handle<StandardMaterial> {
-        materials.add(StandardMaterial {
-            base_color_texture: Some(render_assets.base_texture().clone()),
-            perceptual_roughness: 0.85,
-            ..default()
-        })
+        block_identifier: &str,
+    ) -> Option<Handle<StandardMaterial>> {
+        let runtime_id = block_registry.get_id_by_identifier(block_identifier)?;
+        let render_mode = block_registry.get(runtime_id)?.render_mode;
+        Some(render_assets.material(render_mode).clone())
     }
 }
 
-/// 底层网格构建
-fn build_uv_mesh(face_uvs: &[(f32, f32, f32, f32); 6]) -> Mesh {
-    let h = 0.5;
-    // 顶点位置
-    let positions = [
-        [h, -h, -h],
-        [h, h, -h],
-        [h, h, h],
-        [h, -h, h],
-        [-h, -h, h],
-        [-h, h, h],
-        [-h, h, -h],
-        [-h, -h, -h],
-        [-h, h, -h],
-        [-h, h, h],
-        [h, h, h],
-        [h, h, -h],
-        [-h, -h, h],
-        [-h, -h, -h],
-        [h, -h, -h],
-        [h, -h, h],
-        [h, -h, h],
-        [h, h, h],
-        [-h, h, h],
-        [-h, -h, h],
-        [h, -h, -h],
-        [-h, -h, -h],
-        [-h, h, -h],
-        [h, h, -h],
-    ];
-    // 顶点法线
-    let normals = [
-        [1.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, -1.0, 0.0],
-        [0.0, -1.0, 0.0],
-        [0.0, -1.0, 0.0],
-        [0.0, -1.0, 0.0],
-        [0.0, 0.0, 1.0],
-        [0.0, 0.0, 1.0],
-        [0.0, 0.0, 1.0],
-        [0.0, 0.0, 1.0],
-        [0.0, 0.0, -1.0],
-        [0.0, 0.0, -1.0],
-        [0.0, 0.0, -1.0],
-        [0.0, 0.0, -1.0],
-    ];
+fn build_cube_mesh(face_layers: [f32; FACE_COUNT], total_layers: f32) -> Mesh {
+    let mut positions = Vec::with_capacity(FACE_COUNT * 4);
+    let mut normals = Vec::with_capacity(FACE_COUNT * 4);
+    let mut uvs = Vec::with_capacity(FACE_COUNT * 4);
+    let mut indices = Vec::with_capacity(FACE_COUNT * 6);
 
-    // 构建UV坐标和索引
-    let uvs: Vec<[f32; 2]> = (0..6)
-        .flat_map(|f| {
-            let (u0, v0, u1, v1) = face_uvs[f];
-            [[u0, v1], [u0, v0], [u1, v0], [u1, v1]]
-        })
-        .collect();
-    let indices: Vec<u32> = (0..6)
-        .flat_map(|f| {
-            let b = f as u32 * 4;
-            [b, b + 1, b + 2, b + 2, b + 3, b]
-        })
-        .collect();
+    for face_idx in 0..FACE_COUNT {
+        let face = held_cube_face(face_idx);
+        let face_uvs = face_uvs(face_idx, face_layers[face_idx], total_layers);
+        let base = positions.len() as u32;
 
-    // 构建网格
-    let usage = RenderAssetUsages::default();
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, usage);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions.to_vec());
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals.to_vec());
+        positions.extend_from_slice(&face.positions);
+        normals.extend_from_slice(&[face.normal; 4]);
+        uvs.extend_from_slice(&face_uvs);
+        indices.extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
+    }
+
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
+    );
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
     mesh.insert_indices(Indices::U32(indices));
     mesh
+}
+
+struct CubeFace {
+    positions: [[f32; 3]; 4],
+    normal: [f32; 3],
+}
+
+fn held_cube_face(face_idx: usize) -> CubeFace {
+    let h = 0.5;
+    match face_idx {
+        0 => CubeFace {
+            positions: [[h, h, -h], [-h, h, -h], [-h, h, h], [h, h, h]],
+            normal: [0.0, 1.0, 0.0],
+        },
+        1 => CubeFace {
+            positions: [[-h, -h, -h], [h, -h, -h], [h, -h, h], [-h, -h, h]],
+            normal: [0.0, -1.0, 0.0],
+        },
+        2 => CubeFace {
+            positions: [[-h, h, h], [-h, h, -h], [-h, -h, -h], [-h, -h, h]],
+            normal: [-1.0, 0.0, 0.0],
+        },
+        3 => CubeFace {
+            positions: [[h, h, -h], [h, h, h], [h, -h, h], [h, -h, -h]],
+            normal: [1.0, 0.0, 0.0],
+        },
+        4 => CubeFace {
+            positions: [[h, h, h], [-h, h, h], [-h, -h, h], [h, -h, h]],
+            normal: [0.0, 0.0, 1.0],
+        },
+        5 => CubeFace {
+            positions: [[-h, h, -h], [h, h, -h], [h, -h, -h], [-h, -h, -h]],
+            normal: [0.0, 0.0, -1.0],
+        },
+        _ => unreachable!(),
+    }
+}
+
+fn face_uvs(face_idx: usize, layer: f32, total_layers: f32) -> [[f32; 2]; 4] {
+    let u0 = 0.0;
+    let u1 = 1.0 / ATLAS_TILES_PER_ROW;
+    let v0 = layer / total_layers;
+    let v1 = (layer * ATLAS_TILES_PER_ROW + 1.0) / (total_layers * ATLAS_TILES_PER_ROW);
+
+    match face_idx {
+        0 | 2 | 4 => [[u1, v0], [u0, v0], [u0, v1], [u1, v1]],
+        1 | 3 | 5 => [[u0, v0], [u1, v0], [u1, v1], [u0, v1]],
+        _ => unreachable!(),
+    }
 }
