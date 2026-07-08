@@ -1,5 +1,5 @@
 use crate::content::constant::world::*;
-use crate::engine::task::{TaskManager, TaskPriority, TaskResult};
+use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::player::components::Player;
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::generation::WorldGenerator;
@@ -159,7 +159,7 @@ pub fn spawn_terrain_gen_tasks(
         let climate_sampler = Arc::clone(&world_generator.shared_climate);
         let current_season = world_generator.pipeline.climate_sampler.current_season;
 
-        task.spawn_cpu(TaskPriority::Normal, move || {
+        task.spawn_cpu(move || {
             match RegionManager::read_chunk(&world_name, chunk_pos) {
                 Ok(Some(mut saved)) => {
                     // 只在有映射表时才重映射
@@ -302,8 +302,8 @@ pub fn generate_structures_system(
         let biome_registry = world_generator.pipeline.biome_registry.clone();
         let seed = world_generator.seed;
 
-        task.spawn_cpu(TaskPriority::Normal, move || {
-            // 构建临时 WorldStorage，复用现有 generate_structures_world_aware
+        task.spawn_cpu(move || {
+            // Build a temporary WorldStorage for world-aware structure generation.
             let mut temp_storage = crate::game::world::storage::WorldStorage::default();
             temp_storage.loaded_chunks.insert(chunk_pos, chunk_data);
             for (pos, data) in neighbor_data {
@@ -319,7 +319,7 @@ pub fn generate_structures_system(
                 &mut temp_storage,
             );
 
-            // 收集所有被修改的区块
+            // Collect all modified chunks.
             let modified_chunks: Vec<(IVec3, ChunkData)> = temp_storage
                 .loaded_chunks
                 .into_iter()
@@ -366,10 +366,9 @@ pub fn receive_structure_results(
             }
         }
 
-        // 清除已使用的生成上下文缓存
-        world_storage.gen_contexts.remove(&result.chunk_pos);
+        // 清除已使用的生成上下文缓存       world_storage.gen_contexts.remove(&result.chunk_pos);
 
-        // 更新区块状态
+        // Update chunk state.
         for (chunk_components, mut chunk_state) in &mut chunk_query {
             if chunk_components.position == result.chunk_pos
                 && *chunk_state == ChunkState::GeneratingStructure

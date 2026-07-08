@@ -1,7 +1,7 @@
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::constant::world::*;
-use crate::engine::task::{TaskManager, TaskPriority, TaskResult};
+use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::storage::WorldStorage;
 use crate::game::world::systems::{
@@ -11,18 +11,18 @@ use crate::game::world::systems::{
 use bevy::prelude::*;
 use std::sync::Arc;
 
-/// 在BlockRegistry变化时重建缓存的系统
+/// Rebuilds cached block metadata when the block registry changes.
 pub fn rebuild_block_info_snapshot(
     registry: Res<BlockRegistry>,
     mut cached: ResMut<CachedBlockInfo>,
 ) {
-    // 自动处理
+    // Refresh only after registry changes.
     if registry.is_changed() {
         cached.0 = BlockInfoSnapshot::from_registry(&registry);
     }
 }
 
-/// Mesh 构建派发
+/// Mesh build dispatch.
 pub fn spawn_mesh_build_tasks(
     channel: Res<MeshBuildChannel>,
     registry: Option<Res<BlockRegistry>>,
@@ -94,7 +94,7 @@ pub fn spawn_mesh_build_tasks(
             block_info: block_info.clone(),
         };
 
-        task.spawn_cpu(TaskPriority::Normal, move || {
+        task.spawn_cpu(move || {
             let result = build_greedy_mesh(input);
             let _ = sender.send(result);
             TaskResult::Success
@@ -105,7 +105,7 @@ pub fn spawn_mesh_build_tasks(
     }
 }
 
-/// 接收 Mesh 构建结果
+/// Receives mesh build results.
 pub fn receive_mesh_results(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -140,7 +140,7 @@ pub fn receive_mesh_results(
             continue;
         }
 
-        // 清除旧 Mesh
+        // Clear old mesh components and children.
         commands
             .entity(chunk_entity)
             .queue_silenced(|mut entity: EntityWorldMut| {
@@ -154,7 +154,7 @@ pub fn receive_mesh_results(
                 entity.despawn_related::<Children>();
             });
 
-        // 不透明
+        // Opaque pass.
         if !result.opaque.is_empty() {
             let opaque_mesh = meshes.add(result.opaque.build_mesh());
             let mat = opaque_mat.clone();
@@ -165,7 +165,7 @@ pub fn receive_mesh_results(
                 });
         }
 
-        // 镂空
+        // Cutout pass.
         if !result.cutout.is_empty() {
             let cutout_mesh = meshes.add(result.cutout.build_mesh());
             let mat = cutout_mat.clone();
@@ -184,7 +184,7 @@ pub fn receive_mesh_results(
                 });
         }
 
-        // 水
+        // Water
         if !result.water.is_empty() {
             let water_mesh = meshes.add(result.water.build_mesh());
             let mat = transparent_mat.clone();

@@ -1,46 +1,22 @@
-//! # Engine Task System V3
+//! # Engine Task Facade
 //!
-//! 统一任务调度系统 + 并行计算运行时。
+//! Runtime dispatch uses Bevy's `AsyncComputeTaskPool` for CPU work and
+//! `IoTaskPool` for IO work. The legacy scheduler, dependency, cancellation,
+//! executor, group, and worker implementations have been removed from the
+//! active compile path so the API matches the project's current behavior.
 //!
-//! ## API
-//! | 方法 | 说明 |
-//! |------|------|
-//! | `TaskManager::parallel_for(data, f)` | 并行 For |
-//! | `TaskManager::parallel_map(data, f)` | 并行 Map |
-//! | `TaskManager::parallel_reduce(data, map, reduce, id)` | 并行 Reduce |
-//! | `TaskManager::fork_join(tasks)` | Fork-Join |
-//! | `TaskManager::dispatch_batch(data, strategy, f)` | Batch 分发 |
+//! # 引擎任务门面
+//!
+//! 运行时派发使用 Bevy 的 `AsyncComputeTaskPool` 执行 CPU 任务，并使用
+//! `IoTaskPool` 执行 IO 任务。旧的 scheduler、dependency、cancellation、
+//! executor、group 和 worker 实现已从活动编译路径移除，让 API 与项目当前行为一致。
 
-pub mod cancellation;
-pub mod dependency;
-pub mod diagnostics;
-pub mod executor;
-pub mod group;
-pub mod job;
+pub(crate) mod diagnostics;
+pub(crate) mod job;
 pub mod manager;
 pub mod plugin;
-pub mod runtime;
-pub mod scheduler;
-pub mod util;
-pub mod worker;
+pub(crate) mod runtime;
 
-pub use cancellation::{CancellationManager, CancellationSource, CancellationToken};
-pub use dependency::{DependencyEdge, DependencyGraph, DependencyNode, DependencyResolver};
-pub use diagnostics::{RuntimeStatistics, TaskReport};
-pub use executor::{
-    BatchDispatcher, BatchResult, ForkJoin, ParallelExecutor, ParallelFor, Partition,
-    PartitionStrategy, Reducer, TaskBarrier,
-};
-pub use group::{TaskGroup, TaskGroupHandle, TaskScope};
-pub use job::{TaskDependency, TaskHandle, TaskId, TaskJob, TaskResult, TaskState};
+pub use job::{TaskHandle, TaskId, TaskResult};
 pub use manager::TaskManager;
 pub use plugin::TaskPlugin;
-pub use runtime::{
-    RuntimeContext, RuntimeService, RuntimeServices, RuntimeState, TaskRuntimePlugin,
-};
-pub use scheduler::{
-    DispatchDecision, DispatchPipeline, FrameBudget, TaskPriority, TaskQueue, TaskScheduler,
-};
-pub use worker::{
-    LocalQueue, WorkStealer, Worker, WorkerGroup, WorkerKind, WorkerPool, WorkerStatistics,
-};
