@@ -25,7 +25,7 @@ pub fn manage_chunks_system(
     mut player_cache: ResMut<PlayerChunkCache>,
     chunk_query: Query<(Entity, &ChunkComponents)>,
     player_query: Query<&Transform, With<Player>>,
-    camera_query: Query<&GlobalTransform, With<Camera3d>>,
+    camera_query: Query<&GlobalTransform, With<crate::shared::components::FpsCamera>>,
     save_config: Res<SaveConfig>,
     streaming_config: Res<WorldStreamingConfig>,
 ) {
@@ -370,7 +370,7 @@ fn apply_pending_writes(chunk_pos: IVec3, chunk: &mut ChunkData, storage: &mut W
 
 fn view_forward_xz(
     player_transform: &Transform,
-    camera_query: &Query<&GlobalTransform, With<Camera3d>>,
+    camera_query: &Query<&GlobalTransform, With<crate::shared::components::FpsCamera>>,
 ) -> Vec2 {
     let forward = camera_query
         .single()

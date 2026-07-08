@@ -23,7 +23,7 @@ pub struct TargetVoxel {
 
 pub fn update_raycast_system(
     world_storage: Res<WorldStorage>,
-    camera_query: Query<&GlobalTransform, With<Camera3d>>,
+    camera_query: Query<&GlobalTransform, With<crate::shared::components::FpsCamera>>,
     mut target_voxel: ResMut<TargetVoxel>,
 ) {
     let Ok(global_transform) = camera_query.single() else {

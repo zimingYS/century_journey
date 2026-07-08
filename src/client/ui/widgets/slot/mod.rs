@@ -6,6 +6,7 @@ pub use components::{
     SlotInteractionEvent, SlotVisual,
 };
 
+use crate::client::renderer::item_model::{ItemModelRenderAssets, ItemModelRenderer};
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::content::block::registry::BlockRegistry;
@@ -93,6 +94,7 @@ pub fn spawn_slot_with_item(
     item: &ItemId,
     registry: &BlockRegistry,
     render_assets: &BlockRenderAssets,
+    item_model_assets: &ItemModelRenderAssets,
     theme: &UiTheme,
     item_registry: Option<&ItemRegistry>,
     item_texture_registry: Option<&ItemTextureRegistry>,
@@ -123,6 +125,7 @@ pub fn spawn_slot_with_item(
                 item,
                 registry,
                 render_assets,
+                item_model_assets,
                 item_registry,
                 item_texture_registry,
             );
@@ -151,6 +154,7 @@ pub fn spawn_icon_child(
     item: &ItemId,
     block_registry: &BlockRegistry,
     render_assets: &BlockRenderAssets,
+    item_model_assets: &ItemModelRenderAssets,
     item_registry: Option<&ItemRegistry>,
     item_texture_registry: Option<&ItemTextureRegistry>,
 ) {
@@ -174,6 +178,25 @@ pub fn spawn_icon_child(
     match icon {
         // 方块图标
         IconDefinition::Block(id) => {
+            let preview_image = ItemModelRenderer::block_preview_image(&id, item_model_assets);
+
+            if let Some(image) = preview_image {
+                parent.spawn((
+                    SlotIcon,
+                    ImageNode {
+                        image,
+                        texture_atlas: None,
+                        ..default()
+                    },
+                    Node {
+                        width: Val::Percent(80.0),
+                        height: Val::Percent(80.0),
+                        ..default()
+                    },
+                ));
+                return;
+            }
+
             let Some(atlas_idx) = block_registry.get_icon_atlas_index(&id) else {
                 parent.spawn((
                     SlotIcon,
@@ -236,6 +259,7 @@ pub fn sync_slot_icon(
     count: u32,
     block_registry: &BlockRegistry,
     render_assets: &BlockRenderAssets,
+    item_model_assets: &ItemModelRenderAssets,
     children_query: &Query<&Children>,
     item_registry: Option<&ItemRegistry>,
     item_texture_registry: Option<&ItemTextureRegistry>,
@@ -254,7 +278,18 @@ pub fn sync_slot_icon(
             if let Some(icon) = icon_def {
                 match icon {
                     IconDefinition::Block(id) => {
-                        if let Some(atlas_idx) = block_registry.get_icon_atlas_index(&id) {
+                        if let Some(image) =
+                            ItemModelRenderer::block_preview_image(&id, item_model_assets)
+                        {
+                            commands.entity(icon_entity).insert((
+                                Visibility::Inherited,
+                                ImageNode {
+                                    image,
+                                    texture_atlas: None,
+                                    ..default()
+                                },
+                            ));
+                        } else if let Some(atlas_idx) = block_registry.get_icon_atlas_index(&id) {
                             commands.entity(icon_entity).insert((
                                 Visibility::Inherited,
                                 ImageNode {
@@ -304,6 +339,7 @@ pub fn sync_hotbar_panel_visuals(
     state: &crate::game::inventory::state::InventoryState,
     reg: &BlockRegistry,
     render_assets: &BlockRenderAssets,
+    item_model_assets: &ItemModelRenderAssets,
     panel_entity: Entity,
     children_query: &Query<&Children>,
     item_registry: Option<&ItemRegistry>,
@@ -356,6 +392,7 @@ pub fn sync_hotbar_panel_visuals(
                         count,
                         reg,
                         render_assets,
+                        item_model_assets,
                         children_query,
                         item_registry,
                         item_texture_registry,
