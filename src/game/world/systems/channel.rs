@@ -1,3 +1,4 @@
+use super::streaming::WorldStreamingConfig;
 use crate::content::block::definition::RenderMode;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::world::chunk::ChunkData;
@@ -6,14 +7,12 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex, mpsc};
 
-/// 地形生成异步任务的结果
 pub struct TerrainGenResult {
     pub chunk_pos: IVec3,
     pub chunk_data: ChunkData,
     pub gen_context: ChunkGenContext,
 }
 
-/// 地形生成通道资源
 #[derive(Resource)]
 pub struct TerrainGenChannel {
     pub sender: mpsc::Sender<TerrainGenResult>,
@@ -30,10 +29,8 @@ impl Default for TerrainGenChannel {
     }
 }
 
-/// 结构生成异步任务的结果
 pub struct StructureGenResult {
     pub chunk_pos: IVec3,
-    /// 所有被结构生成修改的区块（含邻居的跨区块写入）
     pub modified_chunks: Vec<(IVec3, ChunkData)>,
 }
 
@@ -53,7 +50,6 @@ impl Default for StructureGenChannel {
     }
 }
 
-/// Mesh 构建异步任务的结果
 pub struct MeshBuildResult {
     pub chunk_pos: IVec3,
     pub opaque: super::mesh_buffer::MeshBufferData,
@@ -61,7 +57,6 @@ pub struct MeshBuildResult {
     pub water: super::mesh_buffer::MeshBufferData,
 }
 
-/// Mesh 构建通道资源
 #[derive(Resource)]
 pub struct MeshBuildChannel {
     pub sender: mpsc::Sender<MeshBuildResult>,
@@ -78,14 +73,14 @@ impl Default for MeshBuildChannel {
     }
 }
 
-/// 玩家区块缓存
 #[derive(Resource, Default)]
 pub struct PlayerChunkCache {
     pub last_chunk_pos: Option<IVec3>,
+    pub last_streaming_config: Option<WorldStreamingConfig>,
     pub expected_chunks: HashSet<IVec3>,
+    pub ordered_chunks: Vec<IVec3>,
 }
 
-/// 方块信息查找表
 #[derive(Clone, Default)]
 pub struct BlockInfoSnapshot {
     pub is_solid: Vec<bool>,
@@ -146,11 +141,9 @@ impl BlockInfoSnapshot {
     }
 }
 
-/// 缓存BlockInfoSnapshot资源
 #[derive(Resource, Default, Clone)]
 pub struct CachedBlockInfo(pub BlockInfoSnapshot);
 
-/// 单个区块的 Mesh 构建输入快照
 pub struct MeshBuildInput {
     pub chunk_pos: IVec3,
     pub current_data: Arc<ChunkData>,

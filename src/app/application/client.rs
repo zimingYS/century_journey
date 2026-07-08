@@ -2,21 +2,18 @@ use super::application::Application;
 use crate::app::config::AppConfig;
 use crate::client::plugin_group::ClientPluginGroup;
 use crate::engine::constant::window::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
+use crate::game::world::systems::WorldStreamingConfig;
 use bevy::log::LogPlugin;
-/// 客户端应用 — Composition Root。
-///
-/// 仅负责组装：DefaultPlugins + ClientPluginGroup。
-/// 不直接初始化任何业务资源或注册业务 System。
 use bevy::prelude::*;
 use bevy::window::{Window, WindowPlugin, WindowResolution};
 
-/// 默认日志过滤器
 const DEFAULT_LOG_FILTER: &str = "info,wgpu_core=warn,wgpu_hal=warn,naga=warn";
 
 pub struct ClientApplication;
 
 impl Application for ClientApplication {
-    fn build(_config: AppConfig) -> anyhow::Result<App> {
+    fn build(config: AppConfig) -> anyhow::Result<App> {
+        let world_streaming_config = WorldStreamingConfig::from_render_config(&config.render);
         let mut app = App::new();
         app.add_plugins(
             DefaultPlugins
@@ -35,7 +32,8 @@ impl Application for ClientApplication {
                     ..default()
                 }),
         );
-        app.add_plugins(ClientPluginGroup);
+        app.insert_resource(world_streaming_config)
+            .add_plugins(ClientPluginGroup);
         Ok(app)
     }
 }

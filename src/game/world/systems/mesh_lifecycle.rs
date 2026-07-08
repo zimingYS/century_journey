@@ -6,64 +6,56 @@ use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::storage::WorldStorage;
 use crate::game::world::systems::{
     BlockInfoSnapshot, CachedBlockInfo, DIRECTIONS, MeshBuildChannel, MeshBuildInput,
-    build_greedy_mesh,
+    PlayerChunkCache, WorldStreamingConfig, build_greedy_mesh,
 };
 use bevy::prelude::*;
 use std::sync::Arc;
 
-/// Rebuilds cached block metadata when the block registry changes.
 pub fn rebuild_block_info_snapshot(
     registry: Res<BlockRegistry>,
     mut cached: ResMut<CachedBlockInfo>,
 ) {
-    // Refresh only after registry changes.
     if registry.is_changed() {
         cached.0 = BlockInfoSnapshot::from_registry(&registry);
     }
 }
 
-/// Mesh build dispatch.
 pub fn spawn_mesh_build_tasks(
     channel: Res<MeshBuildChannel>,
     registry: Option<Res<BlockRegistry>>,
     world_storage: Res<WorldStorage>,
     cached_block_info: Res<CachedBlockInfo>,
     task: Res<TaskManager>,
-    mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
+    player_cache: Res<PlayerChunkCache>,
+    streaming_config: Res<WorldStreamingConfig>,
+    mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
 ) {
     if registry.is_none() {
         return;
     }
-
-    let ready_count = chunk_query
-        .iter()
-        .filter(|(_, c, s)| {
-            **s == ChunkState::StructureReady
-                && world_storage.chunk_entities.contains_key(&c.position)
-        })
-        .count();
-    if ready_count == 0 {
+    let Some(player_chunk_pos) = player_cache.last_chunk_pos else {
         return;
-    }
+    };
 
     let block_info = cached_block_info.0.clone();
     let mut spawned = 0u32;
 
-    for (_chunk_entity, chunk_components, mut state) in &mut chunk_query {
-        if !world_storage
-            .chunk_entities
-            .contains_key(&chunk_components.position)
-        {
-            continue;
-        }
-        if *state != ChunkState::StructureReady {
-            continue;
-        }
+    for &current_chunk_pos in &player_cache.ordered_chunks {
         if spawned >= MAX_MESH_TASKS_PER_FRAME {
             break;
         }
-
-        let current_chunk_pos = chunk_components.position;
+        if !streaming_config.should_mesh_chunk(player_chunk_pos, current_chunk_pos) {
+            continue;
+        }
+        let Some(&chunk_entity) = world_storage.chunk_entities.get(&current_chunk_pos) else {
+            continue;
+        };
+        let Ok((chunk_components, mut state)) = chunk_query.get_mut(chunk_entity) else {
+            continue;
+        };
+        if chunk_components.position != current_chunk_pos || *state != ChunkState::StructureReady {
+            continue;
+        }
 
         let neighbors_ready = DIRECTIONS.iter().all(|(dir, _)| {
             world_storage
@@ -105,14 +97,13 @@ pub fn spawn_mesh_build_tasks(
     }
 }
 
-/// Receives mesh build results.
 pub fn receive_mesh_results(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     channel: Res<MeshBuildChannel>,
     render_assets: Option<Res<BlockRenderAssets>>,
     world_storage: Res<WorldStorage>,
-    mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
+    mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
 ) {
     let Some(render_assets) = render_assets else {
         return;
@@ -133,14 +124,13 @@ pub fn receive_mesh_results(
         let Some(&chunk_entity) = world_storage.chunk_entities.get(&result.chunk_pos) else {
             continue;
         };
-        let Ok((_entity, _components, mut state)) = chunk_query.get_mut(chunk_entity) else {
+        let Ok((_components, mut state)) = chunk_query.get_mut(chunk_entity) else {
             continue;
         };
         if *state != ChunkState::GeneratingMesh {
             continue;
         }
 
-        // Clear old mesh components and children.
         commands
             .entity(chunk_entity)
             .queue_silenced(|mut entity: EntityWorldMut| {
@@ -154,7 +144,6 @@ pub fn receive_mesh_results(
                 entity.despawn_related::<Children>();
             });
 
-        // Opaque pass.
         if !result.opaque.is_empty() {
             let opaque_mesh = meshes.add(result.opaque.build_mesh());
             let mat = opaque_mat.clone();
@@ -165,7 +154,6 @@ pub fn receive_mesh_results(
                 });
         }
 
-        // Cutout pass.
         if !result.cutout.is_empty() {
             let cutout_mesh = meshes.add(result.cutout.build_mesh());
             let mat = cutout_mat.clone();
@@ -184,7 +172,6 @@ pub fn receive_mesh_results(
                 });
         }
 
-        // Water
         if !result.water.is_empty() {
             let water_mesh = meshes.add(result.water.build_mesh());
             let mat = transparent_mat.clone();

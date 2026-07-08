@@ -12,13 +12,12 @@ use crate::game::world::save::system::{CachedBlockIdRemap, SaveConfig, SaveQueue
 use crate::game::world::storage::WorldStorage;
 use crate::game::world::systems::channel::{StructureGenChannel, StructureGenResult};
 use crate::game::world::systems::{
-    DIRECTIONS, PlayerChunkCache, TerrainGenChannel, TerrainGenResult,
+    DIRECTIONS, PlayerChunkCache, TerrainGenChannel, TerrainGenResult, WorldStreamingConfig,
 };
 use bevy::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 
-/// 区块加载与卸载调度
 pub fn manage_chunks_system(
     mut commands: Commands,
     mut save_queue: ResMut<SaveQueue>,
@@ -26,102 +25,90 @@ pub fn manage_chunks_system(
     mut player_cache: ResMut<PlayerChunkCache>,
     chunk_query: Query<(Entity, &ChunkComponents)>,
     player_query: Query<&Transform, With<Player>>,
+    camera_query: Query<&GlobalTransform, With<Camera3d>>,
     save_config: Res<SaveConfig>,
+    streaming_config: Res<WorldStreamingConfig>,
 ) {
     let Ok(player_transform) = player_query.single() else {
         return;
     };
 
-    let player_pos = player_transform.translation;
-    let size_f32 = CHUNK_SIZE as f32;
-    let render_distance = 8;
-    let data_distance = render_distance + 1;
-
-    let player_chunk_pos = IVec3::new(
-        (player_pos.x / size_f32).floor() as i32,
-        (player_pos.y / size_f32).floor() as i32,
-        (player_pos.z / size_f32).floor() as i32,
-    );
-
-    let needs_rebuild = player_cache.last_chunk_pos != Some(player_chunk_pos);
+    let player_chunk_pos = WorldStreamingConfig::chunk_from_world(player_transform.translation);
+    let view_forward_xz = view_forward_xz(player_transform, &camera_query);
+    let needs_rebuild = player_cache.last_chunk_pos != Some(player_chunk_pos)
+        || player_cache.last_streaming_config.as_ref() != Some(&*streaming_config);
 
     if needs_rebuild {
         player_cache.last_chunk_pos = Some(player_chunk_pos);
-        let mut expected_chunks = HashSet::with_capacity_and_hasher(
-            (data_distance * 2 + 1_i32).pow(3) as usize,
-            Default::default(),
-        );
-        for x in -data_distance..=data_distance {
-            for y in -data_distance..=data_distance {
-                for z in -data_distance..=data_distance {
-                    expected_chunks.insert(player_chunk_pos + IVec3::new(x, y, z));
-                }
-            }
-        }
+        player_cache.last_streaming_config = Some(streaming_config.clone());
+        let (ordered_chunks, expected_chunks) =
+            streaming_config.rebuild_expected_chunks(player_chunk_pos, view_forward_xz);
+        player_cache.ordered_chunks = ordered_chunks;
         player_cache.expected_chunks = expected_chunks;
     }
 
     let mut spawned = 0u32;
-    for &chunk_pos in &player_cache.expected_chunks {
-        if let std::collections::hash_map::Entry::Vacant(e) =
-            world_storage.chunk_entities.entry(chunk_pos)
-        {
-            if spawned >= MAX_SPAWN_PER_FRAME {
-                break;
-            }
-            spawned += 1;
-
-            let entity = commands
-                .spawn((
-                    ChunkComponents {
-                        position: chunk_pos,
-                    },
-                    ChunkState::Empty,
-                    Transform::from_translation(Vec3::new(
-                        (chunk_pos.x * CHUNK_SIZE as i32) as f32,
-                        (chunk_pos.y * CHUNK_SIZE as i32) as f32,
-                        (chunk_pos.z * CHUNK_SIZE as i32) as f32,
-                    )),
-                    Visibility::default(),
-                ))
-                .id();
-            e.insert(entity);
+    for &chunk_pos in &player_cache.ordered_chunks {
+        if spawned >= MAX_SPAWN_PER_FRAME {
+            break;
         }
+        if world_storage.chunk_entities.contains_key(&chunk_pos) {
+            continue;
+        }
+
+        let entity = commands
+            .spawn((
+                ChunkComponents {
+                    position: chunk_pos,
+                },
+                ChunkState::Empty,
+                Transform::from_translation(Vec3::new(
+                    (chunk_pos.x * CHUNK_SIZE as i32) as f32,
+                    (chunk_pos.y * CHUNK_SIZE as i32) as f32,
+                    (chunk_pos.z * CHUNK_SIZE as i32) as f32,
+                )),
+                Visibility::default(),
+            ))
+            .id();
+        world_storage.chunk_entities.insert(chunk_pos, entity);
+        spawned += 1;
     }
 
     for (entity, chunk_components) in chunk_query.iter() {
         let pos = chunk_components.position;
-        if !player_cache.expected_chunks.contains(&pos) {
-            if save_config.save_on_unload
-                && let Some(chunk_data) = world_storage.loaded_chunks.get(&pos)
-            {
-                let now = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs_f64();
-                save_queue.queue.push_back(SavedChunk {
-                    position: pos,
-                    data: chunk_data.as_ref().clone(),
-                    modified_time: world_storage
-                        .chunk_modified_times
-                        .get(&pos)
-                        .copied()
-                        .unwrap_or(now),
-                });
-            }
-            world_storage.chunk_entities.remove(&pos);
-            world_storage.loaded_chunks.remove(&pos);
-            world_storage.chunk_modified_times.remove(&pos);
-            commands
-                .entity(entity)
-                .queue_silenced(|entity: EntityWorldMut| {
-                    entity.despawn();
-                });
+        if player_cache.expected_chunks.contains(&pos) {
+            continue;
         }
+
+        if save_config.save_on_unload
+            && let Some(chunk_data) = world_storage.loaded_chunks.get(&pos)
+        {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs_f64();
+            save_queue.queue.push_back(SavedChunk {
+                position: pos,
+                data: chunk_data.as_ref().clone(),
+                modified_time: world_storage
+                    .chunk_modified_times
+                    .get(&pos)
+                    .copied()
+                    .unwrap_or(now),
+            });
+        }
+
+        world_storage.chunk_entities.remove(&pos);
+        world_storage.loaded_chunks.remove(&pos);
+        world_storage.chunk_modified_times.remove(&pos);
+        commands
+            .entity(entity)
+            .queue_silenced(|entity: EntityWorldMut| {
+                entity.despawn();
+            });
     }
 }
 
-/// 地形生成派发
 pub fn spawn_terrain_gen_tasks(
     channel: Res<TerrainGenChannel>,
     world_generator: Res<WorldGenerator>,
@@ -129,24 +116,28 @@ pub fn spawn_terrain_gen_tasks(
     save_config: Res<SaveConfig>,
     cached_remap: Res<CachedBlockIdRemap>,
     task: Res<TaskManager>,
-    world_storage: ResMut<WorldStorage>,
-    mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
+    world_storage: Res<WorldStorage>,
+    player_cache: Res<PlayerChunkCache>,
+    mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
 ) {
     let mut spawned = 0u32;
 
-    for (_entity, chunk_components, mut chunk_state) in &mut chunk_query {
-        if *chunk_state != ChunkState::Empty {
-            continue;
-        }
+    for &chunk_pos in &player_cache.ordered_chunks {
         if spawned >= MAX_TERRAIN_TASKS_PER_FRAME {
             break;
         }
-
-        let chunk_pos = chunk_components.position;
+        let Some(&entity) = world_storage.chunk_entities.get(&chunk_pos) else {
+            continue;
+        };
+        let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity) else {
+            continue;
+        };
+        if chunk_components.position != chunk_pos || *chunk_state != ChunkState::Empty {
+            continue;
+        }
 
         if world_storage.loaded_chunks.contains_key(&chunk_pos) {
             *chunk_state = ChunkState::TerrainReady;
-            spawned += 1;
             continue;
         }
 
@@ -162,7 +153,6 @@ pub fn spawn_terrain_gen_tasks(
         task.spawn_cpu(move || {
             match RegionManager::read_chunk(&world_name, chunk_pos) {
                 Ok(Some(mut saved)) => {
-                    // 只在有映射表时才重映射
                     if !remap.is_empty() {
                         for voxel in saved.data.voxels.iter_mut() {
                             if let Some(&new_id) = remap.get(voxel) {
@@ -172,7 +162,6 @@ pub fn spawn_terrain_gen_tasks(
                             }
                         }
                     }
-                    // 重映射已在上面完成,直接发送
                     let _ = sender.send(TerrainGenResult {
                         chunk_pos,
                         chunk_data: saved.data,
@@ -180,7 +169,6 @@ pub fn spawn_terrain_gen_tasks(
                     });
                 }
                 _ => {
-                    // 磁盘未命中 → 程序化生成
                     let ctx =
                         crate::game::world::generation::terrain::TerrainGenerator::sample_context(
                             &noise_sampler,
@@ -210,7 +198,6 @@ pub fn spawn_terrain_gen_tasks(
     }
 }
 
-/// 地形生成接收
 pub fn receive_terrain_results(
     mut world_storage: ResMut<WorldStorage>,
     channel: Res<TerrainGenChannel>,
@@ -247,33 +234,35 @@ pub fn receive_terrain_results(
     }
 }
 
-/// 结构生成（主线程，有严格时间预算）
 pub fn generate_structures_system(
     world_storage: Res<WorldStorage>,
     channel: Res<StructureGenChannel>,
     world_generator: Res<WorldGenerator>,
     cached_ids: Res<CachedBlockIds>,
     task: Res<TaskManager>,
+    player_cache: Res<PlayerChunkCache>,
     mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
 ) {
     let mut spawned = 0u32;
 
-    for (chunk_components, mut chunk_state) in &mut chunk_query {
-        if *chunk_state != ChunkState::TerrainReady {
-            continue;
-        }
+    for &chunk_pos in &player_cache.ordered_chunks {
         if spawned >= MAX_STRUCTURE_TASKS_PER_FRAME {
             break;
         }
+        let Some(&entity) = world_storage.chunk_entities.get(&chunk_pos) else {
+            continue;
+        };
+        let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity) else {
+            continue;
+        };
+        if chunk_components.position != chunk_pos || *chunk_state != ChunkState::TerrainReady {
+            continue;
+        }
 
-        let chunk_pos = chunk_components.position;
-
-        // 取当前区块数据
         let Some(chunk_data) = world_storage.loaded_chunks.get(&chunk_pos).cloned() else {
             continue;
         };
 
-        // 取生成上下文（有缓存用缓存，没有就现场采样）
         let ctx = world_storage
             .gen_contexts
             .get(&chunk_pos)
@@ -288,7 +277,6 @@ pub fn generate_structures_system(
                 )
             });
 
-        // 收集邻居数据（跨区块树冠写入需要）
         let mut neighbor_data: HashMap<IVec3, ChunkData> = HashMap::new();
         for (dir, _) in &DIRECTIONS {
             let nbr_pos = chunk_pos + *dir;
@@ -303,7 +291,6 @@ pub fn generate_structures_system(
         let seed = world_generator.seed;
 
         task.spawn_cpu(move || {
-            // Build a temporary WorldStorage for world-aware structure generation.
             let mut temp_storage = crate::game::world::storage::WorldStorage::default();
             temp_storage.loaded_chunks.insert(chunk_pos, chunk_data);
             for (pos, data) in neighbor_data {
@@ -319,7 +306,6 @@ pub fn generate_structures_system(
                 &mut temp_storage,
             );
 
-            // Collect all modified chunks.
             let modified_chunks: Vec<(IVec3, ChunkData)> = temp_storage
                 .loaded_chunks
                 .into_iter()
@@ -352,23 +338,16 @@ pub fn receive_structure_results(
         };
         received += 1;
 
-        // 合并异步任务中修改的所有区块数据
         for (pos, data) in result.modified_chunks {
             if let Some(existing) = world_storage.loaded_chunks.get_mut(&pos) {
-                // 只覆盖非空区块的变更（结构可能写入了邻居区块的树冠）
                 *existing = Arc::from(data);
-            } else {
-                // 邻居区块还未加载到 loaded_chunks，暂存为 pending_writes
-                // 或直接插入（如果该区块实体已存在但数据尚未就绪）
-                if world_storage.chunk_entities.contains_key(&pos) {
-                    world_storage.loaded_chunks.insert(pos, Arc::from(data));
-                }
+            } else if world_storage.chunk_entities.contains_key(&pos) {
+                world_storage.loaded_chunks.insert(pos, Arc::from(data));
             }
         }
 
-        // 清除已使用的生成上下文缓存       world_storage.gen_contexts.remove(&result.chunk_pos);
+        world_storage.gen_contexts.remove(&result.chunk_pos);
 
-        // Update chunk state.
         for (chunk_components, mut chunk_state) in &mut chunk_query {
             if chunk_components.position == result.chunk_pos
                 && *chunk_state == ChunkState::GeneratingStructure
@@ -379,7 +358,6 @@ pub fn receive_structure_results(
     }
 }
 
-/// 延迟写入
 fn apply_pending_writes(chunk_pos: IVec3, chunk: &mut ChunkData, storage: &mut WorldStorage) {
     if let Some(writes) = storage.pending_writes.writes.remove(&chunk_pos) {
         for write in writes {
@@ -388,4 +366,15 @@ fn apply_pending_writes(chunk_pos: IVec3, chunk: &mut ChunkData, storage: &mut W
             }
         }
     }
+}
+
+fn view_forward_xz(
+    player_transform: &Transform,
+    camera_query: &Query<&GlobalTransform, With<Camera3d>>,
+) -> Vec2 {
+    let forward = camera_query
+        .single()
+        .map(|camera_transform| camera_transform.compute_transform().rotation * Vec3::NEG_Z)
+        .unwrap_or_else(|_| player_transform.rotation * Vec3::NEG_Z);
+    Vec2::new(forward.x, forward.z).normalize_or_zero()
 }

@@ -27,6 +27,7 @@ impl Plugin for WorldPlugin {
             .init_resource::<systems::MeshBuildChannel>()
             .init_resource::<systems::StructureGenChannel>()
             .init_resource::<systems::PlayerChunkCache>()
+            .init_resource::<systems::WorldStreamingConfig>()
             .init_resource::<systems::CachedBlockInfo>()
             .add_plugins(save::SaveLoadPlugin)
             .add_plugins(entity::EntityPlugin)
