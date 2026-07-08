@@ -250,10 +250,11 @@ fn spawn_flat_item(
     };
 
     let material = materials.add(StandardMaterial {
-        base_color_texture: Some(image_handle),
-        alpha_mode: AlphaMode::Mask(0.1),
+        base_color: Color::WHITE,
+        alpha_mode: AlphaMode::Opaque,
         cull_mode: None,
-        perceptual_roughness: 0.9,
+        unlit: true,
+        perceptual_roughness: 1.0,
         ..default()
     });
 

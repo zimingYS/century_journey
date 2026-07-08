@@ -98,8 +98,8 @@ impl HeldItemConfig {
     pub fn default_tool(thickness: f32) -> Self {
         Self {
             render: HeldRenderDefinition::FlatItem { thickness },
-            first_person_translation: [0.0, 0.2, -0.5],
-            first_person_rotation: [0.0, 105.0, 120.0],
+            first_person_translation: [0.0, 0.3, -0.3],
+            first_person_rotation: [0.0, -60.0, 30.0],
             first_person_scale: 1.0,
             animations: AnimationConfig {
                 swing: true,
@@ -111,8 +111,8 @@ impl HeldItemConfig {
     pub fn default_flat(thickness: f32) -> Self {
         Self {
             render: HeldRenderDefinition::FlatItem { thickness },
-            first_person_translation: [0.0, 0.2, -0.5],
-            first_person_rotation: [0.0, 105.0, 120.0],
+            first_person_translation: [0.0, 0.3, -0.3],
+            first_person_rotation: [0.0, -60.0, 30.0],
             first_person_scale: 1.0,
             animations: AnimationConfig::default(),
         }
@@ -123,8 +123,8 @@ impl HeldItemConfig {
             render: HeldRenderDefinition::Model {
                 path: path.to_string(),
             },
-            first_person_translation: [0.0, 0.2, -0.5],
-            first_person_rotation: [0.0, 105.0, 120.0],
+            first_person_translation: [0.0, 0.3, -0.3],
+            first_person_rotation: [0.0, -60.0, 30.0],
             first_person_scale: 1.0,
             animations: AnimationConfig::default(),
         }
