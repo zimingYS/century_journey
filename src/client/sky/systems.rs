@@ -150,7 +150,10 @@ pub fn atmosphere_system(
     time_of_day: Res<TimeOfDay>,
     mut sun_query: Query<(&mut Transform, &mut DirectionalLight), (With<Sun>, Without<Moon>)>,
     mut moon_query: Query<(&mut Transform, &mut DirectionalLight), (With<Moon>, Without<Sun>)>,
-    mut camera_query: Query<(&mut Exposure, Option<&mut VolumetricFog>), With<Camera3d>>,
+    mut camera_query: Query<
+        (&mut Exposure, Option<&mut VolumetricFog>),
+        With<crate::shared::components::FpsCamera>,
+    >,
 ) {
     // 太阳当前弧度角 (0.0 到 2π)
     let sun_angle = ((time_of_day.current_time + 6.0) / 24.0) * TAU;
@@ -225,7 +228,7 @@ pub fn atmosphere_system(
 
 /// 天体纹理处理系统
 pub fn celestial_mesh_system(
-    camera_query: Query<&GlobalTransform, With<Camera3d>>,
+    camera_query: Query<&GlobalTransform, With<crate::shared::components::FpsCamera>>,
     mut sun_mesh_query: Query<&mut Transform, (With<SunMesh>, Without<MoonMesh>)>,
     mut moon_mesh_query: Query<&mut Transform, (With<MoonMesh>, Without<SunMesh>)>,
     sun_query: Query<&Transform, (With<Sun>, Without<SunMesh>, Without<MoonMesh>)>,

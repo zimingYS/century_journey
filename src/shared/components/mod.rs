@@ -5,3 +5,5 @@
 //! 定义多个模块共享的通用 Component。
 
 pub mod camera;
+
+pub use camera::FpsCamera;

@@ -94,7 +94,11 @@ pub fn generate_moon_texture(size: u32) -> image::RgbaImage {
                 brightness *= edge_factor;
 
                 let v = brightness.clamp(70.0, 255.0) as u8;
-                img.put_pixel(x, y, image::Rgba([v, v, (v as f32 * 1.04).min(255.0) as u8, 255]));
+                img.put_pixel(
+                    x,
+                    y,
+                    image::Rgba([v, v, (v as f32 * 1.04).min(255.0) as u8, 255]),
+                );
             } else {
                 img.put_pixel(x, y, image::Rgba([0, 0, 0, 0]));
             }

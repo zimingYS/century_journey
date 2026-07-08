@@ -1,3 +1,4 @@
+use crate::client::renderer::item_model::ItemModelRenderAssets;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::hud::bottom::BottomHud;
 use crate::client::ui::theme::ui_theme::UiTheme;
@@ -63,6 +64,7 @@ pub fn hud_hotbar_visual_sync_system(
     state: Res<InventoryState>,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
+    item_model_assets: Res<ItemModelRenderAssets>,
     mut commands: Commands,
     slot_query: Query<(Entity, &InventorySlot)>,
     mut slot_visual_query: Query<&mut SlotVisual>,
@@ -124,6 +126,7 @@ pub fn hud_hotbar_visual_sync_system(
                     count,
                     reg,
                     render_assets,
+                    &item_model_assets,
                     &children_query,
                     item_registry.as_deref(),
                     item_texture_registry.as_deref(),
