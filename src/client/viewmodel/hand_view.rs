@@ -35,7 +35,7 @@ impl ViewHandBuilder {
                 Name::new("ViewHandRoot"),
                 ViewModelPart,
                 Transform {
-                    translation: Vec3::new(0.58, -0.58, -0.92),
+                    translation: Vec3::new(0.8, -0.58, -0.92),
                     rotation: Quat::from_euler(
                         EulerRot::XYZ,
                         103.0_f32.to_radians(),
@@ -53,7 +53,7 @@ impl ViewHandBuilder {
             .spawn((
                 Name::new("ViewHeldItemAnchor"),
                 ViewModelPart,
-                Transform::from_xyz(0.54, -0.52, -1.02),
+                Transform::from_xyz(0.8, -0.52, -1.02),
                 Visibility::Inherited,
             ))
             .id();
