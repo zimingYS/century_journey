@@ -2,17 +2,19 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 
 use crate::client::camera::{CameraPlugin, FpsCamera};
-use crate::client::viewmodel::{ViewModelAnimator, ViewModelPart, ViewModelPlugin, ViewModelRoot};
 use crate::game::player::components::stats::{Defense, Health, Hunger};
-use crate::game::player::components::{Player, PlayerCollider, PlayerGravity, PlayerMovement};
+use crate::game::player::components::{
+    LocalPlayer, Player, PlayerCollider, PlayerGravity, PlayerMovement,
+};
 use crate::game::player::model::PlayerModelPlugin;
 use crate::game::player::model::animation::PlayerAnimationState;
-use crate::game::player::model::components::{PlayerJoint, PlayerMesh};
+use crate::game::player::model::components::{PlayerMesh, PlayerPart};
 use crate::game::player::model::config::PlayerModelConfig;
 use crate::game::player::plugin::GamePlayerPlugin;
 
+pub mod full_body;
+
 const WORLD_RENDER_LAYER: usize = 0;
-const PLAYER_SHADOW_LAYER: usize = 1;
 
 pub struct ClientPlayerPlugin;
 
@@ -20,7 +22,7 @@ impl Plugin for ClientPlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(GamePlayerPlugin)
             .add_plugins(PlayerModelPlugin)
-            .add_plugins(ViewModelPlugin)
+            .add_plugins(full_body::FullBodyFirstPersonPlugin)
             .add_plugins(CameraPlugin)
             .add_systems(Startup, spawn_player)
             .add_systems(Update, first_person_visibility_system);
@@ -33,7 +35,7 @@ fn spawn_player(
     mut materials: ResMut<Assets<StandardMaterial>>,
     config: Res<PlayerModelConfig>,
 ) {
-    let (rig_root, _entities) = crate::game::player::model::rig::spawn_player_rig_v2(
+    let (rig_root, rig_entities) = crate::game::player::model::rig::spawn_player_rig_v2(
         &mut commands,
         &mut meshes,
         &mut materials,
@@ -49,21 +51,11 @@ fn spawn_player(
         ))
         .id();
 
-    let vm_root = commands
-        .spawn((
-            ViewModelRoot,
-            ViewModelPart,
-            ViewModelAnimator::default(),
-            Name::new("ViewModelRoot"),
-            Transform::default(),
-            Visibility::default(),
-        ))
-        .id();
-    commands.entity(camera).add_child(vm_root);
-
-    commands
+    let player = commands
         .spawn((
             Player,
+            LocalPlayer,
+            rig_entities.clone(),
             PlayerAnimationState::default(),
             PlayerGravity::default(),
             PlayerCollider::default(),
@@ -74,40 +66,47 @@ fn spawn_player(
             Transform::from_xyz(0.0, 70.0, 0.0),
             Visibility::default(),
         ))
+        .id();
+
+    commands
+        .entity(player)
         .add_child(rig_root)
         .add_child(camera);
 }
 
+/// 第一人称真实身体可见性。
+///
+/// 第一人称仍渲染同一个身体实体，只隐藏头部网格避免相机穿模；第三人称显示完整身体。
 fn first_person_visibility_system(
     mut commands: Commands,
     camera_query: Query<&FpsCamera, With<Camera3d>>,
-    mut joint_query: Query<&mut Visibility, (With<PlayerJoint>, Without<PlayerMesh>)>,
-    mut mesh_query: Query<
-        (Entity, &mut Visibility, Option<&mut RenderLayers>),
-        (With<PlayerMesh>, Without<PlayerJoint>),
-    >,
+    rig_query: Query<&crate::game::player::model::rig::PlayerRigEntities, With<LocalPlayer>>,
+    mut mesh_query: Query<(&PlayerMesh, &mut Visibility, Option<&mut RenderLayers>)>,
 ) {
-    let is_fp = camera_query
+    let is_first_person = camera_query
         .single()
-        .map(|c| c.is_first_person)
+        .map(|camera| camera.is_first_person)
         .unwrap_or(true);
+    let Ok(rig) = rig_query.single() else {
+        return;
+    };
 
-    for mut visibility in &mut joint_query {
-        *visibility = Visibility::Inherited;
-    }
-
-    for (entity, mut visibility, layers) in &mut mesh_query {
-        *visibility = Visibility::Inherited;
-        let target_layers = if is_fp {
-            RenderLayers::layer(PLAYER_SHADOW_LAYER)
-        } else {
-            RenderLayers::layer(WORLD_RENDER_LAYER)
+    for mesh_entity in &rig.mesh_entities {
+        let Ok((mesh, mut visibility, layers)) = mesh_query.get_mut(*mesh_entity) else {
+            continue;
         };
 
+        *visibility = if is_first_person && mesh.0 == PlayerPart::Head {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
+
+        let target_layers = RenderLayers::layer(WORLD_RENDER_LAYER);
         if let Some(mut layers) = layers {
             *layers = target_layers;
         } else {
-            commands.entity(entity).insert(target_layers);
+            commands.entity(*mesh_entity).insert(target_layers);
         }
     }
 }

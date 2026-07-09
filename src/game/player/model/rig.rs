@@ -1,31 +1,70 @@
 use crate::game::player::model::components::{
-    HeldItemAnchor, PlayerJoint, PlayerMesh, PlayerModelMarker, PlayerPart, PlayerRig,
+    BackAnchor, ChestAnchor, HeldItemAnchor, HelmetAnchor, OffHandAnchor, PlayerJoint, PlayerMesh,
+    PlayerModelMarker, PlayerPart, PlayerRig,
 };
 use crate::game::player::model::config::PlayerModelConfig;
 use bevy::prelude::*;
 
-/// 缓存所有关节 Entity
-#[derive(Resource, Clone)]
+/// 真实手掌上的主手物品握持姿态。
+///
+/// 玩家手臂骨骼沿局部 -Y 方向生长，而大多数物品模型也把局部 Y 当成“高度/柄”的方向。
+/// 因此这里先把物品坐标系绕 X 轴转 90 度，让物品从手掌向前伸出，而不是顺着前臂躺下。
+pub fn held_item_grip_transform() -> Transform {
+    Transform {
+        translation: Vec3::new(0.0, -0.13, -0.09),
+        rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
+        scale: Vec3::ONE,
+    }
+}
+/// 一个玩家 Rig 的所有关键实体链接。
+///
+/// 本地玩家和未来的远程玩家都应该把这份组件挂在自己的 Player 实体上。动画、装备和手持物品渲染只依赖这些链接，
+/// 不再依赖单独的第一人称 ViewModel。
+#[derive(Component, Clone)]
 pub struct PlayerRigEntities {
+    /// Rig 根实体。
+    pub root: Entity,
+    /// 头部关节。
     pub head_joint: Entity,
+    /// 身体关节。
     pub body_joint: Entity,
+    /// 右上臂关节。
     pub upper_arm_r: Entity,
+    /// 左上臂关节。
     pub upper_arm_l: Entity,
+    /// 右前臂关节。
     pub forearm_r: Entity,
+    /// 左前臂关节。
     pub forearm_l: Entity,
+    /// 右手关节。
     pub hand_r: Entity,
+    /// 左手关节。
     pub hand_l: Entity,
+    /// 右大腿关节。
     pub thigh_r: Entity,
+    /// 左大腿关节。
     pub thigh_l: Entity,
+    /// 右小腿关节。
     pub calf_r: Entity,
+    /// 左小腿关节。
     pub calf_l: Entity,
+    /// 右手持物品挂点。
     pub held_item: Entity,
+    /// 左手副手挂点。
     pub offhand: Entity,
+    /// 头盔挂点。
     pub helmet: Entity,
+    /// 胸甲挂点。
     pub chest: Entity,
+    /// 背部挂点。
     pub back: Entity,
+    /// 头部可渲染网格，用于第一人称隐藏头部。
+    pub head_mesh: Entity,
+    /// 所有身体网格实体，用于本地玩家可见性和渲染层同步。
+    pub mesh_entities: Vec<Entity>,
 }
 
+/// 生成可同时服务第一人称和第三人称的真实玩家 Rig。
 pub fn spawn_player_rig_v2(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
@@ -44,9 +83,8 @@ pub fn spawn_player_rig_v2(
         ))
         .id();
 
-    // Body + Head
     let body_joint = spawn_joint(commands, root, PlayerPart::Body, config);
-    spawn_mesh(
+    let body_mesh = spawn_mesh(
         commands,
         &cube,
         materials,
@@ -56,7 +94,7 @@ pub fn spawn_player_rig_v2(
     );
 
     let head_joint = spawn_joint(commands, root, PlayerPart::Head, config);
-    spawn_mesh(
+    let head_mesh = spawn_mesh(
         commands,
         &cube,
         materials,
@@ -65,17 +103,14 @@ pub fn spawn_player_rig_v2(
         config,
     );
 
-    // Right arm
-    let (ua_r, fa_r, ha_r) = build_arm_chain(commands, root, &cube, materials, true, config);
-    // Left arm
-    let (ua_l, fa_l, ha_l) = build_arm_chain(commands, root, &cube, materials, false, config);
+    let right_arm = build_arm_chain(commands, root, &cube, materials, true, config);
+    let left_arm = build_arm_chain(commands, root, &cube, materials, false, config);
 
-    let held_item = spawn_anchor(commands, ha_r, "HeldItemAnchor");
-    let offhand = spawn_anchor(commands, ha_l, "OffHandAnchor");
+    let held_item = spawn_held_item_anchor(commands, right_arm.hand_joint);
+    let offhand = spawn_offhand_anchor(commands, left_arm.hand_joint);
 
-    // Legs
     let thigh_r = spawn_joint(commands, root, PlayerPart::thigh_r(), config);
-    spawn_mesh(
+    let thigh_r_mesh = spawn_mesh(
         commands,
         &cube,
         materials,
@@ -84,7 +119,7 @@ pub fn spawn_player_rig_v2(
         config,
     );
     let calf_r = spawn_joint(commands, thigh_r, PlayerPart::calf_r(), config);
-    spawn_mesh(
+    let calf_r_mesh = spawn_mesh(
         commands,
         &cube,
         materials,
@@ -94,7 +129,7 @@ pub fn spawn_player_rig_v2(
     );
 
     let thigh_l = spawn_joint(commands, root, PlayerPart::thigh_l(), config);
-    spawn_mesh(
+    let thigh_l_mesh = spawn_mesh(
         commands,
         &cube,
         materials,
@@ -103,7 +138,7 @@ pub fn spawn_player_rig_v2(
         config,
     );
     let calf_l = spawn_joint(commands, thigh_l, PlayerPart::calf_l(), config);
-    spawn_mesh(
+    let calf_l_mesh = spawn_mesh(
         commands,
         &cube,
         materials,
@@ -112,20 +147,35 @@ pub fn spawn_player_rig_v2(
         config,
     );
 
-    // Equipment anchors
-    let helmet = spawn_anchor(commands, head_joint, "HelmetAnchor");
-    let chest = spawn_anchor(commands, body_joint, "ChestAnchor");
-    let back = spawn_anchor(commands, body_joint, "BackAnchor");
+    let helmet = spawn_helmet_anchor(commands, head_joint);
+    let chest = spawn_chest_anchor(commands, body_joint);
+    let back = spawn_back_anchor(commands, body_joint);
+
+    let mesh_entities = vec![
+        body_mesh,
+        head_mesh,
+        right_arm.upper_mesh,
+        right_arm.forearm_mesh,
+        right_arm.hand_mesh,
+        left_arm.upper_mesh,
+        left_arm.forearm_mesh,
+        left_arm.hand_mesh,
+        thigh_r_mesh,
+        calf_r_mesh,
+        thigh_l_mesh,
+        calf_l_mesh,
+    ];
 
     let entities = PlayerRigEntities {
+        root,
         head_joint,
         body_joint,
-        upper_arm_r: ua_r,
-        upper_arm_l: ua_l,
-        forearm_r: fa_r,
-        forearm_l: fa_l,
-        hand_r: ha_r,
-        hand_l: ha_l,
+        upper_arm_r: right_arm.upper_joint,
+        upper_arm_l: left_arm.upper_joint,
+        forearm_r: right_arm.forearm_joint,
+        forearm_l: left_arm.forearm_joint,
+        hand_r: right_arm.hand_joint,
+        hand_l: left_arm.hand_joint,
         thigh_r,
         thigh_l,
         calf_r,
@@ -135,10 +185,20 @@ pub fn spawn_player_rig_v2(
         helmet,
         chest,
         back,
+        head_mesh,
+        mesh_entities,
     };
-    commands.insert_resource(entities.clone());
 
     (root, entities)
+}
+
+struct ArmRigEntities {
+    upper_joint: Entity,
+    forearm_joint: Entity,
+    hand_joint: Entity,
+    upper_mesh: Entity,
+    forearm_mesh: Entity,
+    hand_mesh: Entity,
 }
 
 fn build_arm_chain(
@@ -148,7 +208,7 @@ fn build_arm_chain(
     materials: &mut ResMut<Assets<StandardMaterial>>,
     is_right: bool,
     config: &PlayerModelConfig,
-) -> (Entity, Entity, Entity) {
+) -> ArmRigEntities {
     let upper = if is_right {
         PlayerPart::upper_arm_r()
     } else {
@@ -165,16 +225,23 @@ fn build_arm_chain(
         PlayerPart::hand_l()
     };
 
-    let uj = spawn_joint(commands, root, upper, config);
-    spawn_mesh(commands, cube, materials, uj, upper, config);
+    let upper_joint = spawn_joint(commands, root, upper, config);
+    let upper_mesh = spawn_mesh(commands, cube, materials, upper_joint, upper, config);
 
-    let fj = spawn_joint(commands, uj, forearm, config);
-    spawn_mesh(commands, cube, materials, fj, forearm, config);
+    let forearm_joint = spawn_joint(commands, upper_joint, forearm, config);
+    let forearm_mesh = spawn_mesh(commands, cube, materials, forearm_joint, forearm, config);
 
-    let hj = spawn_joint(commands, fj, hand, config);
-    spawn_mesh(commands, cube, materials, hj, hand, config);
+    let hand_joint = spawn_joint(commands, forearm_joint, hand, config);
+    let hand_mesh = spawn_mesh(commands, cube, materials, hand_joint, hand, config);
 
-    (uj, fj, hj)
+    ArmRigEntities {
+        upper_joint,
+        forearm_joint,
+        hand_joint,
+        upper_mesh,
+        forearm_mesh,
+        hand_mesh,
+    }
 }
 
 fn spawn_joint(
@@ -187,7 +254,7 @@ fn spawn_joint(
     let entity = commands
         .spawn((
             PlayerJoint(part),
-            Name::new(format!("Joint_{:?}", part)),
+            Name::new(format!("Joint_{part:?}")),
             Transform::from_translation(offset),
             Visibility::default(),
         ))
@@ -215,9 +282,9 @@ fn spawn_mesh(
     let entity = commands
         .spawn((
             PlayerMesh(part),
-            Name::new(format!("Mesh_{:?}", part)),
+            Name::new(format!("Mesh_{part:?}")),
             Mesh3d(cube.clone()),
-            MeshMaterial3d(mat.clone()),
+            MeshMaterial3d(mat),
             Transform {
                 translation: offset,
                 scale,
@@ -230,15 +297,74 @@ fn spawn_mesh(
     entity
 }
 
-fn spawn_anchor(commands: &mut Commands, parent: Entity, name: &str) -> Entity {
-    let e = commands
+fn spawn_held_item_anchor(commands: &mut Commands, parent: Entity) -> Entity {
+    spawn_anchor(
+        commands,
+        parent,
+        HeldItemAnchor,
+        "HeldItemAnchor",
+        held_item_grip_transform(),
+    )
+}
+
+fn spawn_offhand_anchor(commands: &mut Commands, parent: Entity) -> Entity {
+    spawn_anchor(
+        commands,
+        parent,
+        OffHandAnchor,
+        "OffHandAnchor",
+        Transform {
+            translation: Vec3::new(0.0, -0.13, -0.09),
+            ..default()
+        },
+    )
+}
+
+fn spawn_helmet_anchor(commands: &mut Commands, parent: Entity) -> Entity {
+    spawn_anchor(
+        commands,
+        parent,
+        HelmetAnchor,
+        "HelmetAnchor",
+        Transform::default(),
+    )
+}
+
+fn spawn_chest_anchor(commands: &mut Commands, parent: Entity) -> Entity {
+    spawn_anchor(
+        commands,
+        parent,
+        ChestAnchor,
+        "ChestAnchor",
+        Transform::default(),
+    )
+}
+
+fn spawn_back_anchor(commands: &mut Commands, parent: Entity) -> Entity {
+    spawn_anchor(
+        commands,
+        parent,
+        BackAnchor,
+        "BackAnchor",
+        Transform::from_translation(Vec3::new(0.0, 0.12, 0.18)),
+    )
+}
+
+fn spawn_anchor<B: Bundle>(
+    commands: &mut Commands,
+    parent: Entity,
+    marker: B,
+    name: &str,
+    transform: Transform,
+) -> Entity {
+    let entity = commands
         .spawn((
-            HeldItemAnchor, // always used, specific type filtered later
+            marker,
             Name::new(name.to_string()),
-            Transform::default(),
+            transform,
             Visibility::default(),
         ))
         .id();
-    commands.entity(parent).add_child(e);
-    e
+    commands.entity(parent).add_child(entity);
+    entity
 }

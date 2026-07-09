@@ -15,8 +15,7 @@ impl Plugin for PlayerModelPlugin {
                 Update,
                 (
                     animation::player_animation_controller_system,
-                    animation::walk_animation_system,
-                    animation::idle_reset_system,
+                    animation::apply_player_rig_animation_system,
                 )
                     .chain(),
             )

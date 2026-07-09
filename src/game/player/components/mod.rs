@@ -6,6 +6,12 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub struct Player;
 
+/// 本地玩家标记。
+///
+/// 联机远程玩家也会拥有 Player / PlayerRig，但只有本地玩家会绑定本机相机、输入和第一人称可见性。
+#[derive(Component)]
+pub struct LocalPlayer;
+
 #[derive(Component)]
 pub struct PlayerMovement {
     pub movement_speed: f32,
