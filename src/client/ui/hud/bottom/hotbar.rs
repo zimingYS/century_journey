@@ -71,7 +71,7 @@ pub fn hud_hotbar_visual_sync_system(
     children_query: Query<&Children>,
     mut border_query: Query<(&InventorySlot, &mut BorderColor)>,
     theme: Res<UiTheme>,
-    mut last_hotbar: Local<Option<Vec<(ItemId, u32)>>>,
+    mut last_hotbar: Local<Option<(Vec<(ItemId, u32)>, u64)>>,
     mut last_active: Local<usize>,
     mut was_opened: Local<bool>,
     item_registry: Option<Res<ItemRegistry>>,
@@ -101,11 +101,18 @@ pub fn hud_hotbar_visual_sync_system(
         })
         .collect();
 
-    // 图标同步 — 仅物品或数量变化时执行
+    // 图标同步 — 物品、数量或 3D 图标缓存版本变化时执行
+    let revision = item_model_assets.revision();
     let force = last_hotbar.is_none();
-    let changed = force || (last_hotbar.as_ref() != Some(&current));
+    let revision_changed = last_hotbar
+        .as_ref()
+        .is_some_and(|(_, cached_revision)| *cached_revision != revision);
+    let changed = force
+        || last_hotbar.as_ref().is_none_or(|(items, cached_revision)| {
+            items != &current || *cached_revision != revision
+        });
     if changed {
-        *last_hotbar = Some(current.clone());
+        *last_hotbar = Some((current.clone(), revision));
 
         for (entity, slot) in &slot_query {
             if slot.kind != SlotKind::Hotbar {
@@ -117,7 +124,7 @@ pub fn hud_hotbar_visual_sync_system(
                 .unwrap_or((ItemId::air(), 0));
 
             if let Ok(mut visual) = slot_visual_query.get_mut(entity)
-                && (force || visual.item != item || visual.count != count)
+                && (force || revision_changed || visual.item != item || visual.count != count)
             {
                 sync_slot_icon(
                     &mut commands,

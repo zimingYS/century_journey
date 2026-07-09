@@ -41,7 +41,10 @@ pub fn pickup_system(
         match result {
             insert::InventoryInsertResult::AllInserted => {
                 info!("Picked up {:?}", dropped.stack);
-                commands.entity(entity).despawn();
+                commands
+                    .entity(entity)
+                    .despawn_related::<Children>()
+                    .despawn();
             }
             insert::InventoryInsertResult::Partial(remaining) => {
                 dropped.stack = remaining;

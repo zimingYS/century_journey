@@ -49,6 +49,10 @@ pub struct ItemDefinition {
     #[serde(default)]
     pub icon: IconDefinition,
 
+    /// 可选的物品模型 ID；未配置时会根据分类、图标和旧 held_renderer 自动推导 fallback 模型。
+    #[serde(default)]
+    pub model: Option<Identifier>,
+
     /// 可放置的方块 ID (仅 Block 物品)
     #[serde(default)]
     pub placeable_block: Option<Identifier>,
@@ -81,6 +85,7 @@ impl ItemDefinition {
             max_stack: 64,
             tags: Vec::new(),
             icon: IconDefinition::block(identifier.to_string()),
+            model: None,
             placeable_block: Some(identifier.clone()),
             tool: None,
             held_renderer: HeldRenderDefinition::Block,

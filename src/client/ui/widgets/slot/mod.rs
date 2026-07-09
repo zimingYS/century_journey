@@ -11,26 +11,11 @@ use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
-use crate::content::item::texture::icon::IconDefinition;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 
-/// 统一解析物品图标定义。
-/// 优先查询 BlockRegistry 获取方块别名，再回退到 ItemRegistry 的 icon 字段。
-pub fn resolve_item_icon(
-    item: &ItemId,
-    item_registry: Option<&ItemRegistry>,
-) -> Option<IconDefinition> {
-    let reg = item_registry?;
-    if let Some(block_id) = reg.block_identifier(item) {
-        Some(IconDefinition::block(block_id.to_string()))
-    } else {
-        reg.get(item).map(|def| def.icon.clone())
-    }
-}
-
-/// 生成空槽位（用于HUD快捷栏初始化）
+/// 生成空槽位。
 pub fn spawn_empty_slot(
     parent: &mut ChildSpawnerCommands,
     kind: SlotKind,
@@ -86,7 +71,7 @@ pub fn spawn_empty_slot(
         });
 }
 
-/// 生成带物品的槽位（用于创造网格/最近使用/快捷栏）
+/// 生成带物品图标的槽位。
 pub fn spawn_slot_with_item(
     parent: &mut ChildSpawnerCommands,
     kind: SlotKind,
@@ -148,7 +133,10 @@ pub fn spawn_slot_with_item(
         });
 }
 
-/// 生成槽位的图标子节点
+/// 生成槽位图标子节点。
+///
+/// UI 层不判断方块或贴图类型，只向 ItemRenderer 查询当前物品在 GUI 中应该显示的图片；
+/// 当 3D 方块图标仍在离屏烘焙时，临时回退到方块 atlas 图标，避免出现空槽。
 pub fn spawn_icon_child(
     parent: &mut ChildSpawnerCommands,
     item: &ItemId,
@@ -158,100 +146,23 @@ pub fn spawn_icon_child(
     item_registry: Option<&ItemRegistry>,
     item_texture_registry: Option<&ItemTextureRegistry>,
 ) {
-    // 确定纹理标识符
-    let icon_def = resolve_item_icon(item, item_registry);
-
-    let Some(icon) = icon_def else {
-        // 无图标: 隐藏占位
-        parent.spawn((
-            SlotIcon,
-            Node {
-                width: Val::Percent(80.0),
-                height: Val::Percent(80.0),
-                ..default()
-            },
-            Visibility::Hidden,
-        ));
-        return;
-    };
-
-    match icon {
-        // 方块图标
-        IconDefinition::Block(id) => {
-            let preview_image = ItemModelRenderer::block_preview_image(&id, item_model_assets);
-
-            if let Some(image) = preview_image {
-                parent.spawn((
-                    SlotIcon,
-                    ImageNode {
-                        image,
-                        texture_atlas: None,
-                        ..default()
-                    },
-                    Node {
-                        width: Val::Percent(80.0),
-                        height: Val::Percent(80.0),
-                        ..default()
-                    },
-                ));
-                return;
-            }
-
-            let Some(atlas_idx) = block_registry.get_icon_atlas_index(&id) else {
-                parent.spawn((
-                    SlotIcon,
-                    Node {
-                        width: Val::Percent(80.0),
-                        height: Val::Percent(80.0),
-                        ..default()
-                    },
-                    Visibility::Hidden,
-                ));
-                return;
-            };
-
-            parent.spawn((
-                SlotIcon,
-                ImageNode {
-                    image: render_assets.base_texture().clone(),
-                    texture_atlas: Some(TextureAtlas {
-                        layout: render_assets.atlas_layout().clone(),
-                        index: atlas_idx,
-                    }),
-                    ..default()
-                },
-                Node {
-                    width: Val::Percent(80.0),
-                    height: Val::Percent(80.0),
-                    ..default()
-                },
-            ));
-        }
-
-        // 独立纹理图标
-        IconDefinition::Texture(path) => {
-            let handle = item_texture_registry
-                .and_then(|reg| reg.get_handle(&path).cloned())
-                .unwrap_or_default();
-
-            parent.spawn((
-                SlotIcon,
-                ImageNode {
-                    image: handle,
-                    texture_atlas: None,
-                    ..default()
-                },
-                Node {
-                    width: Val::Percent(80.0),
-                    height: Val::Percent(80.0),
-                    ..default()
-                },
-            ));
-        }
+    if let Some(image) = ItemModelRenderer::item_icon_image(
+        item,
+        item_registry,
+        item_texture_registry,
+        item_model_assets,
+    ) {
+        parent.spawn((SlotIcon, plain_image_node(image), icon_node()));
+    } else if let Some(image_node) =
+        block_atlas_fallback_image(item, block_registry, render_assets, item_registry)
+    {
+        parent.spawn((SlotIcon, image_node, icon_node()));
+    } else {
+        parent.spawn((SlotIcon, icon_node(), Visibility::Hidden));
     }
 }
 
-/// 原地更新槽位图标 + 数量，不销毁槽位实体
+/// 原地同步槽位图标和数量文本。
 pub fn sync_slot_icon(
     commands: &mut Commands,
     slot_entity: Entity,
@@ -268,60 +179,29 @@ pub fn sync_slot_icon(
         return;
     };
 
-    // ── 更新图标 ──
     if let Some(&icon_entity) = children.first() {
         if item.is_air() {
             commands.entity(icon_entity).insert(Visibility::Hidden);
+        } else if let Some(image) = ItemModelRenderer::item_icon_image(
+            item,
+            item_registry,
+            item_texture_registry,
+            item_model_assets,
+        ) {
+            commands
+                .entity(icon_entity)
+                .insert((Visibility::Inherited, plain_image_node(image)));
+        } else if let Some(image_node) =
+            block_atlas_fallback_image(item, block_registry, render_assets, item_registry)
+        {
+            commands
+                .entity(icon_entity)
+                .insert((Visibility::Inherited, image_node));
         } else {
-            let icon_def = resolve_item_icon(item, item_registry);
-
-            if let Some(icon) = icon_def {
-                match icon {
-                    IconDefinition::Block(id) => {
-                        if let Some(image) =
-                            ItemModelRenderer::block_preview_image(&id, item_model_assets)
-                        {
-                            commands.entity(icon_entity).insert((
-                                Visibility::Inherited,
-                                ImageNode {
-                                    image,
-                                    texture_atlas: None,
-                                    ..default()
-                                },
-                            ));
-                        } else if let Some(atlas_idx) = block_registry.get_icon_atlas_index(&id) {
-                            commands.entity(icon_entity).insert((
-                                Visibility::Inherited,
-                                ImageNode {
-                                    image: render_assets.base_texture().clone(),
-                                    texture_atlas: Some(TextureAtlas {
-                                        layout: render_assets.atlas_layout().clone(),
-                                        index: atlas_idx,
-                                    }),
-                                    ..default()
-                                },
-                            ));
-                        }
-                    }
-                    IconDefinition::Texture(path) => {
-                        let handle = item_texture_registry
-                            .and_then(|reg| reg.get_handle(&path).cloned())
-                            .unwrap_or_default();
-                        commands.entity(icon_entity).insert((
-                            Visibility::Inherited,
-                            ImageNode {
-                                image: handle,
-                                texture_atlas: None,
-                                ..default()
-                            },
-                        ));
-                    }
-                }
-            }
+            commands.entity(icon_entity).insert(Visibility::Hidden);
         }
     }
 
-    // 数量文本
     if let Some(&count_entity) = children.get(1) {
         if count > 1 {
             commands
@@ -333,8 +213,54 @@ pub fn sync_slot_icon(
     }
 }
 
-/// 通用快捷栏视觉同步。
-/// 供 creative/survival/HUD 的 hotbar sync 系统复用。
+/// 创建统一尺寸的槽位图标节点。
+fn icon_node() -> Node {
+    Node {
+        width: Val::Percent(80.0),
+        height: Val::Percent(80.0),
+        ..default()
+    }
+}
+
+/// 创建普通图片节点。
+fn plain_image_node(image: Handle<Image>) -> ImageNode {
+    ImageNode {
+        image,
+        texture_atlas: None,
+        ..default()
+    }
+}
+
+/// 在 3D 方块图标尚未 ready 时，回退到方块 atlas 里的 2D 图标。
+fn block_atlas_fallback_image(
+    item: &ItemId,
+    block_registry: &BlockRegistry,
+    render_assets: &BlockRenderAssets,
+    item_registry: Option<&ItemRegistry>,
+) -> Option<ImageNode> {
+    let block_id = item_registry
+        .and_then(|registry| registry.get(item))
+        .and_then(|definition| {
+            definition
+                .placeable_block
+                .as_ref()
+                .or_else(|| definition.icon.as_block_id())
+        })
+        .cloned()
+        .unwrap_or_else(|| item.identifier().clone());
+
+    let atlas_index = block_registry.get_icon_atlas_index(&block_id)?;
+    Some(ImageNode {
+        image: render_assets.base_texture().clone(),
+        texture_atlas: Some(TextureAtlas {
+            layout: render_assets.atlas_layout().clone(),
+            index: atlas_index,
+        }),
+        ..default()
+    })
+}
+
+/// 同步快捷栏面板的槽位图标、数量和选中边框。
 pub fn sync_hotbar_panel_visuals(
     state: &crate::game::inventory::state::InventoryState,
     reg: &BlockRegistry,
@@ -348,7 +274,7 @@ pub fn sync_hotbar_panel_visuals(
     border_query: &mut Query<(&InventorySlot, &mut BorderColor)>,
     theme: &UiTheme,
     commands: &mut Commands,
-    last_snapshot: &mut Option<Vec<(crate::shared::item_id::ItemId, u32)>>,
+    last_snapshot: &mut Option<(Vec<(crate::shared::item_id::ItemId, u32)>, u64)>,
     force_reset: bool,
 ) {
     use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
@@ -368,11 +294,21 @@ pub fn sync_hotbar_panel_visuals(
         })
         .collect();
 
+    let revision = item_model_assets.revision();
     let force = last_snapshot.is_none();
-    if !force && (last_snapshot.as_ref() == Some(&current)) {
+    let revision_changed = last_snapshot
+        .as_ref()
+        .is_some_and(|(_, cached_revision)| *cached_revision != revision);
+    let unchanged = !force
+        && last_snapshot
+            .as_ref()
+            .is_some_and(|(items, cached_revision)| {
+                items == &current && *cached_revision == revision
+            });
+    if unchanged {
         return;
     }
-    *last_snapshot = Some(current.clone());
+    *last_snapshot = Some((current.clone(), revision));
 
     if let Ok(children) = children_query.get(panel_entity) {
         for child in children.iter() {
@@ -384,7 +320,7 @@ pub fn sync_hotbar_panel_visuals(
                     .get(slot.index)
                     .cloned()
                     .unwrap_or((ItemId::air(), 0));
-                if force || visual.item != item || visual.count != count {
+                if force || revision_changed || visual.item != item || visual.count != count {
                     sync_slot_icon(
                         commands,
                         entity,
@@ -416,7 +352,7 @@ pub fn sync_hotbar_panel_visuals(
     }
 }
 
-/// 生成纯展示槽位（用于常驰HUD，不响应鼠标交互）
+/// 生成仅展示用槽位。
 pub fn spawn_display_only_slot(
     parent: &mut ChildSpawnerCommands,
     kind: SlotKind,
@@ -430,7 +366,6 @@ pub fn spawn_display_only_slot(
                 item: ItemId::air(),
                 count: 0,
             },
-            // 不再附加 Button / Pickable
             Node {
                 width: Val::Px(theme.slot_size),
                 height: Val::Px(theme.slot_size),
@@ -443,15 +378,7 @@ pub fn spawn_display_only_slot(
             BorderColor::all(theme.border_default),
         ))
         .with_children(|slot| {
-            slot.spawn((
-                SlotIcon,
-                Node {
-                    width: Val::Percent(80.0),
-                    height: Val::Percent(80.0),
-                    ..default()
-                },
-                Visibility::Hidden,
-            ));
+            slot.spawn((SlotIcon, icon_node(), Visibility::Hidden));
             slot.spawn((
                 SlotCountText,
                 Text::new(""),

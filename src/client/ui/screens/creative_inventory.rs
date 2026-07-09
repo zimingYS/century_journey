@@ -235,7 +235,7 @@ pub fn populate_creative_grid_system(
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
     theme: Res<UiTheme>,
     mut commands: Commands,
-    mut last_items: Local<Vec<ItemId>>,
+    mut last_items: Local<Option<(Vec<ItemId>, u64)>>,
 ) {
     let Some(reg) = block_registry.as_ref() else {
         return;
@@ -247,10 +247,13 @@ pub fn populate_creative_grid_system(
         return;
     };
 
-    if *last_items == state.creative.visible_items {
+    let revision = item_model_assets.revision();
+    if last_items.as_ref().is_some_and(|(items, cached_revision)| {
+        items == &state.creative.visible_items && *cached_revision == revision
+    }) {
         return;
     }
-    *last_items = state.creative.visible_items.clone();
+    *last_items = Some((state.creative.visible_items.clone(), revision));
 
     // 收集现有 CreativeGrid 槽位
     let mut slot_indices: Vec<(Entity, usize)> = Vec::new();
@@ -326,7 +329,7 @@ pub fn populate_recent_panel_system(
     item_registry: Option<Res<ItemRegistry>>,
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
     mut commands: Commands,
-    mut last_items: Local<Vec<ItemStack>>,
+    mut last_items: Local<Option<(Vec<ItemStack>, u64)>>,
 ) {
     let Some(reg) = block_registry.as_ref() else {
         return;
@@ -338,10 +341,13 @@ pub fn populate_recent_panel_system(
         return;
     };
 
-    if *last_items == state.recent.items {
+    let revision = item_model_assets.revision();
+    if last_items.as_ref().is_some_and(|(items, cached_revision)| {
+        items == &state.recent.items && *cached_revision == revision
+    }) {
         return;
     }
-    *last_items = state.recent.items.clone();
+    *last_items = Some((state.recent.items.clone(), revision));
 
     // 收集现有 Recent 槽位（跳过第一子节点 "最近使用:" 文本）
     let mut slot_entities: Vec<(Entity, usize)> = Vec::new();
@@ -490,7 +496,7 @@ pub fn creative_hotbar_visual_sync_system(
     mut slot_query: Query<(Entity, &InventorySlot, &mut SlotVisual)>,
     mut commands: Commands,
     mut border_query: Query<(&InventorySlot, &mut BorderColor)>,
-    mut last_hotbar: Local<Option<Vec<(ItemId, u32)>>>,
+    mut last_hotbar: Local<Option<(Vec<(ItemId, u32)>, u64)>>,
     mut was_opened: Local<bool>,
 ) {
     let Some(reg) = block_registry.as_ref() else {

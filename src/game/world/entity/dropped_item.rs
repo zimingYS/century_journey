@@ -1,17 +1,29 @@
+use crate::client::renderer::item::{
+    ItemDisplayContext, ItemModelCache, ItemRenderContext, ItemRenderer,
+};
+use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::constant::world::CHUNK_SIZE;
+use crate::content::item::model::ItemModelRegistry;
+use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::world::storage::WorldStorage;
 use bevy::prelude::*;
 
+/// 掉落物逻辑数据。
 #[derive(Component, Debug, Clone)]
 pub struct DroppedItem {
+    /// 掉落物中保存的物品堆。
     pub stack: ItemStack,
+    /// 已存在时间，超过生命周期后会销毁。
     pub age: f32,
+    /// 拾取延迟，刚生成时避免立刻被玩家吸回去。
     pub pickup_delay: f32,
 }
 
 impl DroppedItem {
+    /// 创建一个新的掉落物组件。
     pub fn new(stack: ItemStack) -> Self {
         Self {
             stack,
@@ -19,22 +31,33 @@ impl DroppedItem {
             pickup_delay: 0.5,
         }
     }
+
+    /// 判断当前掉落物是否允许被拾取。
     pub fn can_pickup(&self) -> bool {
         self.pickup_delay <= 0.0
     }
 }
 
+/// 掉落物竖直方向速度。
 #[derive(Component, Default)]
 pub struct DroppedItemVelocity {
+    /// 当前 Y 轴速度。
     pub y: f32,
 }
 
+/// 标记一个实体需要生成掉落物视觉模型。
 #[derive(Component)]
 pub struct DroppedItemVisual;
 
+/// 标记掉落物视觉模型已经通过 ItemRenderer 创建。
+#[derive(Component)]
+pub struct DroppedItemVisualReady;
+
+/// 标记掉落物已经落地。
 #[derive(Component, Default)]
 pub struct DroppedItemGrounded;
 
+/// 判断掉落物下方是否有可站立方块。
 fn solid_below(pos: Vec3, storage: &WorldStorage, reg: &BlockRegistry) -> bool {
     let bx = pos.x.floor() as i32;
     let by = (pos.y - 0.3).floor() as i32;
@@ -55,6 +78,7 @@ fn solid_below(pos: Vec3, storage: &WorldStorage, reg: &BlockRegistry) -> bool {
     })
 }
 
+/// 在世界中生成一个掉落物实体。
 pub fn spawn_dropped_item(commands: &mut Commands, position: Vec3, stack: ItemStack) -> Entity {
     commands
         .spawn((
@@ -62,32 +86,70 @@ pub fn spawn_dropped_item(commands: &mut Commands, position: Vec3, stack: ItemSt
             DroppedItemVisual,
             DroppedItemVelocity::default(),
             Name::new("DroppedItem".to_string()),
-            Transform::from_translation(position + Vec3::new(0.5, 1.0, 0.5))
-                .with_scale(Vec3::splat(0.25)),
+            Transform::from_translation(position + Vec3::new(0.5, 1.0, 0.5)),
             Visibility::default(),
         ))
         .id()
 }
 
+/// 为新掉落物生成视觉模型。
+///
+/// 这里不再判断方块/贴图/挤出模型，只把物品和 Ground 场景交给统一 ItemRenderer。
 pub fn dropped_item_visual_system(
     mut commands: Commands,
-    new: Query<Entity, Added<DroppedItemVisual>>,
+    query: Query<
+        (Entity, &DroppedItem),
+        (With<DroppedItemVisual>, Without<DroppedItemVisualReady>),
+    >,
+    item_registry: Option<Res<ItemRegistry>>,
+    item_model_registry: Option<Res<ItemModelRegistry>>,
+    item_textures: Option<Res<ItemTextureRegistry>>,
+    block_registry: Option<Res<BlockRegistry>>,
+    block_render_assets: Option<Res<BlockRenderAssets>>,
+    mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut mats: ResMut<Assets<StandardMaterial>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut item_model_cache: ResMut<ItemModelCache>,
 ) {
-    let m = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
-    let mat = mats.add(StandardMaterial {
-        base_color: Color::srgb(1.0, 0.85, 0.2),
-        ..default()
-    });
-    for e in &new {
-        commands
-            .entity(e)
-            .insert((Mesh3d(m.clone()), MeshMaterial3d(mat.clone())));
+    let Some(item_textures) = item_textures.as_deref() else {
+        return;
+    };
+
+    let mut render_context = ItemRenderContext {
+        item_registry: item_registry.as_deref(),
+        item_model_registry: item_model_registry.as_deref(),
+        item_textures,
+        block_registry: block_registry.as_deref(),
+        block_render_assets: block_render_assets.as_deref(),
+        images: &mut images,
+        meshes: &mut meshes,
+        materials: &mut materials,
+        model_cache: &mut item_model_cache,
+    };
+
+    for (entity, dropped) in &query {
+        if dropped.stack.item.is_air() {
+            commands.entity(entity).insert(DroppedItemVisualReady);
+            continue;
+        }
+
+        let item_key = dropped.stack.item.identifier().to_string();
+        let spawned = ItemRenderer::spawn_item_entity(
+            &mut commands,
+            &dropped.stack.item,
+            ItemDisplayContext::Ground,
+            Some(entity),
+            format!("DroppedItemModel_{item_key}"),
+            &mut render_context,
+        );
+
+        if spawned.is_some() {
+            commands.entity(entity).insert(DroppedItemVisualReady);
+        }
     }
 }
 
-/// 重力
+/// 掉落物重力系统。
 pub fn dropped_item_gravity_system(
     time: Res<Time>,
     reg: Option<Res<BlockRegistry>>,
@@ -106,20 +168,22 @@ pub fn dropped_item_gravity_system(
         ) {
             let ground_y = (ny - 0.3).floor() + 1.0 + 0.3;
             commands.entity(e).insert((
-                Transform::from_translation(Vec3::new(t.translation.x, ground_y, t.translation.z))
-                    .with_scale(Vec3::splat(0.25)),
+                Transform::from_translation(Vec3::new(t.translation.x, ground_y, t.translation.z)),
                 DroppedItemGrounded,
             ));
         } else {
-            commands.entity(e).insert(
-                Transform::from_translation(Vec3::new(t.translation.x, ny, t.translation.z))
-                    .with_scale(Vec3::splat(0.25)),
-            );
+            commands
+                .entity(e)
+                .insert(Transform::from_translation(Vec3::new(
+                    t.translation.x,
+                    ny,
+                    t.translation.z,
+                )));
         }
     }
 }
 
-/// 同种合并 (2m内)
+/// 合并附近同类掉落物。
 pub fn dropped_item_merge_system(
     mut commands: Commands,
     query: Query<(Entity, &Transform, &DroppedItem), With<DroppedItemGrounded>>,
@@ -143,16 +207,19 @@ pub fn dropped_item_merge_system(
             if items[i].2.item != items[j].2.item {
                 continue;
             }
-            let tot = items[i].2.count + items[j].2.count;
-            let max = crate::game::inventory::item::stack::ItemStack::MAX_STACK_SIZE;
-            if tot <= max {
+            let total_count = items[i].2.count + items[j].2.count;
+            let max_count = crate::game::inventory::item::stack::ItemStack::MAX_STACK_SIZE;
+            if total_count <= max_count {
                 commands
                     .entity(items[i].0)
                     .insert(DroppedItem::new(ItemStack::new(
                         items[i].2.item.clone(),
-                        tot,
+                        total_count,
                     )));
-                commands.entity(items[j].0).despawn();
+                commands
+                    .entity(items[j].0)
+                    .despawn_related::<Children>()
+                    .despawn();
                 skip.insert(items[i].0);
                 skip.insert(items[j].0);
             }
@@ -160,7 +227,7 @@ pub fn dropped_item_merge_system(
     }
 }
 
-/// 超时销毁 + pickup delay 递减
+/// 更新掉落物生命周期和拾取延迟。
 pub fn dropped_item_tick_system(
     time: Res<Time>,
     mut commands: Commands,
@@ -170,12 +237,12 @@ pub fn dropped_item_tick_system(
         item.age += time.delta_secs();
         item.pickup_delay = (item.pickup_delay - time.delta_secs()).max(0.0);
         if item.age > 300.0 {
-            commands.entity(e).despawn();
+            commands.entity(e).despawn_related::<Children>().despawn();
         }
     }
 }
 
-/// 自旋
+/// 让已落地掉落物缓慢自旋。
 pub fn dropped_item_spin_system(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<DroppedItemGrounded>>,
@@ -185,8 +252,10 @@ pub fn dropped_item_spin_system(
     }
 }
 
+/// 掉落物系统插件。
 pub struct DroppedItemPlugin;
 impl Plugin for DroppedItemPlugin {
+    /// 注册掉落物视觉、物理、合并、生命周期和旋转系统。
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,

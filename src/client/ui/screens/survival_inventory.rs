@@ -184,7 +184,7 @@ pub fn survival_grid_visual_sync_system(
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
     mut slot_query: Query<(&InventorySlot, &mut SlotVisual)>,
     mut commands: Commands,
-    mut last_snapshot: Local<Option<Vec<(ItemId, u32)>>>,
+    mut last_snapshot: Local<Option<(Vec<(ItemId, u32)>, u64)>>,
     mut was_opened: Local<bool>,
 ) {
     let Some(reg) = block_registry.as_ref() else {
@@ -214,12 +214,21 @@ pub fn survival_grid_visual_sync_system(
         })
         .collect();
 
+    let revision = item_model_assets.revision();
     let force = last_snapshot.is_none();
-    let unchanged = !force && (last_snapshot.as_ref() == Some(&current));
+    let revision_changed = last_snapshot
+        .as_ref()
+        .is_some_and(|(_, cached_revision)| *cached_revision != revision);
+    let unchanged = !force
+        && last_snapshot
+            .as_ref()
+            .is_some_and(|(items, cached_revision)| {
+                items == &current && *cached_revision == revision
+            });
     if unchanged {
         return;
     }
-    *last_snapshot = Some(current.clone());
+    *last_snapshot = Some((current.clone(), revision));
 
     if let Ok(children) = children_query.get(grid_entity) {
         for child in children.iter() {
@@ -231,7 +240,7 @@ pub fn survival_grid_visual_sync_system(
                     .get(slot.index)
                     .cloned()
                     .unwrap_or((ItemId::air(), 0));
-                if force || visual.item != item || visual.count != count {
+                if force || revision_changed || visual.item != item || visual.count != count {
                     sync_slot_icon(
                         &mut commands,
                         child,
@@ -265,7 +274,7 @@ pub fn survival_hotbar_visual_sync_system(
     item_registry: Option<Res<ItemRegistry>>,
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
     mut border_query: Query<(&InventorySlot, &mut BorderColor)>,
-    mut last_hotbar: Local<Option<Vec<(ItemId, u32)>>>,
+    mut last_hotbar: Local<Option<(Vec<(ItemId, u32)>, u64)>>,
     mut last_active: Local<usize>,
     mut was_opened: Local<bool>,
 ) {
@@ -293,10 +302,17 @@ pub fn survival_hotbar_visual_sync_system(
         })
         .collect();
 
+    let revision = item_model_assets.revision();
     let force = last_hotbar.is_none();
-    let changed = force || (last_hotbar.as_ref() != Some(&current));
+    let revision_changed = last_hotbar
+        .as_ref()
+        .is_some_and(|(_, cached_revision)| *cached_revision != revision);
+    let changed = force
+        || last_hotbar.as_ref().is_none_or(|(items, cached_revision)| {
+            items != &current || *cached_revision != revision
+        });
     if changed {
-        *last_hotbar = Some(current.clone());
+        *last_hotbar = Some((current.clone(), revision));
         for (entity, slot, mut visual) in &mut slot_query {
             if slot.kind != SlotKind::Hotbar {
                 continue;
@@ -305,7 +321,7 @@ pub fn survival_hotbar_visual_sync_system(
                 .get(slot.index)
                 .cloned()
                 .unwrap_or((ItemId::air(), 0));
-            if force || visual.item != item || visual.count != count {
+            if force || revision_changed || visual.item != item || visual.count != count {
                 sync_slot_icon(
                     &mut commands,
                     entity,
