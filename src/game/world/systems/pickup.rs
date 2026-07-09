@@ -1,7 +1,7 @@
 use crate::game::inventory::insert;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::Player;
-use crate::game::world::entity::dropped_item::DroppedItem;
+use crate::game::world::entity::dropped_item::{DroppedItem, despawn_dropped_item};
 use bevy::prelude::*;
 
 /// 拾取范围半径
@@ -22,6 +22,11 @@ pub fn pickup_system(
     let player_pos = player_transform.translation;
 
     for (entity, item_transform, mut dropped) in &mut item_query {
+        // 刚生成的掉落物先等待一小段时间，避免玩家按 Q 后马上又捡回来。
+        if !dropped.can_pickup() {
+            continue;
+        }
+
         // 距离检查
         if player_pos.distance(item_transform.translation) > PICKUP_RANGE {
             continue;
@@ -41,10 +46,7 @@ pub fn pickup_system(
         match result {
             insert::InventoryInsertResult::AllInserted => {
                 info!("Picked up {:?}", dropped.stack);
-                commands
-                    .entity(entity)
-                    .despawn_related::<Children>()
-                    .despawn();
+                despawn_dropped_item(&mut commands, entity);
             }
             insert::InventoryInsertResult::Partial(remaining) => {
                 dropped.stack = remaining;

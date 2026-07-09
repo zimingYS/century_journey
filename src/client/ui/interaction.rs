@@ -92,7 +92,43 @@ pub fn slot_q_drop_system(
     }
 }
 
-/// 分类标签点击交互系统
+/// 背包关闭时的快捷栏 Q 丢弃系统。
+///
+/// UI 槽位只负责在背包打开时处理悬停槽位；正常游玩时按 Q 应该直接丢弃当前快捷栏选中物品。
+pub fn active_hotbar_q_drop_system(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    search_state: Res<SearchInputState>,
+    mut inventory: ResMut<InventoryState>,
+    mut drop_writer: MessageWriter<DropItemEvent>,
+) {
+    if inventory.opened || search_state.active || !keyboard.just_pressed(KeyCode::KeyQ) {
+        return;
+    }
+
+    let take_count =
+        if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
+            u32::MAX
+        } else {
+            1
+        };
+
+    let mut dropped_stack = None;
+    {
+        let slot = inventory.hotbar.active_stack_mut();
+        if let Some(stack) = slot.as_mut() {
+            dropped_stack = stack.take(take_count);
+            if stack.is_empty() {
+                *slot = None;
+            }
+        }
+    }
+
+    if let Some(stack) = dropped_stack {
+        drop_writer.write(DropItemEvent { stack });
+    }
+}
+
+/// 分类标签点击交互系统。
 pub fn category_tab_interaction_system(
     mut query: Query<(&Interaction, &CategoryTab), (Changed<Interaction>, With<Button>)>,
     mut writer: MessageWriter<CategoryClickedEvent>,
@@ -148,10 +184,23 @@ pub fn handle_slot_interaction_system(
                     SlotKind::SurvivalBackpack => &mut inventory.survival,
                     _ => continue,
                 };
-            if let Some(stack) = container
-                .get_stack_mut(event.index)
-                .and_then(|s| s.take(take_count))
-            {
+            let (dropped_stack, emptied_slot) = {
+                if let Some(slot_stack) = container.get_stack_mut(event.index) {
+                    let dropped_stack = slot_stack.take(take_count);
+                    (dropped_stack, slot_stack.is_empty())
+                } else {
+                    (None, false)
+                }
+            };
+
+            if emptied_slot {
+                container.set_stack(
+                    event.index,
+                    crate::game::inventory::item::stack::ItemStack::empty(),
+                );
+            }
+
+            if let Some(stack) = dropped_stack {
                 drop_writer.write(DropItemEvent { stack });
             }
             continue;

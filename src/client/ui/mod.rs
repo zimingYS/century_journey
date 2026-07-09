@@ -63,6 +63,7 @@ impl Plugin for UIPlugin {
                     .chain(),
             )
             // ── Update: 输入 → 事件 ──
+            .add_systems(Update, interaction::active_hotbar_q_drop_system)
             .add_systems(
                 Update,
                 (

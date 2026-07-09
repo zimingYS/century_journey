@@ -14,7 +14,9 @@ use crate::game::player::components::Player;
 use crate::game::player::systems::raycast::TargetVoxel;
 use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
 use crate::game::world::chunk::{ChunkComponents, ChunkState};
-use crate::game::world::entity::dropped_item::spawn_dropped_item;
+use crate::game::world::entity::dropped_item::{
+    DroppedItemVelocity, spawn_dropped_item, spawn_dropped_item_with_velocity,
+};
 use crate::game::world::storage::WorldStorage;
 use crate::shared::states::input_blocked::InputBlocked;
 use crate::shared::tag::identifier::TagId;
@@ -302,7 +304,9 @@ fn mark_dirty_chunks(
     }
 }
 
-/// Q 丢弃系统 — 在玩家面前生成 DroppedItem
+/// Q 丢弃系统：在玩家面前抛出事件中的物品堆。
+///
+/// 这里负责把 UI 或快捷栏发来的丢弃事件转换成世界掉落物，并赋予类似 ItemPhysicMod 的前抛初速度。
 pub fn drop_item_system(
     mut reader: MessageReader<crate::game::inventory::events::DropItemEvent>,
     player_query: Query<&Transform, With<Player>>,
@@ -311,14 +315,24 @@ pub fn drop_item_system(
     let Ok(player_transform) = player_query.single() else {
         return;
     };
+
+    let forward = player_transform.forward().as_vec3();
+    let horizontal_forward = Vec3::new(forward.x, 0.0, forward.z);
+    let throw_direction = if horizontal_forward.length_squared() > 0.0001 {
+        horizontal_forward.normalize()
+    } else {
+        Vec3::Z
+    };
+
     for event in reader.read() {
         if event.stack.is_empty() {
             continue;
         }
-        let pos = player_transform.translation
-            + player_transform.forward() * 2.0
-            + Vec3::new(0.0, 0.5, 0.0);
-        spawn_dropped_item(&mut commands, pos, event.stack.clone());
+
+        // 主动丢弃使用精确世界坐标，不走方块破坏掉落的中心偏移逻辑。
+        let pos = player_transform.translation + Vec3::Y * 1.25 + throw_direction * 0.75;
+        let velocity = DroppedItemVelocity::thrown(throw_direction);
+        spawn_dropped_item_with_velocity(&mut commands, pos, event.stack.clone(), velocity);
         log::info!("[Q] Dropped {:?}", event.stack);
     }
 }

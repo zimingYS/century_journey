@@ -178,7 +178,7 @@ impl ItemModelDisplay {
             )
             .set(
                 ItemModelDisplayTarget::Ground,
-                ItemDisplayTransform::uniform([0.0, 0.15, 0.0], [0.0, 0.0, 0.0], 0.35),
+                ItemDisplayTransform::uniform([0.0, 0.12, 0.0], [0.0, 0.0, 0.0], 0.35),
             )
             .set(
                 ItemModelDisplayTarget::Fixed,
@@ -221,7 +221,7 @@ impl ItemModelDisplay {
             )
             .set(
                 ItemModelDisplayTarget::Ground,
-                ItemDisplayTransform::uniform([0.0, 0.08, 0.0], [0.0, 0.0, 0.0], 0.5),
+                ItemDisplayTransform::uniform([0.0, -0.03, 0.0], [90.0, 0.0, 0.0], 0.85),
             )
             .set(
                 ItemModelDisplayTarget::Fixed,
