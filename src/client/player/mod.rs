@@ -15,6 +15,7 @@ use crate::game::player::plugin::GamePlayerPlugin;
 pub mod full_body;
 
 const WORLD_RENDER_LAYER: usize = 0;
+const PLAYER_SHADOW_ONLY_LAYER: usize = 1;
 
 pub struct ClientPlayerPlugin;
 
@@ -96,13 +97,14 @@ fn first_person_visibility_system(
             continue;
         };
 
-        *visibility = if is_first_person && mesh.0 == PlayerPart::Head {
-            Visibility::Hidden
-        } else {
-            Visibility::Inherited
-        };
+        *visibility = Visibility::Inherited;
 
-        let target_layers = RenderLayers::layer(WORLD_RENDER_LAYER);
+        // 第一人称只把头部移到相机不可见、光源可见的层，保留头部阴影。
+        let target_layers = if is_first_person && mesh.0 == PlayerPart::Head {
+            RenderLayers::layer(PLAYER_SHADOW_ONLY_LAYER)
+        } else {
+            RenderLayers::layer(WORLD_RENDER_LAYER)
+        };
         if let Some(mut layers) = layers {
             *layers = target_layers;
         } else {

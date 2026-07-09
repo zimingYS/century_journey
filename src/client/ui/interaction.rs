@@ -1,4 +1,3 @@
-use crate::client::ui::components::CreativeSearchBox;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
     CategoryClickedEvent, CategoryTab, CreativeSearchInput, InventorySlot, SearchInputState,
@@ -7,11 +6,11 @@ use crate::client::ui::widgets::slot::{
 use crate::game::inventory::events::DropItemEvent;
 use crate::game::inventory::slot::SlotAction;
 use crate::game::inventory::state::InventoryState;
-use bevy::input::keyboard::KeyboardInput;
+use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
+use bevy::text::EditableText;
 
-/// 槽位左键/Shift点击交互系统
-/// 使用 `Changed<Interaction>` + Pressed（仅左键触发 Pressed）
+/// 槽位左键或 Shift 左键交互。
 pub fn slot_interaction_system(
     query: Query<(&Interaction, &InventorySlot), (Changed<Interaction>, With<Button>)>,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -38,7 +37,7 @@ pub fn slot_interaction_system(
     }
 }
 
-/// 右键点击槽位系统（右键不触发 Pressed，需用 Hovered + mouse.just_pressed）
+/// 槽位右键交互。
 pub fn slot_right_click_system(
     query: Query<(&Interaction, &InventorySlot), With<Button>>,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -59,12 +58,12 @@ pub fn slot_right_click_system(
                 index: slot.index,
                 action: SlotAction::RightClick,
             });
-            break; // 一次只有一个槽位被 hover
+            break;
         }
     }
 }
 
-/// Q 丢弃系统（需要持续检测 Hovered 状态，不能用 `Changed<Interaction>`）
+/// 背包打开时，悬停槽位并按 Q 丢弃物品。
 pub fn slot_q_drop_system(
     query: Query<(&Interaction, &InventorySlot), With<Button>>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -92,9 +91,7 @@ pub fn slot_q_drop_system(
     }
 }
 
-/// 背包关闭时的快捷栏 Q 丢弃系统。
-///
-/// UI 槽位只负责在背包打开时处理悬停槽位；正常游玩时按 Q 应该直接丢弃当前快捷栏选中物品。
+/// 正常游玩时，按 Q 直接丢弃当前快捷栏选中物品。
 pub fn active_hotbar_q_drop_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     search_state: Res<SearchInputState>,
@@ -128,7 +125,7 @@ pub fn active_hotbar_q_drop_system(
     }
 }
 
-/// 分类标签点击交互系统。
+/// 分类标签点击交互。
 pub fn category_tab_interaction_system(
     mut query: Query<(&Interaction, &CategoryTab), (Changed<Interaction>, With<Button>)>,
     mut writer: MessageWriter<CategoryClickedEvent>,
@@ -143,19 +140,64 @@ pub fn category_tab_interaction_system(
     }
 }
 
-/// 搜索框点击激活搜索框
-pub fn search_box_interaction_system(
-    mut query: Query<&Interaction, (Changed<Interaction>, With<CreativeSearchInput>)>,
+/// 同步 Bevy 输入焦点到项目原有 SearchInputState。
+pub fn sync_search_input_focus_system(
+    mut input_focus: ResMut<InputFocus>,
+    input_query: Query<Entity, With<CreativeSearchInput>>,
+    inventory: Res<InventoryState>,
     mut search_state: ResMut<SearchInputState>,
 ) {
-    for interaction in &mut query {
-        if *interaction == Interaction::Pressed {
-            search_state.active = true;
-        }
+    let focused_search = input_focus
+        .get()
+        .is_some_and(|entity| input_query.get(entity).is_ok());
+
+    if !inventory.opened && focused_search {
+        input_focus.clear();
+        search_state.active = false;
+        return;
+    }
+
+    search_state.active = inventory.opened && focused_search;
+}
+
+/// 把 EditableText 的真实文本同步到创造物品栏过滤条件。
+pub fn sync_search_text_from_editable_system(
+    mut inventory: ResMut<InventoryState>,
+    query: Query<&EditableText, (With<CreativeSearchInput>, Changed<EditableText>)>,
+) {
+    let Ok(editable_text) = query.single() else {
+        return;
+    };
+
+    let value = editable_text_value(editable_text);
+    if inventory.creative.search_text != value {
+        inventory.creative.search_text = value;
     }
 }
 
-/// 分类切换事件处理
+/// 搜索框聚焦时，Escape 或 Enter 退出输入焦点。
+pub fn search_escape_system(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut input_focus: ResMut<InputFocus>,
+    input_query: Query<Entity, With<CreativeSearchInput>>,
+    mut search_state: ResMut<SearchInputState>,
+) {
+    if !keyboard.just_pressed(KeyCode::Escape) && !keyboard.just_pressed(KeyCode::Enter) {
+        return;
+    }
+
+    let Some(focused_entity) = input_focus.get() else {
+        return;
+    };
+    if input_query.get(focused_entity).is_err() {
+        return;
+    }
+
+    input_focus.clear();
+    search_state.active = false;
+}
+
+/// 分类切换事件处理。
 pub fn handle_category_clicked_system(
     mut reader: MessageReader<CategoryClickedEvent>,
     mut inventory: ResMut<InventoryState>,
@@ -165,7 +207,7 @@ pub fn handle_category_clicked_system(
     }
 }
 
-/// 槽位点击路由 (含 Q 丢弃)
+/// 槽位点击和丢弃事件路由。
 pub fn handle_slot_interaction_system(
     mut reader: MessageReader<SlotInteractionEvent>,
     mut inventory: ResMut<InventoryState>,
@@ -214,7 +256,7 @@ pub fn handle_slot_interaction_system(
     }
 }
 
-/// 取消拖拽 — 仅 Escape 清空 cursor (右键不再清除)
+/// 背包打开时，按 Escape 清空拖拽物品；搜索框聚焦时由搜索框先处理。
 pub fn cancel_drag_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut inventory: ResMut<InventoryState>,
@@ -231,7 +273,7 @@ pub fn cancel_drag_system(
     }
 }
 
-/// 槽位边框高亮
+/// 槽位边框高亮。
 pub fn slot_hover_system(
     theme: Res<UiTheme>,
     state: Res<InventoryState>,
@@ -261,58 +303,12 @@ pub fn slot_hover_system(
     }
 }
 
-// ═══════════════════════════════════════════════════════════
-// 搜索系统
-// ═══════════════════════════════════════════════════════════
-
-pub fn search_keyboard_input_system(
-    mut char_events: MessageReader<KeyboardInput>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut inventory: ResMut<InventoryState>,
-    search_state: Res<SearchInputState>,
-) {
-    if !search_state.active {
-        return;
+/// 读取 EditableText 的值，忽略 IME 预编辑中的临时片段。
+fn editable_text_value(editable_text: &EditableText) -> String {
+    let mut value = String::new();
+    value.reserve(editable_text.value().into_iter().map(str::len).sum());
+    for part in editable_text.value() {
+        value.push_str(part);
     }
-    if keyboard.just_pressed(KeyCode::Escape) {
-        return;
-    }
-    if keyboard.just_pressed(KeyCode::Backspace) {
-        inventory.creative.search_text.pop();
-    }
-    for ev in char_events.read() {
-        let Some(text) = &ev.text else { continue };
-        for ch in text.chars() {
-            if !ch.is_control() {
-                inventory.creative.search_text.push(ch);
-            }
-        }
-    }
-}
-
-pub fn search_escape_system(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut search_state: ResMut<SearchInputState>,
-) {
-    if keyboard.just_pressed(KeyCode::Escape) || keyboard.just_pressed(KeyCode::Enter) {
-        search_state.active = false;
-    }
-}
-
-pub fn update_search_text_display_system(
-    inventory: Res<InventoryState>,
-    query: Query<&Children, With<CreativeSearchBox>>,
-    mut text_query: Query<&mut Text>,
-) {
-    let Ok(children) = query.single() else { return };
-    let search = inventory.creative.search_text.clone();
-    for child in children.iter() {
-        if let Ok(mut text) = text_query.get_mut(child) {
-            *text = Text::new(if search.is_empty() {
-                "🔍 搜索...".into()
-            } else {
-                search.clone()
-            });
-        }
-    }
+    value
 }

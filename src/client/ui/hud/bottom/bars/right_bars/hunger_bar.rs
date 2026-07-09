@@ -68,7 +68,9 @@ pub fn hunger_bar_sync_system(
 
     commands.entity(bar_entity).with_children(|bar| {
         for index in 0..icon_count {
-            let segment = status_icon_segment(shown_units, index);
+            // 饥饿条右对齐显示，但消耗方向应保持从左到右。
+            let logical_index = icon_count - 1 - index;
+            let segment = status_icon_segment(shown_units, logical_index);
             bar.spawn(status_icon_node(icons.hunger_icon(segment)));
         }
     });

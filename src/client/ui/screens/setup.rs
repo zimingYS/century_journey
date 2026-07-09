@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+use bevy::text::{EditableText, TextCursorStyle};
+use bevy::ui_widgets::SelectAllOnFocus;
 
 use crate::client::ui::components::{
     CreativeCategoryPanel, CreativeHotbarPanel, CreativeInventoryOverlay, CreativeInventoryRoot,
@@ -8,7 +10,7 @@ use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::CreativeSearchInput;
 
-/// 构造创造模式物品栏UI
+/// 构造创造模式物品栏 UI。
 pub fn spawn_creative_inventory_system(
     mut commands: Commands,
     ui_font: Res<UiFont>,
@@ -53,6 +55,7 @@ pub fn spawn_creative_inventory_system(
         });
 }
 
+/// 构造标题栏和 Bevy 0.19 EditableText 搜索框。
 fn build_header(root: &mut ChildSpawnerCommands, ui_font: &UiFont, theme: &UiTheme) {
     root.spawn((
         Node {
@@ -76,38 +79,46 @@ fn build_header(root: &mut ChildSpawnerCommands, ui_font: &UiFont, theme: &UiThe
             },
             TextColor(theme.text_primary),
         ));
-        header
-            .spawn((
-                CreativeSearchBox,
-                CreativeSearchInput,
-                Button,
-                Pickable::default(),
-                Node {
-                    width: Val::Px(theme.search_width),
-                    height: Val::Px(theme.search_height),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    padding: UiRect::horizontal(Val::Px(8.0)),
-                    border: UiRect::all(Val::Px(1.0)),
-                    ..default()
-                },
-                BackgroundColor(theme.search_bg),
-                BorderColor::all(theme.search_border),
-            ))
-            .with_children(|s| {
-                s.spawn((
-                    Text::new(""),
-                    TextFont {
-                        font: FontSource::from(ui_font.default.clone()),
-                        font_size: FontSize::Px(theme.search_font_size),
-                        ..default()
-                    },
-                    TextColor(theme.text_hint),
-                ));
-            });
+        header.spawn((
+            CreativeSearchBox,
+            CreativeSearchInput,
+            Name::new("CreativeSearchInput"),
+            EditableText {
+                visible_width: Some(16.0),
+                max_characters: Some(64),
+                allow_newlines: false,
+                ..default()
+            },
+            TextCursorStyle {
+                color: theme.text_primary,
+                selection_color: theme.border_selected,
+                unfocused_selection_color: theme.border_hover,
+                selected_text_color: Some(Color::BLACK),
+            },
+            SelectAllOnFocus,
+            TextLayout::no_wrap(),
+            TextFont {
+                font: FontSource::from(ui_font.default.clone()),
+                font_size: FontSize::Px(theme.search_font_size),
+                ..default()
+            },
+            TextColor(theme.text_primary),
+            Node {
+                width: Val::Px(theme.search_width),
+                height: Val::Px(theme.search_height),
+                align_items: AlignItems::Center,
+                padding: UiRect::horizontal(Val::Px(8.0)),
+                border: UiRect::all(Val::Px(1.0)),
+                overflow: Overflow::clip_x(),
+                ..default()
+            },
+            BackgroundColor(theme.search_bg),
+            BorderColor::all(theme.search_border),
+        ));
     });
 }
 
+/// 构造分类栏和物品网格。
 fn build_body(root: &mut ChildSpawnerCommands, _ui_font: &UiFont, theme: &UiTheme) {
     root.spawn((Node {
         width: Val::Percent(100.0),
@@ -148,6 +159,7 @@ fn build_body(root: &mut ChildSpawnerCommands, _ui_font: &UiFont, theme: &UiThem
         });
 }
 
+/// 构造最近使用面板。
 fn build_recent_panel(root: &mut ChildSpawnerCommands, ui_font: &UiFont, theme: &UiTheme) {
     root.spawn((
         CreativeRecentPanel,
@@ -180,6 +192,7 @@ fn build_recent_panel(root: &mut ChildSpawnerCommands, ui_font: &UiFont, theme: 
     });
 }
 
+/// 构造底部快捷栏面板。
 fn build_hotbar_panel(root: &mut ChildSpawnerCommands, theme: &UiTheme) {
     root.spawn((
         CreativeHotbarPanel,

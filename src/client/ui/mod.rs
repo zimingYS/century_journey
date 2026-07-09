@@ -71,7 +71,6 @@ impl Plugin for UIPlugin {
                     interaction::slot_right_click_system,
                     interaction::slot_q_drop_system,
                     interaction::category_tab_interaction_system,
-                    interaction::search_box_interaction_system,
                 )
                     .run_if(|state: Res<InventoryState>| state.opened),
             )
@@ -89,10 +88,11 @@ impl Plugin for UIPlugin {
             .add_systems(
                 Update,
                 (
-                    interaction::search_keyboard_input_system,
+                    interaction::sync_search_input_focus_system,
+                    interaction::sync_search_text_from_editable_system,
                     interaction::search_escape_system,
-                    interaction::update_search_text_display_system,
-                ),
+                )
+                    .chain(),
             )
             // ── Update: UI 视觉同步 — toggle → visibility → sync → cleanup ──
             .add_systems(
