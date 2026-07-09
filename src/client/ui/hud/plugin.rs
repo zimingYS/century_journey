@@ -7,7 +7,9 @@ use crate::client::ui::hud::bottom::bars::left_bars::health_bar::{
 use crate::client::ui::hud::bottom::bars::right_bars::hunger_bar::{
     hunger_bar_sync_system, spawn_hunger_bar,
 };
-use crate::client::ui::hud::bottom::bars::spawn_bars_hud_system;
+use crate::client::ui::hud::bottom::bars::{
+    HudStatusIconAssets, load_hud_status_icon_assets_system, spawn_bars_hud_system,
+};
 use crate::client::ui::hud::bottom::hotbar::{
     handle_hotbar_switch_system, hud_hotbar_visual_sync_system, spawn_hotbar_ui_system,
 };
@@ -37,6 +39,8 @@ pub struct HudPlugin;
 
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<HudStatusIconAssets>();
+
         app.configure_sets(
             OnEnter(AppState::InGame),
             (
@@ -50,7 +54,7 @@ impl Plugin for HudPlugin {
 
         app.add_systems(
             OnEnter(AppState::InGame),
-            spawn_hud_root_system.in_set(HudSetupSet::Root),
+            (load_hud_status_icon_assets_system, spawn_hud_root_system).in_set(HudSetupSet::Root),
         )
         .add_systems(
             OnEnter(AppState::InGame),
