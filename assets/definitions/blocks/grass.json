@@ -5,6 +5,8 @@
   "is_solid": true,
   "light_emission": 0,
   "hardness": 0.6,
+  "required_tool": null,
+  "harvest_level": 0,
   "tags": ["mineable/shovel", "grass_like"],
   "textures": {
     "top": "textures/blocks/grass_top.png",

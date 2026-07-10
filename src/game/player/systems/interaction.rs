@@ -6,31 +6,38 @@ use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::loot::block_registry::BlockLootRegistry;
 use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::block::BlockBehaviorRegistry;
+use crate::game::gameplay::block_action::{
+    BlockBreakProgress, BlockBreakState, active_tool_data, block_break_seconds, can_break_block,
+    can_place_block, consume_placed_block_item, is_replaceable_block,
+};
 use crate::game::gameplay::gamemode::PlayerGameMode;
-use crate::game::inventory::container::InventoryContainer;
-use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::Player;
 use crate::game::player::systems::raycast::TargetVoxel;
 use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
 use crate::game::world::chunk::{ChunkComponents, ChunkState};
 use crate::game::world::entity::dropped_item::{
-    DroppedItemVelocity, spawn_dropped_item, spawn_dropped_item_with_velocity,
+    DroppedItemVelocity, spawn_dropped_item_with_velocity,
 };
 use crate::game::world::storage::WorldStorage;
+use crate::game::world::systems::break_pipeline::execute_block_break;
 use crate::shared::states::input_blocked::InputBlocked;
-use crate::shared::tag::identifier::TagId;
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
-use bevy::ecs::system::SystemParam;
-
-/// 合并 4 个事件写入器减少 voxel_interaction_system 参数数量
 #[derive(SystemParam)]
 pub struct VoxelEventWriters<'w> {
     pub break_events: MessageWriter<'w, BlockBreakEvent>,
     pub place_events: MessageWriter<'w, BlockPlaceEvent>,
     pub interact_events: MessageWriter<'w, BlockInteractEvent>,
     pub sound_events: MessageWriter<'w, BlockSoundEvent>,
+}
+
+#[derive(SystemParam)]
+pub struct BlockBreakRuntime<'w> {
+    pub time: Res<'w, Time>,
+    pub state: ResMut<'w, BlockBreakState>,
+    pub progress: ResMut<'w, BlockBreakProgress>,
 }
 
 pub fn voxel_interaction_system(
@@ -48,203 +55,207 @@ pub fn voxel_interaction_system(
     mut world_storage: ResMut<WorldStorage>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
     mut events: VoxelEventWriters,
+    mut break_runtime: BlockBreakRuntime,
     mut commands: Commands,
 ) {
     let Some(reg) = registry else {
+        break_runtime.state.clear();
+        break_runtime.progress.clear();
         return;
     };
-    // 当打开物品栏时不进行破坏和放置操作
     if input_blocked.0 {
+        break_runtime.state.clear();
+        break_runtime.progress.clear();
         return;
     }
+
+    let left_pressed = mouse_button.pressed(MouseButton::Left);
+    let right_click = mouse_button.just_pressed(MouseButton::Right);
+
+    if !left_pressed {
+        break_runtime.state.clear();
+        break_runtime.progress.clear();
+    }
+    if !left_pressed && !right_click {
+        return;
+    }
+
+    let Some(ray_result) = &target_voxel.result else {
+        break_runtime.state.clear();
+        break_runtime.progress.clear();
+        return;
+    };
 
     let player_entity = player_query.single().ok();
 
-    let left_click = mouse_button.just_pressed(MouseButton::Left);
-    let right_click = mouse_button.just_pressed(MouseButton::Right);
-    if !left_click && !right_click {
+    if left_pressed {
+        let hit_pos = ray_result.hit_pos;
+        let hit_id = get_voxel_at_world(hit_pos, &world_storage);
+
+        if !can_break_block(hit_id, &gamemode, tag_registry.as_deref()) {
+            break_runtime.state.clear();
+            break_runtime.progress.clear();
+            return;
+        }
+
+        let Some(prop) = reg.get(hit_id) else {
+            break_runtime.state.clear();
+            break_runtime.progress.clear();
+            return;
+        };
+
+        let active_stack = inventory_state.hotbar.active_stack();
+        let active_tool = active_tool_data(active_stack, item_registry.as_deref());
+        let active_item = inventory_state.hotbar.active_item().clone();
+
+        let Some(required_seconds) = block_break_seconds(prop, &gamemode, active_tool) else {
+            break_runtime.state.clear();
+            break_runtime.progress.clear();
+            return;
+        };
+
+        if required_seconds > 0.0 {
+            let elapsed = break_runtime.state.tick(
+                hit_pos,
+                hit_id,
+                &active_item,
+                break_runtime.time.delta_secs(),
+            );
+            let progress = elapsed / required_seconds;
+            break_runtime.progress.set(hit_pos, hit_id, progress);
+
+            if progress < 1.0 {
+                return;
+            }
+        }
+
+        let broke_block = execute_block_break(
+            hit_pos,
+            hit_id,
+            &gamemode,
+            tag_registry.as_deref(),
+            active_tool,
+            &reg,
+            &behavior_registry,
+            loot_registry.as_deref(),
+            &mut world_storage,
+            &mut commands,
+        );
+
+        break_runtime.state.clear();
+        break_runtime.progress.clear();
+
+        if !broke_block {
+            return;
+        }
+
+        events.break_events.write(BlockBreakEvent {
+            world_pos: hit_pos,
+            block_id: hit_id,
+            breaker: player_entity,
+        });
+
+        events.sound_events.write(BlockSoundEvent {
+            position: hit_pos.as_vec3(),
+            sound_material: prop.sound.sound_material,
+            action: SoundAction::Break,
+            volume: prop.sound.break_volume,
+        });
+
+        mark_dirty_chunks(hit_pos, &mut chunk_query, &mut world_storage);
         return;
     }
 
-    // 左键破坏，右键放置
-    if let Some(ray_result) = &target_voxel.result {
-        if left_click {
-            // 左键破坏
-            let hit_pos = ray_result.hit_pos;
-            let hit_id = get_voxel_at_world(hit_pos, &world_storage);
+    let hit_pos = ray_result.hit_pos;
+    let hit_id = get_voxel_at_world(hit_pos, &world_storage);
 
-            // 检查不可破坏方块
-            if tag_registry.as_ref().is_some_and(|tr| {
-                tr.contains(&TagId::new("century_journey", "unbreakable"), hit_id)
-            }) {
-                return;
-            }
+    if let Some(prop) = reg.get(hit_id)
+        && prop.is_interactable
+    {
+        events.interact_events.write(BlockInteractEvent {
+            world_pos: hit_pos,
+            block_id: hit_id,
+            face_normal: ray_result.normal,
+            interactor: player_entity,
+        });
 
-            // 调用方块行为
-            if gamemode.is_creative() {
-                // 创造模式：直接删除，无掉落
-                let behavior = behavior_registry.get_behavior_by_id(hit_id, &reg);
-                behavior.on_break(hit_pos, hit_id, &mut world_storage, &mut commands);
-                set_voxel_at_world(hit_pos, 0, &mut world_storage);
-            } else {
-                // 生存模式：执行破坏流水线（方块行为 + 删除 + 掉落）
-                let behavior = behavior_registry.get_behavior_by_id(hit_id, &reg);
-                behavior.on_break(hit_pos, hit_id, &mut world_storage, &mut commands);
-                set_voxel_at_world(hit_pos, 0, &mut world_storage);
+        let behavior = behavior_registry.get_behavior_by_id(hit_id, &reg);
+        behavior.on_interact(
+            hit_pos,
+            hit_id,
+            ray_result.normal,
+            None,
+            &mut world_storage,
+            &mut commands,
+        );
 
-                if let Some(ref loot) = loot_registry {
-                    let drops = loot.roll(hit_id);
-                    let center = hit_pos.as_vec3();
-                    for (j, (item_id, count)) in drops.into_iter().enumerate() {
-                        let offset = Vec3::new(
-                            (j as f32 * 0.3) % 1.0 - 0.5,
-                            0.5,
-                            (j as f32 * 0.7) % 1.0 - 0.5,
-                        );
-                        let stack = ItemStack::new(item_id, count);
-                        spawn_dropped_item(&mut commands, center + offset, stack);
-                    }
-                }
-            }
-
-            // 发送破坏事件
-            events.break_events.write(BlockBreakEvent {
-                world_pos: hit_pos,
-                block_id: hit_id,
-                breaker: player_entity,
-            });
-
-            // 发送音效事件
-            let prop = reg.get(hit_id);
-            events.sound_events.write(BlockSoundEvent {
-                position: hit_pos.as_vec3(),
-                sound_material: prop.map(|p| p.sound.sound_material).unwrap_or_default(),
-                action: SoundAction::Break,
-                volume: prop.map(|p| p.sound.break_volume).unwrap_or(1.0),
-            });
-
-            // 标记脏区块
-            mark_dirty_chunks(hit_pos, &mut chunk_query, &mut world_storage);
-        } else {
-            let hit_pos = ray_result.hit_pos;
-            let hit_id = get_voxel_at_world(hit_pos, &world_storage);
-
-            // 检查目标方块是否可交互
-            if let Some(prop) = reg.get(hit_id)
-                && prop.is_interactable
-            {
-                // 发送交互事件
-                events.interact_events.write(BlockInteractEvent {
-                    world_pos: hit_pos,
-                    block_id: hit_id,
-                    face_normal: ray_result.normal,
-                    interactor: player_entity,
-                });
-
-                // 调用方块行为
-                let behavior = behavior_registry.get_behavior_by_id(hit_id, &reg);
-                behavior.on_interact(
-                    hit_pos,
-                    hit_id,
-                    ray_result.normal,
-                    None,
-                    &mut world_storage,
-                    &mut commands,
-                );
-
-                // 发送音效
-                events.sound_events.write(BlockSoundEvent {
-                    position: hit_pos.as_vec3(),
-                    sound_material: prop.sound.sound_material,
-                    action: SoundAction::Step, // 交互音效用 step 类型
-                    volume: 0.5,
-                });
-
-                // 交互型方块不放置新方块，直接返回
-                return;
-            }
-
-            // 右键放置
-            let place_pos = hit_pos + ray_result.normal;
-            //检查放置目标是否可替换
-            let existing_id = get_voxel_at_world(place_pos, &world_storage);
-            if existing_id != 0 {
-                // 目标位置已有方块，只有可替换的才允许覆盖
-                if tag_registry.as_ref().is_none_or(|tr| {
-                    !tr.contains(
-                        &TagId::new("century_journey", "overworld_replaceable"),
-                        existing_id,
-                    )
-                }) {
-                    return;
-                }
-            }
-
-            let current_hand_item = inventory_state.hotbar.active_item();
-            let current_hand_identifier: String = item_registry
-                .as_ref()
-                .and_then(|ir| ir.block_identifier(current_hand_item))
-                .map(|id| id.to_string())
-                .unwrap_or_else(|| "century_journey:air".to_string());
-            // 翻译成运行时对应的动态ID
-            let Some(block_id) = reg.get_id_by_identifier(&current_hand_identifier) else {
-                return;
-            };
-            if block_id == 0 {
-                return;
-            }
-
-            // 调用方块行为的 on_place
-            let behavior = behavior_registry.get_behavior_by_id(block_id, &reg);
-            let allowed = behavior.on_place(
-                place_pos,
-                block_id,
-                ray_result.normal,
-                &mut world_storage,
-                &mut commands,
-            );
-            if !allowed {
-                return;
-            }
-
-            // 实际放置方块
-            set_voxel_at_world(place_pos, block_id, &mut world_storage);
-
-            // 生存模式下从快捷栏扣除 1 个物品
-            if !gamemode.is_creative() {
-                let idx = inventory_state.hotbar.active_index;
-                if let Some(stack) = inventory_state.hotbar.get_stack_mut(idx) {
-                    if stack.count > 1 {
-                        stack.count -= 1;
-                    } else {
-                        inventory_state.hotbar.set_stack(
-                            idx,
-                            crate::game::inventory::item::stack::ItemStack::empty(),
-                        );
-                    }
-                }
-            }
-
-            // 发送放置事件
-            events.place_events.write(BlockPlaceEvent {
-                world_pos: place_pos,
-                block_id,
-                face_normal: ray_result.normal,
-                placer: player_entity,
-            });
-
-            // 发送音效
-            let prop = reg.get(block_id);
-            events.sound_events.write(BlockSoundEvent {
-                position: place_pos.as_vec3(),
-                sound_material: prop.map(|p| p.sound.sound_material).unwrap_or_default(),
-                action: SoundAction::Place,
-                volume: prop.map(|p| p.sound.place_volume).unwrap_or(1.0),
-            });
-
-            mark_dirty_chunks(place_pos, &mut chunk_query, &mut world_storage);
-        };
+        events.sound_events.write(BlockSoundEvent {
+            position: hit_pos.as_vec3(),
+            sound_material: prop.sound.sound_material,
+            action: SoundAction::Step,
+            volume: 0.5,
+        });
+        return;
     }
+
+    let place_pos = hit_pos + ray_result.normal;
+    let existing_id = get_voxel_at_world(place_pos, &world_storage);
+    if !is_replaceable_block(existing_id, tag_registry.as_deref()) {
+        return;
+    }
+
+    let current_hand_item = inventory_state.hotbar.active_item();
+    let current_hand_identifier: String = item_registry
+        .as_ref()
+        .and_then(|ir| ir.block_identifier(current_hand_item))
+        .map(|id| id.to_string())
+        .unwrap_or_else(|| "century_journey:air".to_string());
+
+    let Some(block_id) = reg.get_id_by_identifier(&current_hand_identifier) else {
+        return;
+    };
+    if !can_place_block(
+        block_id,
+        &gamemode,
+        Some(inventory_state.hotbar.active_stack()),
+    ) {
+        return;
+    }
+
+    let behavior = behavior_registry.get_behavior_by_id(block_id, &reg);
+    let allowed = behavior.on_place(
+        place_pos,
+        block_id,
+        ray_result.normal,
+        &mut world_storage,
+        &mut commands,
+    );
+    if !allowed {
+        return;
+    }
+
+    if !consume_placed_block_item(&mut inventory_state, &gamemode) {
+        return;
+    }
+
+    set_voxel_at_world(place_pos, block_id, &mut world_storage);
+
+    events.place_events.write(BlockPlaceEvent {
+        world_pos: place_pos,
+        block_id,
+        face_normal: ray_result.normal,
+        placer: player_entity,
+    });
+
+    let prop = reg.get(block_id);
+    events.sound_events.write(BlockSoundEvent {
+        position: place_pos.as_vec3(),
+        sound_material: prop.map(|p| p.sound.sound_material).unwrap_or_default(),
+        action: SoundAction::Place,
+        volume: prop.map(|p| p.sound.place_volume).unwrap_or(1.0),
+    });
+
+    mark_dirty_chunks(place_pos, &mut chunk_query, &mut world_storage);
 }
 
 fn mark_dirty_chunks(
@@ -263,7 +274,6 @@ fn mark_dirty_chunks(
         .unwrap_or_default()
         .as_secs_f64();
 
-    // 记录当前区块修改时间
     world_storage.chunk_modified_times.insert(chunk_pos, now);
 
     let local_x = target_pos.x.rem_euclid(CHUNK_SIZE as i32) as usize;
@@ -292,7 +302,6 @@ fn mark_dirty_chunks(
         dirty_chunks.push(chunk_pos + IVec3::new(0, 0, 1));
     }
 
-    // 边缘相邻区块也记录修改时间
     for &dirty_pos in &dirty_chunks {
         world_storage.chunk_modified_times.insert(dirty_pos, now);
     }
@@ -304,9 +313,6 @@ fn mark_dirty_chunks(
     }
 }
 
-/// Q 丢弃系统：在玩家面前抛出事件中的物品堆。
-///
-/// 这里负责把 UI 或快捷栏发来的丢弃事件转换成世界掉落物，并赋予类似 ItemPhysicMod 的前抛初速度。
 pub fn drop_item_system(
     mut reader: MessageReader<crate::game::inventory::events::DropItemEvent>,
     player_query: Query<&Transform, With<Player>>,
@@ -329,7 +335,6 @@ pub fn drop_item_system(
             continue;
         }
 
-        // 主动丢弃使用精确世界坐标，不走方块破坏掉落的中心偏移逻辑。
         let pos = player_transform.translation + Vec3::Y * 1.25 + throw_direction * 0.75;
         let velocity = DroppedItemVelocity::thrown(throw_direction);
         spawn_dropped_item_with_velocity(&mut commands, pos, event.stack.clone(), velocity);

@@ -4,7 +4,9 @@
   "render_mode": "Opaque",
   "is_solid": true,
   "light_emission": 0,
-  "hardness": 1.0,
+  "hardness": 0.5,
+  "required_tool": null,
+  "harvest_level": 0,
   "textures": {
     "top": "textures/blocks/snow.png"
   }

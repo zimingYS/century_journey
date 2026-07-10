@@ -4,7 +4,9 @@
   "render_mode": "Opaque",
   "is_solid": true,
   "light_emission": 0,
-  "hardness": 2.0,
+  "hardness": 1.0,
+  "required_tool": "axe",
+  "harvest_level": 0,
   "tags": ["mineable/axe", "wood_like"],
   "textures": {
     "top": "textures/blocks/wood_top.png",

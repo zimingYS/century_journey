@@ -14,7 +14,7 @@ use crate::client::ui::hud::bottom::hotbar::{
     handle_hotbar_switch_system, hud_hotbar_visual_sync_system, spawn_hotbar_ui_system,
 };
 use crate::client::ui::hud::bottom::spawn_bottom_hud_system;
-use crate::client::ui::hud::center::crosshair::spawn_crosshair;
+use crate::client::ui::hud::center::crosshair::{spawn_crosshair, sync_break_progress_bar};
 use crate::client::ui::hud::center::spawn_center_hud_system;
 use crate::client::ui::hud::left::spawn_left_hud_system;
 use crate::client::ui::hud::left_bottom::spawn_left_bottom_hud_system;
@@ -98,6 +98,7 @@ impl Plugin for HudPlugin {
                 health_bar_sync_system,
                 armor_bar_sync_system,
                 hunger_bar_sync_system,
+                sync_break_progress_bar,
             ),
         );
     }

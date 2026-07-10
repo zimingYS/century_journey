@@ -1,6 +1,7 @@
 use crate::content::block::model::BlockModelConfig;
 use crate::content::block::sound::BlockSoundConfig;
 use crate::content::block::state::BlockStateDefinition;
+use crate::content::item::definition::tool::ToolType;
 use crate::shared::identifier::Identifier;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -18,6 +19,12 @@ pub struct BlockProperty {
     pub textures: BlockTextureConfig,
     /// 硬度（破坏时间 = 硬度 × 基础时间）
     pub hardness: f32,
+
+    #[serde(default)]
+    pub required_tool: Option<ToolType>,
+
+    #[serde(default)]
+    pub harvest_level: u8,
 
     /// 是否拥有物理碰撞
     #[serde(default)]
@@ -75,6 +82,8 @@ impl Default for BlockProperty {
             light_emission: 0,
             textures: BlockTextureConfig::default(),
             hardness: 1.0,
+            required_tool: None,
+            harvest_level: 0,
             model: BlockModelConfig::default(),
             sound: BlockSoundConfig::default(),
             states: BlockStateDefinition::default(),

@@ -5,6 +5,8 @@
   "is_solid": true,
   "light_emission": 0,
   "hardness": 3.0,
+  "required_tool": "pickaxe",
+  "harvest_level": 0,
   "tags": ["mineable/pickaxe", "stone_like"],
   "textures": {
     "top": "textures/blocks/stone.png"

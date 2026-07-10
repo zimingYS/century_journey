@@ -28,6 +28,16 @@ pub enum ToolTier {
     Diamond = 3,
 }
 
+impl ToolTier {
+    pub const fn harvest_level(self) -> u8 {
+        match self {
+            Self::Wood => 0,
+            Self::Stone => 1,
+            Self::Iron => 2,
+            Self::Diamond => 3,
+        }
+    }
+}
 /// 工具属性数据
 /// 挂载在 ItemDefinition.tool 上，描述工具的性能参数。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

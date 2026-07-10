@@ -5,6 +5,8 @@
   "is_solid": true,
   "light_emission": 0,
   "hardness": 1.0,
+  "required_tool": "pickaxe",
+  "harvest_level": 1,
   "textures": {
     "top": "textures/blocks/ice.png"
   }
