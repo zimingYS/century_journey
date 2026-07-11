@@ -211,9 +211,11 @@ mod tests {
 
     #[test]
     fn required_tool_rejects_wrong_tool_or_low_tier() {
-        let mut block = BlockProperty::default();
-        block.required_tool = Some(ToolType::Pickaxe);
-        block.harvest_level = 1;
+        let block = BlockProperty {
+            required_tool: Some(ToolType::Pickaxe),
+            harvest_level: 1,
+            ..default()
+        };
 
         let wood_pickaxe = pickaxe(ToolTier::Wood, 1.0);
         let stone_axe = axe(ToolTier::Stone, 1.0);
@@ -227,9 +229,11 @@ mod tests {
 
     #[test]
     fn matching_tool_efficiency_reduces_break_seconds() {
-        let mut block = BlockProperty::default();
-        block.hardness = 3.0;
-        block.required_tool = Some(ToolType::Pickaxe);
+        let block = BlockProperty {
+            hardness: 3.0,
+            required_tool: Some(ToolType::Pickaxe),
+            ..default()
+        };
 
         let slow = pickaxe(ToolTier::Wood, 1.0);
         let fast = pickaxe(ToolTier::Iron, 3.0);

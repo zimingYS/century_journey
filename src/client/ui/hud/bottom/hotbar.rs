@@ -1,6 +1,7 @@
 use crate::client::renderer::item_model::ItemModelRenderAssets;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::hud::bottom::BottomHud;
+use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
     InventorySlot, SearchInputState, SlotKind, SlotVisual, spawn_display_only_slot, sync_slot_icon,
@@ -26,6 +27,7 @@ pub struct HotbarSelector;
 pub fn spawn_hotbar_ui_system(
     mut commands: Commands,
     theme: Res<UiTheme>,
+    ui_font: Res<UiFont>,
     bottom_hud: Query<Entity, With<BottomHud>>,
 ) {
     let Ok(bottom_hud_entity) = bottom_hud.single() else {
@@ -53,7 +55,7 @@ pub fn spawn_hotbar_ui_system(
         ))
         .with_children(|parent| {
             for index in 0..HOTBAR_SIZE {
-                spawn_display_only_slot(parent, SlotKind::Hotbar, index, &theme);
+                spawn_display_only_slot(parent, SlotKind::Hotbar, index, &theme, &ui_font);
             }
         });
     });

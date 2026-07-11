@@ -146,6 +146,7 @@ pub fn populate_survival_grid_system(
     existing_slots: Query<&InventorySlot>,
     mut commands: Commands,
     theme: Res<UiTheme>,
+    ui_font: Res<UiFont>,
 ) {
     let Ok(grid_entity) = grid_query.single() else {
         return;
@@ -167,7 +168,7 @@ pub fn populate_survival_grid_system(
 
     commands.entity(grid_entity).with_children(|grid| {
         for index in 0..36 {
-            spawn_empty_slot(grid, SlotKind::SurvivalBackpack, index, &theme);
+            spawn_empty_slot(grid, SlotKind::SurvivalBackpack, index, &theme, &ui_font);
         }
     });
 }
@@ -366,6 +367,7 @@ pub fn init_survival_hotbar_system(
     slot_query: Query<&InventorySlot>,
     mut commands: Commands,
     theme: Res<UiTheme>,
+    ui_font: Res<UiFont>,
     item_registry: Option<Res<ItemRegistry>>,
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
 ) {
@@ -405,6 +407,7 @@ pub fn init_survival_hotbar_system(
                 render_assets,
                 &item_model_assets,
                 &theme,
+                &ui_font,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
             );

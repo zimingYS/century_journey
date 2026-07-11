@@ -8,6 +8,7 @@ pub use components::{
 
 use crate::client::renderer::item_model::{ItemModelRenderAssets, ItemModelRenderer};
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
+use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
@@ -21,6 +22,7 @@ pub fn spawn_empty_slot(
     kind: SlotKind,
     index: usize,
     theme: &UiTheme,
+    ui_font: &UiFont,
 ) {
     parent
         .spawn((
@@ -56,6 +58,7 @@ pub fn spawn_empty_slot(
                 SlotCountText,
                 Text::new(""),
                 TextFont {
+                    font: FontSource::from(ui_font.default.clone()),
                     font_size: FontSize::Px(11.0),
                     ..default()
                 },
@@ -81,6 +84,7 @@ pub fn spawn_slot_with_item(
     render_assets: &BlockRenderAssets,
     item_model_assets: &ItemModelRenderAssets,
     theme: &UiTheme,
+    ui_font: &UiFont,
     item_registry: Option<&ItemRegistry>,
     item_texture_registry: Option<&ItemTextureRegistry>,
 ) {
@@ -118,6 +122,7 @@ pub fn spawn_slot_with_item(
                 SlotCountText,
                 Text::new(""),
                 TextFont {
+                    font: FontSource::from(ui_font.default.clone()),
                     font_size: FontSize::Px(11.0),
                     ..default()
                 },
@@ -358,6 +363,7 @@ pub fn spawn_display_only_slot(
     kind: SlotKind,
     index: usize,
     theme: &UiTheme,
+    ui_font: &UiFont,
 ) {
     parent
         .spawn((
@@ -383,6 +389,7 @@ pub fn spawn_display_only_slot(
                 SlotCountText,
                 Text::new(""),
                 TextFont {
+                    font: FontSource::from(ui_font.default.clone()),
                     font_size: FontSize::Px(11.0),
                     ..default()
                 },

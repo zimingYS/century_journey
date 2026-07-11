@@ -1,4 +1,5 @@
 use crate::client::renderer::item_model::{ItemModelRenderAssets, ItemModelRenderer};
+use crate::client::ui::resources::ui_font::UiFont;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::state::InventoryState;
@@ -18,7 +19,7 @@ pub struct CursorItemImage;
 pub struct CursorCountText;
 
 /// 生成鼠标拖拽物品图标实体。
-pub fn spawn_cursor_item_icon(mut commands: Commands) {
+pub fn spawn_cursor_item_icon(mut commands: Commands, ui_font: Res<UiFont>) {
     commands
         .spawn((
             CursorItemIcon,
@@ -49,6 +50,7 @@ pub fn spawn_cursor_item_icon(mut commands: Commands) {
                 CursorCountText,
                 Text::new(""),
                 TextFont {
+                    font: FontSource::from(ui_font.default.clone()),
                     font_size: FontSize::Px(12.0),
                     ..default()
                 },

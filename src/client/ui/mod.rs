@@ -40,7 +40,8 @@ impl Plugin for UIPlugin {
                     widgets::drag::spawn_cursor_item_icon,
                     screens::creative_inventory::spawn_creative_inventory_system,
                     screens::survival_inventory::spawn_survival_inventory_system,
-                ),
+                )
+                    .chain(),
             )
             // ── Update: 数据构建 + UI填充 (分成两组保证 chain 在 tuple 限制内) ──
             .add_systems(
@@ -99,6 +100,7 @@ impl Plugin for UIPlugin {
                 Update,
                 (
                     screens::creative_inventory::toggle_inventory_system,
+                    screens::creative_inventory::creative_close_button_system,
                     screens::creative_inventory::update_creative_visibility_system,
                     screens::survival_inventory::update_survival_visibility_system,
                 ),
@@ -110,6 +112,7 @@ impl Plugin for UIPlugin {
                     screens::survival_inventory::survival_hotbar_visual_sync_system,
                     screens::survival_inventory::survival_grid_visual_sync_system,
                     screens::creative_inventory::update_category_highlight_system,
+                    screens::creative_inventory::sync_creative_search_placeholder_system,
                 )
                     .chain(),
             )

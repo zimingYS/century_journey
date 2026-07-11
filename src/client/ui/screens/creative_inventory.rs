@@ -1,13 +1,14 @@
 use std::collections::HashSet;
 
+use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 use crate::client::renderer::item_model::ItemModelRenderAssets;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::components::{
-    CreativeCategoryPanel, CreativeHotbarPanel, CreativeInventoryOverlay, CreativeItemGrid,
-    CreativeRecentPanel,
+    CreativeCategoryPanel, CreativeCloseButton, CreativeHotbarPanel, CreativeInventoryOverlay,
+    CreativeItemGrid, CreativeRecentPanel, CreativeSearchPlaceholder,
 };
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::category_theme::CategoryTheme;
@@ -26,10 +27,17 @@ use crate::game::inventory::container::creative::CreativeCategory;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
 use crate::shared::item_id::ItemId;
+use crate::shared::tag::identifier::TagId;
 
 pub use crate::client::ui::screens::setup::spawn_creative_inventory_system;
 
-/// 切换物品栏状态
+/// 右侧最近使用面板固定显示的槽位数量。
+const RECENT_SLOT_COUNT: usize = 12;
+const CREATIVE_SLOT_SIZE: f32 = 74.0;
+const CREATIVE_RECENT_SLOT_SIZE: f32 = 58.0;
+const CREATIVE_SLOT_GAP: f32 = 6.0;
+
+/// 切换物品栏状态。
 pub fn toggle_inventory_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     search_state: Res<SearchInputState>,
@@ -59,12 +67,13 @@ pub fn toggle_inventory_system(
         if gamemode.is_creative() {
             state.cursor.clear();
         } else {
-            // Survival: 尝试放回背包来源槽位
+            // 生存模式关闭时，将拖拽物品尽量归还给来源槽位。
             crate::client::ui::screens::survival_inventory::handle_inventory_close(&mut state);
         }
     }
 }
 
+/// 同步创造物品栏遮罩显隐。
 pub fn update_creative_visibility_system(
     state: Res<InventoryState>,
     gamemode: Res<crate::game::gameplay::gamemode::PlayerGameMode>,
@@ -83,7 +92,55 @@ pub fn update_creative_visibility_system(
     }
 }
 
-/// 构造标签数据
+/// 点击右上角关闭按钮时关闭创造物品栏。
+pub fn creative_close_button_system(
+    button_query: Query<&Interaction, (Changed<Interaction>, With<CreativeCloseButton>)>,
+    gamemode: Res<crate::game::gameplay::gamemode::PlayerGameMode>,
+    mut state: ResMut<InventoryState>,
+    mut cursor_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
+    mut input_focus: ResMut<InputFocus>,
+    mut search_state: ResMut<SearchInputState>,
+) {
+    if !gamemode.is_creative() || !state.opened {
+        return;
+    }
+
+    let pressed = button_query
+        .iter()
+        .any(|interaction| *interaction == Interaction::Pressed);
+    if !pressed {
+        return;
+    }
+
+    state.opened = false;
+    state.cursor.clear();
+    input_focus.clear();
+    search_state.active = false;
+
+    if let Ok(mut cursor) = cursor_query.single_mut() {
+        cursor.visible = false;
+        cursor.grab_mode = CursorGrabMode::Locked;
+    }
+}
+
+/// 同步搜索框占位文字显隐，避免占位文字参与真实搜索。
+pub fn sync_creative_search_placeholder_system(
+    state: Res<InventoryState>,
+    search_state: Res<SearchInputState>,
+    mut query: Query<&mut Visibility, With<CreativeSearchPlaceholder>>,
+) {
+    let Ok(mut visibility) = query.single_mut() else {
+        return;
+    };
+
+    *visibility = if state.opened && state.creative.search_text.is_empty() && !search_state.active {
+        Visibility::Visible
+    } else {
+        Visibility::Hidden
+    };
+}
+
+/// 构造创造模式分类数据，并按截图风格固定分类顺序。
 pub fn build_creative_categories_system(
     tag_registry: Option<Res<RuntimeTagRegistry>>,
     block_registry: Option<Res<BlockRegistry>>,
@@ -103,46 +160,47 @@ pub fn build_creative_categories_system(
         return;
     }
 
-    state
-        .creative
-        .categories
-        .push(CreativeCategory::virtual_category("全部", ""));
+    // 这些标签来自数据层；显示顺序固定，避免 HashMap 顺序导致 UI 抖动。
+    let mut categories = vec![
+        CreativeCategory::virtual_category("全部", "■"),
+        category_from_tag("solid", "固体", "▣", &tag_reg, &block_reg),
+        category_from_tag("tree_plantable", "作物", "♧", &tag_reg, &block_reg),
+        category_from_tag("natural", "自然", "♣", &tag_reg, &block_reg),
+    ];
 
-    let tags: Vec<_> = tag_reg.all_tags().cloned().collect();
-    for tag in &tags {
-        let items: Vec<ItemId> = tag_reg
-            .get_ids(tag)
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|&id| block_reg.get_identifier_by_id(id))
-                    .map(|ident| ItemId::new(ident.clone()))
-                    .collect()
-            })
-            .unwrap_or_default();
+    let mut tools = CreativeCategory::virtual_category("工具", "⚒");
+    if let Some(item_reg) = item_registry.as_ref() {
+        tools.items = item_reg.items_by_category(&ItemCategory::Tool).to_vec();
+    }
+    categories.push(tools);
 
-        state.creative.categories.push(CreativeCategory::from_tag(
+    // 预留与参考图一致的分类入口，后续有对应数据时只需要填充 items。
+    categories.push(CreativeCategory::virtual_category("装饰", "▤"));
+    categories.push(CreativeCategory::virtual_category("红石", "◆"));
+    categories.push(CreativeCategory::virtual_category("运输", "≡"));
+    categories.push(CreativeCategory::virtual_category("杂项", "◒"));
+    categories.push(CreativeCategory::virtual_category("收藏", "☆"));
+
+    // 追加未显式列出的数据标签，保证新增标签不会被 UI 吞掉。
+    let known = [
+        "century_journey:solid",
+        "century_journey:tree_plantable",
+        "century_journey:natural",
+    ];
+    for tag in tag_reg.all_tags() {
+        let tag_full = tag.to_full();
+        if known.contains(&tag_full.as_str()) {
+            continue;
+        }
+        categories.push(CreativeCategory::from_tag(
             tag.clone(),
-            cat_theme.display_name(&tag.to_full()),
-            cat_theme.icon(&tag.to_full()),
-            items,
+            cat_theme.display_name(&tag_full),
+            cat_theme.icon(&tag_full),
+            items_for_tag(tag, &tag_reg, &block_reg),
         ));
     }
 
-    // 工具分类
-    let categories = &mut state.creative.categories;
-    categories.push(CreativeCategory::virtual_category("工具", ""));
-    if let Some(item_reg) = item_registry.as_ref() {
-        let tool_ids = item_reg.items_by_category(&ItemCategory::Tool);
-        if let Some(last) = categories.last_mut() {
-            last.items = tool_ids.to_vec();
-        }
-    }
-    // 如果工具分类为空，保留空分类
-
-    state
-        .creative
-        .categories
-        .push(CreativeCategory::virtual_category("收藏", ""));
+    state.creative.categories = categories;
 
     let Ok(panel_entity) = category_panel.single() else {
         return;
@@ -162,7 +220,49 @@ pub fn build_creative_categories_system(
     });
 }
 
-/// 搜索过滤更新
+/// 从指定方块标签生成创造模式分类。
+fn category_from_tag(
+    path: &str,
+    display_name: &str,
+    icon: &str,
+    tag_registry: &RuntimeTagRegistry,
+    block_registry: &BlockRegistry,
+) -> CreativeCategory {
+    let tag_id = TagId::new("century_journey", path);
+    CreativeCategory::from_tag(
+        tag_id.clone(),
+        display_name.to_string(),
+        icon.to_string(),
+        items_for_tag(&tag_id, tag_registry, block_registry),
+    )
+}
+
+/// 为创造物品栏生成局部槽位主题，避免影响 HUD 和生存背包。
+fn creative_slot_theme(theme: &UiTheme, slot_size: f32) -> UiTheme {
+    let mut theme = theme.clone();
+    theme.slot_size = slot_size;
+    theme.slot_gap = CREATIVE_SLOT_GAP;
+    theme
+}
+
+/// 将方块标签里的运行时方块 ID 转换成物品 ID。
+fn items_for_tag(
+    tag: &TagId,
+    tag_registry: &RuntimeTagRegistry,
+    block_registry: &BlockRegistry,
+) -> Vec<ItemId> {
+    tag_registry
+        .get_ids(tag)
+        .map(|ids| {
+            ids.iter()
+                .filter_map(|&id| block_registry.get_identifier_by_id(id))
+                .map(|ident| ItemId::new(ident.clone()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// 搜索过滤更新。
 pub fn update_creative_filter_system(
     block_registry: Option<Res<BlockRegistry>>,
     item_registry: Option<Res<ItemRegistry>>,
@@ -177,11 +277,10 @@ pub fn update_creative_filter_system(
     let search = state.creative.search_text.clone();
 
     let mut new_items = if tab == 0 {
-        // "全部"标签页：方块 + 物品，去重
+        // “全部”分类：方块 + 物品，去重后统一展示。
         let mut seen = HashSet::new();
         let mut all: Vec<ItemId> = Vec::new();
 
-        // BlockRegistry 中的方块
         for id in reg.identifiers() {
             if id == "century_journey:air" {
                 continue;
@@ -192,7 +291,6 @@ pub fn update_creative_filter_system(
             }
         }
 
-        // ItemRegistry 中的物品（包括自动生成方块物品）
         if let Some(item_reg) = item_registry.as_ref() {
             for def in item_reg.all_items() {
                 let item_id = ItemId::new(def.identifier.clone());
@@ -222,7 +320,7 @@ pub fn update_creative_filter_system(
     }
 }
 
-/// 创造模式网格填充
+/// 创造模式物品网格填充。
 pub fn populate_creative_grid_system(
     state: Res<InventoryState>,
     block_registry: Option<Res<BlockRegistry>>,
@@ -234,6 +332,7 @@ pub fn populate_creative_grid_system(
     item_registry: Option<Res<ItemRegistry>>,
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
     theme: Res<UiTheme>,
+    ui_font: Res<UiFont>,
     mut commands: Commands,
     mut last_items: Local<Option<(Vec<ItemId>, u64)>>,
 ) {
@@ -255,7 +354,6 @@ pub fn populate_creative_grid_system(
     }
     *last_items = Some((state.creative.visible_items.clone(), revision));
 
-    // 收集现有 CreativeGrid 槽位
     let mut slot_indices: Vec<(Entity, usize)> = Vec::new();
     if let Ok(children) = children_query.get(grid_entity) {
         for child in children.iter() {
@@ -269,7 +367,6 @@ pub fn populate_creative_grid_system(
 
     let new_items = &state.creative.visible_items;
 
-    // 数量匹配 → 原地更新图标
     if slot_indices.len() == new_items.len() {
         for (entity, idx) in slot_indices {
             let air = &ItemId::air();
@@ -290,12 +387,13 @@ pub fn populate_creative_grid_system(
         return;
     }
 
-    // 数量不匹配 → 重建
     if let Ok(children) = children_query.get(grid_entity) {
         for child in children.iter() {
             commands.entity(child).despawn();
         }
     }
+
+    let creative_theme = creative_slot_theme(theme.as_ref(), CREATIVE_SLOT_SIZE);
 
     commands.entity(grid_entity).with_children(|grid| {
         for (index, item) in new_items.iter().enumerate() {
@@ -307,7 +405,8 @@ pub fn populate_creative_grid_system(
                 reg,
                 render_assets,
                 &item_model_assets,
-                &theme,
+                &creative_theme,
+                &ui_font,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
             );
@@ -315,7 +414,7 @@ pub fn populate_creative_grid_system(
     });
 }
 
-/// 最近使用面板填充
+/// 最近使用面板填充：固定补齐 12 个槽位，保持右侧栏稳定。
 pub fn populate_recent_panel_system(
     state: Res<InventoryState>,
     block_registry: Option<Res<BlockRegistry>>,
@@ -349,28 +448,27 @@ pub fn populate_recent_panel_system(
     }
     *last_items = Some((state.recent.items.clone(), revision));
 
-    // 收集现有 Recent 槽位（跳过第一子节点 "最近使用:" 文本）
     let mut slot_entities: Vec<(Entity, usize)> = Vec::new();
     if let Ok(children) = children_query.get(panel_entity) {
-        for child in children.iter().skip(1) {
-            // skip label
-            if let Ok(slot) = existing_slots.get(child)
-                && slot.1.kind == SlotKind::Recent
+        for child in children.iter() {
+            if let Ok((entity, slot)) = existing_slots.get(child)
+                && slot.kind == SlotKind::Recent
             {
-                slot_entities.push((child, slot.1.index));
+                slot_entities.push((entity, slot.index));
             }
         }
     }
+    slot_entities.sort_by_key(|(_, index)| *index);
 
-    let new_items = &state.recent.items;
-
-    if slot_entities.len() == new_items.len() {
+    if slot_entities.len() == RECENT_SLOT_COUNT {
         for (entity, idx) in slot_entities {
             let air = ItemId::air();
-            let (item, count) = new_items
+            let (item, count) = state
+                .recent
+                .items
                 .get(idx)
-                .map(|s| (&s.item, s.count))
-                .unwrap_or((&air, 0u32));
+                .map(|stack| (&stack.item, stack.count))
+                .unwrap_or((&air, 0));
             sync_slot_icon(
                 &mut commands,
                 entity,
@@ -387,45 +485,99 @@ pub fn populate_recent_panel_system(
         return;
     }
 
-    // 重建
     if let Ok(children) = children_query.get(panel_entity) {
         for child in children.iter() {
             commands.entity(child).despawn();
         }
     }
 
+    let recent_theme = creative_slot_theme(theme.as_ref(), CREATIVE_RECENT_SLOT_SIZE);
+
     commands.entity(panel_entity).with_children(|panel| {
         panel.spawn((
-            Text::new("最近使用:"),
+            Text::new("最近使用"),
             TextFont {
                 font: FontSource::from(ui_font.default.clone()),
-                font_size: FontSize::Px(theme.small_font_size),
+                font_size: FontSize::Px(theme.body_font_size + 6.0),
                 ..default()
             },
-            TextColor(theme.text_secondary),
+            TextColor(theme.text_primary),
             Node {
-                margin: UiRect::right(Val::Px(8.0)),
+                width: Val::Percent(100.0),
+                height: Val::Px(34.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
         ));
-        for (index, stack) in new_items.iter().enumerate() {
+
+        for index in 0..RECENT_SLOT_COUNT {
+            let air = ItemId::air();
+            let item = state
+                .recent
+                .items
+                .get(index)
+                .map(|stack| &stack.item)
+                .unwrap_or(&air);
             spawn_slot_with_item(
                 panel,
                 SlotKind::Recent,
                 index,
-                &stack.item,
+                item,
                 reg,
                 render_assets,
                 &item_model_assets,
-                &theme,
+                &recent_theme,
+                &ui_font,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
             );
         }
+
+        // 底部箱子按钮是视觉占位，后续可接入保存/加载创造热键栏。
+        panel
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(96.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::top(Val::Px(12.0)),
+                    border: UiRect::top(Val::Px(1.0)),
+                    ..default()
+                },
+                BorderColor::all(Color::srgba(0.20, 0.20, 0.20, 1.0)),
+            ))
+            .with_children(|footer| {
+                footer
+                    .spawn((
+                        Node {
+                            width: Val::Px(64.0),
+                            height: Val::Px(64.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            border: UiRect::all(Val::Px(2.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.12, 0.11, 0.10, 1.0)),
+                        BorderColor::all(Color::srgba(0.34, 0.31, 0.27, 1.0)),
+                    ))
+                    .with_children(|slot| {
+                        slot.spawn((
+                            Text::new("箱"),
+                            TextFont {
+                                font: FontSource::from(ui_font.default.clone()),
+                                font_size: FontSize::Px(30.0),
+                                ..default()
+                            },
+                            TextColor(Color::srgba(0.75, 0.46, 0.20, 1.0)),
+                        ));
+                    });
+            });
     });
 }
 
-/// 创造模式快捷栏
+/// 创造模式快捷栏。
 pub fn init_creative_hotbar_system(
     state: Res<InventoryState>,
     block_registry: Option<Res<BlockRegistry>>,
@@ -435,6 +587,7 @@ pub fn init_creative_hotbar_system(
     children_query: Query<&Children>,
     slot_query: Query<&InventorySlot>,
     theme: Res<UiTheme>,
+    ui_font: Res<UiFont>,
     item_registry: Option<Res<ItemRegistry>>,
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
     mut commands: Commands,
@@ -464,6 +617,8 @@ pub fn init_creative_hotbar_system(
         return;
     }
 
+    let creative_theme = creative_slot_theme(theme.as_ref(), CREATIVE_SLOT_SIZE);
+
     commands.entity(panel_entity).with_children(|bar| {
         for (index, item) in state.hotbar.items().iter().enumerate() {
             spawn_slot_with_item(
@@ -474,7 +629,8 @@ pub fn init_creative_hotbar_system(
                 reg,
                 render_assets,
                 &item_model_assets,
-                &theme,
+                &creative_theme,
+                &ui_font,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
             );
@@ -482,7 +638,7 @@ pub fn init_creative_hotbar_system(
     });
 }
 
-/// 创造模式快捷栏视觉同步
+/// 创造模式快捷栏视觉同步。
 pub fn creative_hotbar_visual_sync_system(
     state: Res<InventoryState>,
     block_registry: Option<Res<BlockRegistry>>,
@@ -530,7 +686,7 @@ pub fn creative_hotbar_visual_sync_system(
     );
 }
 
-/// 关闭物品栏时清理创造模式快捷栏子实体
+/// 关闭物品栏时清理创造模式快捷栏子实体。
 pub fn cleanup_creative_hotbar_system(
     state: Res<InventoryState>,
     hotbar_query: Query<Entity, With<CreativeHotbarPanel>>,
@@ -550,15 +706,21 @@ pub fn cleanup_creative_hotbar_system(
     *was_opened = state.opened;
 }
 
-///  分类标签高亮
+/// 分类标签高亮。
 pub fn update_category_highlight_system(
     state: Res<InventoryState>,
     theme: Res<UiTheme>,
-    mut query: Query<(&CategoryTab, &mut BackgroundColor)>,
+    mut query: Query<(&CategoryTab, &mut BackgroundColor, &mut BorderColor)>,
 ) {
-    for (tab, mut bg) in &mut query {
-        *bg = BackgroundColor(if tab.category_index == state.creative.selected_tab {
-            theme.tab_active_bg
+    for (tab, mut bg, mut border) in &mut query {
+        let selected = tab.category_index == state.creative.selected_tab;
+        *bg = BackgroundColor(if selected {
+            Color::srgba(0.12, 0.24, 0.36, 0.92)
+        } else {
+            Color::NONE
+        });
+        *border = BorderColor::all(if selected {
+            theme.border_hover
         } else {
             Color::NONE
         });
