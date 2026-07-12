@@ -1,17 +1,16 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::game::constant::player::STEP_HEIGHT;
+use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::{Player, PlayerCollider, PlayerGravity, PlayerMovement};
 use crate::game::player::systems::collision::check_collision_at;
 use crate::game::world::storage::WorldStorage;
-use crate::shared::ui_types::SearchInputState;
 use bevy::prelude::*;
 
 pub fn player_movement_system(
     time: Res<Time>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    actions: Res<PlayerActionState>,
     registry: Option<Res<BlockRegistry>>,
     world_storage: Res<WorldStorage>,
-    search_state: Res<SearchInputState>,
     mut query: Query<
         (
             &mut Transform,
@@ -22,9 +21,6 @@ pub fn player_movement_system(
         With<Player>,
     >,
 ) {
-    if search_state.active {
-        return;
-    }
     let Some(reg) = registry else { return };
     let dt = time.delta_secs();
 
@@ -32,7 +28,7 @@ pub fn player_movement_system(
         let half = collider.half_extents;
 
         // 跳跃
-        if keyboard_input.just_pressed(KeyCode::Space) && gravity.is_grounded {
+        if actions.just_pressed(PlayerAction::Jump) && gravity.is_grounded {
             // 跳跃高度计算
             gravity.velocity_y = movement.jump_force;
             // 标记着地状态，防止空中连跳
@@ -41,16 +37,16 @@ pub fn player_movement_system(
 
         // 移动
         let mut direction = Vec3::ZERO;
-        if keyboard_input.pressed(KeyCode::KeyW) {
+        if actions.pressed(PlayerAction::MoveForward) {
             direction += transform.forward().as_vec3();
         }
-        if keyboard_input.pressed(KeyCode::KeyS) {
+        if actions.pressed(PlayerAction::MoveBackward) {
             direction -= transform.forward().as_vec3();
         }
-        if keyboard_input.pressed(KeyCode::KeyA) {
+        if actions.pressed(PlayerAction::MoveLeft) {
             direction -= transform.right().as_vec3();
         }
-        if keyboard_input.pressed(KeyCode::KeyD) {
+        if actions.pressed(PlayerAction::MoveRight) {
             direction += transform.right().as_vec3();
         }
 
@@ -62,7 +58,7 @@ pub fn player_movement_system(
         direction = direction.normalize();
 
         // 处理移动速度
-        let speed = if keyboard_input.pressed(KeyCode::ShiftLeft) {
+        let speed = if actions.pressed(PlayerAction::Sprint) {
             movement.movement_speed * movement.sprint_factor
         } else {
             movement.movement_speed

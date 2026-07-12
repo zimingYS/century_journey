@@ -1,5 +1,6 @@
+use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::Player;
-use crate::shared::states::input_blocked::InputBlocked;
+use crate::shared::states::InputContextState;
 use bevy::camera::Exposure;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::input::mouse::MouseMotion;
@@ -7,7 +8,6 @@ use bevy::light::{AtmosphereEnvironmentMapLight, VolumetricFog};
 use bevy::pbr::AtmosphereSettings;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
-use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 pub use crate::shared::components::camera::FpsCamera;
 
@@ -34,9 +34,10 @@ pub fn player_look_system(
     mut mouse_motion: MessageReader<MouseMotion>,
     mut player_query: Query<&mut Transform, With<Player>>,
     mut camera_query: Query<(&mut Transform, &mut FpsCamera), Without<Player>>,
-    input_blocked: Res<InputBlocked>,
+    context: Res<InputContextState>,
 ) {
-    if input_blocked.0 {
+    if !context.active().allows_gameplay() {
+        mouse_motion.clear();
         return;
     }
 
@@ -60,42 +61,12 @@ pub fn player_look_system(
     }
 }
 
-pub fn convert_mouse_lock_on_startup(
-    mut cursor_options_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
-) {
-    let Ok(mut cursor_options) = cursor_options_query.single_mut() else {
-        return;
-    };
-
-    cursor_options.grab_mode = CursorGrabMode::Locked;
-    cursor_options.visible = false;
-}
-
-pub fn toggle_mouse_lock_system(
-    mut cursor_options_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-) {
-    let Ok(mut cursor_options) = cursor_options_query.single_mut() else {
-        return;
-    };
-
-    if keyboard_input.just_pressed(KeyCode::Escape) {
-        if cursor_options.grab_mode == CursorGrabMode::Locked {
-            cursor_options.visible = true;
-            cursor_options.grab_mode = CursorGrabMode::None;
-        } else {
-            cursor_options.visible = false;
-            cursor_options.grab_mode = CursorGrabMode::Locked;
-        }
-    }
-}
-
 /// F5切换第一人称/第三人称视角
 pub fn toggle_perspective_system(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    actions: Res<PlayerActionState>,
     mut camera_query: Query<&mut FpsCamera, With<Camera3d>>,
 ) {
-    if !keyboard_input.just_pressed(KeyCode::F5) {
+    if !actions.just_pressed(PlayerAction::TogglePerspective) {
         return;
     }
     for mut fps_camera in &mut camera_query {
@@ -129,16 +100,14 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, convert_mouse_lock_on_startup)
-            .add_systems(
-                Update,
-                (
-                    player_look_system,
-                    toggle_mouse_lock_system,
-                    toggle_perspective_system,
-                    camera_perspective_sync_system,
-                    setup_player_camera_system,
-                ),
-            );
+        app.add_systems(
+            Update,
+            (
+                player_look_system,
+                toggle_perspective_system,
+                camera_perspective_sync_system,
+                setup_player_camera_system,
+            ),
+        );
     }
 }

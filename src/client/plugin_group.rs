@@ -2,6 +2,7 @@ use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 
 use crate::app::plugin::CorePlugin;
+use crate::client::input::ClientInputPlugin;
 use crate::client::player::ClientPlayerPlugin;
 use crate::client::renderer::ClientRenderingPlugin;
 use crate::client::sky::SkyPlugin;
@@ -14,6 +15,7 @@ use crate::content::recipe::plugin::RecipeContentPlugin;
 use crate::content::tag::TagContentPlugin;
 use crate::engine::asset::AssetPlugin;
 use crate::engine::task::TaskPlugin;
+use crate::game::crafting::plugin::CraftingPlugin;
 use crate::game::gameplay::GameplayPlugin;
 use crate::game::inventory::plugin::InventoryPlugin;
 use crate::game::world::WorldPlugin;
@@ -35,11 +37,13 @@ impl PluginGroup for ClientPluginGroup {
             .add(RecipeContentPlugin)
             // Game 层（运行时逻辑，依赖 Content）
             .add(GameplayPlugin)
+            .add(CraftingPlugin)
             .add(WorldPlugin)
             .add(InventoryPlugin)
             // App 层
             .add(CorePlugin)
             // Client 层（渲染/UI，依赖 Content+Game）
+            .add(ClientInputPlugin)
             .add(ClientRenderingPlugin)
             .add(ClientPlayerPlugin)
             .add(SkyPlugin)

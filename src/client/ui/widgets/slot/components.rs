@@ -1,4 +1,3 @@
-use crate::game::inventory::slot::SlotAction;
 use crate::shared::item_id::ItemId;
 use crate::shared::ui_types::SlotKind;
 use bevy::prelude::*;
@@ -39,13 +38,7 @@ pub struct CategoryTab {
 #[derive(Component)]
 pub struct CreativeSearchInput;
 
-/// 槽位点击事件
-#[derive(Message, Debug)]
-pub struct SlotInteractionEvent {
-    pub kind: SlotKind,
-    pub index: usize,
-    pub action: SlotAction,
-}
+pub use crate::game::inventory::events::SlotInteractionEvent;
 
 /// 分类切换事件
 #[derive(Message, Debug)]

@@ -1,24 +1,27 @@
+use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::Player;
 use crate::game::player::components::stats::{Health, Hunger};
 use crate::game::player::events::{DamageEvent, DamageSource, HealEvent};
-use crate::shared::states::input_blocked::InputBlocked;
 use bevy::prelude::*;
 
 /// Action Cost 系统 — 冲刺/跳跃消耗饥饿
 pub fn action_cost_system(
     time: Res<Time>,
-    input_blocked: Res<InputBlocked>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    actions: Res<PlayerActionState>,
     mut query: Query<&mut Hunger, With<Player>>,
 ) {
-    if input_blocked.0 {
-        return;
-    }
     let dt = time.delta_secs();
 
-    let sprinting = keyboard.pressed(KeyCode::ShiftLeft)
-        && keyboard.any_pressed([KeyCode::KeyW, KeyCode::KeyA, KeyCode::KeyS, KeyCode::KeyD]);
-    let jumped = keyboard.just_pressed(KeyCode::Space);
+    let sprinting = actions.pressed(PlayerAction::Sprint)
+        && [
+            PlayerAction::MoveForward,
+            PlayerAction::MoveBackward,
+            PlayerAction::MoveLeft,
+            PlayerAction::MoveRight,
+        ]
+        .into_iter()
+        .any(|action| actions.pressed(action));
+    let jumped = actions.just_pressed(PlayerAction::Jump);
 
     for mut hunger in &mut query {
         if sprinting {

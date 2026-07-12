@@ -41,9 +41,10 @@ impl PlayerGameMode {
 /// F4切换游戏模式（仅开发阶段使用）
 pub fn toggle_gamemode_system(
     keyboard: Res<ButtonInput<KeyCode>>,
+    context: Res<crate::shared::states::InputContextState>,
     mut gamemode: ResMut<PlayerGameMode>,
 ) {
-    if !keyboard.just_pressed(KeyCode::F4) {
+    if !context.active().allows_gameplay() || !keyboard.just_pressed(KeyCode::F4) {
         return;
     }
     gamemode.mode = match gamemode.mode {

@@ -4,15 +4,15 @@ use crate::client::ui::hud::bottom::BottomHud;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
-    InventorySlot, SearchInputState, SlotKind, SlotVisual, spawn_display_only_slot, sync_slot_icon,
+    InventorySlot, SlotKind, SlotVisual, spawn_display_only_slot, sync_slot_icon,
 };
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::state::InventoryState;
+use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::shared::item_id::ItemId;
-use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
 /// HUD快捷栏(物品栏)
@@ -164,38 +164,46 @@ pub fn hud_hotbar_visual_sync_system(
 
 /// 数字键/滚轮切换快捷栏
 pub fn handle_hotbar_switch_system(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    search_state: Res<SearchInputState>,
-    mut mouse_wheel: MessageReader<MouseWheel>,
+    actions: Res<PlayerActionState>,
     mut state: ResMut<InventoryState>,
 ) {
-    if state.opened || search_state.active {
+    if !actions.pressed(PlayerAction::Hotbar1)
+        && !actions.pressed(PlayerAction::Hotbar2)
+        && !actions.pressed(PlayerAction::Hotbar3)
+        && !actions.pressed(PlayerAction::Hotbar4)
+        && !actions.pressed(PlayerAction::Hotbar5)
+        && !actions.pressed(PlayerAction::Hotbar6)
+        && !actions.pressed(PlayerAction::Hotbar7)
+        && !actions.pressed(PlayerAction::Hotbar8)
+        && !actions.pressed(PlayerAction::Hotbar9)
+        && !actions.pressed(PlayerAction::HotbarPrevious)
+        && !actions.pressed(PlayerAction::HotbarNext)
+    {
         return;
     }
 
-    let num_keys = [
-        (KeyCode::Digit1, 0),
-        (KeyCode::Digit2, 1),
-        (KeyCode::Digit3, 2),
-        (KeyCode::Digit4, 3),
-        (KeyCode::Digit5, 4),
-        (KeyCode::Digit6, 5),
-        (KeyCode::Digit7, 6),
-        (KeyCode::Digit8, 7),
-        (KeyCode::Digit9, 8),
+    let hotbar_actions = [
+        PlayerAction::Hotbar1,
+        PlayerAction::Hotbar2,
+        PlayerAction::Hotbar3,
+        PlayerAction::Hotbar4,
+        PlayerAction::Hotbar5,
+        PlayerAction::Hotbar6,
+        PlayerAction::Hotbar7,
+        PlayerAction::Hotbar8,
+        PlayerAction::Hotbar9,
     ];
-    for (key, idx) in num_keys {
-        if keyboard.just_pressed(key) {
-            state.hotbar.active_index = idx;
+    for (index, action) in hotbar_actions.into_iter().enumerate() {
+        if actions.just_pressed(action) {
+            state.hotbar.active_index = index;
             break;
         }
     }
 
-    for event in mouse_wheel.read() {
-        if event.y > 0.0 {
-            state.hotbar.select_prev();
-        } else {
-            state.hotbar.select_next();
-        }
+    if actions.just_pressed(PlayerAction::HotbarPrevious) {
+        state.hotbar.select_prev();
+    }
+    if actions.just_pressed(PlayerAction::HotbarNext) {
+        state.hotbar.select_next();
     }
 }

@@ -1,12 +1,9 @@
 use crate::client::ui::hud::plugin::HudPlugin;
 use crate::client::ui::theme::category_theme::CategoryTheme;
 use crate::client::ui::theme::ui_theme::UiTheme;
-use crate::client::ui::widgets::slot::{
-    CategoryClickedEvent, SearchInputState, SlotInteractionEvent,
-};
-use crate::game::inventory::events::DropItemEvent;
+use crate::client::ui::widgets::slot::{CategoryClickedEvent, SearchInputState};
 use crate::game::inventory::state::InventoryState;
-use crate::shared::states::input_blocked::InputBlocked;
+use crate::shared::states::{InputContext, InputContextState};
 use bevy::prelude::*;
 
 pub mod components;
@@ -22,13 +19,8 @@ impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
         app
             // ── 消息通道 ──
-            .add_message::<SlotInteractionEvent>()
             .add_message::<CategoryClickedEvent>()
-            .add_message::<DropItemEvent>()
             // ── 资源 ──
-            .init_resource::<InventoryState>()
-            .init_resource::<crate::game::crafting::grid::PlayerCrafting>()
-            .init_resource::<crate::game::inventory::equipment::AccessorySlotDefinitions>()
             .init_resource::<UiTheme>()
             .init_resource::<CategoryTheme>()
             .init_resource::<resources::ui_font::UiFont>()
@@ -68,7 +60,6 @@ impl Plugin for UIPlugin {
                     .chain(),
             )
             // ── Update: 输入 → 事件 ──
-            .add_systems(Update, interaction::active_hotbar_q_drop_system)
             .add_systems(
                 Update,
                 (
@@ -77,17 +68,14 @@ impl Plugin for UIPlugin {
                     interaction::slot_q_drop_system,
                     interaction::category_tab_interaction_system,
                 )
-                    .run_if(|state: Res<InventoryState>| state.opened),
+                    .run_if(|context: Res<InputContextState>| {
+                        context.active() == InputContext::Inventory
+                    }),
             )
             // ── Update: 事件 → 状态 ──
             .add_systems(
                 Update,
-                (
-                    interaction::handle_slot_interaction_system,
-                    screens::crafting::crafting_interaction_system,
-                    interaction::handle_category_clicked_system,
-                    interaction::cancel_drag_system,
-                )
+                (interaction::handle_category_clicked_system,)
                     .run_if(|state: Res<InventoryState>| state.opened),
             )
             // ── Update: 搜索 ──
@@ -96,7 +84,6 @@ impl Plugin for UIPlugin {
                 (
                     interaction::sync_search_input_focus_system,
                     interaction::sync_search_text_from_editable_system,
-                    interaction::search_escape_system,
                 )
                     .chain(),
             )
@@ -104,7 +91,6 @@ impl Plugin for UIPlugin {
             .add_systems(
                 Update,
                 (
-                    screens::creative_inventory::toggle_inventory_system,
                     screens::creative_inventory::creative_close_button_system,
                     screens::creative_inventory::update_creative_visibility_system,
                     screens::survival_inventory::update_survival_visibility_system,
@@ -130,11 +116,9 @@ impl Plugin for UIPlugin {
                     screens::survival_inventory::cleanup_survival_hotbar_system,
                     interaction::slot_hover_system,
                     screens::survival_inventory::backpack_management_button_system,
-                    screens::crafting::return_crafting_on_close_system,
                 )
                     .chain(),
             )
-            .add_systems(Update, (sync_input_blocked_system,))
             // ── Update: 光标 ──
             .add_systems(
                 Update,
@@ -145,8 +129,4 @@ impl Plugin for UIPlugin {
                 ),
             );
     }
-}
-
-fn sync_input_blocked_system(state: Res<InventoryState>, mut input_blocked: ResMut<InputBlocked>) {
-    input_blocked.0 = state.opened;
 }

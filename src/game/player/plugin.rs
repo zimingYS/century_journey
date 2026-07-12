@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::game::gameplay::block_action::{BlockBreakProgress, BlockBreakState};
+use crate::game::player::action::PlayerActionState;
 use crate::game::player::events::{DamageEvent, DeathEvent, HealEvent};
 use crate::game::player::systems::raycast::TargetVoxel;
 
@@ -10,6 +11,7 @@ pub struct GamePlayerPlugin;
 impl Plugin for GamePlayerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TargetVoxel>()
+            .init_resource::<PlayerActionState>()
             .init_resource::<BlockBreakState>()
             .init_resource::<BlockBreakProgress>()
             .add_message::<DamageEvent>()
@@ -54,7 +56,11 @@ impl Plugin for GamePlayerPlugin {
             )
             .add_systems(
                 Update,
-                crate::game::player::systems::interaction::drop_item_system,
+                (
+                    crate::game::player::systems::interaction::drop_active_hotbar_action_system,
+                    crate::game::player::systems::interaction::drop_item_system,
+                )
+                    .chain(),
             );
     }
 }

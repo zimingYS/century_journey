@@ -12,6 +12,7 @@ use crate::game::gameplay::block_action::{
 };
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::InventoryState;
+use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::Player;
 use crate::game::player::systems::raycast::TargetVoxel;
 use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
@@ -21,7 +22,6 @@ use crate::game::world::entity::dropped_item::{
 };
 use crate::game::world::storage::WorldStorage;
 use crate::game::world::systems::break_pipeline::execute_block_break;
-use crate::shared::states::input_blocked::InputBlocked;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
@@ -45,10 +45,9 @@ pub fn voxel_interaction_system(
     registry: Option<Res<BlockRegistry>>,
     item_registry: Option<Res<ItemRegistry>>,
     behavior_registry: Res<BlockBehaviorRegistry>,
-    input_blocked: Res<InputBlocked>,
+    actions: Res<PlayerActionState>,
     mut inventory_state: ResMut<InventoryState>,
     tag_registry: Option<Res<RuntimeTagRegistry>>,
-    mouse_button: Res<ButtonInput<MouseButton>>,
     player_query: Query<Entity, With<Player>>,
     gamemode: Res<PlayerGameMode>,
     loot_registry: Option<Res<BlockLootRegistry>>,
@@ -63,14 +62,9 @@ pub fn voxel_interaction_system(
         break_runtime.progress.clear();
         return;
     };
-    if input_blocked.0 {
-        break_runtime.state.clear();
-        break_runtime.progress.clear();
-        return;
-    }
-
-    let left_pressed = mouse_button.pressed(MouseButton::Left);
-    let right_click = mouse_button.just_pressed(MouseButton::Right);
+    let left_pressed = actions.pressed(PlayerAction::BreakBlock);
+    let right_click =
+        actions.just_pressed(PlayerAction::Use) || actions.just_pressed(PlayerAction::PlaceBlock);
 
     if !left_pressed {
         break_runtime.state.clear();
@@ -339,5 +333,31 @@ pub fn drop_item_system(
         let velocity = DroppedItemVelocity::thrown(throw_direction);
         spawn_dropped_item_with_velocity(&mut commands, pos, event.stack.clone(), velocity);
         log::info!("[Q] Dropped {:?}", event.stack);
+    }
+}
+
+pub fn drop_active_hotbar_action_system(
+    actions: Res<PlayerActionState>,
+    mut inventory: ResMut<InventoryState>,
+    mut writer: MessageWriter<crate::game::inventory::events::DropItemEvent>,
+) {
+    if !actions.just_pressed(PlayerAction::DropItem) {
+        return;
+    }
+    let amount = if actions.pressed(PlayerAction::Sprint) {
+        u32::MAX
+    } else {
+        1
+    };
+    let slot = inventory.hotbar.active_stack_mut();
+    let Some(stack) = slot.as_mut() else {
+        return;
+    };
+    let dropped = stack.take(amount);
+    if stack.is_empty() {
+        *slot = None;
+    }
+    if let Some(stack) = dropped {
+        writer.write(crate::game::inventory::events::DropItemEvent { stack });
     }
 }

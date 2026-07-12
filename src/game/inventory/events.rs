@@ -1,5 +1,7 @@
 use crate::game::inventory::item::stack::ItemStack;
+use crate::game::inventory::slot::SlotAction;
 use crate::shared::item_id::ItemId;
+use crate::shared::ui_types::SlotKind;
 use bevy::prelude::*;
 
 /// 物品被拾取到鼠标
@@ -19,4 +21,17 @@ pub struct ItemPlacedToHotbarEvent {
 #[derive(Message, Debug, Clone)]
 pub struct DropItemEvent {
     pub stack: ItemStack,
+}
+
+#[derive(Message, Debug, Clone, Copy)]
+pub struct SlotInteractionEvent {
+    pub kind: SlotKind,
+    pub index: usize,
+    pub action: SlotAction,
+}
+
+#[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InventoryCommand {
+    CompactBackpack,
+    SortBackpack,
 }

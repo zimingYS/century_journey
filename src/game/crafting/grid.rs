@@ -81,7 +81,7 @@ fn find_recipe(
     tags: &ItemTagIndex,
 ) -> Option<RecipeResult> {
     let mut entries: Vec<_> = recipes.all_recipes().collect();
-    entries.sort_by(|(left, _), (right, _)| left.cmp(right));
+    entries.sort_by_key(|(identifier, _)| *identifier);
     entries.into_iter().find_map(|(_, recipe)| {
         let result = match recipe {
             RecipeDefinition::Shaped(recipe) => {

@@ -1,9 +1,8 @@
 use std::collections::HashSet;
 
-use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
-use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
+use crate::client::input::InterfaceCommand;
 use crate::client::renderer::item_model::ItemModelRenderAssets;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::components::{
@@ -37,42 +36,6 @@ const CREATIVE_SLOT_SIZE: f32 = 74.0;
 const CREATIVE_RECENT_SLOT_SIZE: f32 = 58.0;
 const CREATIVE_SLOT_GAP: f32 = 6.0;
 
-/// 切换物品栏状态。
-pub fn toggle_inventory_system(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    search_state: Res<SearchInputState>,
-    gamemode: Res<crate::game::gameplay::gamemode::PlayerGameMode>,
-    mut state: ResMut<InventoryState>,
-    mut cursor_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
-) {
-    if !keyboard.just_pressed(KeyCode::KeyE) {
-        return;
-    }
-    if search_state.active {
-        return;
-    }
-
-    state.toggle();
-
-    let Ok(mut cursor) = cursor_query.single_mut() else {
-        return;
-    };
-    if state.opened {
-        cursor.visible = true;
-        cursor.grab_mode = CursorGrabMode::None;
-        info!("Opened inventory in {:?} mode", gamemode.mode);
-    } else {
-        cursor.visible = false;
-        cursor.grab_mode = CursorGrabMode::Locked;
-        if gamemode.is_creative() {
-            state.cursor.clear();
-        } else {
-            // 生存模式关闭时，将拖拽物品尽量归还给来源槽位。
-            crate::client::ui::screens::survival_inventory::handle_inventory_close(&mut state);
-        }
-    }
-}
-
 /// 同步创造物品栏遮罩显隐。
 pub fn update_creative_visibility_system(
     state: Res<InventoryState>,
@@ -95,31 +58,13 @@ pub fn update_creative_visibility_system(
 /// 点击右上角关闭按钮时关闭创造物品栏。
 pub fn creative_close_button_system(
     button_query: Query<&Interaction, (Changed<Interaction>, With<CreativeCloseButton>)>,
-    gamemode: Res<crate::game::gameplay::gamemode::PlayerGameMode>,
-    mut state: ResMut<InventoryState>,
-    mut cursor_query: Query<&mut CursorOptions, With<PrimaryWindow>>,
-    mut input_focus: ResMut<InputFocus>,
-    mut search_state: ResMut<SearchInputState>,
+    mut writer: MessageWriter<InterfaceCommand>,
 ) {
-    if !gamemode.is_creative() || !state.opened {
-        return;
-    }
-
     let pressed = button_query
         .iter()
         .any(|interaction| *interaction == Interaction::Pressed);
-    if !pressed {
-        return;
-    }
-
-    state.opened = false;
-    state.cursor.clear();
-    input_focus.clear();
-    search_state.active = false;
-
-    if let Ok(mut cursor) = cursor_query.single_mut() {
-        cursor.visible = false;
-        cursor.grab_mode = CursorGrabMode::Locked;
+    if pressed {
+        writer.write(InterfaceCommand::CloseInventory);
     }
 }
 

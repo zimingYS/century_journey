@@ -1,7 +1,7 @@
 use crate::game::inventory::state::InventoryState;
+use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::{LocalPlayer, Player, PlayerGravity};
 use crate::game::player::model::rig::{PlayerRigEntities, held_item_grip_transform};
-use crate::shared::states::input_blocked::InputBlocked;
 use bevy::prelude::*;
 
 /// 玩家下半身/整体移动状态。
@@ -121,9 +121,7 @@ impl PlayerAnimationState {
 /// 这个系统只负责把输入、移动和当前快捷栏物品转换成 AnimationState。真正的关节姿态由后面的 Rig 系统统一应用。
 pub fn player_animation_controller_system(
     time: Res<Time>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mouse: Res<ButtonInput<MouseButton>>,
-    input_blocked: Res<InputBlocked>,
+    actions: Res<PlayerActionState>,
     inventory: Res<InventoryState>,
     mut query: Query<(&Transform, &PlayerGravity, &mut PlayerAnimationState), With<LocalPlayer>>,
 ) {
@@ -150,7 +148,7 @@ pub fn player_animation_controller_system(
             }
         } else if horizontal_speed < 0.05 {
             PlayerLocomotionState::Idle
-        } else if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
+        } else if actions.pressed(PlayerAction::Sprint) {
             PlayerLocomotionState::Run
         } else {
             PlayerLocomotionState::Walk
@@ -167,26 +165,24 @@ pub fn player_animation_controller_system(
             state.action_timer = (state.action_timer - dt).max(0.0);
         }
 
-        if !input_blocked.0 {
-            if mouse.just_pressed(MouseButton::Left) {
-                let action = if holding_item {
-                    PlayerHandAction::HeldItemAttack
-                } else {
-                    PlayerHandAction::EmptyHandAttack
-                };
-                state.trigger_action(action, 0.34);
-                continue;
-            }
+        if actions.just_pressed(PlayerAction::Attack) {
+            let action = if holding_item {
+                PlayerHandAction::HeldItemAttack
+            } else {
+                PlayerHandAction::EmptyHandAttack
+            };
+            state.trigger_action(action, 0.34);
+            continue;
+        }
 
-            if mouse.just_pressed(MouseButton::Right) {
-                let action = if holding_item {
-                    PlayerHandAction::HeldItemInteract
-                } else {
-                    PlayerHandAction::EmptyHandInteract
-                };
-                state.trigger_action(action, 0.24);
-                continue;
-            }
+        if actions.just_pressed(PlayerAction::Use) {
+            let action = if holding_item {
+                PlayerHandAction::HeldItemInteract
+            } else {
+                PlayerHandAction::EmptyHandInteract
+            };
+            state.trigger_action(action, 0.24);
+            continue;
         }
 
         if !state.has_active_action() {

@@ -840,7 +840,7 @@ pub fn survival_stats_visual_sync_system(
 }
 
 pub fn backpack_management_button_system(
-    mut inventory: ResMut<InventoryState>,
+    mut writer: MessageWriter<crate::game::inventory::events::InventoryCommand>,
     mut query: Query<
         (
             &Interaction,
@@ -866,48 +866,10 @@ pub fn backpack_management_button_system(
             continue;
         }
         if compact.is_some() {
-            compact_backpack(&mut inventory.survival.backpack);
+            writer.write(crate::game::inventory::events::InventoryCommand::CompactBackpack);
         } else if sort.is_some() {
-            sort_backpack(&mut inventory.survival.backpack);
+            writer.write(crate::game::inventory::events::InventoryCommand::SortBackpack);
         }
-    }
-}
-
-fn compact_backpack(backpack: &mut [Option<ItemStack>; SurvivalInventory::BACKPACK_SIZE]) {
-    let compacted: Vec<ItemStack> = backpack
-        .iter_mut()
-        .filter_map(Option::take)
-        .filter(|stack| !stack.is_empty())
-        .collect();
-    for (index, slot) in backpack.iter_mut().enumerate() {
-        *slot = compacted.get(index).cloned();
-    }
-}
-
-fn sort_backpack(backpack: &mut [Option<ItemStack>; SurvivalInventory::BACKPACK_SIZE]) {
-    let mut stacks: Vec<ItemStack> = backpack
-        .iter_mut()
-        .filter_map(Option::take)
-        .filter(|stack| !stack.is_empty())
-        .collect();
-    stacks.sort_by_key(|stack| stack.item.to_string());
-
-    let mut packed: Vec<ItemStack> = Vec::with_capacity(stacks.len());
-    for mut incoming in stacks {
-        for existing in &mut packed {
-            if existing.is_same_item(&incoming) && !existing.is_full() {
-                existing.merge_from(&mut incoming);
-            }
-            if incoming.is_empty() {
-                break;
-            }
-        }
-        if !incoming.is_empty() {
-            packed.push(incoming);
-        }
-    }
-    for (index, slot) in backpack.iter_mut().enumerate() {
-        *slot = packed.get(index).cloned();
     }
 }
 

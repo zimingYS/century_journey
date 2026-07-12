@@ -66,6 +66,7 @@ impl Plugin for SaveLoadPlugin {
 /// F5 保存世界 / F9 加载世界
 pub fn save_load_keybind_system(
     keyboard: Res<ButtonInput<KeyCode>>,
+    context: Res<crate::shared::states::InputContextState>,
     world_storage: Res<WorldStorage>,
     block_registry: Res<BlockRegistry>,
     save_config: Res<SaveConfig>,
@@ -73,6 +74,9 @@ pub fn save_load_keybind_system(
     player_query: Query<&Transform, With<Player>>,
     world_generator: Res<crate::game::world::generation::WorldGenerator>,
 ) {
+    if !context.active().allows_gameplay() {
+        return;
+    }
     // F5 — 保存
     if keyboard.just_pressed(KeyCode::F5) {
         let spawn_pos = player_query
