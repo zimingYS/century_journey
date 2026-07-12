@@ -2,16 +2,17 @@ use std::collections::HashSet;
 
 use bevy::prelude::*;
 
-use crate::client::input::InterfaceCommand;
 use crate::client::renderer::item_model::ItemModelRenderAssets;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::components::{
     CreativeCategoryPanel, CreativeCloseButton, CreativeHotbarPanel, CreativeInventoryOverlay,
     CreativeItemGrid, CreativeRecentPanel, CreativeSearchPlaceholder,
 };
+use crate::client::ui::navigation::{UiNavigation, UiScreen};
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::category_theme::CategoryTheme;
 use crate::client::ui::theme::ui_theme::UiTheme;
+use crate::client::ui::widgets::common::UiControl;
 use crate::client::ui::widgets::slot::{
     CategoryTab, InventorySlot, SearchInputState, SlotKind, SlotVisual, spawn_slot_with_item,
     sync_hotbar_panel_visuals, sync_slot_icon,
@@ -58,13 +59,13 @@ pub fn update_creative_visibility_system(
 /// 点击右上角关闭按钮时关闭创造物品栏。
 pub fn creative_close_button_system(
     button_query: Query<&Interaction, (Changed<Interaction>, With<CreativeCloseButton>)>,
-    mut writer: MessageWriter<InterfaceCommand>,
+    mut writer: MessageWriter<UiNavigation>,
 ) {
     let pressed = button_query
         .iter()
         .any(|interaction| *interaction == Interaction::Pressed);
     if pressed {
-        writer.write(InterfaceCommand::CloseInventory);
+        writer.write(UiNavigation::Close(UiScreen::Inventory));
     }
 }
 
@@ -654,20 +655,9 @@ pub fn cleanup_creative_hotbar_system(
 /// 分类标签高亮。
 pub fn update_category_highlight_system(
     state: Res<InventoryState>,
-    theme: Res<UiTheme>,
-    mut query: Query<(&CategoryTab, &mut BackgroundColor, &mut BorderColor)>,
+    mut query: Query<(&CategoryTab, &mut UiControl)>,
 ) {
-    for (tab, mut bg, mut border) in &mut query {
-        let selected = tab.category_index == state.creative.selected_tab;
-        *bg = BackgroundColor(if selected {
-            Color::srgba(0.12, 0.24, 0.36, 0.92)
-        } else {
-            Color::NONE
-        });
-        *border = BorderColor::all(if selected {
-            theme.border_hover
-        } else {
-            Color::NONE
-        });
+    for (tab, mut control) in &mut query {
+        control.selected = tab.category_index == state.creative.selected_tab;
     }
 }

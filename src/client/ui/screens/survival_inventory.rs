@@ -10,9 +10,12 @@ use crate::client::ui::components::{
     SurvivalEquipmentPanel, SurvivalHealthText, SurvivalHotbarPanel, SurvivalHungerText,
     SurvivalInventoryOverlay, SurvivalInventoryRoot, SurvivalItemGrid, SurvivalPlayerPreviewCamera,
 };
+use crate::client::ui::navigation::{UiScreenAudience, UiScreenRoot};
+use crate::client::ui::resources::frame_assets::UiFrameKind;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::screens::crafting::CraftingHost;
 use crate::client::ui::theme::ui_theme::UiTheme;
+use crate::client::ui::widgets::common::{UiControlKind, spawn_text_button};
 use crate::client::ui::widgets::slot::{
     InventorySlot, SlotKind, SlotVisual, spawn_empty_slot, spawn_empty_slot_with_placeholder,
     sync_slot_icon,
@@ -66,6 +69,7 @@ pub fn spawn_survival_inventory_system(
     commands
         .spawn((
             SurvivalInventoryOverlay,
+            UiScreenRoot::inventory(UiScreenAudience::Survival),
             Name::new("SurvivalOverlay"),
             Node {
                 position_type: PositionType::Absolute,
@@ -84,6 +88,7 @@ pub fn spawn_survival_inventory_system(
             overlay
                 .spawn((
                     SurvivalInventoryRoot,
+                    UiFrameKind::Survival,
                     Name::new("SurvivalRoot"),
                     Node {
                         width: Val::Px(SURVIVAL_PANEL_WIDTH),
@@ -432,33 +437,22 @@ fn spawn_action_button<M: Component + Default>(
     theme: &UiTheme,
     ui_font: &UiFont,
 ) {
-    parent
-        .spawn((
-            M::default(),
-            Button,
-            Pickable::default(),
-            Node {
-                width: Val::Px(72.0),
-                height: Val::Px(29.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                border: UiRect::all(Val::Px(1.0)),
-                ..default()
-            },
-            BackgroundColor(theme.tab_active_bg),
-            BorderColor::all(theme.border_default),
-        ))
-        .with_children(|button| {
-            button.spawn((
-                Text::new(label.to_string()),
-                TextFont {
-                    font: FontSource::from(ui_font.default.clone()),
-                    font_size: FontSize::Px(13.0),
-                    ..default()
-                },
-                TextColor(theme.text_primary),
-            ));
-        });
+    let entity = spawn_text_button(
+        parent,
+        M::default(),
+        label,
+        UiControlKind::Button,
+        theme,
+        ui_font,
+    );
+    parent.commands().entity(entity).insert(Node {
+        width: Val::Px(72.0),
+        height: Val::Px(29.0),
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        border: UiRect::all(Val::Px(1.0)),
+        ..default()
+    });
 }
 
 fn slot_theme(theme: &UiTheme, size: f32) -> UiTheme {
@@ -537,19 +531,12 @@ fn spawn_player_preview(
 }
 
 pub fn update_survival_visibility_system(
-    state: Res<InventoryState>,
+    stack: Res<crate::client::ui::navigation::UiScreenStack>,
     gamemode: Res<PlayerGameMode>,
-    mut overlay_query: Query<&mut Visibility, With<SurvivalInventoryOverlay>>,
     mut camera_query: Query<&mut Camera, With<SurvivalPlayerPreviewCamera>>,
 ) {
-    let visible = state.opened && gamemode.is_survival();
-    if let Ok(mut visibility) = overlay_query.single_mut() {
-        *visibility = if visible {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
-    }
+    let visible = stack.contains(crate::client::ui::navigation::UiScreen::Inventory)
+        && gamemode.is_survival();
     if let Ok(mut camera) = camera_query.single_mut() {
         camera.is_active = visible;
     }
@@ -841,12 +828,11 @@ pub fn survival_stats_visual_sync_system(
 
 pub fn backpack_management_button_system(
     mut writer: MessageWriter<crate::game::inventory::events::InventoryCommand>,
-    mut query: Query<
+    query: Query<
         (
             &Interaction,
             Option<&CompactBackpackButton>,
             Option<&SortBackpackButton>,
-            &mut BackgroundColor,
         ),
         (
             Changed<Interaction>,
@@ -854,14 +840,8 @@ pub fn backpack_management_button_system(
             Or<(With<CompactBackpackButton>, With<SortBackpackButton>)>,
         ),
     >,
-    theme: Res<UiTheme>,
 ) {
-    for (interaction, compact, sort, mut background) in &mut query {
-        *background = BackgroundColor(match interaction {
-            Interaction::Hovered => Color::srgba(0.28, 0.3, 0.36, 1.0),
-            Interaction::Pressed => theme.accent,
-            Interaction::None => theme.tab_active_bg,
-        });
+    for (interaction, compact, sort) in &query {
         if *interaction != Interaction::Pressed {
             continue;
         }

@@ -15,6 +15,16 @@ pub struct UiTheme {
     pub border_hover: Color,
     pub border_selected: Color,
     pub accent: Color,
+    pub control_hover: Color,
+    pub control_pressed: Color,
+    pub tooltip_bg: Color,
+    pub modal_scrim: Color,
+
+    // ── 间距 ──
+    pub spacing_xs: f32,
+    pub spacing_sm: f32,
+    pub spacing_md: f32,
+    pub spacing_lg: f32,
 
     // ── 槽位 ──
     pub slot_size: f32,
@@ -77,6 +87,15 @@ impl Default for UiTheme {
             border_hover: Color::srgba(0.90, 0.90, 0.30, 1.0),
             border_selected: Color::srgba(1.0, 1.0, 1.0, 1.0),
             accent: Color::srgba(0.35, 0.55, 0.95, 1.0),
+            control_hover: Color::srgba(0.28, 0.30, 0.36, 1.0),
+            control_pressed: Color::srgba(0.22, 0.42, 0.72, 1.0),
+            tooltip_bg: Color::srgba(0.035, 0.04, 0.05, 0.98),
+            modal_scrim: Color::srgba(0.0, 0.0, 0.0, 0.62),
+
+            spacing_xs: 4.0,
+            spacing_sm: 8.0,
+            spacing_md: 12.0,
+            spacing_lg: 18.0,
 
             slot_size: 64.0,
             slot_border: 2.0,

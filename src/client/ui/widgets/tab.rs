@@ -1,5 +1,6 @@
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
+use crate::client::ui::widgets::common::{UiControl, UiControlKind};
 use crate::client::ui::widgets::slot::CategoryTab;
 use bevy::prelude::*;
 
@@ -16,16 +17,6 @@ pub fn spawn_category_tab(
     ui_font: &UiFont,
     theme: &UiTheme,
 ) {
-    let bg = if is_active {
-        Color::srgba(0.12, 0.24, 0.36, 0.92)
-    } else {
-        Color::srgba(0.0, 0.0, 0.0, 0.0)
-    };
-    let border = if is_active {
-        Color::srgba(0.22, 0.46, 0.70, 1.0)
-    } else {
-        Color::srgba(0.0, 0.0, 0.0, 0.0)
-    };
     let text_color = if is_active {
         theme.text_primary
     } else {
@@ -36,6 +27,11 @@ pub fn spawn_category_tab(
     parent
         .spawn((
             CategoryTab { category_index },
+            UiControl {
+                kind: UiControlKind::Tab,
+                selected: is_active,
+                disabled: false,
+            },
             Button,
             Pickable::default(),
             Node {
@@ -48,8 +44,16 @@ pub fn spawn_category_tab(
                 column_gap: Val::Px(8.0),
                 ..default()
             },
-            BackgroundColor(bg),
-            BorderColor::all(border),
+            BackgroundColor(if is_active {
+                theme.accent
+            } else {
+                theme.tab_active_bg
+            }),
+            BorderColor::all(if is_active {
+                theme.border_selected
+            } else {
+                theme.border_default
+            }),
         ))
         .with_children(|btn| {
             // 分类图标使用文本符号，后续可替换成真实物品图标。

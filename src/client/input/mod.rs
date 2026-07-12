@@ -5,6 +5,7 @@ use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
+use crate::client::ui::navigation::UiNavigation;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
@@ -86,6 +87,7 @@ fn handle_interface_input_system(
     mut context: ResMut<InputContextState>,
     mut input_focus: ResMut<InputFocus>,
     mut search_state: ResMut<SearchInputState>,
+    mut navigation: MessageWriter<UiNavigation>,
 ) {
     for command in commands.read() {
         apply_interface_command(
@@ -100,14 +102,18 @@ fn handle_interface_input_system(
 
     let text_active = input_focus.get().is_some() || search_state.active;
     if keyboard.just_pressed(KeyCode::Escape) {
-        apply_interface_command(
-            InterfaceCommand::Back,
-            &gamemode,
-            &mut inventory,
-            &mut context,
-            &mut input_focus,
-            &mut search_state,
-        );
+        if text_active {
+            apply_interface_command(
+                InterfaceCommand::ClearTextFocus,
+                &gamemode,
+                &mut inventory,
+                &mut context,
+                &mut input_focus,
+                &mut search_state,
+            );
+        } else {
+            navigation.write(UiNavigation::Back);
+        }
     } else if keyboard.just_pressed(KeyCode::Enter) && text_active {
         apply_interface_command(
             InterfaceCommand::ClearTextFocus,

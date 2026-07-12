@@ -1,5 +1,7 @@
 use crate::client::ui::hud::plugin::HudPlugin;
+use crate::client::ui::navigation::{UiNavigation, UiScreenStack};
 use crate::client::ui::theme::category_theme::CategoryTheme;
+use crate::client::ui::theme::scale::UiScaleSettings;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{CategoryClickedEvent, SearchInputState};
 use crate::game::inventory::state::InventoryState;
@@ -9,19 +11,25 @@ use bevy::prelude::*;
 pub mod components;
 pub mod hud;
 pub mod interaction;
+pub mod navigation;
 pub mod resources;
 pub mod screens;
+pub mod screenshot_check;
 pub mod theme;
 pub mod widgets;
 
 pub struct UIPlugin;
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
+        screenshot_check::configure_ui_screenshot_check(app);
         app
             // ── 消息通道 ──
             .add_message::<CategoryClickedEvent>()
+            .add_message::<UiNavigation>()
             // ── 资源 ──
             .init_resource::<UiTheme>()
+            .init_resource::<UiScreenStack>()
+            .init_resource::<UiScaleSettings>()
             .init_resource::<CategoryTheme>()
             .init_resource::<resources::ui_font::UiFont>()
             .init_resource::<SearchInputState>()
@@ -31,12 +39,32 @@ impl Plugin for UIPlugin {
                 Startup,
                 (
                     resources::ui_font::load_ui_font_system,
+                    resources::frame_assets::create_ui_frame_assets_system,
                     widgets::drag::spawn_cursor_item_icon,
+                    widgets::tooltip::spawn_item_tooltip_system,
                     screens::creative_inventory::spawn_creative_inventory_system,
                     screens::survival_inventory::spawn_survival_inventory_system,
                     screens::crafting::spawn_crafting_system,
                 )
                     .chain(),
+            )
+            .add_systems(
+                Update,
+                (
+                    navigation::handle_ui_navigation_system,
+                    navigation::sync_legacy_screen_state_system,
+                    navigation::sync_screen_visibility_system,
+                )
+                    .chain(),
+            )
+            .add_systems(
+                Update,
+                (
+                    theme::scale::sync_ui_scale_system,
+                    resources::frame_assets::apply_ui_frame_system,
+                    widgets::common::themed_control_interaction_system,
+                    widgets::common::scroll_area_wheel_system,
+                ),
             )
             // ── Update: 数据构建 + UI填充 (分成两组保证 chain 在 tuple 限制内) ──
             .add_systems(
@@ -92,7 +120,6 @@ impl Plugin for UIPlugin {
                 Update,
                 (
                     screens::creative_inventory::creative_close_button_system,
-                    screens::creative_inventory::update_creative_visibility_system,
                     screens::survival_inventory::update_survival_visibility_system,
                 ),
             )
@@ -116,6 +143,7 @@ impl Plugin for UIPlugin {
                     screens::survival_inventory::cleanup_survival_hotbar_system,
                     interaction::slot_hover_system,
                     screens::survival_inventory::backpack_management_button_system,
+                    widgets::tooltip::item_tooltip_system,
                 )
                     .chain(),
             )

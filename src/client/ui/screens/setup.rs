@@ -7,6 +7,8 @@ use crate::client::ui::components::{
     CreativeInventoryRoot, CreativeItemGrid, CreativeRecentPanel, CreativeSearchBox,
     CreativeSearchPlaceholder, CreativeTitleIcon,
 };
+use crate::client::ui::navigation::{UiScreenAudience, UiScreenRoot};
+use crate::client::ui::resources::frame_assets::UiFrameKind;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::CreativeSearchInput;
@@ -33,6 +35,7 @@ pub fn spawn_creative_inventory_system(
     commands
         .spawn((
             CreativeInventoryOverlay,
+            UiScreenRoot::inventory(UiScreenAudience::Creative),
             Name::new("CreativeOverlay"),
             Node {
                 position_type: PositionType::Absolute,
@@ -52,6 +55,7 @@ pub fn spawn_creative_inventory_system(
             overlay
                 .spawn((
                     CreativeInventoryRoot,
+                    UiFrameKind::Creative,
                     Name::new("CreativeRoot"),
                     Node {
                         width: Val::Percent(100.0),

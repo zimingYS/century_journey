@@ -69,14 +69,21 @@ pub fn spawn_cursor_item_icon(mut commands: Commands, ui_font: Res<UiFont>) {
 /// 让拖拽图标跟随鼠标移动。
 pub fn cursor_follow_system(
     mut cursor_moved: MessageReader<CursorMoved>,
+    ui_scale: Res<UiScale>,
     mut query: Query<&mut Node, With<CursorItemIcon>>,
 ) {
     for event in cursor_moved.read() {
+        let position = cursor_ui_position(event.position, ui_scale.0);
         for mut node in &mut query {
-            node.left = Val::Px(event.position.x + 12.0);
-            node.top = Val::Px(event.position.y - 12.0);
+            node.left = Val::Px(position.x);
+            node.top = Val::Px(position.y);
         }
     }
+}
+
+fn cursor_ui_position(cursor_position: Vec2, ui_scale: f32) -> Vec2 {
+    const SCREEN_OFFSET: Vec2 = Vec2::splat(12.0);
+    (cursor_position + SCREEN_OFFSET) / ui_scale.max(0.01)
 }
 
 /// 根据光标物品状态控制拖拽图标显隐。
@@ -146,6 +153,21 @@ pub fn cursor_texture_system(
                     *vis = Visibility::Hidden;
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::cursor_ui_position;
+    use bevy::math::Vec2;
+
+    #[test]
+    fn cursor_offset_stays_constant_across_ui_scales() {
+        let cursor = Vec2::new(900.0, 480.0);
+        for scale in [0.67, 1.0, 4.0 / 3.0] {
+            let rendered_position = cursor_ui_position(cursor, scale) * scale;
+            std::assert!((rendered_position - cursor - Vec2::splat(12.0)).length() < 0.001);
         }
     }
 }
