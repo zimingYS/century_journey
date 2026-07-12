@@ -1,5 +1,6 @@
 pub mod container;
 pub mod cursor;
+pub mod equipment;
 pub mod events;
 pub mod insert;
 pub mod interaction;

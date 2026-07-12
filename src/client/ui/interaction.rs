@@ -223,11 +223,16 @@ pub fn handle_slot_interaction_system(
             let container: &mut dyn crate::game::inventory::container::InventoryContainer =
                 match event.kind {
                     SlotKind::Hotbar => &mut inventory.hotbar,
-                    SlotKind::SurvivalBackpack => &mut inventory.survival,
+                    SlotKind::SurvivalBackpack
+                    | SlotKind::SurvivalEquipment
+                    | SlotKind::SurvivalAccessory => &mut inventory.survival,
                     _ => continue,
                 };
+            let event_index =
+                crate::game::inventory::routing::survival_index(event.kind, event.index)
+                    .unwrap_or(event.index);
             let (dropped_stack, emptied_slot) = {
-                if let Some(slot_stack) = container.get_stack_mut(event.index) {
+                if let Some(slot_stack) = container.get_stack_mut(event_index) {
                     let dropped_stack = slot_stack.take(take_count);
                     (dropped_stack, slot_stack.is_empty())
                 } else {
@@ -237,7 +242,7 @@ pub fn handle_slot_interaction_system(
 
             if emptied_slot {
                 container.set_stack(
-                    event.index,
+                    event_index,
                     crate::game::inventory::item::stack::ItemStack::empty(),
                 );
             }

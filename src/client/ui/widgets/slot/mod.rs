@@ -3,7 +3,7 @@ pub mod components;
 pub use crate::shared::ui_types::{SearchInputState, SlotKind};
 pub use components::{
     CategoryClickedEvent, CategoryTab, CreativeSearchInput, InventorySlot, SlotCountText, SlotIcon,
-    SlotInteractionEvent, SlotVisual,
+    SlotInteractionEvent, SlotPlaceholder, SlotVisual,
 };
 
 use crate::client::renderer::item_model::{ItemModelRenderAssets, ItemModelRenderer};
@@ -70,6 +70,76 @@ pub fn spawn_empty_slot(
                     ..default()
                 },
                 Visibility::Hidden,
+            ));
+        });
+}
+
+/// 生成带短占位标记的空槽位，用于装备栏和饰品栏。
+pub fn spawn_empty_slot_with_placeholder(
+    parent: &mut ChildSpawnerCommands,
+    kind: SlotKind,
+    index: usize,
+    placeholder: &str,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+) {
+    parent
+        .spawn((
+            InventorySlot { kind, index },
+            SlotVisual {
+                item: ItemId::air(),
+                count: 0,
+            },
+            Button,
+            Pickable::default(),
+            Node {
+                width: Val::Px(theme.slot_size),
+                height: Val::Px(theme.slot_size),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(Val::Px(theme.slot_border)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(theme.bg_slot),
+            BorderColor::all(theme.border_default),
+        ))
+        .with_children(|slot| {
+            slot.spawn((
+                SlotIcon,
+                Node {
+                    width: Val::Percent(80.0),
+                    height: Val::Percent(80.0),
+                    ..default()
+                },
+                Visibility::Hidden,
+            ));
+            slot.spawn((
+                SlotCountText,
+                Text::new(""),
+                TextFont {
+                    font: FontSource::from(ui_font.default.clone()),
+                    font_size: FontSize::Px(11.0),
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Node {
+                    position_type: PositionType::Absolute,
+                    bottom: Val::Px(1.0),
+                    right: Val::Px(3.0),
+                    ..default()
+                },
+                Visibility::Hidden,
+            ));
+            slot.spawn((
+                SlotPlaceholder,
+                Text::new(placeholder.to_string()),
+                TextFont {
+                    font: FontSource::from(ui_font.default.clone()),
+                    font_size: FontSize::Px(theme.small_font_size),
+                    ..default()
+                },
+                TextColor(theme.text_hint),
             ));
         });
 }
@@ -215,6 +285,16 @@ pub fn sync_slot_icon(
         } else {
             commands.entity(count_entity).insert(Visibility::Hidden);
         }
+    }
+
+    if let Some(&placeholder_entity) = children.get(2) {
+        commands
+            .entity(placeholder_entity)
+            .insert(if item.is_air() {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            });
     }
 }
 

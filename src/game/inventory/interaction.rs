@@ -1,6 +1,7 @@
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::cursor::CursorData;
 use crate::game::inventory::item::stack::ItemStack;
+use std::ops::Range;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 核心交互函数 — 纯数据操作，无 UI 依赖
@@ -159,6 +160,17 @@ pub fn shift_click<C1: InventoryContainer, C2: InventoryContainer>(
     dest: &mut C2,
     index: usize,
 ) -> bool {
+    let slot_count = dest.slot_count();
+    shift_click_into_range(source, dest, index, 0..slot_count)
+}
+
+/// Shift 点击并把物品限制在目标容器的指定槽位范围内。
+pub fn shift_click_into_range<C1: InventoryContainer, C2: InventoryContainer>(
+    source: &mut C1,
+    dest: &mut C2,
+    index: usize,
+    range: Range<usize>,
+) -> bool {
     let Some(source_stack) = source.get_stack(index) else {
         return false;
     };
@@ -169,7 +181,7 @@ pub fn shift_click<C1: InventoryContainer, C2: InventoryContainer>(
     let mut remaining = source_stack.clone();
 
     // Step 1: 合并到已有堆叠
-    for i in 0..dest.slot_count() {
+    for i in range.clone() {
         if remaining.is_empty() {
             break;
         }
@@ -182,7 +194,7 @@ pub fn shift_click<C1: InventoryContainer, C2: InventoryContainer>(
 
     // Step 2: 找空位
     if !remaining.is_empty() {
-        for i in 0..dest.slot_count() {
+        for i in range {
             if dest.get_stack(i).is_none_or(|s| s.is_empty()) {
                 dest.set_stack(i, remaining.clone());
                 remaining = ItemStack::empty();

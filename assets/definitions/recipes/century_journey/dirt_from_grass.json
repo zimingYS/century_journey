@@ -1,0 +1,12 @@
+{
+  "type": "shapeless",
+  "ingredients": [
+    {
+      "item": "century_journey:grass"
+    }
+  ],
+  "result": {
+    "item": "century_journey:dirt",
+    "count": 1
+  }
+}

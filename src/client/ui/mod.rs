@@ -27,6 +27,8 @@ impl Plugin for UIPlugin {
             .add_message::<DropItemEvent>()
             // ── 资源 ──
             .init_resource::<InventoryState>()
+            .init_resource::<crate::game::crafting::grid::PlayerCrafting>()
+            .init_resource::<crate::game::inventory::equipment::AccessorySlotDefinitions>()
             .init_resource::<UiTheme>()
             .init_resource::<CategoryTheme>()
             .init_resource::<resources::ui_font::UiFont>()
@@ -40,6 +42,7 @@ impl Plugin for UIPlugin {
                     widgets::drag::spawn_cursor_item_icon,
                     screens::creative_inventory::spawn_creative_inventory_system,
                     screens::survival_inventory::spawn_survival_inventory_system,
+                    screens::crafting::spawn_crafting_system,
                 )
                     .chain(),
             )
@@ -57,6 +60,7 @@ impl Plugin for UIPlugin {
             .add_systems(
                 Update,
                 (
+                    screens::survival_inventory::sync_accessory_slot_count_system,
                     screens::creative_inventory::init_creative_hotbar_system,
                     screens::survival_inventory::populate_survival_grid_system,
                     screens::survival_inventory::init_survival_hotbar_system,
@@ -80,6 +84,7 @@ impl Plugin for UIPlugin {
                 Update,
                 (
                     interaction::handle_slot_interaction_system,
+                    screens::crafting::crafting_interaction_system,
                     interaction::handle_category_clicked_system,
                     interaction::cancel_drag_system,
                 )
@@ -111,6 +116,8 @@ impl Plugin for UIPlugin {
                     screens::creative_inventory::creative_hotbar_visual_sync_system,
                     screens::survival_inventory::survival_hotbar_visual_sync_system,
                     screens::survival_inventory::survival_grid_visual_sync_system,
+                    screens::survival_inventory::survival_stats_visual_sync_system,
+                    screens::crafting::crafting_visual_sync_system,
                     screens::creative_inventory::update_category_highlight_system,
                     screens::creative_inventory::sync_creative_search_placeholder_system,
                 )
@@ -122,6 +129,8 @@ impl Plugin for UIPlugin {
                     screens::creative_inventory::cleanup_creative_hotbar_system,
                     screens::survival_inventory::cleanup_survival_hotbar_system,
                     interaction::slot_hover_system,
+                    screens::survival_inventory::backpack_management_button_system,
+                    screens::crafting::return_crafting_on_close_system,
                 )
                     .chain(),
             )

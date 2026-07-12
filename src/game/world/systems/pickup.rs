@@ -38,9 +38,11 @@ pub fn pickup_system(
         let result = match result {
             insert::InventoryInsertResult::AllInserted => result,
             insert::InventoryInsertResult::Partial(remaining)
-            | insert::InventoryInsertResult::Full(remaining) => {
-                insert::insert_into_container(&mut inventory.survival, remaining)
-            }
+            | insert::InventoryInsertResult::Full(remaining) => insert::insert_into_range(
+                &mut inventory.survival,
+                remaining,
+                0..crate::game::inventory::container::survival::SurvivalInventory::BACKPACK_SIZE,
+            ),
         };
 
         match result {

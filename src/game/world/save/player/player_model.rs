@@ -1,13 +1,14 @@
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
+use crate::game::inventory::container::survival::SurvivalInventory;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-pub const SAVE_VERSION: u32 = 3;
+pub const SAVE_VERSION: u32 = 4;
 
 /// 可序列化物品堆叠
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -17,7 +18,7 @@ pub struct SaveItemStack {
 }
 
 impl SaveItemStack {
-    fn air() -> Self {
+    pub(crate) fn air() -> Self {
         Self {
             item: "century_journey:air".into(),
             count: 0,
@@ -46,11 +47,12 @@ pub struct PlayerSaveData {
     #[serde(with = "serde_arrays")]
     pub hotbar: [SaveItemStack; HOTBAR_SIZE],
     #[serde(with = "serde_arrays")]
-    pub backpack: [SaveItemStack; 36],
+    pub backpack: [SaveItemStack; SurvivalInventory::BACKPACK_SIZE],
     #[serde(with = "serde_arrays")]
-    pub armor: [SaveItemStack; 4],
-    #[serde(with = "serde_arrays")]
-    pub accessories: [SaveItemStack; 6],
+    pub equipment: [SaveItemStack; SurvivalInventory::EQUIPMENT_SIZE],
+    pub accessories: Vec<SaveItemStack>,
+    #[serde(skip)]
+    pub(crate) legacy_backpack_overflow: Vec<SaveItemStack>,
 }
 
 impl Default for PlayerSaveData {
@@ -66,8 +68,9 @@ impl Default for PlayerSaveData {
             hotbar_active: 0,
             hotbar: std::array::from_fn(|_| SaveItemStack::air()),
             backpack: std::array::from_fn(|_| SaveItemStack::air()),
-            armor: std::array::from_fn(|_| SaveItemStack::air()),
-            accessories: std::array::from_fn(|_| SaveItemStack::air()),
+            equipment: std::array::from_fn(|_| SaveItemStack::air()),
+            accessories: vec![SaveItemStack::air(); 6],
+            legacy_backpack_overflow: Vec::new(),
         }
     }
 }
@@ -135,10 +138,22 @@ impl PlayerSaveData {
         let hotbar = std::array::from_fn(|i| optional_stack_to_save(inventory.hotbar.get_stack(i)));
         let backpack =
             std::array::from_fn(|i| optional_stack_to_save(inventory.survival.get_stack(i)));
-        let armor =
-            std::array::from_fn(|i| optional_stack_to_save(inventory.survival.get_stack(36 + i)));
-        let accessories =
-            std::array::from_fn(|i| optional_stack_to_save(inventory.survival.get_stack(40 + i)));
+        let equipment = std::array::from_fn(|i| {
+            optional_stack_to_save(
+                inventory
+                    .survival
+                    .get_stack(SurvivalInventory::equipment_index(i)),
+            )
+        });
+        let accessories = (0..inventory.survival.accessories.len())
+            .map(|i| {
+                optional_stack_to_save(
+                    inventory
+                        .survival
+                        .get_stack(SurvivalInventory::accessory_index(i)),
+                )
+            })
+            .collect();
 
         Self {
             version: SAVE_VERSION,
@@ -151,8 +166,9 @@ impl PlayerSaveData {
             hotbar_active: inventory.hotbar.active_index,
             hotbar,
             backpack,
-            armor,
+            equipment,
             accessories,
+            legacy_backpack_overflow: Vec::new(),
         }
     }
 
@@ -175,14 +191,26 @@ impl PlayerSaveData {
                 state.survival.set_stack(i, stack);
             }
         }
-        for (i, slot) in self.armor.iter().enumerate() {
+        for (i, slot) in self.equipment.iter().enumerate() {
             if let Some(stack) = save_to_optional_stack(slot) {
-                state.survival.set_stack(36 + i, stack);
+                state
+                    .survival
+                    .set_stack(SurvivalInventory::equipment_index(i), stack);
             }
         }
+        state
+            .survival
+            .ensure_accessory_slots(self.accessories.len());
         for (i, slot) in self.accessories.iter().enumerate() {
             if let Some(stack) = save_to_optional_stack(slot) {
-                state.survival.set_stack(40 + i, stack);
+                state
+                    .survival
+                    .set_stack(SurvivalInventory::accessory_index(i), stack);
+            }
+        }
+        for slot in &self.legacy_backpack_overflow {
+            if let Some(stack) = save_to_optional_stack(slot) {
+                restore_legacy_stack(&mut state, stack);
             }
         }
         state
@@ -247,7 +275,7 @@ pub fn validate_player_data(data: &PlayerSaveData) -> PlayerSaveData {
         .iter_mut()
         .map(|s| (s, "hotbar"))
         .chain(data.backpack.iter_mut().map(|s| (s, "backpack")))
-        .chain(data.armor.iter_mut().map(|s| (s, "armor")))
+        .chain(data.equipment.iter_mut().map(|s| (s, "equipment")))
         .chain(data.accessories.iter_mut().map(|s| (s, "accessories")))
     {
         if slot.is_air() {
@@ -268,4 +296,40 @@ pub fn validate_player_data(data: &PlayerSaveData) -> PlayerSaveData {
         log::warn!("[存档系统] 保存数据出现问题 — 已自动修复");
     }
     data
+}
+
+fn restore_legacy_stack(state: &mut InventoryState, mut stack: ItemStack) {
+    for index in 0..SurvivalInventory::BACKPACK_SIZE {
+        if stack.is_empty() {
+            return;
+        }
+        if let Some(existing) = state.survival.get_stack_mut(index)
+            && existing.is_same_item(&stack)
+        {
+            existing.merge_from(&mut stack);
+        }
+    }
+    for index in 0..SurvivalInventory::BACKPACK_SIZE {
+        if state.survival.get_stack(index).is_none() {
+            state.survival.set_stack(index, stack);
+            return;
+        }
+    }
+    for index in 0..HOTBAR_SIZE {
+        if stack.is_empty() {
+            return;
+        }
+        if let Some(existing) = state.hotbar.get_stack_mut(index)
+            && existing.is_same_item(&stack)
+        {
+            existing.merge_from(&mut stack);
+        }
+    }
+    for index in 0..HOTBAR_SIZE {
+        if state.hotbar.get_stack(index).is_none() {
+            state.hotbar.set_stack(index, stack);
+            return;
+        }
+    }
+    log::warn!("[存档系统] 旧版背包容量迁移后空间不足，无法恢复物品: {stack:?}");
 }

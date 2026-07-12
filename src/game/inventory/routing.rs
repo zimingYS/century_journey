@@ -1,6 +1,8 @@
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::cursor::{CursorData, CursorSource};
-use crate::game::inventory::interaction::{left_click_slot, right_click_slot, shift_click};
+use crate::game::inventory::interaction::{
+    left_click_slot, right_click_slot, shift_click, shift_click_into_range,
+};
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::slot::SlotAction;
 use crate::game::inventory::state::InventoryState;
@@ -100,29 +102,55 @@ pub fn handle_slot_interaction(
                 update_cursor_source(&mut state.cursor, CursorSource::Hotbar(index));
             }
             SlotAction::ShiftClick => {
-                shift_click(&mut state.hotbar, &mut state.survival, index);
+                use crate::game::inventory::container::survival::SurvivalInventory;
+                shift_click_into_range(
+                    &mut state.hotbar,
+                    &mut state.survival,
+                    index,
+                    0..SurvivalInventory::BACKPACK_SIZE,
+                );
             }
             _ => {}
         },
 
-        SlotKind::SurvivalBackpack => match action {
-            SlotAction::LeftClick => {
-                left_click_slot(&mut state.survival, index, &mut state.cursor);
-                update_cursor_source(&mut state.cursor, CursorSource::SurvivalBackpack(index));
+        SlotKind::SurvivalBackpack | SlotKind::SurvivalEquipment | SlotKind::SurvivalAccessory => {
+            match action {
+                _ if survival_index(kind, index).is_none() => {}
+                SlotAction::LeftClick => {
+                    let index = survival_index(kind, index).expect("checked above");
+                    left_click_slot(&mut state.survival, index, &mut state.cursor);
+                    update_cursor_source(&mut state.cursor, CursorSource::SurvivalBackpack(index));
+                }
+                SlotAction::RightClick => {
+                    let index = survival_index(kind, index).expect("checked above");
+                    right_click_slot(&mut state.survival, index, &mut state.cursor);
+                    update_cursor_source(&mut state.cursor, CursorSource::SurvivalBackpack(index));
+                }
+                SlotAction::ShiftClick => {
+                    let index = survival_index(kind, index).expect("checked above");
+                    shift_click(&mut state.survival, &mut state.hotbar, index);
+                }
+                _ => {}
             }
-            SlotAction::RightClick => {
-                right_click_slot(&mut state.survival, index, &mut state.cursor);
-                update_cursor_source(&mut state.cursor, CursorSource::SurvivalBackpack(index));
-            }
-            SlotAction::ShiftClick => {
-                shift_click(&mut state.survival, &mut state.hotbar, index);
-            }
-            _ => {}
-        },
+        }
 
         SlotKind::Container => {
             // TODO: 需要从 WorldStorage 查找容器实体
         }
+    }
+}
+
+/// 把各生存 UI 分区的局部索引转换成 SurvivalInventory 的统一索引。
+pub fn survival_index(kind: SlotKind, index: usize) -> Option<usize> {
+    use crate::game::inventory::container::survival::SurvivalInventory;
+
+    match kind {
+        SlotKind::SurvivalBackpack if index < SurvivalInventory::BACKPACK_SIZE => Some(index),
+        SlotKind::SurvivalEquipment if index < SurvivalInventory::EQUIPMENT_SIZE => {
+            Some(SurvivalInventory::equipment_index(index))
+        }
+        SlotKind::SurvivalAccessory => Some(SurvivalInventory::accessory_index(index)),
+        _ => None,
     }
 }
 

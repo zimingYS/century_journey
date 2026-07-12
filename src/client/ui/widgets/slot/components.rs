@@ -18,6 +18,10 @@ pub struct SlotIcon;
 #[derive(Component)]
 pub struct SlotCountText;
 
+/// 空装备/饰品槽中的短占位标记。
+#[derive(Component)]
+pub struct SlotPlaceholder;
+
 /// 槽位的视觉状态缓存
 #[derive(Component, Debug, Clone, Default)]
 pub struct SlotVisual {

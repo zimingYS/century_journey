@@ -7,6 +7,8 @@ pub enum SlotKind {
     CreativeGrid,
     Recent,
     SurvivalBackpack,
+    SurvivalEquipment,
+    SurvivalAccessory,
     Container,
 }
 

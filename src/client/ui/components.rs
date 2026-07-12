@@ -59,3 +59,27 @@ pub struct SurvivalItemGrid;
 /// 生存背包底部快捷栏，和 CreativeHotbarPanel 分离以避免 query.single() 冲突。
 #[derive(Component)]
 pub struct SurvivalHotbarPanel;
+
+#[derive(Component)]
+pub struct SurvivalEquipmentPanel;
+
+#[derive(Component)]
+pub struct SurvivalAccessoryPanel;
+
+#[derive(Component)]
+pub struct SurvivalPlayerPreviewCamera;
+
+#[derive(Component, Default)]
+pub struct SurvivalHealthText;
+
+#[derive(Component, Default)]
+pub struct SurvivalDefenseText;
+
+#[derive(Component, Default)]
+pub struct SurvivalHungerText;
+
+#[derive(Component, Default)]
+pub struct CompactBackpackButton;
+
+#[derive(Component, Default)]
+pub struct SortBackpackButton;
