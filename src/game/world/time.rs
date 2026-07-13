@@ -2,7 +2,7 @@ use crate::game::world::generation::WorldGenerator;
 use crate::game::world::generation::climate::SeasonResource;
 use bevy::prelude::*;
 
-/// Re-export — 类型定义在 shared/time/types.rs
+/// 统一重导出共享层的世界时间类型。
 pub use crate::shared::time::types::{TimeOfDay, TimePhase};
 
 /// 时间流逝系统 — 每帧更新世界时间。

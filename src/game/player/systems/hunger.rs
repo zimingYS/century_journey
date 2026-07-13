@@ -4,7 +4,7 @@ use crate::game::player::components::stats::{Health, Hunger};
 use crate::game::player::events::{DamageEvent, DamageSource, HealEvent};
 use bevy::prelude::*;
 
-/// Action Cost 系统 — 冲刺/跳跃消耗饥饿
+/// 动作消耗系统：冲刺和跳跃会消耗饥饿值。
 pub fn action_cost_system(
     time: Res<Time>,
     actions: Res<PlayerActionState>,

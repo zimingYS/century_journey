@@ -49,12 +49,3 @@ pub struct BlockStateChangeEvent {
     /// 新状态索引
     pub new_state: u16,
 }
-
-// /// 方块tick事件
-// #[derive(Message)]
-// pub struct BlockTickEvent {
-//     /// 方块世界坐标
-//     pub world_pos: IVec3,
-//     /// 方块运行时ID
-//     pub block_id: u16,
-// }

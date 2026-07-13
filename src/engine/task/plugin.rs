@@ -2,7 +2,7 @@ use crate::engine::task::manager::TaskManager;
 use crate::engine::task::runtime::TaskRuntimePlugin;
 use bevy::prelude::*;
 
-/// Initializes the Bevy task-pool facade and runtime diagnostics.
+/// 注册 Bevy 任务池门面和运行时统计资源。
 pub struct TaskPlugin;
 
 impl Plugin for TaskPlugin {

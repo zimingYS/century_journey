@@ -73,7 +73,7 @@ pub fn player_movement_system(
         if !check_collision_at(new_pos_x, half, &world_storage, &reg) {
             transform.translation.x = new_pos_x.x;
         } else if gravity.is_grounded {
-            // X轴碰撞 → 尝试沿X轴爬台阶
+            // X 轴发生碰撞时，尝试沿 X 轴跨上台阶。
             try_step_up(
                 &mut transform.translation,
                 half,
@@ -90,7 +90,7 @@ pub fn player_movement_system(
         if !check_collision_at(new_pos_z, half, &world_storage, &reg) {
             transform.translation.z = new_pos_z.z;
         } else if gravity.is_grounded {
-            // Z轴碰撞 → 尝试沿Z轴爬台阶
+            // Z 轴发生碰撞时，尝试沿 Z 轴跨上台阶。
             try_step_up(
                 &mut transform.translation,
                 half,

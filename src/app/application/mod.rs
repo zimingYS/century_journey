@@ -1,4 +1,4 @@
-//! Application 子模块 — 程序入口与生命周期。
+//! 应用实例子模块：程序入口、运行模式与生命周期。
 //!
 //! 负责 Application Trait、Launcher、AppMode 及各运行模式实现。
 

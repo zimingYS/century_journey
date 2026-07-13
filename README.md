@@ -69,49 +69,39 @@ The project uses a layered architecture so systems can evolve independently and 
 
 项目采用分层架构，使各系统能够独立演进，并保持较好的可维护性。现阶段 Content 与 Game 主要服务于本地客户端原型；Server、Protocol 与 Editor 是规划中的架构边界。
 
+当前源码职责、依赖方向和中文注释规范见
+[项目结构文档](docs/PROJECT_STRUCTURE.md)。
+
 ```text
-Engine
-|-- Rendering
-|-- Asset System
-|-- ECS Extensions
-|-- Resource Runtime
-`-- Core Infrastructure
-
-Shared
-|-- Identifier
-|-- Runtime Types
-|-- Registry Traits
-`-- Utilities
-
-Content
-|-- Blocks
-|-- Items
-|-- Biomes
-|-- Recipes
-|-- Loot Tables
-|-- Entities
-`-- Data Loaders
-
-Game
-|-- World
-|-- Player
-|-- Inventory
-|-- Physics
-|-- Crafting
-`-- Gameplay
+App
+|-- application flow
+`-- plugin assembly
 
 Client
-|-- Rendering
-|-- UI
-|-- Audio
-|-- Input
-`-- Animation
+|-- input and UI
+|-- renderer and sky
+`-- audio, particles, and effects
 
-Planned Server
-|-- Networking
-|-- Synchronization
-|-- Saving
-`-- Multiplayer
+Game
+|-- world and player
+|-- inventory and crafting
+`-- gameplay rules
+
+Content
+|-- blocks, items, and biomes
+`-- recipes, loot, and tags
+
+Shared
+`-- shared data types
+
+Engine
+|-- asset pipeline
+`-- task facade
+
+Planned boundaries
+|-- Editor
+|-- Protocol
+`-- Server
 ```
 
 ---

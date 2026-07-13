@@ -92,15 +92,6 @@ impl ItemDefinition {
             animations: AnimationConfig::default(),
         }
     }
-    //
-    // /// 加载时: 从 identifier + category 自动赋值 id
-    // pub fn finalize_id(&mut self) {
-    //     self.id = match self.category {
-    //         ItemCategory::Block => ItemId::block(&self.identifier),
-    //         _ => ItemId::item(&self.identifier),
-    //     };
-    // }
-
     /// 是否为工具
     pub fn is_tool(&self) -> bool {
         self.tool.is_some()

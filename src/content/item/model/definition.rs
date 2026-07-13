@@ -49,7 +49,7 @@ pub enum ItemModelKind {
     },
 }
 
-/// generated item 默认挤出厚度。
+/// 生成式物品模型的默认挤出厚度。
 fn default_generated_thickness() -> f32 {
     0.05
 }

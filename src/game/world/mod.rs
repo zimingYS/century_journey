@@ -3,7 +3,6 @@ pub mod chunk;
 pub mod entity;
 pub mod generation;
 pub mod save;
-pub mod sky;
 pub mod storage;
 pub mod systems;
 pub mod time;

@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-tokio = "1.52.3"
 bevy = "0.19.0"
 log = { version = "0.4.33", features = ["max_level_debug", "release_max_level_warn"] }
 serde = { version = "1.0.228", features = ["derive"] }
@@ -15,17 +14,10 @@ bincode = "1.3.3"
 flate2 = "1.1.9"
 # 图形纹理
 image = "0.25.10"
-# UI
-bevy_egui = "0.41.0"
-# 音频
-bevy_kira_audio = "0.26.0"
-# 网络
-bevy_replicon = "0.41.1"
 serde_arrays = "0.2.0"
 serde_json = "1.0.150"
 rand = "0.10.1"
 anyhow = "1.0.102"
-icu_provider = { version = "2.2.0", features = ["logging"] }
 
 # 为开发构建配置启用少量优化
 [profile.dev]

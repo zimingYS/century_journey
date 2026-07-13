@@ -12,7 +12,7 @@ use bevy::prelude::*;
 const POSITION_DIRTY_THRESHOLD_SQ: f32 = 0.25;
 
 // ═══════════════════════════════════════════════════════════════
-// PlayerSaveManager
+// 玩家存档状态
 // ═══════════════════════════════════════════════════════════════
 
 #[derive(Resource, Debug)]
@@ -280,7 +280,7 @@ pub fn auto_save_player_system(
     );
 }
 
-/// AppExit 事件触发立即保存
+/// 收到应用退出事件时立即保存。
 pub fn save_on_exit_system(
     mut exit_reader: MessageReader<AppExit>,
     save_config: Res<SaveConfig>,

@@ -1,15 +1,8 @@
-//! # Engine Task Facade
+//! 引擎任务门面。
 //!
-//! Runtime dispatch uses Bevy's `AsyncComputeTaskPool` for CPU work and
-//! `IoTaskPool` for IO work. The legacy scheduler, dependency, cancellation,
-//! executor, group, and worker implementations have been removed from the
-//! active compile path so the API matches the project's current behavior.
-//!
-//! # 引擎任务门面
-//!
-//! 运行时派发使用 Bevy 的 `AsyncComputeTaskPool` 执行 CPU 任务，并使用
-//! `IoTaskPool` 执行 IO 任务。旧的 scheduler、dependency、cancellation、
-//! executor、group 和 worker 实现已从活动编译路径移除，让 API 与项目当前行为一致。
+//! CPU 与 IO 任务分别复用 Bevy 的 AsyncComputeTaskPool 和 IoTaskPool。
+//! 本模块只暴露项目实际使用的句柄、管理器、运行时插件与统计数据，
+//! 不维护另一套线程池或调度器。
 
 pub(crate) mod diagnostics;
 pub(crate) mod job;
