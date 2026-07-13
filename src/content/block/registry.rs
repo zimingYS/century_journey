@@ -1,5 +1,4 @@
 use crate::content::block::definition::BlockProperty;
-use crate::content::block::sound::SoundMaterial;
 use crate::content::constant::world::CHUNK_SIZE;
 use crate::engine::asset::AssetFiles;
 use crate::engine::asset::manager::AssetManager;
@@ -15,24 +14,6 @@ pub struct BlockRegistry {
     id_to_identifier: HashMap<u16, Identifier>,
     texture_layers: HashMap<(u16, usize), u32>,
     texture_paths: Vec<String>,
-    sound_paths: HashMap<SoundMaterial, SoundPaths>,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct SoundPaths {
-    pub break_sound: String,
-    pub place_sound: String,
-    pub step_sound: String,
-    pub dig_sound: String,
-    pub fall_on_sound: String,
-    pub interact_sound: String,
-    pub open_sound: String,
-    pub close_sound: String,
-    pub reset_sound: String,
-    pub grow_sound: String,
-    pub ignore_sound: String,
-    pub extinguish_sound: String,
-    pub flow_sound: String,
 }
 
 impl BlockRegistry {
@@ -115,72 +96,6 @@ impl BlockRegistry {
     pub fn max_texture_layer(&self) -> u32 {
         self.texture_layers.values().copied().max().unwrap_or(0) + 1
     }
-
-    fn register_builtin_sounds(&mut self) {
-        self.sound_paths.insert(
-            SoundMaterial::Stone,
-            SoundPaths {
-                break_sound: "sounds/block/stone/break.ogg".to_string(),
-                place_sound: "sounds/block/stone/place.ogg".to_string(),
-                step_sound: "sounds/block/stone/step.ogg".to_string(),
-                ..default()
-            },
-        );
-        self.sound_paths.insert(
-            SoundMaterial::Dirt,
-            SoundPaths {
-                break_sound: "sounds/block/dirt/break.ogg".to_string(),
-                place_sound: "sounds/block/dirt/place.ogg".to_string(),
-                step_sound: "sounds/block/dirt/step.ogg".to_string(),
-                ..default()
-            },
-        );
-        self.sound_paths.insert(
-            SoundMaterial::Grass,
-            SoundPaths {
-                break_sound: "sounds/block/grass/break.ogg".to_string(),
-                place_sound: "sounds/block/grass/place.ogg".to_string(),
-                step_sound: "sounds/block/grass/step.ogg".to_string(),
-                ..default()
-            },
-        );
-        self.sound_paths.insert(
-            SoundMaterial::Wood,
-            SoundPaths {
-                break_sound: "sounds/block/wood/break.ogg".to_string(),
-                place_sound: "sounds/block/wood/place.ogg".to_string(),
-                step_sound: "sounds/block/wood/step.ogg".to_string(),
-                ..default()
-            },
-        );
-        self.sound_paths.insert(
-            SoundMaterial::Sand,
-            SoundPaths {
-                break_sound: "sounds/block/sand/break.ogg".to_string(),
-                place_sound: "sounds/block/sand/place.ogg".to_string(),
-                step_sound: "sounds/block/sand/step.ogg".to_string(),
-                ..default()
-            },
-        );
-        self.sound_paths.insert(
-            SoundMaterial::Glass,
-            SoundPaths {
-                break_sound: "sounds/block/glass/break.ogg".to_string(),
-                place_sound: "sounds/block/glass/place.ogg".to_string(),
-                step_sound: "sounds/block/glass/step.ogg".to_string(),
-                ..default()
-            },
-        );
-        self.sound_paths.insert(
-            SoundMaterial::Snow,
-            SoundPaths {
-                break_sound: "sounds/block/snow/break.ogg".to_string(),
-                place_sound: "sounds/block/snow/place.ogg".to_string(),
-                step_sound: "sounds/block/snow/step.ogg".to_string(),
-                ..default()
-            },
-        );
-    }
 }
 
 pub fn init_block_registry_system(
@@ -191,7 +106,6 @@ pub fn init_block_registry_system(
     let raw_configs = load_block_configs(&asset);
 
     let mut registry = BlockRegistry::default();
-    registry.register_builtin_sounds();
     register_blocks(&mut registry, raw_configs);
 
     commands.insert_resource(registry);

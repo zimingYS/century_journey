@@ -2,10 +2,13 @@ use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 
 use crate::app::plugin::CorePlugin;
+use crate::client::effect::ClientEffectPlugin;
 use crate::client::input::ClientInputPlugin;
+use crate::client::particle::ClientParticlePlugin;
 use crate::client::player::ClientPlayerPlugin;
 use crate::client::renderer::ClientRenderingPlugin;
 use crate::client::sky::SkyPlugin;
+use crate::client::sound::ClientSoundPlugin;
 use crate::client::startup::plugin::ClientStartupPlugin;
 use crate::client::ui::UIPlugin;
 use crate::content::block::VoxelPlugin;
@@ -48,6 +51,9 @@ impl PluginGroup for ClientPluginGroup {
             .add(ClientPlayerPlugin)
             .add(SkyPlugin)
             .add(UIPlugin)
+            .add(ClientSoundPlugin)
+            .add(ClientParticlePlugin)
+            .add(ClientEffectPlugin)
             .add(ClientStartupPlugin)
     }
 }

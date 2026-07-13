@@ -7,6 +7,12 @@
   "hardness": 0.5,
   "required_tool": null,
   "harvest_level": 0,
+  "sound": {
+    "sound_material": "Water",
+    "break_volume": 0.5,
+    "place_volume": 0.5,
+    "step_volume": 0.42
+  },
   "textures": {
     "top": "textures/blocks/water.png"
   }

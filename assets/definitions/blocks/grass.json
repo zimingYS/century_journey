@@ -8,6 +8,12 @@
   "required_tool": null,
   "harvest_level": 0,
   "tags": ["mineable/shovel", "grass_like"],
+  "sound": {
+    "sound_material": "Grass",
+    "break_volume": 0.9,
+    "place_volume": 0.8,
+    "step_volume": 0.6
+  },
   "textures": {
     "top": "textures/blocks/grass_top.png",
     "bottom": "textures/blocks/dirt.png",

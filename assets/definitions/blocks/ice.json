@@ -7,6 +7,12 @@
   "hardness": 1.0,
   "required_tool": "pickaxe",
   "harvest_level": 1,
+  "sound": {
+    "sound_material": "Glass",
+    "break_volume": 0.9,
+    "place_volume": 0.76,
+    "step_volume": 0.52
+  },
   "textures": {
     "top": "textures/blocks/ice.png"
   }

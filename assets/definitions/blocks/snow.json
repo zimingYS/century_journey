@@ -7,6 +7,12 @@
   "hardness": 0.5,
   "required_tool": null,
   "harvest_level": 0,
+  "sound": {
+    "sound_material": "Snow",
+    "break_volume": 0.78,
+    "place_volume": 0.7,
+    "step_volume": 0.5
+  },
   "textures": {
     "top": "textures/blocks/snow.png"
   }

@@ -1,6 +1,7 @@
 use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::Player;
 use crate::shared::states::InputContextState;
+use bevy::audio::SpatialListener;
 use bevy::camera::Exposure;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::input::mouse::MouseMotion;
@@ -26,6 +27,7 @@ pub fn setup_player_camera_system(
                 ambient_intensity: 0.0,
                 ..default()
             },
+            SpatialListener::new(0.22),
         ));
     }
 }

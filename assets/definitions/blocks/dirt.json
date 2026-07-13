@@ -8,6 +8,12 @@
   "required_tool": null,
   "harvest_level": 0,
   "tags": ["mineable/shovel"],
+  "sound": {
+    "sound_material": "Dirt",
+    "break_volume": 0.9,
+    "place_volume": 0.8,
+    "step_volume": 0.6
+  },
   "textures": {
     "top": "textures/blocks/dirt.png"
   }

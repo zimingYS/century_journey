@@ -7,6 +7,12 @@
   "hardness": 2.0,
   "required_tool": null,
   "harvest_level": 0,
+  "sound": {
+    "sound_material": "Grass",
+    "break_volume": 0.72,
+    "place_volume": 0.65,
+    "step_volume": 0.48
+  },
   "textures": {
     "top": "textures/blocks/leaves.png"
   }

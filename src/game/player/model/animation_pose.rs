@@ -47,9 +47,47 @@ pub fn apply_player_rig_animation_system(
         );
 
         if let Ok(mut transform) = transform_query.get_mut(rig.held_item) {
-            *transform = held_item_grip_transform();
+            *transform = held_item_feedback_transform(state);
         }
     }
+}
+
+/// 在稳定握持姿势上叠加移动浮动和动作挥摆，参数完全来自共享动画状态。
+fn held_item_feedback_transform(state: &PlayerAnimationState) -> Transform {
+    let mut transform = held_item_grip_transform();
+    if !state.parameters.holding_item {
+        return transform;
+    }
+
+    let phase = state.parameters.locomotion_phase;
+    let move_weight = (state.parameters.horizontal_speed / 10.0).clamp(0.0, 1.0);
+    transform.translation +=
+        Vec3::new(phase.sin() * 0.012, phase.cos().abs() * -0.010, 0.0) * move_weight;
+    transform.rotation *= Quat::from_rotation_z(phase.sin() * 0.035 * move_weight);
+
+    let pulse = (state.parameters.action_progress.clamp(0.0, 1.0) * std::f32::consts::PI).sin();
+    let (translation, rotation) = match state.upper_body.current {
+        PlayerBehaviorState::Mining | PlayerBehaviorState::Attacking => (
+            Vec3::new(0.035, -0.055, -0.025) * pulse,
+            Quat::from_rotation_x(-0.42 * pulse) * Quat::from_rotation_z(-0.14 * pulse),
+        ),
+        PlayerBehaviorState::Placing => (
+            Vec3::new(0.0, -0.015, -0.075) * pulse,
+            Quat::from_rotation_x(-0.18 * pulse),
+        ),
+        PlayerBehaviorState::Using => (
+            Vec3::new(0.0, 0.045, 0.018) * pulse,
+            Quat::from_rotation_x(-0.28 * pulse),
+        ),
+        PlayerBehaviorState::Hurt => (
+            Vec3::new(0.028, 0.0, 0.0) * pulse,
+            Quat::from_rotation_z(0.12 * pulse),
+        ),
+        PlayerBehaviorState::None | PlayerBehaviorState::Death => (Vec3::ZERO, Quat::IDENTITY),
+    };
+    transform.translation += translation;
+    transform.rotation *= rotation;
+    transform
 }
 
 #[derive(Debug, Clone, Copy, Default)]

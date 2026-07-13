@@ -35,3 +35,9 @@ pub enum InventoryCommand {
     CompactBackpack,
     SortBackpack,
 }
+
+/// 只描述物品栏操作结果，供客户端表现层播放提示，不参与物品规则判定。
+#[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InventoryFeedbackEvent {
+    Full,
+}

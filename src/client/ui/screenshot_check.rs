@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 
 use crate::app::flow::{MenuPage, PendingWorld};
+use crate::client::ui::components::SurvivalInventoryRoot;
 use crate::client::ui::navigation::{UiNavigation, UiScreen};
 use crate::client::ui::screens::menu::{PauseSettingsButton, ResumeButton, SaveQuitButton};
 use crate::content::block::registry::BlockRegistry;
@@ -83,6 +84,7 @@ fn ui_screenshot_check_system(
             With<SaveQuitButton>,
         )>,
     >,
+    survival_inventory: Query<(&ComputedNode, &InheritedVisibility), With<SurvivalInventoryRoot>>,
     mut commands: Commands,
 ) {
     let Some(mut config) = config else {
@@ -151,7 +153,12 @@ fn ui_screenshot_check_system(
     let ready = match config.target {
         ScreenshotTarget::MainMenu | ScreenshotTarget::Settings => state == &AppState::MainMenu,
         ScreenshotTarget::Pause => state == &AppState::Paused,
-        ScreenshotTarget::Inventory => state == &AppState::InGame,
+        ScreenshotTarget::Inventory => {
+            state == &AppState::InGame
+                && survival_inventory.single().is_ok_and(|(node, inherited)| {
+                    node.size().min_element() > 0.0 && inherited.get()
+                })
+        }
     };
     if !ready || !config.prepared {
         return;

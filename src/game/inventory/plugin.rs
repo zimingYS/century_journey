@@ -1,7 +1,9 @@
 use bevy::prelude::*;
 
 use crate::game::inventory::container::InventoryContainer;
-use crate::game::inventory::events::{DropItemEvent, InventoryCommand, SlotInteractionEvent};
+use crate::game::inventory::events::{
+    DropItemEvent, InventoryCommand, InventoryFeedbackEvent, SlotInteractionEvent,
+};
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::slot::SlotAction;
 use crate::game::inventory::state::InventoryState;
@@ -20,6 +22,7 @@ impl Plugin for InventoryPlugin {
             .add_message::<SlotInteractionEvent>()
             .add_message::<DropItemEvent>()
             .add_message::<InventoryCommand>()
+            .add_message::<InventoryFeedbackEvent>()
             .add_systems(
                 Update,
                 (

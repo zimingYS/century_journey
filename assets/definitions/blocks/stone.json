@@ -8,6 +8,12 @@
   "required_tool": "pickaxe",
   "harvest_level": 0,
   "tags": ["mineable/pickaxe", "stone_like"],
+  "sound": {
+    "sound_material": "Stone",
+    "break_volume": 1.0,
+    "place_volume": 0.85,
+    "step_volume": 0.62
+  },
   "textures": {
     "top": "textures/blocks/stone.png"
   }

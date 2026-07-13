@@ -172,7 +172,11 @@ fn check_voxel(x: i32, y: i32, z: i32, world_storage: &WorldStorage) -> Option<(
     None
 }
 /// 绘制方块高亮框系统
-pub fn draw_voxel_highlight_system(target_voxel: Res<TargetVoxel>, mut gizmos: Gizmos) {
+pub fn draw_voxel_highlight_system(
+    time: Res<Time>,
+    target_voxel: Res<TargetVoxel>,
+    mut gizmos: Gizmos,
+) {
     if let Some(ray_result) = &target_voxel.result {
         let center = Vec3::new(
             ray_result.hit_pos.x as f32 + 0.5,
@@ -180,9 +184,11 @@ pub fn draw_voxel_highlight_system(target_voxel: Res<TargetVoxel>, mut gizmos: G
             ray_result.hit_pos.z as f32 + 0.5,
         );
 
+        let pulse = (time.elapsed_secs() * 3.2).sin() * 0.5 + 0.5;
+        let scale = 1.006 + pulse * 0.008;
         gizmos.cube(
-            Transform::from_translation(center).with_scale(Vec3::splat(1.01)),
-            Color::srgb(1.0, 1.0, 0.0),
+            Transform::from_translation(center).with_scale(Vec3::splat(scale)),
+            Color::srgba(0.78 + pulse * 0.16, 0.93, 1.0, 0.88),
         );
     }
 }

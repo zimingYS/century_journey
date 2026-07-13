@@ -1,3 +1,4 @@
+use crate::game::inventory::events::InventoryFeedbackEvent;
 use crate::game::inventory::insert;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::Player;
@@ -11,11 +12,15 @@ const PICKUP_RANGE: f32 = 2.0;
 /// 每帧检测玩家范围内所有掉落物，尝试插入玩家背包。
 /// 成功则删除掉落物实体，失败则保留剩余物品
 pub fn pickup_system(
+    time: Res<Time>,
     player_query: Query<&Transform, With<Player>>,
     mut item_query: Query<(Entity, &Transform, &mut DroppedItem)>,
     mut inventory: ResMut<InventoryState>,
     mut commands: Commands,
+    mut feedback_writer: MessageWriter<InventoryFeedbackEvent>,
+    mut full_feedback_cooldown: Local<f32>,
 ) {
+    *full_feedback_cooldown = (*full_feedback_cooldown - time.delta_secs()).max(0.0);
     let Ok(player_transform) = player_query.single() else {
         return;
     };
@@ -54,7 +59,11 @@ pub fn pickup_system(
                 dropped.stack = remaining;
             }
             insert::InventoryInsertResult::Full(_) => {
-                // 背包已满，留在世界中，不标记脏
+                // 满载提示做节流，避免同一件地面物品每帧重复播放提示。
+                if *full_feedback_cooldown <= 0.0 {
+                    feedback_writer.write(InventoryFeedbackEvent::Full);
+                    *full_feedback_cooldown = 1.25;
+                }
             }
         }
     }

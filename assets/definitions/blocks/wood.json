@@ -8,6 +8,12 @@
   "required_tool": "axe",
   "harvest_level": 0,
   "tags": ["mineable/axe", "wood_like"],
+  "sound": {
+    "sound_material": "Wood",
+    "break_volume": 0.92,
+    "place_volume": 0.82,
+    "step_volume": 0.58
+  },
   "textures": {
     "top": "textures/blocks/wood_top.png",
     "north": "textures/blocks/wood.png"

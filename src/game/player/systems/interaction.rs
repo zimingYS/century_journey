@@ -186,7 +186,7 @@ pub fn voxel_interaction_system(
         events.sound_events.write(BlockSoundEvent {
             position: hit_pos.as_vec3(),
             sound_material: prop.sound.sound_material,
-            action: SoundAction::Step,
+            action: SoundAction::Interact,
             volume: 0.5,
         });
         return;
