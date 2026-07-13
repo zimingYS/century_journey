@@ -17,39 +17,11 @@ pub struct HeldItemEntity {
     pub item_identifier: Identifier,
 }
 
-#[derive(Component)]
-pub struct ViewModelAnimator {
-    pub equip_progress: f32,
-    pub swing_progress: f32,
-    pub use_progress: f32,
-    pub idle_phase: f32,
-}
-
-impl Default for ViewModelAnimator {
-    fn default() -> Self {
-        Self {
-            equip_progress: 1.0,
-            swing_progress: 0.0,
-            use_progress: 0.0,
-            idle_phase: 0.0,
-        }
-    }
-}
-
 #[derive(Resource, Default)]
 pub struct ViewModelRenderState {
     pub held_entity: Option<Entity>,
     pub hand_entity: Option<Entity>,
     pub current_item: Option<Identifier>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ViewAnimation {
-    Idle,
-    Swing,
-    Use,
-    Eat,
-    Spyglass,
 }
 
 pub struct ViewModelPlugin;
