@@ -26,6 +26,7 @@ use crate::game::world::systems::{
 use crate::game::world::time::TimeOfDay;
 use crate::shared::components::camera::FpsCamera;
 use crate::shared::states::{AppState, InputContextState};
+use crate::shared::time::NEW_WORLD_START_TIME;
 
 #[derive(Resource, Debug, Default)]
 pub struct GameSession {
@@ -284,7 +285,13 @@ fn handle_flow_commands_system(
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_nanos() as u64;
-                match level::save_level(&id, seed, Vec3::new(0.0, 70.0, 0.0), 0.25, registry) {
+                match level::save_level(
+                    &id,
+                    seed,
+                    Vec3::new(0.0, 70.0, 0.0),
+                    NEW_WORLD_START_TIME,
+                    registry,
+                ) {
                     Ok(()) => {
                         refresh_world_catalog(&mut catalog);
                         catalog.selected = Some(id);

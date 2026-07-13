@@ -1,3 +1,6 @@
+/// 新创建世界的初始时间（早上 8 点）。
+pub const NEW_WORLD_START_TIME: f32 = 8.0;
+
 /// 日出开始时间（小时）。
 pub const SUNRISE_START: f32 = 5.0;
 

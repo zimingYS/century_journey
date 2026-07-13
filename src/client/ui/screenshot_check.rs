@@ -11,6 +11,7 @@ use crate::content::block::registry::BlockRegistry;
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
 use crate::game::world::save::level;
 use crate::shared::states::AppState;
+use crate::shared::time::NEW_WORLD_START_TIME;
 
 const FRAMES_BEFORE_CAPTURE: u32 = 30;
 const SECONDS_BEFORE_CAPTURE: f32 = 1.5;
@@ -123,7 +124,7 @@ fn ui_screenshot_check_system(
                 SCREENSHOT_WORLD,
                 12_345,
                 Vec3::new(0.0, 70.0, 0.0),
-                0.25,
+                NEW_WORLD_START_TIME,
                 &block_registry,
             ) {
                 error!("创建 UI 截图测试世界失败: {error}");

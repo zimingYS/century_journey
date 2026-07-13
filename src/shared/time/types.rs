@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::{SUNRISE_END, SUNRISE_START, SUNSET_END, SUNSET_START};
+use super::{NEW_WORLD_START_TIME, SUNRISE_END, SUNRISE_START, SUNSET_END, SUNSET_START};
 
 /// 世界时间 — Client（天空渲染）和 Server（世界模拟）共享。
 #[derive(Resource)]
@@ -16,7 +16,7 @@ pub struct TimeOfDay {
 impl Default for TimeOfDay {
     fn default() -> Self {
         Self {
-            current_time: 8.0,
+            current_time: NEW_WORLD_START_TIME,
             total_elapsed_hours: 0.0,
             speed: 60.0,
         }
@@ -67,4 +67,16 @@ pub enum TimePhase {
     Sunrise,
     Day,
     Sunset,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_world_start_time_is_daytime() {
+        let time = TimeOfDay::default();
+        assert_eq!(time.current_time, NEW_WORLD_START_TIME);
+        assert_eq!(time.phase(), TimePhase::Day);
+    }
 }
