@@ -54,7 +54,12 @@ impl Plugin for WorldPlugin {
                     .chain()
                     .run_if(in_state(AppState::InGame)),
             )
-            .add_systems(OnEnter(AppState::InGame), cache_block_ids_system);
+            .add_systems(
+                OnEnter(AppState::InGame),
+                cache_block_ids_system
+                    .after(crate::content::tag::plugin::init_tag_registry_system)
+                    .run_if(crate::app::flow::fresh_game_session),
+            );
     }
 }
 

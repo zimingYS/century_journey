@@ -10,8 +10,10 @@ pub struct RecipeContentPlugin;
 
 impl Plugin for RecipeContentPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<RecipeRegistry>()
-            .add_systems(OnEnter(AppState::InGame), load_recipes_system);
+        app.init_resource::<RecipeRegistry>().add_systems(
+            OnEnter(AppState::InGame),
+            load_recipes_system.run_if(crate::app::flow::fresh_game_session),
+        );
     }
 }
 

@@ -22,6 +22,7 @@ pub struct UIPlugin;
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
         screenshot_check::configure_ui_screenshot_check(app);
+        screens::menu::init_menu_resources(app);
         app
             // ── 消息通道 ──
             .add_message::<CategoryClickedEvent>()
@@ -45,6 +46,20 @@ impl Plugin for UIPlugin {
                     screens::creative_inventory::spawn_creative_inventory_system,
                     screens::survival_inventory::spawn_survival_inventory_system,
                     screens::crafting::spawn_crafting_system,
+                    screens::menu::spawn_menu_screens_system,
+                )
+                    .chain(),
+            )
+            .add_systems(
+                Update,
+                (
+                    screens::menu::sync_flow_screen_stack_system,
+                    screens::menu::sync_loading_text_system,
+                    screens::menu::sync_dialog_text_system,
+                    screens::menu::populate_world_list_system,
+                    screens::menu::sync_world_name_draft_system,
+                    screens::menu::sync_setting_values_system,
+                    screens::menu::menu_button_system,
                 )
                     .chain(),
             )
@@ -54,8 +69,10 @@ impl Plugin for UIPlugin {
                     navigation::handle_ui_navigation_system,
                     navigation::sync_legacy_screen_state_system,
                     navigation::sync_screen_visibility_system,
+                    screens::menu::sync_menu_visibility_system,
                 )
-                    .chain(),
+                    .chain()
+                    .after(screens::menu::sync_flow_screen_stack_system),
             )
             .add_systems(
                 Update,

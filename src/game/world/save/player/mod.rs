@@ -6,6 +6,6 @@ pub mod player_model;
 pub use player_manager::{
     PlayerSaveManager, auto_save_player_system, gamemode_dirty_tracking_system,
     inventory_dirty_tracking_system, load_player_on_enter_system, player_position_dirty_system,
-    save_on_exit_system,
+    save_on_exit_system, save_player_now,
 };
 pub use player_model::{PlayerSaveData, SAVE_VERSION, SaveItemStack};

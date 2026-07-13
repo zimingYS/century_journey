@@ -8,7 +8,9 @@ use crate::shared::states::InputContextState;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum UiScreen {
     MainMenu,
+    Loading,
     PauseMenu,
+    Settings,
     Inventory,
     Container,
     Modal,
@@ -139,14 +141,19 @@ fn open_screen(
     interface: &mut MessageWriter<InterfaceCommand>,
 ) {
     match screen {
-        UiScreen::Inventory => interface.write(InterfaceCommand::OpenInventory),
+        UiScreen::Inventory => {
+            interface.write(InterfaceCommand::OpenInventory);
+        }
         UiScreen::Container => {
             if !stack.contains(UiScreen::Inventory) {
                 stack.open(UiScreen::Inventory);
             }
-            interface.write(InterfaceCommand::OpenInventory)
+            interface.write(InterfaceCommand::OpenInventory);
         }
-        UiScreen::MainMenu | UiScreen::PauseMenu => interface.write(InterfaceCommand::OpenMenu),
+        UiScreen::MainMenu | UiScreen::PauseMenu | UiScreen::Settings => {
+            interface.write(InterfaceCommand::OpenMenu);
+        }
+        UiScreen::Loading => {}
         UiScreen::Modal => return stack.open(screen),
     };
     stack.open(screen);
@@ -158,9 +165,10 @@ fn close_screen_state(screen: UiScreen, interface: &mut MessageWriter<InterfaceC
             interface.write(InterfaceCommand::CloseInventory);
         }
         UiScreen::Container => {}
-        UiScreen::MainMenu | UiScreen::PauseMenu => {
+        UiScreen::MainMenu | UiScreen::PauseMenu | UiScreen::Settings => {
             interface.write(InterfaceCommand::CloseMenu);
         }
+        UiScreen::Loading => {}
         UiScreen::Modal => {}
     }
 }

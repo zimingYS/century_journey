@@ -22,7 +22,8 @@ impl Plugin for GamePlayerPlugin {
                 (
                     crate::game::player::systems::movement::player_movement_system,
                     crate::game::player::systems::gravity::player_gravity_system,
-                ),
+                )
+                    .run_if(in_state(crate::shared::states::AppState::InGame)),
             )
             .add_systems(
                 Update,
@@ -30,7 +31,8 @@ impl Plugin for GamePlayerPlugin {
                     crate::game::player::systems::interaction::voxel_interaction_system,
                     crate::game::player::systems::raycast::draw_voxel_highlight_system,
                     crate::game::player::systems::raycast::update_raycast_system,
-                ),
+                )
+                    .run_if(in_state(crate::shared::states::AppState::InGame)),
             )
             .add_systems(
                 Update,
@@ -39,7 +41,8 @@ impl Plugin for GamePlayerPlugin {
                     crate::game::player::systems::combat::heal_system,
                     crate::game::player::systems::combat::death_system,
                 )
-                    .chain(),
+                    .chain()
+                    .run_if(in_state(crate::shared::states::AppState::InGame)),
             )
             .add_systems(
                 Update,
@@ -48,11 +51,13 @@ impl Plugin for GamePlayerPlugin {
                     crate::game::player::systems::hunger::natural_regeneration_system,
                     crate::game::player::systems::hunger::starvation_damage_system,
                 )
-                    .chain(),
+                    .chain()
+                    .run_if(in_state(crate::shared::states::AppState::InGame)),
             )
             .add_systems(
                 Update,
-                crate::game::player::systems::armor_calc::armor_calculation_system,
+                crate::game::player::systems::armor_calc::armor_calculation_system
+                    .run_if(in_state(crate::shared::states::AppState::InGame)),
             )
             .add_systems(
                 Update,
@@ -60,7 +65,8 @@ impl Plugin for GamePlayerPlugin {
                     crate::game::player::systems::interaction::drop_active_hotbar_action_system,
                     crate::game::player::systems::interaction::drop_item_system,
                 )
-                    .chain(),
+                    .chain()
+                    .run_if(in_state(crate::shared::states::AppState::InGame)),
             );
     }
 }

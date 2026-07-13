@@ -3,11 +3,33 @@ use crate::app::config::AppConfig;
 use crate::client::plugin_group::ClientPluginGroup;
 use crate::engine::constant::window::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::game::world::systems::WorldStreamingConfig;
+use bevy::asset::AssetPlugin as BevyAssetPlugin;
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy::window::{Window, WindowPlugin, WindowPosition, WindowResolution};
 
 const DEFAULT_LOG_FILTER: &str = "info,wgpu_core=warn,wgpu_hal=warn,naga=warn";
+
+fn asset_root_path() -> String {
+    if let Some(path) = std::env::var_os("CJ_ASSET_ROOT") {
+        return path.to_string_lossy().into_owned();
+    }
+    if let Ok(current_dir) = std::env::current_dir() {
+        let assets = current_dir.join("assets");
+        if assets.is_dir() {
+            return assets.to_string_lossy().into_owned();
+        }
+    }
+    if let Ok(executable) = std::env::current_exe()
+        && let Some(parent) = executable.parent()
+    {
+        let assets = parent.join("assets");
+        if assets.is_dir() {
+            return assets.to_string_lossy().into_owned();
+        }
+    }
+    "assets".into()
+}
 
 pub struct ClientApplication;
 
@@ -35,6 +57,10 @@ impl Application for ClientApplication {
         let mut app = App::new();
         app.add_plugins(
             DefaultPlugins
+                .set(BevyAssetPlugin {
+                    file_path: asset_root_path(),
+                    ..default()
+                })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         resolution: window_resolution,

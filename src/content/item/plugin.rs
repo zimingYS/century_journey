@@ -21,7 +21,8 @@ impl Plugin for ItemContentPlugin {
                     load_item_definitions_system,
                     load_item_models_system,
                 )
-                    .chain(),
+                    .chain()
+                    .run_if(crate::app::flow::fresh_game_session),
             );
     }
 }

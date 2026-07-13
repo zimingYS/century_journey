@@ -54,7 +54,9 @@ impl Plugin for HudPlugin {
 
         app.add_systems(
             OnEnter(AppState::InGame),
-            (load_hud_status_icon_assets_system, spawn_hud_root_system).in_set(HudSetupSet::Root),
+            (load_hud_status_icon_assets_system, spawn_hud_root_system)
+                .in_set(HudSetupSet::Root)
+                .run_if(crate::app::flow::fresh_game_session),
         )
         .add_systems(
             OnEnter(AppState::InGame),
@@ -69,7 +71,8 @@ impl Plugin for HudPlugin {
                 spawn_right_top_hud_system,
                 spawn_top_hud_system,
             )
-                .in_set(HudSetupSet::Anchor),
+                .in_set(HudSetupSet::Anchor)
+                .run_if(crate::app::flow::fresh_game_session),
         )
         .add_systems(
             OnEnter(AppState::InGame),
@@ -79,15 +82,20 @@ impl Plugin for HudPlugin {
                 spawn_hotbar_ui_system,
             )
                 .in_set(HudSetupSet::Layout)
-                .chain(),
+                .chain()
+                .run_if(crate::app::flow::fresh_game_session),
         )
         .add_systems(
             OnEnter(AppState::InGame),
-            (spawn_health_bar, spawn_armor_bar).after(spawn_bars_hud_system),
+            (spawn_health_bar, spawn_armor_bar)
+                .after(spawn_bars_hud_system)
+                .run_if(crate::app::flow::fresh_game_session),
         )
         .add_systems(
             OnEnter(AppState::InGame),
-            (spawn_hunger_bar,).after(spawn_bars_hud_system),
+            (spawn_hunger_bar,)
+                .after(spawn_bars_hud_system)
+                .run_if(crate::app::flow::fresh_game_session),
         );
 
         app.add_systems(

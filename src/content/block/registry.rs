@@ -195,9 +195,9 @@ pub fn init_block_registry_system(
     register_blocks(&mut registry, raw_configs);
 
     commands.insert_resource(registry);
-    next_state.set(AppState::InGame);
+    next_state.set(AppState::MainMenu);
 
-    info!("[block registry] loaded block definitions and switched to InGame");
+    info!("[block registry] loaded block definitions and switched to MainMenu");
 }
 
 fn load_block_configs(asset: &AssetManager) -> Vec<BlockProperty> {

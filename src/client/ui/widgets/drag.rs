@@ -66,6 +66,11 @@ pub fn spawn_cursor_item_icon(mut commands: Commands, ui_font: Res<UiFont>) {
         });
 }
 
+fn cursor_ui_position(cursor_position: Vec2, ui_scale: f32) -> Vec2 {
+    const SCREEN_OFFSET: Vec2 = Vec2::splat(12.0);
+    (cursor_position + SCREEN_OFFSET) / ui_scale.max(0.01)
+}
+
 /// 让拖拽图标跟随鼠标移动。
 pub fn cursor_follow_system(
     mut cursor_moved: MessageReader<CursorMoved>,
@@ -79,11 +84,6 @@ pub fn cursor_follow_system(
             node.top = Val::Px(position.y);
         }
     }
-}
-
-fn cursor_ui_position(cursor_position: Vec2, ui_scale: f32) -> Vec2 {
-    const SCREEN_OFFSET: Vec2 = Vec2::splat(12.0);
-    (cursor_position + SCREEN_OFFSET) / ui_scale.max(0.01)
 }
 
 /// 根据光标物品状态控制拖拽图标显隐。

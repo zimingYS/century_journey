@@ -35,6 +35,7 @@ pub fn player_look_system(
     mut player_query: Query<&mut Transform, With<Player>>,
     mut camera_query: Query<(&mut Transform, &mut FpsCamera), Without<Player>>,
     context: Res<InputContextState>,
+    settings: Res<crate::app::flow::GameSettings>,
 ) {
     if !context.active().allows_gameplay() {
         mouse_motion.clear();
@@ -50,14 +51,16 @@ pub fn player_look_system(
         return;
     }
 
+    let sensitivity = 0.0015 * settings.mouse_sensitivity;
+
     // 左右旋转
     if let Ok(mut player_transform) = player_query.single_mut() {
-        player_transform.rotate_y(-delta.x * 0.0015);
+        player_transform.rotate_y(-delta.x * sensitivity);
     }
 
     // 上下旋转
     if let Ok((mut camera_transform, _fps_camera)) = camera_query.single_mut() {
-        camera_transform.rotate_local_x(-delta.y * 0.0015);
+        camera_transform.rotate_local_x(-delta.y * sensitivity);
     }
 }
 
@@ -107,7 +110,8 @@ impl Plugin for CameraPlugin {
                 toggle_perspective_system,
                 camera_perspective_sync_system,
                 setup_player_camera_system,
-            ),
+            )
+                .run_if(in_state(crate::shared::states::AppState::InGame)),
         );
     }
 }

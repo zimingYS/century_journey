@@ -17,11 +17,16 @@ pub struct TagContentPlugin;
 
 impl Plugin for TagContentPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::InGame), init_tag_registry_system);
+        app.add_systems(
+            OnEnter(AppState::InGame),
+            init_tag_registry_system
+                .after(crate::content::item::model::load_item_models_system)
+                .run_if(crate::app::flow::fresh_game_session),
+        );
     }
 }
 
-fn init_tag_registry_system(
+pub(crate) fn init_tag_registry_system(
     mut commands: Commands,
     asset: Res<AssetManager>,
     block_registry: Res<BlockRegistry>,

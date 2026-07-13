@@ -5,6 +5,7 @@ use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
+use crate::app::flow::{DialogState, FlowCommand, MenuPage};
 use crate::client::ui::navigation::UiNavigation;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::InventoryState;
@@ -88,6 +89,9 @@ fn handle_interface_input_system(
     mut input_focus: ResMut<InputFocus>,
     mut search_state: ResMut<SearchInputState>,
     mut navigation: MessageWriter<UiNavigation>,
+    dialog: Res<DialogState>,
+    menu_page: Res<MenuPage>,
+    mut flow: MessageWriter<FlowCommand>,
 ) {
     for command in commands.read() {
         apply_interface_command(
@@ -111,6 +115,14 @@ fn handle_interface_input_system(
                 &mut input_focus,
                 &mut search_state,
             );
+        } else if dialog.kind.is_some() {
+            flow.write(FlowCommand::CancelDialog);
+        } else if *menu_page == MenuPage::Settings {
+            flow.write(FlowCommand::CloseSettings);
+        } else if matches!(
+            app_state.get(),
+            AppState::Boot | AppState::Loading | AppState::MainMenu | AppState::WorldLoading
+        ) {
         } else {
             navigation.write(UiNavigation::Back);
         }

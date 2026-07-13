@@ -32,7 +32,8 @@ impl Plugin for SaveLoadPlugin {
                 (
                     system::cache_level_data_on_enter,
                     player::load_player_on_enter_system,
-                ),
+                )
+                    .run_if(crate::app::flow::fresh_game_session),
             )
             .add_systems(
                 PostUpdate,
@@ -56,7 +57,8 @@ impl Plugin for SaveLoadPlugin {
                     player::gamemode_dirty_tracking_system,
                     player::auto_save_player_system,
                     player::save_on_exit_system,
-                ),
+                )
+                    .run_if(in_state(AppState::InGame)),
             )
             .add_systems(Last, player::save_on_exit_system);
     }

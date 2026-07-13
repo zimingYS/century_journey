@@ -121,6 +121,41 @@ fn perform_save(
     }
 }
 
+/// 立即保存玩家数据，供“保存并退出”流程同步确认结果。
+pub fn save_player_now(
+    world_name: &str,
+    gamemode: &PlayerGameMode,
+    inventory: &InventoryState,
+    player_query: &Query<&Transform, With<Player>>,
+    camera_query: &Query<&FpsCamera, With<Camera3d>>,
+    save_manager: &mut PlayerSaveManager,
+    time: &Time,
+) -> Result<(), String> {
+    let transform = player_query.single().cloned().unwrap_or_default();
+    let pitch = camera_query
+        .single()
+        .map(|camera| camera.pitch)
+        .unwrap_or(0.0);
+    let data = PlayerSaveData::from_runtime(
+        transform.translation,
+        transform.rotation,
+        pitch,
+        gamemode,
+        inventory,
+        20.0,
+        20.0,
+    );
+    let path = player_save_path(world_name);
+    write_player_data(&data, &path)?;
+    save_manager.dirty = false;
+    save_manager.last_dirty_source = None;
+    save_manager.total_saves += 1;
+    save_manager.last_save_time = time.elapsed_secs() as f64;
+    save_manager.last_saved_position = transform.translation;
+    log::info!("[存档系统] 玩家已同步保存到 {path:?}");
+    Ok(())
+}
+
 // ═══════════════════════════════════════════════════════════════
 // ECS 系统
 // ═══════════════════════════════════════════════════════════════

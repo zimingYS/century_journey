@@ -12,7 +12,8 @@ impl Plugin for LootPlugin {
         app.init_resource::<block_registry::BlockLootRegistry>()
             .add_systems(
                 OnEnter(AppState::InGame),
-                block_registry::init_default_loot_system,
+                block_registry::init_default_loot_system
+                    .run_if(crate::app::flow::fresh_game_session),
             );
     }
 }

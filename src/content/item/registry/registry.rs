@@ -89,6 +89,12 @@ pub fn load_item_definitions_system(
     mut item_registry: ResMut<ItemRegistry>,
     asset: Res<AssetManager>,
 ) {
+    if item_registry
+        .all_items()
+        .any(|definition| definition.category != ItemCategory::Block)
+    {
+        return;
+    }
     let files = AssetFiles::new(asset.resolver());
     let mut count = 0usize;
     for (_path, def) in files.read_json_dir::<ItemDefinition>("definitions/items") {

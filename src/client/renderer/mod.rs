@@ -18,7 +18,8 @@ impl Plugin for ClientRenderingPlugin {
             .init_resource::<item::gui_icon_cache::GuiItemIconCache>()
             .add_systems(
                 OnEnter(AppState::InGame),
-                tex_atlas::init_block_render_assets_system,
+                tex_atlas::init_block_render_assets_system
+                    .run_if(crate::app::flow::fresh_game_session),
             )
             .add_systems(
                 Update,
