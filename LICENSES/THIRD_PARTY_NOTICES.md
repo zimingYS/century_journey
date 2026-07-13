@@ -14,8 +14,8 @@ This file lists third-party resources distributed with Century Journey. These re
   来源：Google Noto Fonts / Noto Sans Simplified Chinese。
 - License: SIL Open Font License 1.1.
   许可证：SIL Open Font License 1.1。
-- License text: https://openfontlicense.org/open-font-license-official-text/
-  许可证文本：https://openfontlicense.org/open-font-license-official-text/
+- License text: [Noto Sans SC OFL 1.1](fonts/noto/OFL-1.1.txt).
+  许可证文本：[Noto Sans SC OFL 1.1](fonts/noto/OFL-1.1.txt)。
 
 The font may be used, modified, and redistributed under the terms of the SIL Open Font License 1.1.
 

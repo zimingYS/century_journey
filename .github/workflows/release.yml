@@ -35,6 +35,10 @@ jobs:
               Copy-Item assets release/assets -Recurse
           }
 
+          Copy-Item LICENSE.md release/
+          Copy-Item README.md release/
+          Copy-Item LICENSES release/LICENSES -Recurse
+
           Compress-Archive `
               -Path release/* `
               -DestinationPath ${env:APP_NAME}-Windows.zip

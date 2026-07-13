@@ -15,6 +15,7 @@ distributed with Century Journey.
 ## Third-party notices
 
 - Consolidated inventory: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+- Noto Sans SC license: [fonts/noto/OFL-1.1.txt](fonts/noto/OFL-1.1.txt)
 - Fusion Pixel and bundled font licenses: [fonts/fusion-pixel/](fonts/fusion-pixel/)
 - Kenney audio source records and CC0 texts: [audio/kenney/](audio/kenney/)
 

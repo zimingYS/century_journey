@@ -7,7 +7,7 @@
 ![Bevy](https://img.shields.io/badge/Bevy-Game%20Engine-blue)
 ![License](https://img.shields.io/badge/Code-MPL--2.0-green)
 ![Assets](https://img.shields.io/badge/Assets-CJAL%20v1.0-red)
-![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
+![Platform](https://img.shields.io/badge/Platform-Windows%20tested-lightgrey)
 
 **A modern voxel sandbox game built with Rust and Bevy.**
 
@@ -20,13 +20,13 @@
 ## Overview
 ## 项目概述
 
-Century Journey is a modern voxel sandbox game focused on performance, modality, and long-term extensibility.
+Century Journey is an early-stage voxel sandbox prototype focused on performance, moddability, and long-term extensibility.
 
-《世纪之旅》是一款现代体素沙盒游戏，重点关注性能、可模组性和长期可扩展性。
+《世纪之旅》是一款处于早期开发阶段的体素沙盒原型，重点关注性能、可模组性和长期可扩展性。
 
-Unlike traditional sandbox games, almost every game system is designed to be data-driven. Blocks, items, entities, recipes, biomes, structures, world generation, and other content can be extended without modifying the engine core.
+The current content pipeline is data-driven for blocks, items, recipes, loot tables, tags, and selected biome definitions. These formats are still evolving and are not yet a stable public modding API.
 
-区别于传统沙盒游戏，本项目几乎所有游戏系统都采用数据驱动设计。方块、物品、实体、合成配方、生物群系、建筑结构、世界生成等内容都可以在不修改引擎核心的情况下扩展。
+当前内容管线已对方块、物品、配方、掉落表、标签和部分生物群系定义采用数据驱动设计。这些格式仍在演进，尚未形成稳定的公共模组 API。
 
 Project status: **early active development**. The current scope is a local single-player voxel sandbox technical prototype. Server mode, editor mode, multiplayer, and network synchronization are planned but not implemented yet.
 
@@ -41,12 +41,12 @@ Project status: **early active development**. The current scope is a local singl
   基于 Rust 开发。
 - Powered by the Bevy game engine.
   由 Bevy 游戏引擎驱动。
-- Infinite voxel world.
-  无限体素世界。
-- Data-driven content system.
-  数据驱动的内容系统。
-- Mod API and resource pack support.
-  支持 Mod API 与资源包。
+- Procedurally generated voxel world with chunk streaming.
+  支持区块流式加载的程序化体素世界。
+- Data-driven blocks, items, recipes, loot tables, and tags.
+  数据驱动的方块、物品、配方、掉落表与标签。
+- Mod API, Mod SDK, and resource-pack support are planned.
+  Mod API、Mod SDK 与资源包支持仍处于规划阶段。
 - Complete day and night cycle.
   完整的昼夜循环系统。
 - Dynamic world simulation is planned.
@@ -68,9 +68,6 @@ Project status: **early active development**. The current scope is a local singl
 The project uses a layered architecture so systems can evolve independently and remain easier to maintain. At this stage, Content and Game are used by the local client prototype; Server, Protocol, and Editor are planned architecture boundaries.
 
 项目采用分层架构，使各系统能够独立演进，并保持较好地可维护性。现阶段 Content 与 Game 主要服务于本地客户端原型；Server、Protocol 与 Editor 是规划中的架构边界。
-
-当前源码职责、依赖方向和中文注释规范见
-[项目结构文档](docs/PROJECT_STRUCTURE.md)。
 
 当前源码职责、依赖方向和中文注释规范见
 [项目结构文档](docs/PROJECT_STRUCTURE.md)。
@@ -112,13 +109,13 @@ Planned boundaries
 ## Modding Support
 ## 模组支持
 
-Century Journey is designed from the beginning to support modding as a core part of the project.
+Century Journey is being structured with future modding support in mind, but it does not currently provide a stable public Mod API, Mod SDK, or resource-pack compatibility contract.
 
-《世纪之旅》从项目早期就将模组生态作为核心方向进行设计。
+《世纪之旅》的架构为未来模组支持预留了边界，但当前尚未提供稳定的公共 Mod API、Mod SDK 或资源包兼容性承诺。
 
-The project is still in early active development, so modding APIs and content formats may change before stabilization.
+Internal content formats may change without migration guarantees before the public modding interface is stabilized.
 
-项目仍处于早期积极开发阶段，因此模组 API 与内容格式在稳定前可能发生变化。
+在公共模组接口稳定之前，内部内容格式可能发生变化，且暂不保证迁移兼容性。
 
 ---
 
@@ -203,6 +200,8 @@ Century Journey uses multiple licenses depending on the project component.
 
 《世纪之旅》根据项目组成部分使用不同的许可证。
 
+- Repository license entry: [LICENSE.md](LICENSE.md).
+  仓库许可证入口：[LICENSE.md](LICENSE.md)。
 - Source code: [Mozilla Public License 2.0 (MPL-2.0)](LICENSES/MPL-2.0.txt).
   项目源码：Mozilla Public License 2.0（MPL-2.0）。
 - Official game assets: [Century Journey Assets License (CJAL v1.0)](LICENSES/CJAL-1.0.md).
@@ -235,9 +234,9 @@ Unless explicitly permitted by the asset license, official assets may not be use
 ### Mod SDK
 ### 模组开发套件
 
-The official Mod SDK and API are licensed under the MIT License to encourage community development.
+Code explicitly released as part of the planned official Mod SDK or public Mod API will use the MIT License. No stable SDK or public API is available yet.
 
-为鼓励社区开发，官方模组 SDK 与 API 使用 MIT License。
+未来明确作为官方 Mod SDK 或公共 Mod API 发布的代码将使用 MIT License；当前尚未提供稳定 SDK 或公共 API。
 
 ### Documentation
 ### 文档
