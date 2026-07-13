@@ -1,4 +1,4 @@
-//! Application configuration.
+//! 应用启动配置。
 
 use crate::app::application::mode::AppMode;
 use std::path::PathBuf;

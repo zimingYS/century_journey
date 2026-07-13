@@ -180,7 +180,7 @@ pub fn shift_click_into_range<C1: InventoryContainer, C2: InventoryContainer>(
 
     let mut remaining = source_stack.clone();
 
-    // Step 1: 合并到已有堆叠
+    // 第一步：优先合并到已有同类堆叠。
     for i in range.clone() {
         if remaining.is_empty() {
             break;
@@ -192,7 +192,7 @@ pub fn shift_click_into_range<C1: InventoryContainer, C2: InventoryContainer>(
         }
     }
 
-    // Step 2: 找空位
+    // 第二步：将剩余物品放入第一个空槽位。
     if !remaining.is_empty() {
         for i in range {
             if dest.get_stack(i).is_none_or(|s| s.is_empty()) {

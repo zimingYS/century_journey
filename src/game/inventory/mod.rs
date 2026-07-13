@@ -7,7 +7,6 @@ pub mod interaction;
 pub mod item;
 pub mod plugin;
 pub mod recent;
-pub mod resources;
 pub mod routing;
 pub mod slot;
 pub mod state;

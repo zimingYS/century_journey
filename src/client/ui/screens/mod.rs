@@ -1,4 +1,3 @@
-pub mod container;
 pub mod crafting;
 pub mod creative_inventory;
 pub mod menu;

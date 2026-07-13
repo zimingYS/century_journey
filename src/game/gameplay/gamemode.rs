@@ -38,7 +38,7 @@ impl PlayerGameMode {
     }
 }
 
-/// F4切换游戏模式（仅开发阶段使用）
+/// 使用 F4 切换游戏模式，仅用于开发阶段。
 pub fn toggle_gamemode_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     context: Res<crate::shared::states::InputContextState>,

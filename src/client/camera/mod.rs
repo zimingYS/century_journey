@@ -66,7 +66,7 @@ pub fn player_look_system(
     }
 }
 
-/// F5切换第一人称/第三人称视角
+/// 使用 F5 切换第一人称与第三人称视角。
 pub fn toggle_perspective_system(
     actions: Res<PlayerActionState>,
     mut camera_query: Query<&mut FpsCamera, With<Camera3d>>,

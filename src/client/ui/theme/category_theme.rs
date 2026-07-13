@@ -49,7 +49,7 @@ impl CategoryTheme {
             .get(tag_full)
             .map(|e| e.display_name.clone())
             .unwrap_or_else(|| {
-                // eg:从 "century_journey:solid" 提取 "solid" 并首字母大写
+                // 例如：从 "century_journey:solid" 提取 "solid" 并将首字母大写。
                 tag_full
                     .split(':')
                     .next_back()

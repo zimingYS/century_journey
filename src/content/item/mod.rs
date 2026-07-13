@@ -5,13 +5,12 @@
 //! 定义物品属性、资源及注册信息。
 
 pub mod definition;
-pub mod loader;
 pub mod model;
 pub mod plugin;
 pub mod registry;
 pub mod texture;
 
-// Re-export commonly used types
+// 集中导出上层模块常用的物品类型，避免依赖内部文件布局。
 pub use definition::ItemCategory;
 pub use definition::ItemDefinition;
 pub use definition::tool::{ToolData, ToolTier, ToolType};

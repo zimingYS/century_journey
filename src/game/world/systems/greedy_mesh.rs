@@ -236,7 +236,7 @@ fn get_merged_face_data(
 
     match face_idx {
         0 => {
-            // Top (Y+)
+            // 顶面（Y 正方向）
             let positions = [
                 [base[0] + extent[0], base[1] + 1.0, base[2]],
                 [base[0], base[1] + 1.0, base[2]],
@@ -247,7 +247,7 @@ fn get_merged_face_data(
             (positions, uvs)
         }
         1 => {
-            // Bottom (Y-)
+            // 底面（Y 负方向）
             let positions = [
                 [base[0], base[1], base[2]],
                 [base[0] + extent[0], base[1], base[2]],
@@ -258,7 +258,7 @@ fn get_merged_face_data(
             (positions, uvs)
         }
         2 => {
-            // Left (X-)
+            // 左面（X 负方向）
             let positions = [
                 [base[0], base[1] + extent[1], base[2] + extent[2]],
                 [base[0], base[1] + extent[1], base[2]],
@@ -269,7 +269,7 @@ fn get_merged_face_data(
             (positions, uvs)
         }
         3 => {
-            // Right (X+)
+            // 右面（X 正方向）
             let positions = [
                 [base[0] + 1.0, base[1] + extent[1], base[2]],
                 [base[0] + 1.0, base[1] + extent[1], base[2] + extent[2]],
@@ -280,7 +280,7 @@ fn get_merged_face_data(
             (positions, uvs)
         }
         4 => {
-            // Front (Z+)
+            // 前面（Z 正方向）
             let positions = [
                 [base[0] + extent[0], base[1] + extent[1], base[2] + 1.0],
                 [base[0], base[1] + extent[1], base[2] + 1.0],
@@ -291,7 +291,7 @@ fn get_merged_face_data(
             (positions, uvs)
         }
         5 => {
-            // Back (Z-)
+            // 后面（Z 负方向）
             let positions = [
                 [base[0], base[1] + extent[1], base[2]],
                 [base[0] + extent[0], base[1] + extent[1], base[2]],

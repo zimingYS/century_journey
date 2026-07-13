@@ -13,6 +13,7 @@ use crate::game::world::save::level;
 use crate::shared::states::AppState;
 
 const FRAMES_BEFORE_CAPTURE: u32 = 30;
+const SECONDS_BEFORE_CAPTURE: f32 = 1.5;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ScreenshotTarget {
@@ -31,6 +32,7 @@ struct UiScreenshotCheck {
     in_game_frames: u32,
     prepared: bool,
     ready_frames: u32,
+    ready_seconds: f32,
     requested: bool,
 }
 
@@ -62,12 +64,14 @@ pub fn configure_ui_screenshot_check(app: &mut App) {
         in_game_frames: 0,
         prepared: false,
         ready_frames: 0,
+        ready_seconds: 0.0,
         requested: false,
     })
     .add_systems(Update, ui_screenshot_check_system);
 }
 
 fn ui_screenshot_check_system(
+    real_time: Res<Time<Real>>,
     app_state: Res<State<AppState>>,
     config: Option<ResMut<UiScreenshotCheck>>,
     mut gamemode: ResMut<PlayerGameMode>,
@@ -161,6 +165,8 @@ fn ui_screenshot_check_system(
         }
     };
     if !ready || !config.prepared {
+        config.ready_frames = 0;
+        config.ready_seconds = 0.0;
         return;
     }
     if config.target == ScreenshotTarget::Pause
@@ -169,10 +175,14 @@ fn ui_screenshot_check_system(
                 .iter()
                 .any(|(node, inherited)| node.size().min_element() <= 0.0 || !inherited.get()))
     {
+        config.ready_frames = 0;
+        config.ready_seconds = 0.0;
         return;
     }
     config.ready_frames += 1;
-    if config.ready_frames < FRAMES_BEFORE_CAPTURE {
+    config.ready_seconds += real_time.delta_secs();
+    if config.ready_frames < FRAMES_BEFORE_CAPTURE || config.ready_seconds < SECONDS_BEFORE_CAPTURE
+    {
         return;
     }
     commands

@@ -2,7 +2,6 @@ use bevy::prelude::*;
 
 use crate::shared::states::app_state::AppState;
 
-pub mod held_renderer;
 pub mod item;
 pub mod item_model;
 pub mod mesh_cache;
