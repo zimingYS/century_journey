@@ -72,6 +72,9 @@ The project uses a layered architecture so systems can evolve independently and 
 当前源码职责、依赖方向和中文注释规范见
 [项目结构文档](docs/PROJECT_STRUCTURE.md)。
 
+当前源码职责、依赖方向和中文注释规范见
+[项目结构文档](docs/PROJECT_STRUCTURE.md)。
+
 ```text
 App
 |-- application flow
