@@ -4,12 +4,14 @@ use crate::content::constant::world::*;
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::storage::WorldStorage;
-use crate::game::world::systems::{
-    BlockInfoSnapshot, CachedBlockInfo, DIRECTIONS, MeshBuildChannel, MeshBuildInput,
-    PlayerChunkCache, WorldStreamingConfig, build_greedy_mesh,
-};
+use crate::game::world::systems::{PlayerChunkCache, WorldStreamingConfig};
 use bevy::prelude::*;
 use std::sync::Arc;
+
+use super::{
+    BlockInfoSnapshot, CachedBlockInfo, DIRECTIONS, MeshBuildChannel, MeshBuildInput,
+    build_greedy_mesh,
+};
 
 pub fn rebuild_block_info_snapshot(
     registry: Res<BlockRegistry>,

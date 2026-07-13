@@ -2,6 +2,7 @@ pub mod block_registry;
 pub mod loader;
 pub mod table;
 
+use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 
@@ -13,7 +14,8 @@ impl Plugin for LootPlugin {
             .add_systems(
                 OnEnter(AppState::InGame),
                 block_registry::init_default_loot_system
-                    .run_if(crate::app::flow::fresh_game_session),
+                    .in_set(ContentReloadSet::Load)
+                    .run_if(content_reload_requested),
             );
     }
 }

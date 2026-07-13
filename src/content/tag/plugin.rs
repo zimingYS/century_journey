@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::content::tag::compiler::TagRegistryCompiler;
 use crate::content::tag::loader::load_tag_actions;
 use crate::engine::asset::manager::AssetManager;
@@ -21,7 +22,8 @@ impl Plugin for TagContentPlugin {
             OnEnter(AppState::InGame),
             init_tag_registry_system
                 .after(crate::content::item::model::load_item_models_system)
-                .run_if(crate::app::flow::fresh_game_session),
+                .in_set(ContentReloadSet::Load)
+                .run_if(content_reload_requested),
         );
     }
 }

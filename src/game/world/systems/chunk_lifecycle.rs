@@ -12,11 +12,20 @@ use crate::game::world::save::system::{CachedBlockIdRemap, SaveConfig, SaveQueue
 use crate::game::world::storage::WorldStorage;
 use crate::game::world::systems::channel::{StructureGenChannel, StructureGenResult};
 use crate::game::world::systems::{
-    DIRECTIONS, PlayerChunkCache, TerrainGenChannel, TerrainGenResult, WorldStreamingConfig,
+    PlayerChunkCache, TerrainGenChannel, TerrainGenResult, WorldStreamingConfig,
 };
 use bevy::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
+
+const CHUNK_NEIGHBOR_OFFSETS: [IVec3; 6] = [
+    IVec3::new(0, 1, 0),
+    IVec3::new(0, -1, 0),
+    IVec3::new(-1, 0, 0),
+    IVec3::new(1, 0, 0),
+    IVec3::new(0, 0, 1),
+    IVec3::new(0, 0, -1),
+];
 
 pub fn manage_chunks_system(
     mut commands: Commands,
@@ -278,8 +287,8 @@ pub fn generate_structures_system(
             });
 
         let mut neighbor_data: HashMap<IVec3, ChunkData> = HashMap::new();
-        for (dir, _) in &DIRECTIONS {
-            let nbr_pos = chunk_pos + *dir;
+        for direction in CHUNK_NEIGHBOR_OFFSETS {
+            let nbr_pos = chunk_pos + direction;
             if let Some(data) = world_storage.loaded_chunks.get(&nbr_pos).cloned() {
                 neighbor_data.insert(nbr_pos, data.as_ref().clone());
             }

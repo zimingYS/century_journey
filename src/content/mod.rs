@@ -7,6 +7,7 @@ pub mod biome;
 pub mod block;
 pub mod constant;
 pub mod item;
+pub mod lifecycle;
 pub mod loot;
 pub mod recipe;
 pub mod tag;

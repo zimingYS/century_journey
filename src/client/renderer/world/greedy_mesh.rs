@@ -1,9 +1,10 @@
 use crate::content::block::definition::RenderMode;
 use crate::content::constant::world::*;
 use crate::game::world::chunk::ChunkData;
-use crate::game::world::systems::{BlockInfoSnapshot, DIRECTIONS, MeshBufferData, MeshBuildInput};
 use bevy::prelude::*;
 use std::sync::Arc;
+
+use super::{BlockInfoSnapshot, DIRECTIONS, MeshBufferData, MeshBuildInput};
 
 /// 构建贪心网格
 pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResult {

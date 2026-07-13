@@ -24,6 +24,7 @@ use crate::client::ui::hud::right_bottom::spawn_right_bottom_hud_system;
 use crate::client::ui::hud::right_top::spawn_right_top_hud_system;
 use crate::client::ui::hud::spawn_hud_root_system;
 use crate::client::ui::hud::top::spawn_top_hud_system;
+use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::shared::states::AppState;
 use bevy::prelude::*;
 
@@ -56,7 +57,8 @@ impl Plugin for HudPlugin {
             OnEnter(AppState::InGame),
             (load_hud_status_icon_assets_system, spawn_hud_root_system)
                 .in_set(HudSetupSet::Root)
-                .run_if(crate::app::flow::fresh_game_session),
+                .in_set(ContentReloadSet::Consumers)
+                .run_if(content_reload_requested),
         )
         .add_systems(
             OnEnter(AppState::InGame),
@@ -72,7 +74,8 @@ impl Plugin for HudPlugin {
                 spawn_top_hud_system,
             )
                 .in_set(HudSetupSet::Anchor)
-                .run_if(crate::app::flow::fresh_game_session),
+                .in_set(ContentReloadSet::Consumers)
+                .run_if(content_reload_requested),
         )
         .add_systems(
             OnEnter(AppState::InGame),
@@ -83,19 +86,22 @@ impl Plugin for HudPlugin {
             )
                 .in_set(HudSetupSet::Layout)
                 .chain()
-                .run_if(crate::app::flow::fresh_game_session),
+                .in_set(ContentReloadSet::Consumers)
+                .run_if(content_reload_requested),
         )
         .add_systems(
             OnEnter(AppState::InGame),
             (spawn_health_bar, spawn_armor_bar)
                 .after(spawn_bars_hud_system)
-                .run_if(crate::app::flow::fresh_game_session),
+                .in_set(ContentReloadSet::Consumers)
+                .run_if(content_reload_requested),
         )
         .add_systems(
             OnEnter(AppState::InGame),
             (spawn_hunger_bar,)
                 .after(spawn_bars_hud_system)
-                .run_if(crate::app::flow::fresh_game_session),
+                .in_set(ContentReloadSet::Consumers)
+                .run_if(content_reload_requested),
         );
 
         app.add_systems(

@@ -1,3 +1,4 @@
+use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::content::recipe::loader::load_recipe_definitions;
 use crate::content::recipe::registry::RecipeRegistry;
 use crate::engine::asset::manager::AssetManager;
@@ -12,7 +13,9 @@ impl Plugin for RecipeContentPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<RecipeRegistry>().add_systems(
             OnEnter(AppState::InGame),
-            load_recipes_system.run_if(crate::app::flow::fresh_game_session),
+            load_recipes_system
+                .in_set(ContentReloadSet::Load)
+                .run_if(content_reload_requested),
         );
     }
 }

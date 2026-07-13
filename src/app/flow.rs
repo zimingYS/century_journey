@@ -5,9 +5,11 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::{MonitorSelection, PresentMode, PrimaryWindow, WindowMode};
 
+use crate::client::renderer::world::MeshBuildChannel;
 use crate::client::ui::hud::HudRoot;
 use crate::client::ui::theme::scale::UiScaleSettings;
 use crate::content::block::registry::BlockRegistry;
+use crate::content::lifecycle::{ContentReloadRequested, ContentReloadSet};
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::Player;
@@ -19,8 +21,7 @@ use crate::game::world::save::region::RegionManager;
 use crate::game::world::save::system::{LoadQueue, SaveConfig, SaveQueue, save_entire_world};
 use crate::game::world::storage::WorldStorage;
 use crate::game::world::systems::{
-    MeshBuildChannel, PlayerChunkCache, StructureGenChannel, TerrainGenChannel,
-    WorldStreamingConfig,
+    PlayerChunkCache, StructureGenChannel, TerrainGenChannel, WorldStreamingConfig,
 };
 use crate::game::world::time::TimeOfDay;
 use crate::shared::components::camera::FpsCamera;
@@ -30,10 +31,6 @@ use crate::shared::states::{AppState, InputContextState};
 pub struct GameSession {
     pub fresh_load: bool,
     pub active_world: Option<String>,
-}
-
-pub fn fresh_game_session(session: Res<GameSession>) -> bool {
-    session.fresh_load
 }
 
 #[derive(Debug, Clone)]
@@ -170,6 +167,10 @@ impl Plugin for GameFlowPlugin {
             .add_systems(OnEnter(AppState::Boot), enter_boot_system)
             .add_systems(OnEnter(AppState::MainMenu), refresh_world_catalog_system)
             .add_systems(OnEnter(AppState::WorldLoading), prepare_world_system)
+            .add_systems(
+                OnEnter(AppState::InGame),
+                request_content_reload_system.in_set(ContentReloadSet::Request),
+            )
             .add_systems(OnEnter(AppState::Paused), pause_virtual_time_system)
             .add_systems(OnExit(AppState::Paused), resume_virtual_time_system)
             .add_systems(
@@ -183,6 +184,15 @@ impl Plugin for GameFlowPlugin {
                 )
                     .chain(),
             );
+    }
+}
+
+fn request_content_reload_system(
+    session: Res<GameSession>,
+    mut requests: MessageWriter<ContentReloadRequested>,
+) {
+    if session.fresh_load {
+        requests.write_default();
     }
 }
 
@@ -509,12 +519,12 @@ fn apply_settings_system(
         return;
     }
     ui_scale.user_scale = settings.ui_scale;
-    let render = crate::app::config::RenderConfig {
-        render_distance: settings.render_distance,
-        mesh_distance: settings.render_distance,
-        ..default()
-    };
-    *streaming = WorldStreamingConfig::from_render_config(&render);
+    *streaming = WorldStreamingConfig::new(
+        settings.render_distance,
+        settings.render_distance,
+        streaming.data_vertical_radius_above as u32,
+        streaming.data_vertical_radius_below as u32,
+    );
     global_volume.volume = Volume::Linear(settings.master_volume);
     if let Ok(mut window) = window_query.single_mut() {
         window.mode = if settings.fullscreen {

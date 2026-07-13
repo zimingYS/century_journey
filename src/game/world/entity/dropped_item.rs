@@ -1,12 +1,5 @@
-use crate::client::renderer::item::{
-    ItemDisplayContext, ItemModelCache, ItemRenderContext, ItemRenderer,
-};
-use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::constant::world::CHUNK_SIZE;
-use crate::content::item::model::ItemModelRegistry;
-use crate::content::item::registry::registry::ItemRegistry;
-use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::world::storage::WorldStorage;
 use bevy::prelude::*;
@@ -115,14 +108,6 @@ impl Default for DroppedItemVelocity {
     }
 }
 
-/// 标记一个实体需要生成掉落物视觉模型。
-#[derive(Component)]
-pub struct DroppedItemVisual;
-
-/// 标记掉落物视觉模型已经通过 ItemRenderer 创建。
-#[derive(Component)]
-pub struct DroppedItemVisualReady;
-
 /// 在世界中生成一个掉落物实体。
 ///
 /// 这个函数保留给方块破坏等旧调用方使用：传入方块坐标附近的位置，内部会把它移到方块中心上方。
@@ -144,7 +129,6 @@ pub fn spawn_dropped_item_with_velocity(
     commands
         .spawn((
             DroppedItem::new(stack),
-            DroppedItemVisual,
             velocity,
             Name::new("DroppedItem".to_string()),
             Transform::from_translation(position),
@@ -163,63 +147,6 @@ pub fn despawn_dropped_item(commands: &mut Commands, entity: Entity) {
             entity_mut.despawn();
         }
     });
-}
-
-/// 为新掉落物生成视觉模型。
-///
-/// 这里不判断方块、贴图或挤出模型，只把物品和 Ground 场景交给统一 ItemRenderer，保证材质和模型都来自对应 ItemId。
-pub fn dropped_item_visual_system(
-    mut commands: Commands,
-    query: Query<
-        (Entity, &DroppedItem),
-        (With<DroppedItemVisual>, Without<DroppedItemVisualReady>),
-    >,
-    item_registry: Option<Res<ItemRegistry>>,
-    item_model_registry: Option<Res<ItemModelRegistry>>,
-    item_textures: Option<Res<ItemTextureRegistry>>,
-    block_registry: Option<Res<BlockRegistry>>,
-    block_render_assets: Option<Res<BlockRenderAssets>>,
-    mut images: ResMut<Assets<Image>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut item_model_cache: ResMut<ItemModelCache>,
-) {
-    let Some(item_textures) = item_textures.as_deref() else {
-        return;
-    };
-
-    let mut render_context = ItemRenderContext {
-        item_registry: item_registry.as_deref(),
-        item_model_registry: item_model_registry.as_deref(),
-        item_textures,
-        block_registry: block_registry.as_deref(),
-        block_render_assets: block_render_assets.as_deref(),
-        images: &mut images,
-        meshes: &mut meshes,
-        materials: &mut materials,
-        model_cache: &mut item_model_cache,
-    };
-
-    for (entity, dropped) in &query {
-        if dropped.stack.item.is_air() {
-            commands.entity(entity).insert(DroppedItemVisualReady);
-            continue;
-        }
-
-        let item_key = dropped.stack.item.identifier().to_string();
-        let spawned = ItemRenderer::spawn_item_entity(
-            &mut commands,
-            &dropped.stack.item,
-            ItemDisplayContext::Ground,
-            Some(entity),
-            format!("DroppedItemModel_{item_key}"),
-            &mut render_context,
-        );
-
-        if spawned.is_some() {
-            commands.entity(entity).insert(DroppedItemVisualReady);
-        }
-    }
 }
 
 /// 掉落物物理系统。
@@ -351,12 +278,11 @@ pub fn dropped_item_tick_system(
 /// 掉落物系统插件。
 pub struct DroppedItemPlugin;
 impl Plugin for DroppedItemPlugin {
-    /// 注册掉落物视觉、物理、合并和生命周期系统。
+    /// 只注册掉落物的玩法逻辑；视觉模型由 Client 渲染插件负责。
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
             (
-                dropped_item_visual_system,
                 dropped_item_physics_system,
                 dropped_item_merge_system,
                 dropped_item_tick_system,

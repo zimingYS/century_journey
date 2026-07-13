@@ -5,6 +5,7 @@ use crate::content::item::registry::registry::{
     ItemRegistry, auto_generate_block_items_system, load_item_definitions_system,
 };
 use crate::content::item::texture::registry::load_item_textures_system;
+use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::shared::states::app_state::AppState;
 
 pub struct ItemContentPlugin;
@@ -22,7 +23,8 @@ impl Plugin for ItemContentPlugin {
                     load_item_models_system,
                 )
                     .chain()
-                    .run_if(crate::app::flow::fresh_game_session),
+                    .in_set(ContentReloadSet::Load)
+                    .run_if(content_reload_requested),
             );
     }
 }

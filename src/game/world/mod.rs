@@ -8,6 +8,7 @@ pub mod systems;
 pub mod time;
 
 use crate::content::block::registry::BlockRegistry;
+use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::world::generation::noise::CachedBlockIds;
 use crate::shared::states::app_state::AppState;
@@ -24,19 +25,11 @@ impl Plugin for WorldPlugin {
             .insert_resource(time::TimeOfDay::default())
             .init_resource::<generation::climate::SeasonResource>()
             .init_resource::<systems::TerrainGenChannel>()
-            .init_resource::<systems::MeshBuildChannel>()
             .init_resource::<systems::StructureGenChannel>()
             .init_resource::<systems::PlayerChunkCache>()
             .init_resource::<systems::WorldStreamingConfig>()
-            .init_resource::<systems::CachedBlockInfo>()
             .add_plugins(save::SaveLoadPlugin)
             .add_plugins(entity::EntityPlugin)
-            .add_systems(
-                Update,
-                systems::rebuild_block_info_snapshot
-                    .before(systems::spawn_mesh_build_tasks)
-                    .run_if(in_state(AppState::InGame)),
-            )
             .add_systems(
                 Update,
                 (
@@ -45,8 +38,6 @@ impl Plugin for WorldPlugin {
                     systems::receive_terrain_results,
                     systems::generate_structures_system,
                     systems::receive_structure_results,
-                    systems::spawn_mesh_build_tasks,
-                    systems::receive_mesh_results,
                     systems::pickup::pickup_system,
                     time::update_time_system,
                 )
@@ -57,7 +48,8 @@ impl Plugin for WorldPlugin {
                 OnEnter(AppState::InGame),
                 cache_block_ids_system
                     .after(crate::content::tag::plugin::init_tag_registry_system)
-                    .run_if(crate::app::flow::fresh_game_session),
+                    .in_set(ContentReloadSet::Consumers)
+                    .run_if(content_reload_requested),
             );
     }
 }

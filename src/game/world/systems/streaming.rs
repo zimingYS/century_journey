@@ -1,4 +1,3 @@
-use crate::app::config::RenderConfig;
 use crate::content::constant::world::{CHUNK_SIZE, SEA_LEVEL};
 use bevy::prelude::*;
 use std::collections::HashSet;
@@ -16,17 +15,23 @@ pub struct WorldStreamingConfig {
 
 impl Default for WorldStreamingConfig {
     fn default() -> Self {
-        Self::from_render_config(&RenderConfig::default())
+        Self::new(8, 8, 2, 3)
     }
 }
 
 impl WorldStreamingConfig {
-    pub fn from_render_config(render: &RenderConfig) -> Self {
-        let render_distance = as_i32(render.render_distance.max(1));
-        let mesh_horizontal_radius = as_i32(render.mesh_distance.max(1)).min(render_distance);
+    /// 根据纯数值配置构造世界流式窗口，避免 Game 依赖 App 配置类型。
+    pub fn new(
+        render_distance: u32,
+        mesh_distance: u32,
+        data_vertical_radius_above: u32,
+        data_vertical_radius_below: u32,
+    ) -> Self {
+        let render_distance = as_i32(render_distance.max(1));
+        let mesh_horizontal_radius = as_i32(mesh_distance.max(1)).min(render_distance);
         let data_horizontal_radius = render_distance.saturating_add(1);
-        let data_vertical_radius_above = as_i32(render.data_vertical_radius_above);
-        let data_vertical_radius_below = as_i32(render.data_vertical_radius_below);
+        let data_vertical_radius_above = as_i32(data_vertical_radius_above);
+        let data_vertical_radius_below = as_i32(data_vertical_radius_below);
         let mesh_vertical_radius_above = data_vertical_radius_above.saturating_sub(1);
         let mesh_vertical_radius_below = data_vertical_radius_below.saturating_sub(1);
 
@@ -157,7 +162,7 @@ mod tests {
 
     #[test]
     fn data_window_is_horizontal_circle_with_limited_vertical_range() {
-        let config = WorldStreamingConfig::from_render_config(&RenderConfig::default());
+        let config = WorldStreamingConfig::default();
         let (ordered, expected) = config.rebuild_expected_chunks(IVec3::ZERO, Vec2::Y);
 
         assert_eq!(ordered.len(), expected.len());
@@ -172,7 +177,7 @@ mod tests {
 
     #[test]
     fn chunks_in_front_are_prioritized_over_chunks_behind() {
-        let config = WorldStreamingConfig::from_render_config(&RenderConfig::default());
+        let config = WorldStreamingConfig::default();
         let (ordered, _) = config.rebuild_expected_chunks(IVec3::ZERO, Vec2::NEG_Y);
 
         let front = ordered

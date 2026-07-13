@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use super::{SUNRISE_END, SUNRISE_START, SUNSET_END, SUNSET_START};
+
 /// 世界时间 — Client（天空渲染）和 Server（世界模拟）共享。
 #[derive(Resource)]
 pub struct TimeOfDay {
@@ -24,7 +26,6 @@ impl Default for TimeOfDay {
 impl TimeOfDay {
     /// 获取当前时间阶段
     pub fn phase(&self) -> TimePhase {
-        use crate::engine::constant::sky::*;
         let t = self.current_time;
 
         if (SUNRISE_START..SUNRISE_END).contains(&t) {
@@ -40,7 +41,6 @@ impl TimeOfDay {
 
     /// 获取日出/日落过渡因子 (0.0=夜晚端, 1.0=白天端)
     pub fn twilight_factor(&self) -> f32 {
-        use crate::engine::constant::sky::*;
         let t = self.current_time;
 
         if (SUNRISE_START..SUNRISE_END).contains(&t) {

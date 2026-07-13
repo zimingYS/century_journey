@@ -35,7 +35,12 @@ pub struct ClientApplication;
 
 impl Application for ClientApplication {
     fn build(config: AppConfig) -> anyhow::Result<App> {
-        let world_streaming_config = WorldStreamingConfig::from_render_config(&config.render);
+        let world_streaming_config = WorldStreamingConfig::new(
+            config.render.render_distance,
+            config.render.mesh_distance,
+            config.render.data_vertical_radius_above,
+            config.render.data_vertical_radius_below,
+        );
         let screenshot_mode = std::env::var_os("CJ_UI_SCREENSHOT").is_some();
         let screenshot_width = std::env::var("CJ_UI_SCREENSHOT_WIDTH")
             .ok()

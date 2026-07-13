@@ -13,6 +13,7 @@ use crate::client::startup::plugin::ClientStartupPlugin;
 use crate::client::ui::UIPlugin;
 use crate::content::block::VoxelPlugin;
 use crate::content::item::plugin::ItemContentPlugin;
+use crate::content::lifecycle::ContentLifecyclePlugin;
 use crate::content::loot::LootPlugin;
 use crate::content::recipe::plugin::RecipeContentPlugin;
 use crate::content::tag::TagContentPlugin;
@@ -33,6 +34,7 @@ impl PluginGroup for ClientPluginGroup {
             .add(AssetPlugin)
             .add(TaskPlugin)
             // Content 层（数据驱动，不依赖 Game/Client）
+            .add(ContentLifecyclePlugin)
             .add(ItemContentPlugin)
             .add(VoxelPlugin)
             .add(LootPlugin)

@@ -6,6 +6,7 @@ pub mod region;
 pub mod system;
 
 use crate::content::block::registry::BlockRegistry;
+use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::game::player::components::Player;
 use crate::game::world::save::events::SaveDirtyEvent;
 use crate::game::world::save::player::PlayerSaveManager;
@@ -33,7 +34,8 @@ impl Plugin for SaveLoadPlugin {
                     system::cache_level_data_on_enter,
                     player::load_player_on_enter_system,
                 )
-                    .run_if(crate::app::flow::fresh_game_session),
+                    .in_set(ContentReloadSet::Consumers)
+                    .run_if(content_reload_requested),
             )
             .add_systems(
                 PostUpdate,
