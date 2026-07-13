@@ -126,9 +126,9 @@ Third-party assets follow their own licenses.
 
 第三方资源遵循其各自许可证。
 
-Third-party resources distributed with this repository are listed in `THIRD_PARTY_NOTICES.md`.
+Third-party resources distributed with this repository are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-随本仓库分发的第三方资源列于 `THIRD_PARTY_NOTICES.md`。
+随本仓库分发的第三方资源列于 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ## 10. Intellectual Property
 ## 10. 知识产权

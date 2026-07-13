@@ -17,4 +17,5 @@ source fonts, are preserved in `fusion-pixel/OFL.txt` and
 
 `NotoSansSC-VariableFont_wght.ttf` is part of Noto Sans SC and is licensed under the SIL Open Font License 1.1.
 
-See the repository-level `THIRD_PARTY_NOTICES.md` for attribution and license details.
+See the repository-level [license directory](../../LICENSES/README.md) for
+attribution and license details.

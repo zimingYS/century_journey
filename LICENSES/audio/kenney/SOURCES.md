@@ -2,7 +2,7 @@
 
 All sound files in this directory were created and distributed by Kenney and
 are licensed under Creative Commons Zero (CC0 1.0). The original license files
-are retained in the licenses directory.
+are retained in this directory.
 
 Official source packs:
 

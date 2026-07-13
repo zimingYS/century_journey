@@ -52,11 +52,11 @@ Century Journey uses multiple licenses:
 
 《世纪之旅》使用多种许可证：
 
-- Source code: MPL-2.0.
+- Source code: [MPL-2.0](LICENSES/MPL-2.0.txt).
   项目源码：MPL-2.0。
-- Official game assets: Century Journey Assets License (CJAL v1.0).
+- Official game assets: [Century Journey Assets License (CJAL v1.0)](LICENSES/CJAL-1.0.md).
   官方游戏资源：Century Journey Assets License（CJAL v1.0）。
-- Mod SDK and API: MIT License.
+- Mod SDK and API: [MIT License](LICENSES/MOD-SDK-MIT.txt).
   模组 SDK 与 API：MIT License。
 - Documentation: CC BY 4.0.
   文档：CC BY 4.0。

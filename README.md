@@ -210,16 +210,16 @@ Century Journey uses multiple licenses depending on the project component.
 
 《世纪之旅》根据项目组成部分使用不同的许可证。
 
-- Source code: Mozilla Public License 2.0 (MPL-2.0).
+- Source code: [Mozilla Public License 2.0 (MPL-2.0)](LICENSES/MPL-2.0.txt).
   项目源码：Mozilla Public License 2.0（MPL-2.0）。
-- Official game assets: Century Journey Assets License (CJAL v1.0).
+- Official game assets: [Century Journey Assets License (CJAL v1.0)](LICENSES/CJAL-1.0.md).
   官方游戏资源：Century Journey Assets License（CJAL v1.0）。
-- Mod SDK and API: MIT License.
+- Mod SDK and API: [MIT License](LICENSES/MOD-SDK-MIT.txt).
   模组 SDK 与 API：MIT License。
 - Documentation: Creative Commons Attribution 4.0 International (CC BY 4.0).
   文档：知识共享署名 4.0 国际许可协议（CC BY 4.0）。
-- Third-party resources: see `THIRD_PARTY_NOTICES.md`.
-  第三方资源：见 `THIRD_PARTY_NOTICES.md`。
+- Third-party resources: see [third-party notices](LICENSES/THIRD_PARTY_NOTICES.md).
+  第三方资源：见[第三方声明](LICENSES/THIRD_PARTY_NOTICES.md)。
 
 ### Source Code
 ### 项目源码
@@ -256,9 +256,9 @@ Project documentation is licensed under Creative Commons Attribution 4.0 Interna
 ### Third-party Resources
 ### 第三方资源
 
-Third-party resources keep their own licenses. See `THIRD_PARTY_NOTICES.md`.
+Third-party resources keep their own licenses. See [third-party notices](LICENSES/THIRD_PARTY_NOTICES.md).
 
-第三方资源遵循其各自许可证，详见 `THIRD_PARTY_NOTICES.md`。
+第三方资源遵循其各自许可证，详见[第三方声明](LICENSES/THIRD_PARTY_NOTICES.md)。
 
 ---
 

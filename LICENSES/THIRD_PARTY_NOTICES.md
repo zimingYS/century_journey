@@ -31,10 +31,10 @@ The font may be used, modified, and redistributed under the terms of the SIL Ope
   版权：Copyright (c) 2022, TakWolf (https://takwolf.com)。
 - License: SIL Open Font License 1.1.
   许可证：SIL Open Font License 1.1。
-- License files: `assets/fonts/fusion-pixel/OFL.txt` and
-  `assets/fonts/fusion-pixel/LICENSES/`.
-  许可证文件：`assets/fonts/fusion-pixel/OFL.txt` 及
-  `assets/fonts/fusion-pixel/LICENSES/`。
+- License files: [Fusion Pixel OFL](fonts/fusion-pixel/OFL-1.1.txt) and
+  [bundled font licenses](fonts/fusion-pixel/).
+  许可证文件：[Fusion Pixel OFL](fonts/fusion-pixel/OFL-1.1.txt) 与
+  [内含字体许可证](fonts/fusion-pixel/)。
 
 The font may be bundled, embedded, modified, and redistributed with the game under
 the OFL 1.1 terms. It may not be sold by itself, derivative fonts must keep the OFL,
@@ -42,3 +42,20 @@ and reserved font names require the corresponding copyright holder's permission.
 
 该字体可按 OFL 1.1 条款随游戏打包、嵌入、修改和再分发；不得单独销售字体本身，
 衍生字体必须继续采用 OFL，使用保留字体名称须获得相应版权持有者许可。
+
+## Kenney Audio
+## Kenney 音效
+
+- Files: assets/sounds/kenney/
+  文件：assets/sounds/kenney/
+- Source: Kenney UI Audio, Interface Sounds, Impact Sounds, and RPG Audio packs.
+  来源：Kenney UI Audio、Interface Sounds、Impact Sounds 与 RPG Audio 素材包。
+- License: Creative Commons Zero 1.0 (CC0 1.0).
+  许可证：Creative Commons Zero 1.0（CC0 1.0）。
+- Source records and original pack licenses: [audio/kenney/](audio/kenney/).
+  来源记录与原始素材包许可证：[audio/kenney/](audio/kenney/)。
+
+These sound files may be used, modified, and redistributed without attribution
+under CC0 1.0. Kenney attribution is appreciated but not required.
+
+这些音效可依据 CC0 1.0 使用、修改和再分发，无强制署名要求。
