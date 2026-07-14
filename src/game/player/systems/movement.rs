@@ -71,8 +71,11 @@ pub fn player_movement_system(
         };
 
         let desired_velocity = direction * speed;
+        let changing_direction = direction != Vec3::ZERO
+            && velocity.horizontal.length_squared() > f32::EPSILON
+            && velocity.horizontal.normalize().dot(direction) < 0.8;
         let control = if gravity.is_grounded {
-            if direction == Vec3::ZERO {
+            if direction == Vec3::ZERO || changing_direction {
                 movement.deceleration
             } else {
                 movement.acceleration
@@ -182,5 +185,18 @@ mod stage_seven_tests {
         let decelerated = approach_velocity(accelerated, Vec3::ZERO, 0.5);
         assert_eq!(decelerated, Vec3::X * 1.5);
         assert_ne!(decelerated, Vec3::ZERO);
+    }
+
+    #[test]
+    fn ground_deceleration_stops_sprint_without_ice_like_sliding() {
+        let movement = PlayerMovement::default();
+        let dt = 1.0 / 60.0;
+        let mut velocity = Vec3::X * movement.movement_speed * movement.sprint_factor;
+
+        for _ in 0..5 {
+            velocity = approach_velocity(velocity, Vec3::ZERO, movement.deceleration * dt);
+        }
+
+        assert_eq!(velocity, Vec3::ZERO);
     }
 }

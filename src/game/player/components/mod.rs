@@ -31,9 +31,9 @@ impl Default for PlayerMovement {
             movement_speed: 10.0,
             sprint_factor: 1.5,
             jump_force: 8.0,
-            acceleration: 32.0,
-            deceleration: 24.0,
-            air_control: 0.28,
+            acceleration: 90.0,
+            deceleration: 180.0,
+            air_control: 0.2,
         }
     }
 }
