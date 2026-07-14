@@ -11,7 +11,7 @@ use crate::game::player::components::Player;
 use crate::game::world::save::events::SaveDirtyEvent;
 use crate::game::world::save::player::PlayerSaveManager;
 use crate::game::world::save::system::{
-    AutoSaveTimer, CachedBlockIdRemap, LoadQueue, SaveConfig, SaveQueue,
+    AutoSaveTimer, CachedBlockIdRemap, LoadQueue, SaveConfig, SaveQueue, SaveWorker,
 };
 use crate::game::world::storage::WorldStorage;
 use crate::shared::states::app_state::AppState;
@@ -23,6 +23,7 @@ impl Plugin for SaveLoadPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(SaveConfig::default())
             .insert_resource(SaveQueue::default())
+            .init_resource::<SaveWorker>()
             .insert_resource(LoadQueue::default())
             .init_resource::<AutoSaveTimer>()
             .init_resource::<CachedBlockIdRemap>()
@@ -77,12 +78,20 @@ pub fn save_load_keybind_system(
     time_of_day: Res<crate::game::world::time::TimeOfDay>,
     player_query: Query<&Transform, With<Player>>,
     world_generator: Res<crate::game::world::generation::WorldGenerator>,
+    mut save_queue: ResMut<SaveQueue>,
+    mut save_worker: ResMut<SaveWorker>,
 ) {
     if !context.active().allows_gameplay() {
         return;
     }
     // F5 — 保存
     if keyboard.just_pressed(KeyCode::F5) {
+        if let Err(error) =
+            system::flush_save_queue(&save_config.world_name, &mut save_queue, &mut save_worker)
+        {
+            log::error!("[世界] 等待后台区块保存失败: {error}");
+            return;
+        }
         let spawn_pos = player_query
             .single()
             .map(|t| t.translation)

@@ -26,7 +26,7 @@ use crate::game::world::save::player::player_io::{
 use crate::game::world::save::player::{PlayerSaveManager, save_player_now};
 use crate::game::world::save::region::RegionManager;
 use crate::game::world::save::system::{
-    LoadQueue, SaveConfig, SaveQueue, flush_save_queue, save_entire_world,
+    LoadQueue, SaveConfig, SaveQueue, SaveWorker, flush_save_queue, save_entire_world,
 };
 use crate::game::world::storage::WorldStorage;
 use crate::game::world::systems::{
@@ -526,6 +526,7 @@ struct SaveQuitParams<'w, 's> {
     world_generator: Res<'w, WorldGenerator>,
     time_of_day: Res<'w, TimeOfDay>,
     save_queue: ResMut<'w, SaveQueue>,
+    save_worker: ResMut<'w, SaveWorker>,
     player_query:
         Query<'w, 's, (&'static Transform, &'static Health, &'static Hunger), With<Player>>,
     camera_query: Query<'w, 's, &'static FpsCamera, With<Camera3d>>,
@@ -555,7 +556,11 @@ fn save_and_quit_system(mut request: ResMut<SaveAndQuitRequest>, mut params: Sav
         .single()
         .map(|(transform, _, _)| transform.translation)
         .unwrap_or(Vec3::ZERO);
-    if let Err(error) = flush_save_queue(&params.save_config.world_name, &mut params.save_queue) {
+    if let Err(error) = flush_save_queue(
+        &params.save_config.world_name,
+        &mut params.save_queue,
+        &mut params.save_worker,
+    ) {
         params.dialog.error("保存失败", error.to_string());
         return;
     }
