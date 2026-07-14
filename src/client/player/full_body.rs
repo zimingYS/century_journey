@@ -10,8 +10,12 @@ use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::LocalPlayer;
+use crate::game::player::events::FoodConsumedEvent;
 use crate::game::player::model::rig::PlayerRigEntities;
 use crate::shared::identifier::Identifier;
+use crate::shared::item_id::ItemId;
+
+const FOOD_USE_VISUAL_SECONDS: f32 = 0.5;
 
 /// 真实第一人称手持物品渲染状态。
 #[derive(Resource, Default)]
@@ -26,6 +30,13 @@ pub struct FullBodyHeldItemRenderState {
 #[derive(Component)]
 struct RigHeldItemEntity;
 
+/// 进食会先扣除背包物品；这里暂存被消耗的食物，保证最后一份食物也能完整显示动画。
+#[derive(Default)]
+struct ConsumedFoodVisual {
+    item: Option<ItemId>,
+    remaining_seconds: f32,
+}
+
 /// 真实第一人称渲染插件。
 ///
 /// 它不再生成独立 ViewModel，而是把本地玩家快捷栏物品挂到真实 PlayerRig 的 HeldItemAnchor 上。
@@ -34,14 +45,19 @@ pub struct FullBodyFirstPersonPlugin;
 impl Plugin for FullBodyFirstPersonPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FullBodyHeldItemRenderState>()
-            .add_systems(Update, sync_full_body_held_item_system);
+            .add_systems(
+                Update,
+                sync_full_body_held_item_system
+                    .after(crate::game::player::systems::hunger::use_food_system),
+            );
     }
 }
 
 /// 同步真实右手上的手持物品。
 ///
 /// 外部只提供 ItemId；这里统一走 ItemRenderer 解析、烘焙并生成实体，保证第一人称和第三人称看到同一个物品模型。
-pub fn sync_full_body_held_item_system(
+fn sync_full_body_held_item_system(
+    time: Res<Time>,
     inventory: Res<InventoryState>,
     item_registry: Option<Res<ItemRegistry>>,
     item_model_registry: Option<Res<ItemModelRegistry>>,
@@ -54,17 +70,33 @@ pub fn sync_full_body_held_item_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut render_state: ResMut<FullBodyHeldItemRenderState>,
     mut item_model_cache: ResMut<ItemModelCache>,
-    rig_query: Query<&PlayerRigEntities, With<LocalPlayer>>,
+    rig_query: Query<(Entity, &PlayerRigEntities), With<LocalPlayer>>,
+    mut consumed_reader: MessageReader<FoodConsumedEvent>,
+    mut consumed_visual: Local<ConsumedFoodVisual>,
 ) {
-    let Ok(rig) = rig_query.single() else {
+    let Ok((player, rig)) = rig_query.single() else {
         return;
     };
 
-    let item = inventory
+    for event in consumed_reader.read() {
+        if event.player == player {
+            consumed_visual.item = Some(event.item.clone());
+            consumed_visual.remaining_seconds = FOOD_USE_VISUAL_SECONDS;
+        }
+    }
+    if consumed_visual.remaining_seconds > 0.0 {
+        consumed_visual.remaining_seconds -= time.delta_secs();
+        if consumed_visual.remaining_seconds <= 0.0 {
+            consumed_visual.item = None;
+        }
+    }
+
+    let selected_item = inventory
         .hotbar
         .get_stack(inventory.hotbar.active_index)
         .map(|stack| stack.item.clone())
         .unwrap_or_default();
+    let item = consumed_visual.item.clone().unwrap_or(selected_item);
 
     let item_identifier = item.identifier();
     let is_air = item.is_air();

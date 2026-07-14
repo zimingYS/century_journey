@@ -1,3 +1,4 @@
+use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 
 /// 受伤事件
@@ -13,6 +14,13 @@ pub struct DamageEvent {
 pub struct HealEvent {
     pub target: Entity,
     pub amount: f32,
+}
+
+/// 食物已经实际消耗并恢复饥饿值。
+#[derive(Message, Debug, Clone)]
+pub struct FoodConsumedEvent {
+    pub player: Entity,
+    pub item: ItemId,
 }
 
 /// 死亡事件

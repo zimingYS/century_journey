@@ -9,7 +9,7 @@ use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::stats::Health;
 use crate::game::player::components::{LocalPlayer, PlayerGravity};
-use crate::game::player::events::{DamageEvent, DeathEvent};
+use crate::game::player::events::{DamageEvent, DeathEvent, FoodConsumedEvent};
 use crate::shared::components::camera::FpsCamera;
 
 /// 下半身移动状态。该状态只描述玩家正在怎样移动，不负责移动玩家。
@@ -365,6 +365,7 @@ pub struct AnimationControllerInput<'w, 's> {
     death_events: MessageReader<'w, 's, DeathEvent>,
     place_events: MessageReader<'w, 's, BlockPlaceEvent>,
     interact_events: MessageReader<'w, 's, BlockInteractEvent>,
+    food_events: MessageReader<'w, 's, FoodConsumedEvent>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -435,6 +436,7 @@ pub fn player_animation_controller_system(
         .read()
         .filter_map(|event| event.interactor)
         .collect();
+    let consumed: HashSet<Entity> = input.food_events.read().map(|event| event.player).collect();
     let holding_item = !input.inventory.hotbar.active_item().is_air();
 
     for (entity, transform, gravity, health, mut state) in &mut query {
@@ -475,8 +477,7 @@ pub fn player_animation_controller_system(
             hurt: damaged.contains(&entity),
             mining: input.actions.pressed(PlayerAction::BreakBlock) && input.break_progress.visible,
             placed: placed.contains(&entity),
-            used: used.contains(&entity)
-                || (input.actions.just_pressed(PlayerAction::Use) && !placed.contains(&entity)),
+            used: used.contains(&entity) || consumed.contains(&entity),
             attacked: input.actions.just_pressed(PlayerAction::Attack)
                 && !input.break_progress.visible,
         };
@@ -624,6 +625,22 @@ fn smoothstep(value: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn feedback_fix_empty_right_click_does_not_start_an_animation() {
+        assert_eq!(choose_behavior(AnimationSignals::default()), None);
+    }
+
+    #[test]
+    fn feedback_fix_consumed_food_starts_using_animation() {
+        assert_eq!(
+            choose_behavior(AnimationSignals {
+                used: true,
+                ..default()
+            }),
+            Some(PlayerBehaviorState::Using)
+        );
+    }
 
     #[test]
     fn death_and_hurt_override_regular_actions() {

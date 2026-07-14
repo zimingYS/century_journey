@@ -5,8 +5,8 @@ use crate::game::world::time::TimeOfDay;
 use bevy::camera::{Exposure, visibility::RenderLayers};
 use bevy::light::atmosphere::ScatteringMedium;
 use bevy::light::{
-    Atmosphere, CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver, VolumetricFog,
-    VolumetricLight,
+    Atmosphere, CascadeShadowConfigBuilder, GlobalAmbientLight, NotShadowCaster, NotShadowReceiver,
+    VolumetricFog, VolumetricLight,
 };
 use bevy::prelude::*;
 use rand::{RngExt, SeedableRng};
@@ -148,6 +148,7 @@ pub fn setup_sky_system(
 
 pub fn atmosphere_system(
     time_of_day: Res<TimeOfDay>,
+    mut ambient_light: ResMut<GlobalAmbientLight>,
     mut sun_query: Query<(&mut Transform, &mut DirectionalLight), (With<Sun>, Without<Moon>)>,
     mut moon_query: Query<(&mut Transform, &mut DirectionalLight), (With<Moon>, Without<Sun>)>,
     mut camera_query: Query<
@@ -198,19 +199,20 @@ pub fn atmosphere_system(
             MIN_MOON_ILLUMINANCE + moon_fade * (MAX_MOON_ILLUMINANCE - MIN_MOON_ILLUMINANCE);
     }
 
-    // 相机自动曝光
-    // 相机曝光 + 体积雾联动
     let night_factor = time_of_day.night_factor();
+    let night_mix = smoothstep(night_factor);
+
+    // 深夜保留冷色环境光，让地形仍可辨认，同时避免看起来像白天。
+    ambient_light.color = Color::srgb(
+        1.0 + (0.38 - 1.0) * night_mix,
+        1.0 + (0.48 - 1.0) * night_mix,
+        1.0 + (0.72 - 1.0) * night_mix,
+    );
+    ambient_light.brightness =
+        DAY_AMBIENT_BRIGHTNESS + (NIGHT_AMBIENT_BRIGHTNESS - DAY_AMBIENT_BRIGHTNESS) * night_mix;
 
     for (mut exposure, fog) in &mut camera_query {
-        // 自动曝光
-        if sun_fade > 0.0 {
-            let computed_ev100 = 11.5 - 5.0 * current_sun_y - 1.5 * current_sun_y * current_sun_y;
-            exposure.ev100 = computed_ev100.clamp(5.0, 15.0);
-        } else {
-            // 夜间降低曝光使场景更暗
-            exposure.ev100 = 12.0 + night_factor * 3.0;
-        }
+        exposure.ev100 = visibility_exposure_ev100(sun_fade, current_sun_y, night_factor);
 
         // 体积雾环境光联动
         if let Some(mut vol_fog) = fog {
@@ -224,6 +226,18 @@ pub fn atmosphere_system(
             }
         }
     }
+}
+
+fn visibility_exposure_ev100(sun_fade: f32, sun_y: f32, night_factor: f32) -> f32 {
+    let daylight_ev100 = (11.5 - 5.0 * sun_y - 1.5 * sun_y * sun_y).clamp(8.0, 15.0);
+    let twilight_ev100 = NIGHT_EXPOSURE_EV100 + (1.0 - night_factor.clamp(0.0, 1.0)) * 1.5;
+    let daylight_mix = smoothstep((sun_fade / 0.25).clamp(0.0, 1.0));
+    twilight_ev100 + (daylight_ev100 - twilight_ev100) * daylight_mix
+}
+
+fn smoothstep(value: f32) -> f32 {
+    let value = value.clamp(0.0, 1.0);
+    value * value * (3.0 - 2.0 * value)
 }
 
 /// 天体纹理处理系统
@@ -286,5 +300,19 @@ pub fn stars_visibility_system(
         } else {
             Visibility::Hidden
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn feedback_fix_deep_night_uses_readable_exposure() {
+        let night_ev100 = visibility_exposure_ev100(0.0, 1.0, 1.0);
+        let noon_ev100 = visibility_exposure_ev100(1.0, -1.0, 0.0);
+
+        assert_eq!(night_ev100, NIGHT_EXPOSURE_EV100);
+        assert!(night_ev100 < noon_ev100);
     }
 }

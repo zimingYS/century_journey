@@ -5,7 +5,7 @@ use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::stats::{Health, Hunger};
 use crate::game::player::components::{Player, PlayerLifecycle};
-use crate::game::player::events::{DamageEvent, DamageSource, HealEvent};
+use crate::game::player::events::{DamageEvent, DamageSource, FoodConsumedEvent, HealEvent};
 use bevy::prelude::*;
 
 /// 动作消耗系统：冲刺和跳跃会消耗饥饿值。
@@ -46,7 +46,8 @@ pub fn use_food_system(
     gamemode: Res<PlayerGameMode>,
     item_registry: Option<Res<ItemRegistry>>,
     mut inventory: ResMut<InventoryState>,
-    mut query: Query<(&mut Hunger, &PlayerLifecycle), With<Player>>,
+    mut query: Query<(Entity, &mut Hunger, &PlayerLifecycle), With<Player>>,
+    mut consumed_writer: MessageWriter<FoodConsumedEvent>,
 ) {
     if !actions.just_pressed(PlayerAction::Use) || !gamemode.is_survival() {
         return;
@@ -55,17 +56,19 @@ pub fn use_food_system(
         return;
     };
     let active_index = inventory.hotbar.active_index;
-    let Some(food) = inventory
-        .hotbar
-        .get_stack(active_index)
-        .and_then(|stack| item_registry.get(stack.item_id()))
+    let Some(active_stack) = inventory.hotbar.get_stack(active_index) else {
+        return;
+    };
+    let food_item = active_stack.item.clone();
+    let Some(food) = item_registry
+        .get(active_stack.item_id())
         .and_then(|definition| definition.food_data())
         .copied()
     else {
         return;
     };
 
-    let Ok((mut hunger, lifecycle)) = query.single_mut() else {
+    let Ok((player, mut hunger, lifecycle)) = query.single_mut() else {
         return;
     };
     if !lifecycle.is_alive() || hunger.is_full() {
@@ -82,6 +85,10 @@ pub fn use_food_system(
             );
         }
     }
+    consumed_writer.write(FoodConsumedEvent {
+        player,
+        item: food_item,
+    });
 }
 
 /// 满饥饿自动回血 (每 4s, hunger >= 18)
@@ -141,8 +148,18 @@ mod stage_seven_tests {
     use crate::shared::identifier::Identifier;
     use crate::shared::item_id::ItemId;
 
+    #[derive(Resource, Default)]
+    struct FoodEventCount(usize);
+
+    fn count_food_events(
+        mut reader: MessageReader<FoodConsumedEvent>,
+        mut count: ResMut<FoodEventCount>,
+    ) {
+        count.0 += reader.read().count();
+    }
+
     #[test]
-    fn stage_seven_food_use_consumes_one_and_restores_hunger() {
+    fn feedback_fix_food_use_consumes_one_and_emits_animation_event() {
         let apple = ItemId::item("century_journey:apple");
         let mut registry = ItemRegistry::default();
         registry.register(ItemDefinition {
@@ -170,7 +187,9 @@ mod stage_seven_tests {
             .insert_resource(inventory)
             .init_resource::<PlayerActionState>()
             .init_resource::<PlayerGameMode>()
-            .add_systems(Update, use_food_system);
+            .init_resource::<FoodEventCount>()
+            .add_message::<FoodConsumedEvent>()
+            .add_systems(Update, (use_food_system, count_food_events).chain());
         let player = app
             .world_mut()
             .spawn((
@@ -192,6 +211,7 @@ mod stage_seven_tests {
         let hunger = app.world().get::<Hunger>(player).unwrap();
         assert_eq!(hunger.current, 14.0);
         assert_eq!(hunger.saturation, 2.4);
+        assert_eq!(app.world().resource::<FoodEventCount>().0, 1);
         assert_eq!(
             app.world()
                 .resource::<InventoryState>()

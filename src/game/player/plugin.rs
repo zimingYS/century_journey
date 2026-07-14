@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::game::gameplay::block_action::{BlockBreakProgress, BlockBreakState};
 use crate::game::player::action::PlayerActionState;
 use crate::game::player::events::{
-    AttackEvent, DamageEvent, DeathEvent, HealEvent, RespawnRequest,
+    AttackEvent, DamageEvent, DeathEvent, FoodConsumedEvent, HealEvent, RespawnRequest,
 };
 use crate::game::player::systems::raycast::TargetVoxel;
 
@@ -21,6 +21,7 @@ impl Plugin for GamePlayerPlugin {
             .add_message::<AttackEvent>()
             .add_message::<DamageEvent>()
             .add_message::<HealEvent>()
+            .add_message::<FoodConsumedEvent>()
             .add_message::<DeathEvent>()
             .add_message::<RespawnRequest>()
             .add_systems(

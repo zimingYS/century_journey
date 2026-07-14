@@ -22,14 +22,21 @@ pub const STAR_SPHERE_RADIUS: f32 = 480.0;
 /// 星星Mesh面片大小
 pub const STAR_QUAD_SIZE: f32 = 2.0;
 
-/// 月光最大照度（满月），与 light_consts::lux::FULL_MOON_NIGHT 一致
-pub const MAX_MOON_ILLUMINANCE: f32 = 0.27;
+/// 月光最大照度。为保证体素地形可读性，使用高于物理满月的玩法标定值。
+pub const MAX_MOON_ILLUMINANCE: f32 = 2.5;
 
 /// 月光最小照度（地平线以下时）
-pub const MIN_MOON_ILLUMINANCE: f32 = 0.0;
+pub const MIN_MOON_ILLUMINANCE: f32 = 0.05;
+
+/// 深夜相机曝光值；EV100 越低，画面越亮。
+pub const NIGHT_EXPOSURE_EV100: f32 = 5.5;
+
+/// 白天和深夜的全局环境光亮度。
+pub const DAY_AMBIENT_BRIGHTNESS: f32 = 80.0;
+pub const NIGHT_AMBIENT_BRIGHTNESS: f32 = 22.0;
 
 /// 夜间VolumetricFog环境光强度
-pub const NIGHT_FOG_AMBIENT: f32 = 0.02;
+pub const NIGHT_FOG_AMBIENT: f32 = 0.07;
 
 /// 白天VolumetricFog环境光强度
 pub const DAY_FOG_AMBIENT: f32 = 0.1;

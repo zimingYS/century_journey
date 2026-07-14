@@ -298,6 +298,41 @@ mod stage_seven_tests {
     use crate::game::world::entity::dropped_item::DroppedItem;
     use crate::shared::item_id::ItemId;
 
+    #[derive(Resource, Default)]
+    struct AttackEventCount(usize);
+
+    fn count_attack_events(
+        mut reader: MessageReader<AttackEvent>,
+        mut count: ResMut<AttackEventCount>,
+    ) {
+        count.0 += reader.read().count();
+    }
+
+    #[test]
+    fn feedback_fix_empty_attack_does_not_emit_a_hit_event() {
+        let mut app = App::new();
+        app.init_resource::<PlayerActionState>()
+            .init_resource::<AttackEventCount>()
+            .add_message::<AttackEvent>()
+            .add_systems(
+                Update,
+                (melee_attack_input_system, count_attack_events).chain(),
+            );
+        app.world_mut().spawn((
+            Player,
+            LocalPlayer,
+            Transform::default(),
+            PlayerLifecycle::default(),
+        ));
+        app.world_mut()
+            .resource_mut::<PlayerActionState>()
+            .update(true, [PlayerAction::Attack]);
+
+        app.update();
+
+        assert_eq!(app.world().resource::<AttackEventCount>().0, 0);
+    }
+
     #[test]
     fn stage_seven_damage_death_drop_and_respawn_form_a_state_machine() {
         let mut inventory = InventoryState::default();

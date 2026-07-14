@@ -8,7 +8,8 @@ use bevy::prelude::*;
 use crate::content::block::event::{BlockBreakEvent, BlockPlaceEvent};
 use crate::content::block::registry::BlockRegistry;
 use crate::content::block::sound::SoundMaterial;
-use crate::game::player::components::LocalPlayer;
+use crate::game::player::components::Player;
+use crate::game::player::events::AttackEvent;
 use crate::game::player::model::animation::{AnimationMarkerEvent, AnimationMarkerKind};
 use crate::game::player::systems::raycast::TargetVoxel;
 use crate::game::world::block_ops::get_voxel_at_world;
@@ -88,7 +89,8 @@ impl Plugin for ClientParticlePlugin {
             Update,
             (
                 spawn_block_particles_system,
-                spawn_action_particles_system,
+                spawn_action_particles_system
+                    .after(crate::game::player::systems::combat::melee_attack_input_system),
                 update_feedback_particles_system,
             )
                 .run_if(in_state(AppState::InGame)),
@@ -142,13 +144,33 @@ fn spawn_block_particles_system(
 
 fn spawn_action_particles_system(
     mut reader: MessageReader<AnimationMarkerEvent>,
+    mut attack_reader: MessageReader<AttackEvent>,
     target: Res<TargetVoxel>,
     world: Res<WorldStorage>,
     registry: Option<Res<BlockRegistry>>,
-    player_query: Query<&GlobalTransform, With<LocalPlayer>>,
+    player_query: Query<&GlobalTransform, With<Player>>,
     visuals: Res<ParticleVisuals>,
     mut commands: Commands,
 ) {
+    // 红色命中粒子只由已经找到目标的攻击事件驱动，空挥不产生“血液”反馈。
+    for attack in attack_reader.read() {
+        if attack.attacker == attack.target || attack.amount <= 0.0 {
+            continue;
+        }
+        let Ok(transform) = player_query.get(attack.target) else {
+            continue;
+        };
+        spawn_burst(
+            &mut commands,
+            &visuals,
+            transform.translation() + Vec3::Y * 0.9,
+            ParticleKind::Hit,
+            6,
+            attack.attacker.to_bits() ^ attack.target.to_bits(),
+            1.7,
+        );
+    }
+
     for event in reader.read() {
         match event.marker {
             AnimationMarkerKind::MiningSwing => {
@@ -172,23 +194,9 @@ fn spawn_action_particles_system(
                     1.15,
                 );
             }
-            AnimationMarkerKind::AttackHit => {
-                let Ok(transform) = player_query.get(event.player) else {
-                    continue;
-                };
-                let origin =
-                    transform.translation() + transform.forward().as_vec3() * 1.15 + Vec3::Y;
-                spawn_burst(
-                    &mut commands,
-                    &visuals,
-                    origin,
-                    ParticleKind::Hit,
-                    6,
-                    event.cycle as u64 ^ event.player.to_bits(),
-                    1.7,
-                );
-            }
-            AnimationMarkerKind::PlaceCommit | AnimationMarkerKind::UseCommit => {}
+            AnimationMarkerKind::AttackHit
+            | AnimationMarkerKind::PlaceCommit
+            | AnimationMarkerKind::UseCommit => {}
         }
     }
 }
