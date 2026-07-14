@@ -5,4 +5,5 @@
 
 pub mod asset;
 pub mod constant;
+pub mod persistence;
 pub mod task;

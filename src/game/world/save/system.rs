@@ -1,5 +1,6 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::content::constant::world::*;
+use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::player::components::Player;
 use crate::game::world::generation::WorldGenerator;
 use crate::game::world::save::format::{LevelData, SavedChunk};
@@ -9,8 +10,8 @@ use crate::game::world::storage::WorldStorage;
 use crate::game::world::time::TimeOfDay;
 use bevy::prelude::*;
 use bincode::Options;
-use std::collections::{HashMap, VecDeque};
-use std::sync::Arc;
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::{Arc, Mutex, mpsc};
 
 /// 缓存的 block_id 重映射表
 #[derive(Resource, Clone, Default)]
@@ -43,6 +44,55 @@ pub struct SaveQueue {
     pub queue: VecDeque<SavedChunk>,
 }
 
+impl SaveQueue {
+    /// 同一区块只保留最新快照，避免玩家在边界往返时重复排队。
+    pub fn enqueue(&mut self, chunk: SavedChunk) {
+        if let Some(existing) = self
+            .queue
+            .iter_mut()
+            .find(|queued| queued.position == chunk.position)
+        {
+            if chunk.modified_time >= existing.modified_time {
+                *existing = chunk;
+            }
+        } else {
+            self.queue.push_back(chunk);
+        }
+    }
+}
+
+struct SaveBatchCompletion {
+    chunks: Vec<SavedChunk>,
+    error: Option<String>,
+}
+
+/// 流式区块保存后台任务状态。只允许一个批次写盘，避免同一 Region 并发覆盖。
+#[derive(Resource)]
+pub struct SaveWorker {
+    sender: mpsc::Sender<SaveBatchCompletion>,
+    receiver: Mutex<mpsc::Receiver<SaveBatchCompletion>>,
+    in_flight_positions: HashSet<IVec3>,
+    in_flight_batches: usize,
+}
+
+impl Default for SaveWorker {
+    fn default() -> Self {
+        let (sender, receiver) = mpsc::channel();
+        Self {
+            sender,
+            receiver: Mutex::new(receiver),
+            in_flight_positions: HashSet::new(),
+            in_flight_batches: 0,
+        }
+    }
+}
+
+impl SaveWorker {
+    pub fn is_idle(&self) -> bool {
+        self.in_flight_batches == 0
+    }
+}
+
 /// 加载队列
 #[derive(Resource, Default, Debug)]
 pub struct LoadQueue {
@@ -61,7 +111,8 @@ pub fn auto_save_on_unload_system(
     time: Res<Time>,
     mut auto_save_timer: ResMut<AutoSaveTimer>,
     save_config: Res<SaveConfig>,
-    world_storage: Res<WorldStorage>,
+    mut world_storage: ResMut<WorldStorage>,
+    mut save_queue: ResMut<SaveQueue>,
     block_registry: Res<BlockRegistry>,
     world_generator: Res<WorldGenerator>,
     time_of_day: Res<TimeOfDay>,
@@ -96,48 +147,171 @@ pub fn auto_save_on_unload_system(
         .map(|t| t.translation)
         .unwrap_or(Vec3::ZERO);
 
-    // 全量保存
-    match save_entire_world(
+    // 元数据很小，直接原子保存；真正修改过的区块交给后台保存队列。
+    if let Err(error) = level::save_level(
         &save_config.world_name,
-        &world_storage,
-        &block_registry,
         world_generator.seed as u64,
         spawn_pos,
         time_of_day.current_time,
+        &block_registry,
     ) {
-        Ok(()) => {
-            log::info!(
-                "[自动保存] 世界已保存，共 {} 个区块",
-                world_storage.loaded_chunks.len()
-            );
-        }
-        Err(e) => {
-            log::error!("[自动保存] 保存失败: {e}");
-        }
+        log::error!("[自动保存] 世界元数据保存失败: {error}");
+        return;
     }
+
+    let modified: Vec<_> = world_storage.chunk_modified_times.keys().copied().collect();
+    for position in modified {
+        let Some(data) = world_storage
+            .loaded_chunks
+            .get(&position)
+            .map(|data| data.as_ref().clone())
+        else {
+            world_storage.chunk_modified_times.remove(&position);
+            continue;
+        };
+        let modified_time = world_storage
+            .chunk_modified_times
+            .remove(&position)
+            .unwrap_or_default();
+        save_queue.enqueue(SavedChunk {
+            position,
+            data,
+            modified_time,
+        });
+    }
+    log::trace!(
+        "[自动保存] 元数据已保存，{} 个修改区块已进入后台队列",
+        save_queue.queue.len()
+    );
 }
 
 /// 每帧处理保存队列，批量写入磁盘
-pub fn process_save_queue_system(mut save_queue: ResMut<SaveQueue>, save_config: Res<SaveConfig>) {
-    let drain_count = MAX_SAVE_PER_FRAME.min(save_queue.queue.len());
-    let batch: Vec<SavedChunk> = save_queue.queue.drain(..drain_count).collect();
+pub fn process_save_queue_system(
+    mut save_queue: ResMut<SaveQueue>,
+    save_config: Res<SaveConfig>,
+    task: Res<TaskManager>,
+    mut worker: ResMut<SaveWorker>,
+) {
+    collect_save_completions(&mut save_queue, &mut worker);
+    if worker.in_flight_batches > 0 {
+        return;
+    }
 
+    let mut batch = Vec::with_capacity(MAX_SAVE_PER_FRAME);
+    let queued_count = save_queue.queue.len();
+    for _ in 0..queued_count {
+        let Some(chunk) = save_queue.queue.pop_front() else {
+            break;
+        };
+        if worker.in_flight_positions.contains(&chunk.position) {
+            save_queue.queue.push_back(chunk);
+            continue;
+        }
+        batch.push(chunk);
+        if batch.len() >= MAX_SAVE_PER_FRAME {
+            break;
+        }
+    }
     if batch.is_empty() {
         return;
     }
 
-    match RegionManager::write_chunks_batch(&save_config.world_name, &batch) {
-        Ok(()) => {
-            log::trace!("[存档系统] 已保存 {} 个区块", batch.len());
+    for chunk in &batch {
+        worker.in_flight_positions.insert(chunk.position);
+    }
+    worker.in_flight_batches += 1;
+
+    let world_name = save_config.world_name.clone();
+    let sender = worker.sender.clone();
+    task.spawn_io(move || {
+        let error = RegionManager::write_chunks_batch(&world_name, &batch)
+            .err()
+            .map(|error| error.to_string());
+        let failed = error.clone();
+        let _ = sender.send(SaveBatchCompletion {
+            chunks: batch,
+            error,
+        });
+        match failed {
+            Some(error) => TaskResult::Failed(error),
+            None => TaskResult::Success,
         }
-        Err(e) => {
-            log::error!("[存档系统] 保存区块失败: {e}");
-            // 失败的区块放回队列头部
-            for chunk in batch.into_iter().rev() {
-                save_queue.queue.push_front(chunk);
+    });
+}
+
+/// 同步写完队列中的所有区块。保存并退出必须在离开世界前调用此函数。
+pub fn flush_save_queue(
+    world_name: &str,
+    save_queue: &mut SaveQueue,
+    worker: &mut SaveWorker,
+) -> Result<usize, super::region::SaveError> {
+    let mut saved = wait_for_save_worker(save_queue, worker)?;
+    let batch: Vec<SavedChunk> = save_queue.queue.drain(..).collect();
+    if batch.is_empty() {
+        return Ok(saved);
+    }
+
+    if let Err(error) = RegionManager::write_chunks_batch(world_name, &batch) {
+        for chunk in batch.into_iter().rev() {
+            save_queue.queue.push_front(chunk);
+        }
+        return Err(error);
+    }
+
+    saved += batch.len();
+    Ok(saved)
+}
+
+fn collect_save_completions(save_queue: &mut SaveQueue, worker: &mut SaveWorker) {
+    let completions: Vec<_> = {
+        let Ok(receiver) = worker.receiver.lock() else {
+            return;
+        };
+        receiver.try_iter().collect()
+    };
+    for completion in completions {
+        worker.in_flight_batches = worker.in_flight_batches.saturating_sub(1);
+        for chunk in &completion.chunks {
+            worker.in_flight_positions.remove(&chunk.position);
+        }
+        if let Some(error) = completion.error {
+            log::error!("[存档系统] 后台保存区块失败: {error}");
+            for chunk in completion.chunks {
+                save_queue.enqueue(chunk);
             }
+        } else {
+            log::trace!("[存档系统] 后台已保存 {} 个区块", completion.chunks.len());
         }
     }
+}
+
+fn wait_for_save_worker(
+    save_queue: &mut SaveQueue,
+    worker: &mut SaveWorker,
+) -> Result<usize, super::region::SaveError> {
+    let mut saved = 0;
+    while worker.in_flight_batches > 0 {
+        let completion = worker
+            .receiver
+            .lock()
+            .map_err(|_| super::region::SaveError::Serialize("保存任务通道已损坏".into()))?
+            .recv()
+            .map_err(|error| {
+                super::region::SaveError::Serialize(format!("保存任务意外终止: {error}"))
+            })?;
+        worker.in_flight_batches = worker.in_flight_batches.saturating_sub(1);
+        for chunk in &completion.chunks {
+            worker.in_flight_positions.remove(&chunk.position);
+        }
+        if let Some(error) = completion.error {
+            for chunk in completion.chunks {
+                save_queue.enqueue(chunk);
+            }
+            return Err(super::region::SaveError::Serialize(error));
+        }
+        saved += completion.chunks.len();
+    }
+    Ok(saved)
 }
 
 /// 从存档文件加载区块，加载到世界数据WorldStorage
@@ -267,9 +441,7 @@ pub fn load_entire_world(
 
                     // 读取该 region 中所有区块
                     let region_path = RegionManager::region_path(world_name, region_pos);
-                    if let Ok(mut file) = std::fs::File::open(&region_path)
-                        && let Ok(region) = RegionManager::read_region_file(&mut file)
-                    {
+                    if let Ok(region) = RegionManager::read_region_path(&region_path) {
                         for compressed in &region.chunks {
                             if let Ok(decompressed) = RegionManager::decompress(compressed)
                                 && let Ok(mut saved) = bincode::DefaultOptions::new()
@@ -313,5 +485,35 @@ pub fn cache_level_data_on_enter(
             // 新存档没有 level.dat，正常
             log::info!("[存档系统] 未找到 level.dat，将使用纯生成模式");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::game::world::chunk::ChunkData;
+
+    fn saved_chunk(position: IVec3, modified_time: f64, first_voxel: u16) -> SavedChunk {
+        let mut data = ChunkData::default();
+        data.voxels[0] = first_voxel;
+        SavedChunk {
+            position,
+            data,
+            modified_time,
+        }
+    }
+
+    #[test]
+    fn save_queue_coalesces_snapshots_and_keeps_the_newest() {
+        let position = IVec3::new(1, 2, 3);
+        let mut queue = SaveQueue::default();
+        queue.enqueue(saved_chunk(position, 10.0, 10));
+        queue.enqueue(saved_chunk(position, 20.0, 20));
+        queue.enqueue(saved_chunk(position, 15.0, 15));
+
+        assert_eq!(queue.queue.len(), 1);
+        let saved = queue.queue.front().unwrap();
+        assert_eq!(saved.modified_time, 20.0);
+        assert_eq!(saved.data.voxels[0], 20);
     }
 }

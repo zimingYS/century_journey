@@ -8,7 +8,7 @@ use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-pub const SAVE_VERSION: u32 = 4;
+pub const SAVE_VERSION: u32 = 5;
 
 /// 可序列化物品堆叠
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -34,6 +34,7 @@ impl SaveItemStack {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PlayerSaveData {
     pub version: u32,
+    pub game_version: String,
     pub position: [f32; 3],
     pub rotation: [f32; 4],
     #[serde(default)]
@@ -59,6 +60,7 @@ impl Default for PlayerSaveData {
     fn default() -> Self {
         Self {
             version: SAVE_VERSION,
+            game_version: env!("CARGO_PKG_VERSION").to_string(),
             position: [0.0, 70.0, 0.0],
             rotation: [0.0, 0.0, 0.0, 1.0],
             camera_pitch: 0.0,
@@ -157,6 +159,7 @@ impl PlayerSaveData {
 
         Self {
             version: SAVE_VERSION,
+            game_version: env!("CARGO_PKG_VERSION").to_string(),
             position: [position.x, position.y, position.z],
             rotation: [rotation.x, rotation.y, rotation.z, rotation.w],
             camera_pitch,
@@ -254,6 +257,18 @@ pub fn validate_player_data(data: &PlayerSaveData) -> PlayerSaveData {
         data.camera_pitch = 0.0;
         repaired = true;
     }
+    if !data.health.is_finite() {
+        data.health = 20.0;
+        repaired = true;
+    } else {
+        data.health = data.health.clamp(0.0, 20.0);
+    }
+    if !data.hunger.is_finite() {
+        data.hunger = 20.0;
+        repaired = true;
+    } else {
+        data.hunger = data.hunger.clamp(0.0, 20.0);
+    }
     if !matches!(data.gamemode.as_str(), "survival" | "creative") {
         log::warn!(
             "[存档系统] 未知游戏模式: '{}', 已重置为生存模式",
@@ -332,4 +347,50 @@ fn restore_legacy_stack(state: &mut InventoryState, mut stack: ItemStack) {
         }
     }
     log::warn!("[存档系统] 旧版背包容量迁移后空间不足，无法恢复物品: {stack:?}");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn player_runtime_round_trip_keeps_inventory_health_and_hunger() {
+        let mut inventory = InventoryState::default();
+        inventory.hotbar.set_stack(
+            2,
+            ItemStack::new(ItemId::item("century_journey:test_tool"), 1),
+        );
+        inventory
+            .survival
+            .set_stack(4, ItemStack::new(ItemId::block("century_journey:dirt"), 17));
+        inventory.hotbar.active_index = 2;
+
+        let data = PlayerSaveData::from_runtime(
+            Vec3::new(3.0, 72.0, -5.0),
+            Quat::from_rotation_y(0.5),
+            -0.25,
+            &PlayerGameMode {
+                mode: GameMode::Survival,
+            },
+            &inventory,
+            13.5,
+            7.25,
+        );
+        let restored = data.restore_inventory();
+
+        assert_eq!(data.game_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(data.health, 13.5);
+        assert_eq!(data.hunger, 7.25);
+        assert_eq!(data.position, [3.0, 72.0, -5.0]);
+        assert_eq!(data.camera_pitch, -0.25);
+        assert_eq!(restored.hotbar.active_index, 2);
+        assert_eq!(
+            restored.hotbar.get_stack(2).map(|stack| stack.count),
+            Some(1)
+        );
+        assert_eq!(
+            restored.survival.get_stack(4).map(|stack| stack.count),
+            Some(17)
+        );
+    }
 }

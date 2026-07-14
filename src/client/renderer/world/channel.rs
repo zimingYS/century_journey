@@ -2,6 +2,7 @@ use crate::content::block::definition::RenderMode;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::world::chunk::ChunkData;
 use bevy::prelude::*;
+use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex, mpsc};
 
 use super::mesh_buffer::MeshBufferData;
@@ -19,6 +20,7 @@ pub struct MeshBuildResult {
 pub struct MeshBuildChannel {
     pub sender: mpsc::Sender<MeshBuildResult>,
     pub receiver: Mutex<mpsc::Receiver<MeshBuildResult>>,
+    pub in_flight: Arc<AtomicUsize>,
 }
 
 impl Default for MeshBuildChannel {
@@ -27,6 +29,7 @@ impl Default for MeshBuildChannel {
         Self {
             sender,
             receiver: Mutex::new(receiver),
+            in_flight: Arc::new(AtomicUsize::new(0)),
         }
     }
 }

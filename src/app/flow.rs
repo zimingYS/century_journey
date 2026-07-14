@@ -5,6 +5,9 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::{MonitorSelection, PresentMode, PrimaryWindow, WindowMode};
 
+use crate::app::settings::{
+    load_settings, restore_settings_backup, save_settings, settings_backup_available, settings_path,
+};
 use crate::client::renderer::world::MeshBuildChannel;
 use crate::client::ui::hud::HudRoot;
 use crate::client::ui::theme::scale::UiScaleSettings;
@@ -13,12 +16,18 @@ use crate::content::lifecycle::{ContentReloadRequested, ContentReloadSet};
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::Player;
+use crate::game::player::components::stats::{Health, Hunger};
 use crate::game::world::chunk::ChunkComponents;
 use crate::game::world::generation::WorldGenerator;
 use crate::game::world::save::level;
+use crate::game::world::save::player::player_io::{
+    player_backup_available, player_save_path, read_player_data, restore_player_backup,
+};
 use crate::game::world::save::player::{PlayerSaveManager, save_player_now};
 use crate::game::world::save::region::RegionManager;
-use crate::game::world::save::system::{LoadQueue, SaveConfig, SaveQueue, save_entire_world};
+use crate::game::world::save::system::{
+    LoadQueue, SaveConfig, SaveQueue, SaveWorker, flush_save_queue, save_entire_world,
+};
 use crate::game::world::storage::WorldStorage;
 use crate::game::world::systems::{
     PlayerChunkCache, StructureGenChannel, TerrainGenChannel, WorldStreamingConfig,
@@ -68,7 +77,16 @@ impl Default for LoadingStatus {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DialogKind {
     ConfirmDelete { world_id: String },
+    ConfirmRecoverWorld { world_id: String },
+    ConfirmRecoverPlayer { world_id: String },
+    ConfirmRecoverSettings,
     Error,
+}
+
+impl DialogKind {
+    pub fn requires_confirmation(&self) -> bool {
+        !matches!(self, Self::Error)
+    }
 }
 
 #[derive(Resource, Debug, Default)]
@@ -99,7 +117,7 @@ pub enum MenuPage {
     Settings,
 }
 
-#[derive(Resource, Debug, Clone)]
+#[derive(Resource, Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
 pub struct GameSettings {
     pub render_distance: u32,
     pub master_volume: f32,
@@ -107,6 +125,12 @@ pub struct GameSettings {
     pub ui_scale: f32,
     pub fullscreen: bool,
     pub vsync: bool,
+}
+
+#[derive(Resource, Debug, Default)]
+struct SettingsPersistenceState {
+    last_saved: GameSettings,
+    blocked: bool,
 }
 
 impl Default for GameSettings {
@@ -163,8 +187,10 @@ impl Plugin for GameFlowPlugin {
             .init_resource::<DialogState>()
             .init_resource::<MenuPage>()
             .init_resource::<GameSettings>()
+            .init_resource::<SettingsPersistenceState>()
             .init_resource::<SaveAndQuitRequest>()
             .add_message::<FlowCommand>()
+            .add_systems(Startup, load_settings_system)
             .add_systems(OnEnter(AppState::Boot), enter_boot_system)
             .add_systems(OnEnter(AppState::MainMenu), refresh_world_catalog_system)
             .add_systems(OnEnter(AppState::WorldLoading), prepare_world_system)
@@ -181,6 +207,7 @@ impl Plugin for GameFlowPlugin {
                     sync_pause_state_system,
                     save_and_quit_system,
                     apply_settings_system,
+                    persist_settings_system,
                     finish_fresh_session_system,
                 )
                     .chain(),
@@ -234,8 +261,12 @@ fn refresh_world_catalog(catalog: &mut WorldCatalog) {
         let Some(id) = entry.file_name().to_str().map(str::to_owned) else {
             continue;
         };
-        let Ok(data) = level::load_level(&id) else {
-            continue;
+        let data = match level::load_level(&id) {
+            Ok(data) => data,
+            Err(_) => match level::load_level_backup(&id) {
+                Ok(data) => data,
+                Err(_) => continue,
+            },
         };
         let modified_unix = entry
             .metadata()
@@ -265,6 +296,7 @@ fn handle_flow_commands_system(
     mut dialog: ResMut<DialogState>,
     mut menu_page: ResMut<MenuPage>,
     mut settings: ResMut<GameSettings>,
+    mut settings_persistence: ResMut<SettingsPersistenceState>,
     block_registry: Option<Res<BlockRegistry>>,
     mut save_quit: ResMut<SaveAndQuitRequest>,
     mut next_state: ResMut<NextState<AppState>>,
@@ -317,6 +349,36 @@ fn handle_flow_commands_system(
                 }
             }
             FlowCommand::ConfirmDialog => {
+                if let Some(DialogKind::ConfirmRecoverWorld { world_id }) = dialog.kind.clone() {
+                    if let Err(error) = level::restore_level_backup(&world_id) {
+                        dialog.error("世界恢复失败", error.to_string());
+                        continue;
+                    }
+                    pending.0 = Some(world_id);
+                    next_state.set(AppState::WorldLoading);
+                }
+                if let Some(DialogKind::ConfirmRecoverPlayer { world_id }) = dialog.kind.clone() {
+                    if let Err(error) = restore_player_backup(&player_save_path(&world_id)) {
+                        dialog.error("玩家存档恢复失败", error);
+                        continue;
+                    }
+                    pending.0 = Some(world_id);
+                    next_state.set(AppState::WorldLoading);
+                }
+                if matches!(dialog.kind, Some(DialogKind::ConfirmRecoverSettings)) {
+                    let result = restore_settings_backup().and_then(|()| load_settings());
+                    match result {
+                        Ok(restored) => {
+                            *settings = restored.clone();
+                            settings_persistence.last_saved = restored;
+                            settings_persistence.blocked = false;
+                        }
+                        Err(error) => {
+                            dialog.error("设置恢复失败", error);
+                            continue;
+                        }
+                    }
+                }
                 if let Some(DialogKind::ConfirmDelete { world_id }) = dialog.kind.clone()
                     && valid_world_id(&world_id)
                 {
@@ -391,6 +453,33 @@ fn prepare_world_system(pending: Res<PendingWorld>, mut params: PrepareWorldPara
     params.loading.detail = format!("正在读取 {world_id}...");
     match level::load_level(world_id) {
         Ok(level_data) => {
+            let player_path = player_save_path(world_id);
+            if player_path.exists() {
+                if let Err(error) = read_player_data(&player_path) {
+                    if player_backup_available(&player_path) {
+                        params.dialog.kind = Some(DialogKind::ConfirmRecoverPlayer {
+                            world_id: world_id.to_string(),
+                        });
+                        params.dialog.title = "玩家存档损坏".into();
+                        params.dialog.message =
+                            format!("玩家数据无法读取：{error}\n是否恢复最近一次有效备份？");
+                    } else {
+                        params
+                            .dialog
+                            .error("玩家存档损坏", format!("{world_id}: {error}"));
+                    }
+                    params.next_state.set(AppState::MainMenu);
+                    return;
+                }
+            } else if player_backup_available(&player_path) {
+                params.dialog.kind = Some(DialogKind::ConfirmRecoverPlayer {
+                    world_id: world_id.to_string(),
+                });
+                params.dialog.title = "发现玩家存档备份".into();
+                params.dialog.message = "主存档缺失，是否恢复最近一次有效备份？".into();
+                params.next_state.set(AppState::MainMenu);
+                return;
+            }
             for entity in &params.chunk_query {
                 params.commands.entity(entity).despawn();
             }
@@ -410,6 +499,16 @@ fn prepare_world_system(pending: Res<PendingWorld>, mut params: PrepareWorldPara
             params.next_state.set(AppState::InGame);
         }
         Err(error) => {
+            if level::level_backup_available(world_id) {
+                params.dialog.kind = Some(DialogKind::ConfirmRecoverWorld {
+                    world_id: world_id.to_string(),
+                });
+                params.dialog.title = "世界存档损坏".into();
+                params.dialog.message =
+                    format!("世界元数据无法读取：{error}\n是否恢复最近一次有效备份？");
+                params.next_state.set(AppState::MainMenu);
+                return;
+            }
             params
                 .dialog
                 .error("世界加载失败", format!("{world_id}: {error}"));
@@ -426,7 +525,10 @@ struct SaveQuitParams<'w, 's> {
     block_registry: Option<Res<'w, BlockRegistry>>,
     world_generator: Res<'w, WorldGenerator>,
     time_of_day: Res<'w, TimeOfDay>,
-    player_query: Query<'w, 's, &'static Transform, With<Player>>,
+    save_queue: ResMut<'w, SaveQueue>,
+    save_worker: ResMut<'w, SaveWorker>,
+    player_query:
+        Query<'w, 's, (&'static Transform, &'static Health, &'static Hunger), With<Player>>,
     camera_query: Query<'w, 's, &'static FpsCamera, With<Camera3d>>,
     gamemode: Res<'w, PlayerGameMode>,
     inventory: Res<'w, InventoryState>,
@@ -452,8 +554,16 @@ fn save_and_quit_system(mut request: ResMut<SaveAndQuitRequest>, mut params: Sav
     let spawn = params
         .player_query
         .single()
-        .map(|transform| transform.translation)
+        .map(|(transform, _, _)| transform.translation)
         .unwrap_or(Vec3::ZERO);
+    if let Err(error) = flush_save_queue(
+        &params.save_config.world_name,
+        &mut params.save_queue,
+        &mut params.save_worker,
+    ) {
+        params.dialog.error("保存失败", error.to_string());
+        return;
+    }
     if let Err(error) = save_entire_world(
         &params.save_config.world_name,
         &params.world_storage,
@@ -544,6 +654,63 @@ fn apply_settings_system(
         } else {
             PresentMode::AutoNoVsync
         };
+    }
+}
+
+fn load_settings_system(
+    mut settings: ResMut<GameSettings>,
+    mut persistence_state: ResMut<SettingsPersistenceState>,
+    mut dialog: ResMut<DialogState>,
+) {
+    let path = settings_path();
+    if !path.exists() {
+        if settings_backup_available() {
+            persistence_state.blocked = true;
+            dialog.kind = Some(DialogKind::ConfirmRecoverSettings);
+            dialog.title = "发现设置备份".into();
+            dialog.message = "主设置文件缺失，是否恢复最近一次有效备份？".into();
+            return;
+        }
+        if let Err(error) = save_settings(&settings) {
+            persistence_state.blocked = true;
+            dialog.error("设置保存失败", error);
+        }
+        persistence_state.last_saved = settings.clone();
+        return;
+    }
+
+    match load_settings() {
+        Ok(loaded) => {
+            *settings = loaded.clone();
+            persistence_state.last_saved = loaded;
+        }
+        Err(error) if settings_backup_available() => {
+            persistence_state.blocked = true;
+            dialog.kind = Some(DialogKind::ConfirmRecoverSettings);
+            dialog.title = "设置文件损坏".into();
+            dialog.message = format!("当前设置无法读取：{error}\n是否恢复最近一次有效备份？");
+        }
+        Err(error) => {
+            persistence_state.blocked = true;
+            dialog.error("设置加载失败", error);
+        }
+    }
+}
+
+fn persist_settings_system(
+    settings: Res<GameSettings>,
+    mut persistence_state: ResMut<SettingsPersistenceState>,
+    mut dialog: ResMut<DialogState>,
+) {
+    if persistence_state.blocked || *settings == persistence_state.last_saved {
+        return;
+    }
+    match save_settings(&settings) {
+        Ok(()) => persistence_state.last_saved = settings.clone(),
+        Err(error) => {
+            persistence_state.blocked = true;
+            dialog.error("设置保存失败", error);
+        }
     }
 }
 

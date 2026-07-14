@@ -17,6 +17,7 @@ use crate::game::world::systems::{
 use bevy::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 const CHUNK_NEIGHBOR_OFFSETS: [IVec3; 6] = [
     IVec3::new(0, 1, 0),
@@ -26,6 +27,7 @@ const CHUNK_NEIGHBOR_OFFSETS: [IVec3; 6] = [
     IVec3::new(0, 0, 1),
     IVec3::new(0, 0, -1),
 ];
+const MAX_UNLOAD_PER_FRAME: usize = 8;
 
 pub fn manage_chunks_system(
     mut commands: Commands,
@@ -83,7 +85,11 @@ pub fn manage_chunks_system(
         spawned += 1;
     }
 
+    let mut unloaded = 0usize;
     for (entity, chunk_components) in chunk_query.iter() {
+        if unloaded >= MAX_UNLOAD_PER_FRAME {
+            break;
+        }
         let pos = chunk_components.position;
         if player_cache.expected_chunks.contains(&pos) {
             continue;
@@ -96,7 +102,7 @@ pub fn manage_chunks_system(
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs_f64();
-            save_queue.queue.push_back(SavedChunk {
+            save_queue.enqueue(SavedChunk {
                 position: pos,
                 data: chunk_data.as_ref().clone(),
                 modified_time: world_storage
@@ -115,6 +121,7 @@ pub fn manage_chunks_system(
             .queue_silenced(|entity: EntityWorldMut| {
                 entity.despawn();
             });
+        unloaded += 1;
     }
 }
 
@@ -130,9 +137,12 @@ pub fn spawn_terrain_gen_tasks(
     mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
 ) {
     let mut spawned = 0u32;
+    let max_in_flight = task.worker_count().max(1);
 
     for &chunk_pos in &player_cache.ordered_chunks {
-        if spawned >= MAX_TERRAIN_TASKS_PER_FRAME {
+        if spawned >= MAX_TERRAIN_TASKS_PER_FRAME
+            || channel.in_flight.load(Ordering::Relaxed) >= max_in_flight
+        {
             break;
         }
         let Some(&entity) = world_storage.chunk_entities.get(&chunk_pos) else {
@@ -158,9 +168,11 @@ pub fn spawn_terrain_gen_tasks(
         let noise_sampler = Arc::clone(&world_generator.shared_noise);
         let climate_sampler = Arc::clone(&world_generator.shared_climate);
         let current_season = world_generator.pipeline.climate_sampler.current_season;
+        let in_flight = Arc::clone(&channel.in_flight);
 
+        channel.in_flight.fetch_add(1, Ordering::Relaxed);
         task.spawn_cpu(move || {
-            match RegionManager::read_chunk(&world_name, chunk_pos) {
+            let result = match RegionManager::read_chunk(&world_name, chunk_pos) {
                 Ok(Some(mut saved)) => {
                     if !remap.is_empty() {
                         for voxel in saved.data.voxels.iter_mut() {
@@ -171,11 +183,11 @@ pub fn spawn_terrain_gen_tasks(
                             }
                         }
                     }
-                    let _ = sender.send(TerrainGenResult {
+                    sender.send(TerrainGenResult {
                         chunk_pos,
                         chunk_data: saved.data,
                         gen_context: ChunkGenContext::new(chunk_pos),
-                    });
+                    })
                 }
                 _ => {
                     let ctx =
@@ -192,12 +204,15 @@ pub fn spawn_terrain_gen_tasks(
                             &block_ids,
                             &biome_registry,
                         );
-                    let _ = sender.send(TerrainGenResult {
+                    sender.send(TerrainGenResult {
                         chunk_pos,
                         chunk_data,
                         gen_context: ctx,
-                    });
+                    })
                 }
+            };
+            if result.is_err() {
+                in_flight.fetch_sub(1, Ordering::Relaxed);
             }
             TaskResult::Success
         });
@@ -219,11 +234,22 @@ pub fn receive_terrain_results(
         let Ok(result) = receiver.try_recv() else {
             break;
         };
+        channel.in_flight.fetch_sub(1, Ordering::Relaxed);
         received += 1;
 
         let chunk_pos = result.chunk_pos;
         let mut chunk_data = result.chunk_data;
         let gen_ctx = result.gen_context;
+
+        let Some(&entity) = world_storage.chunk_entities.get(&chunk_pos) else {
+            continue;
+        };
+        let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity) else {
+            continue;
+        };
+        if chunk_components.position != chunk_pos || *chunk_state != ChunkState::GeneratingTerrain {
+            continue;
+        }
 
         apply_pending_writes(chunk_pos, &mut chunk_data, &mut world_storage);
         world_storage
@@ -233,13 +259,7 @@ pub fn receive_terrain_results(
             world_storage.gen_contexts.insert(chunk_pos, gen_ctx);
         }
 
-        for (chunk_components, mut chunk_state) in &mut chunk_query {
-            if chunk_components.position == chunk_pos
-                && *chunk_state == ChunkState::GeneratingTerrain
-            {
-                *chunk_state = ChunkState::TerrainReady;
-            }
-        }
+        *chunk_state = ChunkState::TerrainReady;
     }
 }
 
@@ -255,7 +275,9 @@ pub fn generate_structures_system(
     let mut spawned = 0u32;
 
     for &chunk_pos in &player_cache.ordered_chunks {
-        if spawned >= MAX_STRUCTURE_TASKS_PER_FRAME {
+        if spawned >= MAX_STRUCTURE_TASKS_PER_FRAME
+            || channel.in_flight.load(Ordering::Relaxed) >= 1
+        {
             break;
         }
         let Some(&entity) = world_storage.chunk_entities.get(&chunk_pos) else {
@@ -286,25 +308,28 @@ pub fn generate_structures_system(
                 )
             });
 
-        let mut neighbor_data: HashMap<IVec3, ChunkData> = HashMap::new();
+        let mut input_chunks: HashMap<IVec3, Arc<ChunkData>> = HashMap::new();
+        input_chunks.insert(chunk_pos, chunk_data);
         for direction in CHUNK_NEIGHBOR_OFFSETS {
             let nbr_pos = chunk_pos + direction;
             if let Some(data) = world_storage.loaded_chunks.get(&nbr_pos).cloned() {
-                neighbor_data.insert(nbr_pos, data.as_ref().clone());
+                input_chunks.insert(nbr_pos, data);
             }
         }
+        let original_chunks = input_chunks.clone();
 
         let sender = channel.sender.clone();
+        let in_flight = Arc::clone(&channel.in_flight);
         let block_ids = cached_ids.0.clone();
         let biome_registry = world_generator.pipeline.biome_registry.clone();
         let seed = world_generator.seed;
 
+        channel.in_flight.fetch_add(1, Ordering::Relaxed);
         task.spawn_cpu(move || {
-            let mut temp_storage = crate::game::world::storage::WorldStorage::default();
-            temp_storage.loaded_chunks.insert(chunk_pos, chunk_data);
-            for (pos, data) in neighbor_data {
-                temp_storage.loaded_chunks.insert(pos, Arc::from(data));
-            }
+            let mut temp_storage = crate::game::world::storage::WorldStorage {
+                loaded_chunks: input_chunks,
+                ..default()
+            };
 
             StructureGenerator::generate_structures_world_aware(
                 chunk_pos,
@@ -318,13 +343,22 @@ pub fn generate_structures_system(
             let modified_chunks: Vec<(IVec3, ChunkData)> = temp_storage
                 .loaded_chunks
                 .into_iter()
-                .map(|(pos, arc)| (pos, Arc::unwrap_or_clone(arc)))
+                .filter_map(|(pos, arc)| {
+                    let changed = original_chunks
+                        .get(&pos)
+                        .is_none_or(|original| !Arc::ptr_eq(original, &arc));
+                    changed.then(|| (pos, Arc::unwrap_or_clone(arc)))
+                })
                 .collect();
 
-            let _ = sender.send(StructureGenResult {
+            let result = sender.send(StructureGenResult {
                 chunk_pos,
                 modified_chunks,
+                pending_writes: temp_storage.pending_writes.writes,
             });
+            if result.is_err() {
+                in_flight.fetch_sub(1, Ordering::Relaxed);
+            }
             TaskResult::Success
         });
 
@@ -345,7 +379,20 @@ pub fn receive_structure_results(
         let Ok(result) = receiver.try_recv() else {
             break;
         };
+        channel.in_flight.fetch_sub(1, Ordering::Relaxed);
         received += 1;
+
+        let Some(&result_entity) = world_storage.chunk_entities.get(&result.chunk_pos) else {
+            continue;
+        };
+        let Ok((result_components, result_state)) = chunk_query.get(result_entity) else {
+            continue;
+        };
+        if result_components.position != result.chunk_pos
+            || *result_state != ChunkState::GeneratingStructure
+        {
+            continue;
+        }
 
         for (pos, data) in result.modified_chunks {
             if let Some(existing) = world_storage.loaded_chunks.get_mut(&pos) {
@@ -353,16 +400,30 @@ pub fn receive_structure_results(
             } else if world_storage.chunk_entities.contains_key(&pos) {
                 world_storage.loaded_chunks.insert(pos, Arc::from(data));
             }
+            if let Some(&entity) = world_storage.chunk_entities.get(&pos)
+                && let Ok((_, mut state)) = chunk_query.get_mut(entity)
+                && matches!(*state, ChunkState::Rendered | ChunkState::GeneratingMesh)
+            {
+                *state = ChunkState::StructureReady;
+            }
+        }
+        for (pos, writes) in result.pending_writes {
+            world_storage
+                .pending_writes
+                .writes
+                .entry(pos)
+                .or_default()
+                .extend(writes);
         }
 
         world_storage.gen_contexts.remove(&result.chunk_pos);
 
-        for (chunk_components, mut chunk_state) in &mut chunk_query {
-            if chunk_components.position == result.chunk_pos
-                && *chunk_state == ChunkState::GeneratingStructure
-            {
-                *chunk_state = ChunkState::StructureReady;
-            }
+        if let Some(&entity) = world_storage.chunk_entities.get(&result.chunk_pos)
+            && let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity)
+            && chunk_components.position == result.chunk_pos
+            && *chunk_state == ChunkState::GeneratingStructure
+        {
+            *chunk_state = ChunkState::StructureReady;
         }
     }
 }

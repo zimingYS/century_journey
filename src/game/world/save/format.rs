@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 /// 世界数据
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LevelData {
+    /// 整数存档格式版本，用于选择迁移步骤。
+    pub version: u32,
+    /// 创建或最近保存该文件的游戏版本，来自 Cargo.toml。
+    pub game_version: String,
     /// 世界种子
     pub seed: u64,
     /// 出生地坐标
@@ -13,12 +17,11 @@ pub struct LevelData {
     pub time_of_day: f32,
     /// 区块方块 ID
     pub block_id_map: Vec<(u16, String)>,
-    /// 存档版本号
-    pub version: f32,
 }
 
 impl LevelData {
-    pub const CURRENT_VERSION: f32 = 0.1;
+    pub const CURRENT_VERSION: u32 = 1;
+    pub const GAME_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 }
 
 /// Region 文件整体结构

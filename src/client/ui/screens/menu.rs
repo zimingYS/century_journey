@@ -730,7 +730,11 @@ pub(crate) fn sync_dialog_text_system(
         *text = Text::new(dialog.message.clone());
     }
     if let Ok(mut visibility) = cancel_query.single_mut() {
-        *visibility = if matches!(dialog.kind, Some(DialogKind::ConfirmDelete { .. })) {
+        *visibility = if dialog
+            .kind
+            .as_ref()
+            .is_some_and(DialogKind::requires_confirmation)
+        {
             Visibility::Visible
         } else {
             Visibility::Hidden

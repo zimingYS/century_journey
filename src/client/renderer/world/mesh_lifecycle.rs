@@ -7,6 +7,8 @@ use crate::game::world::storage::WorldStorage;
 use crate::game::world::systems::{PlayerChunkCache, WorldStreamingConfig};
 use bevy::prelude::*;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
+use std::time::Instant;
 
 use super::{
     BlockInfoSnapshot, CachedBlockInfo, DIRECTIONS, MeshBuildChannel, MeshBuildInput,
@@ -41,9 +43,12 @@ pub fn spawn_mesh_build_tasks(
 
     let block_info = cached_block_info.0.clone();
     let mut spawned = 0u32;
+    let max_in_flight = (task.worker_count().max(1) * 2).clamp(2, 8);
 
     for &current_chunk_pos in &player_cache.ordered_chunks {
-        if spawned >= MAX_MESH_TASKS_PER_FRAME {
+        if spawned >= MAX_MESH_TASKS_PER_FRAME
+            || channel.in_flight.load(Ordering::Relaxed) >= max_in_flight
+        {
             break;
         }
         if !streaming_config.should_mesh_chunk(player_chunk_pos, current_chunk_pos) {
@@ -81,6 +86,7 @@ pub fn spawn_mesh_build_tasks(
         });
 
         let sender = channel.sender.clone();
+        let in_flight = Arc::clone(&channel.in_flight);
         let input = MeshBuildInput {
             chunk_pos: current_chunk_pos,
             current_data,
@@ -88,9 +94,12 @@ pub fn spawn_mesh_build_tasks(
             block_info: block_info.clone(),
         };
 
+        channel.in_flight.fetch_add(1, Ordering::Relaxed);
         task.spawn_cpu(move || {
             let result = build_greedy_mesh(input);
-            let _ = sender.send(result);
+            if sender.send(result).is_err() {
+                in_flight.fetch_sub(1, Ordering::Relaxed);
+            }
             TaskResult::Success
         });
 
@@ -116,11 +125,17 @@ pub fn receive_mesh_results(
 
     let receiver = channel.receiver.lock().unwrap();
     let mut received = 0usize;
+    let frame_start = Instant::now();
+    const RECEIVE_BUDGET_MS: f64 = 2.0;
 
     while received < MAX_MESH_RECEIVE_PER_FRAME {
+        if received > 0 && frame_start.elapsed().as_secs_f64() * 1000.0 >= RECEIVE_BUDGET_MS {
+            break;
+        }
         let Ok(result) = receiver.try_recv() else {
             break;
         };
+        channel.in_flight.fetch_sub(1, Ordering::Relaxed);
         received += 1;
 
         let Some(&chunk_entity) = world_storage.chunk_entities.get(&result.chunk_pos) else {
