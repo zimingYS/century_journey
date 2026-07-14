@@ -19,6 +19,7 @@ pub enum PlayerPart {
     HandL(bool),
     ThighL(bool),
     CalfL(bool),
+    FootL(bool),
 }
 
 impl PlayerPart {
@@ -53,11 +54,18 @@ impl PlayerPart {
     pub fn calf_l() -> Self {
         PlayerPart::CalfL(false)
     }
+    pub fn foot_r() -> Self {
+        PlayerPart::FootL(true)
+    }
+    pub fn foot_l() -> Self {
+        PlayerPart::FootL(false)
+    }
 
     /// 判断当前部件是否为右侧肢体
     pub fn is_right(&self) -> bool {
         matches!(self, PlayerPart::UpperArmL(r) | PlayerPart::ForearmL(r)
-            | PlayerPart::HandL(r) | PlayerPart::ThighL(r) | PlayerPart::CalfL(r) if *r)
+            | PlayerPart::HandL(r) | PlayerPart::ThighL(r) | PlayerPart::CalfL(r)
+            | PlayerPart::FootL(r) if *r)
     }
 }
 

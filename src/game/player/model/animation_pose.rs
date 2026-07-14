@@ -16,7 +16,14 @@ pub fn apply_player_rig_animation_system(
     for (state, rig) in &state_query {
         let lower = blended_lower_pose(state);
         let upper = blended_upper_pose(state);
+        let root = rig_motion_pose(state);
 
+        set_pose(
+            &mut transform_query,
+            rig.root,
+            root.translation,
+            root.rotation,
+        );
         set_rotation(&mut transform_query, rig.body_joint, upper.body);
         set_rotation(&mut transform_query, rig.head_joint, upper.head);
         set_rotation(&mut transform_query, rig.upper_arm_r, upper.upper_arm_r);
@@ -45,6 +52,16 @@ pub fn apply_player_rig_animation_system(
             rig.calf_l,
             Quat::from_rotation_x(lerp(lower.calf_l, 0.20, upper.death_weight)),
         );
+        set_rotation(
+            &mut transform_query,
+            rig.foot_r,
+            Quat::from_rotation_x(lerp(lower.foot_r, -0.10, upper.death_weight)),
+        );
+        set_rotation(
+            &mut transform_query,
+            rig.foot_l,
+            Quat::from_rotation_x(lerp(lower.foot_l, 0.08, upper.death_weight)),
+        );
 
         if let Ok(mut transform) = transform_query.get_mut(rig.held_item) {
             *transform = held_item_feedback_transform(state);
@@ -65,11 +82,12 @@ fn held_item_feedback_transform(state: &PlayerAnimationState) -> Transform {
         Vec3::new(phase.sin() * 0.012, phase.cos().abs() * -0.010, 0.0) * move_weight;
     transform.rotation *= Quat::from_rotation_z(phase.sin() * 0.035 * move_weight);
 
-    let pulse = (state.parameters.action_progress.clamp(0.0, 1.0) * std::f32::consts::PI).sin();
+    let pulse = reach_pulse(state.parameters.action_progress);
+    let swing = action_swing(state.parameters.action_progress);
     let (translation, rotation) = match state.upper_body.current {
         PlayerBehaviorState::Mining | PlayerBehaviorState::Attacking => (
-            Vec3::new(0.035, -0.055, -0.025) * pulse,
-            Quat::from_rotation_x(-0.42 * pulse) * Quat::from_rotation_z(-0.14 * pulse),
+            Vec3::new(0.035, -0.055, -0.025) * swing,
+            Quat::from_rotation_x(-0.42 * swing) * Quat::from_rotation_z(-0.14 * swing),
         ),
         PlayerBehaviorState::Placing => (
             Vec3::new(0.0, -0.015, -0.075) * pulse,
@@ -96,6 +114,8 @@ struct LowerBodyPose {
     thigh_l: f32,
     calf_r: f32,
     calf_l: f32,
+    foot_r: f32,
+    foot_l: f32,
 }
 
 impl LowerBodyPose {
@@ -105,6 +125,8 @@ impl LowerBodyPose {
             thigh_l: lerp(self.thigh_l, other.thigh_l, amount),
             calf_r: lerp(self.calf_r, other.calf_r, amount),
             calf_l: lerp(self.calf_l, other.calf_l, amount),
+            foot_r: lerp(self.foot_r, other.foot_r, amount),
+            foot_l: lerp(self.foot_l, other.foot_l, amount),
         }
     }
 }
@@ -126,11 +148,16 @@ fn lower_pose(state: PlayerLocomotionState, phase: f32) -> LowerBodyPose {
                 0.42
             };
             let swing = phase.sin() * amplitude;
+            let right_knee = (-swing).max(0.0) * 0.58;
+            let left_knee = swing.max(0.0) * 0.58;
             LowerBodyPose {
                 thigh_r: -swing,
                 thigh_l: swing,
-                calf_r: swing.max(0.0) * 0.35,
-                calf_l: (-swing).max(0.0) * 0.35,
+                calf_r: right_knee,
+                calf_l: left_knee,
+                // 脚踝抵消大腿与膝盖旋转，让支撑脚更接近贴地。
+                foot_r: swing * 0.34 - right_knee * 0.72,
+                foot_l: -swing * 0.34 - left_knee * 0.72,
             }
         }
         PlayerLocomotionState::Jump => LowerBodyPose {
@@ -138,12 +165,53 @@ fn lower_pose(state: PlayerLocomotionState, phase: f32) -> LowerBodyPose {
             thigh_l: 0.18,
             calf_r: 0.22,
             calf_l: 0.08,
+            foot_r: -0.16,
+            foot_l: -0.08,
         },
         PlayerLocomotionState::Fall => LowerBodyPose {
             thigh_r: 0.18,
             thigh_l: 0.12,
             calf_r: 0.34,
             calf_l: 0.28,
+            foot_r: 0.18,
+            foot_l: 0.14,
+        },
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct RigMotionPose {
+    translation: Vec3,
+    rotation: Quat,
+}
+
+fn rig_motion_pose(state: &PlayerAnimationState) -> RigMotionPose {
+    let phase = state.parameters.locomotion_phase;
+    let speed_weight = (state.parameters.horizontal_speed / 15.0).clamp(0.0, 1.0);
+    match state.lower_body.current {
+        PlayerLocomotionState::Idle => RigMotionPose {
+            translation: Vec3::Y * phase.sin() * 0.003,
+            rotation: Quat::IDENTITY,
+        },
+        PlayerLocomotionState::Walk => RigMotionPose {
+            translation: Vec3::new(phase.sin() * 0.007, (phase * 2.0).cos() * 0.010, 0.0)
+                * speed_weight,
+            rotation: Quat::from_rotation_z(-phase.sin() * 0.018 * speed_weight)
+                * Quat::from_rotation_x(0.025 * speed_weight),
+        },
+        PlayerLocomotionState::Run => RigMotionPose {
+            translation: Vec3::new(phase.sin() * 0.012, (phase * 2.0).cos() * 0.020, 0.0)
+                * speed_weight,
+            rotation: Quat::from_rotation_z(-phase.sin() * 0.032 * speed_weight)
+                * Quat::from_rotation_x(0.075 * speed_weight),
+        },
+        PlayerLocomotionState::Jump => RigMotionPose {
+            translation: Vec3::ZERO,
+            rotation: Quat::from_rotation_x(-0.035),
+        },
+        PlayerLocomotionState::Fall => RigMotionPose {
+            translation: Vec3::ZERO,
+            rotation: Quat::from_rotation_x(0.045),
         },
     }
 }
@@ -203,27 +271,38 @@ fn base_upper_pose(state: &PlayerAnimationState) -> UpperBodyPose {
         }
     };
     let swing = state.parameters.locomotion_phase.sin() * move_amplitude;
+    let (body_pitch, body_yaw) = match state.lower_body.current {
+        PlayerLocomotionState::Walk => (0.025, -swing * 0.08),
+        PlayerLocomotionState::Run => (0.070, -swing * 0.11),
+        PlayerLocomotionState::Jump => (-0.035, 0.0),
+        PlayerLocomotionState::Fall => (0.045, 0.0),
+        PlayerLocomotionState::Idle => (0.0, 0.0),
+    };
+    let body = Quat::from_rotation_y(body_yaw) * Quat::from_rotation_x(body_pitch);
+    let head = Quat::from_rotation_x(
+        state.parameters.look_pitch.clamp(-1.3, 1.3) * 0.72 - body_pitch * 0.35,
+    ) * Quat::from_rotation_y(-body_yaw * 0.45);
 
     if state.parameters.holding_item {
         UpperBodyPose {
-            body: Quat::IDENTITY,
-            head: Quat::IDENTITY,
-            upper_arm_r: arm_rotation(0.72 + swing * 0.2, -0.32),
-            upper_arm_l: arm_rotation(0.14 - swing, 0.07),
-            forearm_r: arm_rotation(0.42 + swing * 0.08, -0.10),
-            forearm_l: arm_rotation(0.18, 0.03),
+            body,
+            head,
+            upper_arm_r: arm_rotation(0.68 + swing * 0.16, -0.30),
+            upper_arm_l: arm_rotation(0.10 - swing * 0.86, 0.07),
+            forearm_r: arm_rotation(0.44 + swing * 0.06, -0.10),
+            forearm_l: arm_rotation(0.14 - swing * 0.18, 0.03),
             hand_r: Quat::from_rotation_x(0.10),
             hand_l: Quat::from_rotation_x(0.04),
             death_weight: 0.0,
         }
     } else {
         UpperBodyPose {
-            body: Quat::IDENTITY,
-            head: Quat::IDENTITY,
-            upper_arm_r: arm_rotation(0.16 + swing, -0.07),
-            upper_arm_l: arm_rotation(0.16 - swing, 0.07),
-            forearm_r: arm_rotation(0.18 + swing * 0.25, -0.03),
-            forearm_l: arm_rotation(0.18 - swing * 0.25, 0.03),
+            body,
+            head,
+            upper_arm_r: arm_rotation(0.10 + swing, -0.07),
+            upper_arm_l: arm_rotation(0.10 - swing, 0.07),
+            forearm_r: arm_rotation(0.12 + (-swing).max(0.0) * 0.30, -0.03),
+            forearm_l: arm_rotation(0.12 + swing.max(0.0) * 0.30, 0.03),
             hand_r: Quat::from_rotation_x(0.04),
             hand_l: Quat::from_rotation_x(0.04),
             death_weight: 0.0,
@@ -236,30 +315,35 @@ fn behavior_pose(
     progress: f32,
     mut pose: UpperBodyPose,
 ) -> UpperBodyPose {
-    let pulse = (progress.clamp(0.0, 1.0) * std::f32::consts::PI).sin();
+    let pulse = reach_pulse(progress);
+    let swing = action_swing(progress);
     match behavior {
         PlayerBehaviorState::None => {}
         PlayerBehaviorState::Mining => {
-            pose.body = Quat::from_rotation_y(-0.10 * pulse);
-            pose.upper_arm_r = arm_rotation(0.72 + pulse * 0.86, -0.40);
-            pose.forearm_r = arm_rotation(0.38 + pulse * 0.62, -0.14);
-            pose.hand_r = Quat::from_rotation_x(pulse * 0.20);
+            pose.body = Quat::from_rotation_y(-0.13 * swing) * Quat::from_rotation_x(0.04 * pulse);
+            pose.upper_arm_r = arm_rotation(0.72 + swing * 0.98, -0.42);
+            pose.forearm_r = arm_rotation(0.36 + swing.max(0.0) * 0.72, -0.14);
+            pose.upper_arm_l = arm_rotation(0.16 - swing * 0.24, 0.16);
+            pose.hand_r = Quat::from_rotation_x(swing * 0.24);
         }
         PlayerBehaviorState::Placing => {
-            pose.body = Quat::from_rotation_y(-0.08 * pulse);
-            pose.upper_arm_r = arm_rotation(0.45 + pulse * 0.55, -0.22);
-            pose.forearm_r = arm_rotation(0.30 + pulse * 0.32, -0.08);
+            pose.body = Quat::from_rotation_y(-0.10 * pulse) * Quat::from_rotation_x(0.06 * pulse);
+            pose.upper_arm_r = arm_rotation(0.42 + pulse * 0.62, -0.22);
+            pose.forearm_r = arm_rotation(0.28 + pulse * 0.38, -0.08);
         }
         PlayerBehaviorState::Using => {
-            pose.upper_arm_r = arm_rotation(0.72 + pulse * 0.80, -0.48);
-            pose.forearm_r = arm_rotation(0.42 + pulse * 0.88, -0.12);
+            pose.upper_arm_r = arm_rotation(0.70 + pulse * 0.76, -0.44);
+            pose.forearm_r = arm_rotation(0.42 + pulse * 0.82, -0.12);
+            pose.upper_arm_l = arm_rotation(0.24 + pulse * 0.42, 0.24);
+            pose.forearm_l = arm_rotation(0.18 + pulse * 0.48, 0.08);
             pose.hand_r = Quat::from_rotation_x(-pulse * 0.18);
         }
         PlayerBehaviorState::Attacking => {
-            pose.body = Quat::from_rotation_y(-0.16 * pulse);
-            pose.upper_arm_r = arm_rotation(0.24 + pulse * 1.12, -0.24);
-            pose.forearm_r = arm_rotation(0.22 + pulse * 0.68, -0.08);
-            pose.hand_r = Quat::from_rotation_x(pulse * 0.22);
+            pose.body = Quat::from_rotation_y(-0.20 * swing);
+            pose.upper_arm_r = arm_rotation(0.30 + swing * 1.18, -0.27);
+            pose.forearm_r = arm_rotation(0.20 + swing.max(0.0) * 0.76, -0.08);
+            pose.upper_arm_l = arm_rotation(0.12 - swing * 0.30, 0.16);
+            pose.hand_r = Quat::from_rotation_x(swing * 0.24);
         }
         PlayerBehaviorState::Hurt => {
             pose.body = Quat::from_rotation_z(0.14 * pulse) * Quat::from_rotation_x(-0.16 * pulse);
@@ -285,6 +369,37 @@ fn arm_rotation(x: f32, z: f32) -> Quat {
     Quat::from_rotation_z(z) * Quat::from_rotation_x(x)
 }
 
+fn reach_pulse(progress: f32) -> f32 {
+    (progress.clamp(0.0, 1.0) * std::f32::consts::PI)
+        .sin()
+        .max(0.0)
+        .powf(0.8)
+}
+
+/// 带预备、快速发力和回收的非对称动作曲线。
+fn action_swing(progress: f32) -> f32 {
+    let progress = progress.clamp(0.0, 1.0);
+    if progress < 0.24 {
+        lerp(0.0, -0.30, smoothstep(progress / 0.24))
+    } else if progress < 0.56 {
+        lerp(-0.30, 1.0, smoothstep((progress - 0.24) / (0.56 - 0.24)))
+    } else {
+        lerp(1.0, 0.0, smoothstep((progress - 0.56) / (1.0 - 0.56)))
+    }
+}
+
+fn set_pose(
+    transform_query: &mut Query<&mut Transform>,
+    entity: Entity,
+    translation: Vec3,
+    rotation: Quat,
+) {
+    if let Ok(mut transform) = transform_query.get_mut(entity) {
+        transform.translation = translation;
+        transform.rotation = rotation;
+    }
+}
+
 fn set_rotation(transform_query: &mut Query<&mut Transform>, entity: Entity, rotation: Quat) {
     if let Ok(mut transform) = transform_query.get_mut(entity) {
         transform.rotation = rotation;
@@ -298,4 +413,24 @@ fn lerp(from: f32, to: f32, amount: f32) -> f32 {
 fn smoothstep(value: f32) -> f32 {
     let value = value.clamp(0.0, 1.0);
     value * value * (3.0 - 2.0 * value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn player_visual_action_curve_has_windup_strike_and_recovery() {
+        assert!(action_swing(0.15) < 0.0);
+        assert!(action_swing(0.56) > 0.95);
+        assert_eq!(action_swing(1.0), 0.0);
+    }
+
+    #[test]
+    fn player_visual_walking_pose_uses_knees_and_ankles_for_foot_planting() {
+        let pose = lower_pose(PlayerLocomotionState::Walk, std::f32::consts::FRAC_PI_2);
+        assert!(pose.calf_l > 0.0);
+        assert!(pose.foot_l < 0.0);
+        assert_ne!(pose.foot_r, pose.foot_l);
+    }
 }

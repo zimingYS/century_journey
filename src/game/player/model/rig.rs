@@ -48,6 +48,10 @@ pub struct PlayerRigEntities {
     pub calf_r: Entity,
     /// 左小腿关节。
     pub calf_l: Entity,
+    /// 右脚关节。
+    pub foot_r: Entity,
+    /// 左脚关节。
+    pub foot_l: Entity,
     /// 右手持物品挂点。
     pub held_item: Entity,
     /// 左手副手挂点。
@@ -127,6 +131,15 @@ pub fn spawn_player_rig_v2(
         PlayerPart::calf_r(),
         config,
     );
+    let foot_r = spawn_joint(commands, calf_r, PlayerPart::foot_r(), config);
+    let foot_r_mesh = spawn_mesh(
+        commands,
+        &cube,
+        materials,
+        foot_r,
+        PlayerPart::foot_r(),
+        config,
+    );
 
     let thigh_l = spawn_joint(commands, root, PlayerPart::thigh_l(), config);
     let thigh_l_mesh = spawn_mesh(
@@ -146,6 +159,15 @@ pub fn spawn_player_rig_v2(
         PlayerPart::calf_l(),
         config,
     );
+    let foot_l = spawn_joint(commands, calf_l, PlayerPart::foot_l(), config);
+    let foot_l_mesh = spawn_mesh(
+        commands,
+        &cube,
+        materials,
+        foot_l,
+        PlayerPart::foot_l(),
+        config,
+    );
 
     let helmet = spawn_helmet_anchor(commands, head_joint);
     let chest = spawn_chest_anchor(commands, body_joint);
@@ -162,8 +184,10 @@ pub fn spawn_player_rig_v2(
         left_arm.hand_mesh,
         thigh_r_mesh,
         calf_r_mesh,
+        foot_r_mesh,
         thigh_l_mesh,
         calf_l_mesh,
+        foot_l_mesh,
     ];
 
     let entities = PlayerRigEntities {
@@ -180,6 +204,8 @@ pub fn spawn_player_rig_v2(
         thigh_l,
         calf_r,
         calf_l,
+        foot_r,
+        foot_l,
         held_item,
         offhand,
         helmet,

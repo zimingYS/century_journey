@@ -274,7 +274,7 @@ pub fn load_player_on_enter_system(
     }
 
     if let Ok(mut fps_camera) = camera_query.single_mut() {
-        fps_camera.pitch = save_data.camera_pitch();
+        fps_camera.set_pitch(save_data.camera_pitch());
     }
 
     save_manager.set_dirty(SaveDirtySource::Position);
