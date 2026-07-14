@@ -1,6 +1,7 @@
 {
   "entries": [
     { "item": "century_journey:stick", "min_count": 1, "max_count": 1, "chance": 1.0 },
+    { "item": "century_journey:apple", "min_count": 1, "max_count": 1, "chance": 0.2 },
     { "item": "century_journey:oak_sapling", "min_count": 1, "max_count": 1, "chance": 0.05 }
   ]
 }

@@ -1,0 +1,15 @@
+{
+  "identifier": "century_journey:apple",
+  "display_name": "苹果",
+  "category": "consumable",
+  "max_stack": 64,
+  "tags": ["food"],
+  "icon": {
+    "type": "texture",
+    "value": "century_journey:apple"
+  },
+  "food": {
+    "hunger": 4.0,
+    "saturation": 2.4
+  }
+}

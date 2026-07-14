@@ -11,6 +11,7 @@ use crate::game::gameplay::block_action::{
     can_place_block, consume_placed_block_item, is_replaceable_block,
 };
 use crate::game::gameplay::gamemode::PlayerGameMode;
+use crate::game::inventory::item::stack::ToolDamageResult;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::Player;
@@ -100,6 +101,7 @@ pub fn voxel_interaction_system(
 
         let active_stack = inventory_state.hotbar.active_stack();
         let active_tool = active_tool_data(active_stack, item_registry.as_deref());
+        let active_tool_max_durability = active_tool.map(|tool| tool.max_durability);
         let active_item = inventory_state.hotbar.active_item().clone();
 
         let Some(required_seconds) = block_break_seconds(prop, &gamemode, active_tool) else {
@@ -141,6 +143,18 @@ pub fn voxel_interaction_system(
 
         if !broke_block {
             return;
+        }
+
+        if gamemode.is_survival()
+            && let Some(max_durability) = active_tool_max_durability
+        {
+            let slot = inventory_state.hotbar.active_stack_mut();
+            if let Some(stack) = slot.as_mut()
+                && stack.damage_tool(1, max_durability) == ToolDamageResult::Broken
+            {
+                *slot = None;
+                log::info!("[工具] 当前工具耐久耗尽并损坏");
+            }
         }
 
         events.break_events.write(BlockBreakEvent {

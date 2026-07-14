@@ -2,8 +2,8 @@ use super::player_io::{player_save_path, write_player_data};
 use super::player_model::{PlayerSaveData, validate_player_data};
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::InventoryState;
-use crate::game::player::components::Player;
 use crate::game::player::components::stats::{Health, Hunger};
+use crate::game::player::components::{Player, PlayerLifecycle, PlayerVelocity, RespawnPoint};
 use crate::game::world::save::events::SaveDirtySource;
 use crate::game::world::save::system::SaveConfig;
 use crate::shared::components::camera::FpsCamera;
@@ -85,15 +85,29 @@ fn perform_save(
     world_name: &str,
     gamemode: &PlayerGameMode,
     inventory: &InventoryState,
-    player_query: &Query<(&Transform, &Health, &Hunger), With<Player>>,
+    player_query: &Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
     camera_query: &Query<&FpsCamera, With<Camera3d>>,
     save_manager: &mut PlayerSaveManager,
     time: &Time,
 ) {
-    let (transform, health, hunger) = player_query
+    let (transform, health, hunger, saturation, respawn_point) = player_query
         .single()
-        .map(|(transform, health, hunger)| (*transform, health.current, hunger.current))
-        .unwrap_or((Transform::default(), 20.0, 20.0));
+        .map(|(transform, health, hunger, respawn)| {
+            (
+                *transform,
+                health.current,
+                hunger.current,
+                hunger.saturation,
+                respawn.0,
+            )
+        })
+        .unwrap_or((
+            Transform::default(),
+            20.0,
+            20.0,
+            5.0,
+            Vec3::new(0.0, 70.0, 0.0),
+        ));
     let pitch = camera_query.single().map(|c| c.pitch).unwrap_or(0.0);
     let data = PlayerSaveData::from_runtime(
         transform.translation,
@@ -103,6 +117,8 @@ fn perform_save(
         inventory,
         health,
         hunger,
+        saturation,
+        respawn_point,
     );
 
     let path = player_save_path(world_name);
@@ -130,15 +146,29 @@ pub fn save_player_now(
     world_name: &str,
     gamemode: &PlayerGameMode,
     inventory: &InventoryState,
-    player_query: &Query<(&Transform, &Health, &Hunger), With<Player>>,
+    player_query: &Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
     camera_query: &Query<&FpsCamera, With<Camera3d>>,
     save_manager: &mut PlayerSaveManager,
     time: &Time,
 ) -> Result<(), String> {
-    let (transform, health, hunger) = player_query
+    let (transform, health, hunger, saturation, respawn_point) = player_query
         .single()
-        .map(|(transform, health, hunger)| (*transform, health.current, hunger.current))
-        .unwrap_or((Transform::default(), 20.0, 20.0));
+        .map(|(transform, health, hunger, respawn)| {
+            (
+                *transform,
+                health.current,
+                hunger.current,
+                hunger.saturation,
+                respawn.0,
+            )
+        })
+        .unwrap_or((
+            Transform::default(),
+            20.0,
+            20.0,
+            5.0,
+            Vec3::new(0.0, 70.0, 0.0),
+        ));
     let pitch = camera_query
         .single()
         .map(|camera| camera.pitch)
@@ -151,6 +181,8 @@ pub fn save_player_now(
         inventory,
         health,
         hunger,
+        saturation,
+        respawn_point,
     );
     let path = player_save_path(world_name);
     write_player_data(&data, &path)?;
@@ -177,6 +209,9 @@ pub fn load_player_on_enter_system(
             &mut Transform,
             &mut crate::game::player::components::stats::Health,
             &mut crate::game::player::components::stats::Hunger,
+            &mut RespawnPoint,
+            &mut PlayerLifecycle,
+            &mut PlayerVelocity,
         ),
         With<Player>,
     >,
@@ -210,13 +245,32 @@ pub fn load_player_on_enter_system(
     inventory.hotbar = restored.hotbar;
     inventory.survival = restored.survival;
 
-    if let Ok((mut transform, mut health, mut hunger)) = player_query.single_mut() {
-        *transform = save_data.restore_transform();
+    if let Ok((
+        mut transform,
+        mut health,
+        mut hunger,
+        mut respawn_point,
+        mut lifecycle,
+        mut velocity,
+    )) = player_query.single_mut()
+    {
+        *respawn_point = RespawnPoint(save_data.respawn_point());
+        *transform = if save_data.health <= 0.0 {
+            Transform::from_translation(respawn_point.0)
+        } else {
+            save_data.restore_transform()
+        };
         save_manager.last_saved_position = transform.translation;
 
-        health.current = save_data.health.clamp(0.0, health.max);
+        health.current = if save_data.health <= 0.0 {
+            health.max
+        } else {
+            save_data.health.clamp(0.0, health.max)
+        };
         hunger.current = save_data.hunger.clamp(0.0, hunger.max);
-        hunger.saturation = 5.0;
+        hunger.saturation = save_data.saturation.clamp(0.0, hunger.current);
+        *lifecycle = PlayerLifecycle::default();
+        *velocity = PlayerVelocity::default();
     }
 
     if let Ok(mut fps_camera) = camera_query.single_mut() {
@@ -269,7 +323,7 @@ pub fn auto_save_player_system(
     save_config: Res<SaveConfig>,
     gamemode: Res<PlayerGameMode>,
     inventory: Res<InventoryState>,
-    player_query: Query<(&Transform, &Health, &Hunger), With<Player>>,
+    player_query: Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
     camera_query: Query<&FpsCamera, With<Camera3d>>,
     mut save_manager: ResMut<PlayerSaveManager>,
 ) {
@@ -293,7 +347,7 @@ pub fn save_on_exit_system(
     save_config: Res<SaveConfig>,
     gamemode: Res<PlayerGameMode>,
     inventory: Res<InventoryState>,
-    player_query: Query<(&Transform, &Health, &Hunger), With<Player>>,
+    player_query: Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
     camera_query: Query<&FpsCamera, With<Camera3d>>,
     mut save_manager: ResMut<PlayerSaveManager>,
     time: Res<Time>,

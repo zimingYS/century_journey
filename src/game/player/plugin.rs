@@ -2,7 +2,9 @@ use bevy::prelude::*;
 
 use crate::game::gameplay::block_action::{BlockBreakProgress, BlockBreakState};
 use crate::game::player::action::PlayerActionState;
-use crate::game::player::events::{DamageEvent, DeathEvent, HealEvent};
+use crate::game::player::events::{
+    AttackEvent, DamageEvent, DeathEvent, HealEvent, RespawnRequest,
+};
 use crate::game::player::systems::raycast::TargetVoxel;
 
 /// 纯游戏逻辑 Plugin — 仅注册 Game 层系统，不依赖 Client。
@@ -14,9 +16,13 @@ impl Plugin for GamePlayerPlugin {
             .init_resource::<PlayerActionState>()
             .init_resource::<BlockBreakState>()
             .init_resource::<BlockBreakProgress>()
+            .init_resource::<crate::game::player::systems::combat::DeathRules>()
+            .init_resource::<crate::game::player::systems::combat::LastDeathInfo>()
+            .add_message::<AttackEvent>()
             .add_message::<DamageEvent>()
             .add_message::<HealEvent>()
             .add_message::<DeathEvent>()
+            .add_message::<RespawnRequest>()
             .add_systems(
                 Update,
                 (
@@ -32,14 +38,19 @@ impl Plugin for GamePlayerPlugin {
                     crate::game::player::systems::raycast::draw_voxel_highlight_system,
                     crate::game::player::systems::raycast::update_raycast_system,
                 )
-                    .run_if(in_state(crate::shared::states::AppState::InGame)),
+                    .run_if(in_state(crate::shared::states::AppState::InGame))
+                    .run_if(crate::game::player::systems::combat::player_is_alive),
             )
             .add_systems(
                 Update,
                 (
+                    crate::game::player::systems::combat::melee_attack_input_system,
+                    crate::game::player::systems::combat::attack_damage_system,
                     crate::game::player::systems::combat::damage_system,
                     crate::game::player::systems::combat::heal_system,
                     crate::game::player::systems::combat::death_system,
+                    crate::game::player::systems::combat::respawn_request_system,
+                    crate::game::player::systems::combat::respawn_transition_system,
                 )
                     .chain()
                     .run_if(in_state(crate::shared::states::AppState::InGame)),
@@ -47,6 +58,7 @@ impl Plugin for GamePlayerPlugin {
             .add_systems(
                 Update,
                 (
+                    crate::game::player::systems::hunger::use_food_system,
                     crate::game::player::systems::hunger::action_cost_system,
                     crate::game::player::systems::hunger::natural_regeneration_system,
                     crate::game::player::systems::hunger::starvation_damage_system,
@@ -61,12 +73,18 @@ impl Plugin for GamePlayerPlugin {
             )
             .add_systems(
                 Update,
+                crate::game::player::systems::environment::environment_damage_system
+                    .run_if(in_state(crate::shared::states::AppState::InGame)),
+            )
+            .add_systems(
+                Update,
                 (
                     crate::game::player::systems::interaction::drop_active_hotbar_action_system,
                     crate::game::player::systems::interaction::drop_item_system,
                 )
                     .chain()
-                    .run_if(in_state(crate::shared::states::AppState::InGame)),
+                    .run_if(in_state(crate::shared::states::AppState::InGame))
+                    .run_if(crate::game::player::systems::combat::player_is_alive),
             );
     }
 }

@@ -1,0 +1,19 @@
+{
+  "type": "shaped",
+  "pattern": [
+    "AA",
+    "BB"
+  ],
+  "key": {
+    "A": {
+      "item": "century_journey:wood"
+    },
+    "B": {
+      "item": "century_journey:stick"
+    }
+  },
+  "result": {
+    "item": "century_journey:wooden_pickaxe",
+    "count": 1
+  }
+}

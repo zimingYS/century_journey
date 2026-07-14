@@ -15,8 +15,8 @@ use crate::content::block::registry::BlockRegistry;
 use crate::content::lifecycle::{ContentReloadRequested, ContentReloadSet};
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::InventoryState;
-use crate::game::player::components::Player;
 use crate::game::player::components::stats::{Health, Hunger};
+use crate::game::player::components::{Player, RespawnPoint};
 use crate::game::world::chunk::ChunkComponents;
 use crate::game::world::generation::WorldGenerator;
 use crate::game::world::save::level;
@@ -527,8 +527,17 @@ struct SaveQuitParams<'w, 's> {
     time_of_day: Res<'w, TimeOfDay>,
     save_queue: ResMut<'w, SaveQueue>,
     save_worker: ResMut<'w, SaveWorker>,
-    player_query:
-        Query<'w, 's, (&'static Transform, &'static Health, &'static Hunger), With<Player>>,
+    player_query: Query<
+        'w,
+        's,
+        (
+            &'static Transform,
+            &'static Health,
+            &'static Hunger,
+            &'static RespawnPoint,
+        ),
+        With<Player>,
+    >,
     camera_query: Query<'w, 's, &'static FpsCamera, With<Camera3d>>,
     gamemode: Res<'w, PlayerGameMode>,
     inventory: Res<'w, InventoryState>,
@@ -554,7 +563,7 @@ fn save_and_quit_system(mut request: ResMut<SaveAndQuitRequest>, mut params: Sav
     let spawn = params
         .player_query
         .single()
-        .map(|(transform, _, _)| transform.translation)
+        .map(|(transform, _, _, _)| transform.translation)
         .unwrap_or(Vec3::ZERO);
     if let Err(error) = flush_save_queue(
         &params.save_config.world_name,

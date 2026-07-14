@@ -309,4 +309,40 @@ mod tests {
         crafting.refresh(&recipes, &ItemTagIndex::default());
         assert!(crafting.output().is_none());
     }
+
+    #[test]
+    fn stage_seven_collected_sticks_craft_bootstrap_axe() {
+        let mut recipes = RecipeRegistry::default();
+        recipes.register(
+            Identifier::parse("century_journey:wooden_axe_from_sticks").unwrap(),
+            RecipeDefinition::Shaped(ShapedRecipe {
+                pattern: vec!["AA".into(), " A".into()],
+                key: [(
+                    'A',
+                    Ingredient::Item {
+                        item: item("stick"),
+                    },
+                )]
+                .into_iter()
+                .collect(),
+                result: RecipeResult {
+                    item: item("wooden_axe"),
+                    count: 1,
+                },
+            }),
+        );
+        let mut crafting = PlayerCrafting::default();
+        crafting.set_stack(0, ItemStack::single(item("stick")));
+        crafting.set_stack(1, ItemStack::single(item("stick")));
+        crafting.set_stack(3, ItemStack::single(item("stick")));
+
+        crafting.refresh(&recipes, &ItemTagIndex::default());
+
+        assert_eq!(
+            crafting.output().map(|stack| stack.item.clone()),
+            Some(item("wooden_axe"))
+        );
+        crafting.consume_recipe();
+        assert!(crafting.slots.iter().all(Option::is_none));
+    }
 }

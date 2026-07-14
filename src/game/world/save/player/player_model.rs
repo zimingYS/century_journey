@@ -2,19 +2,21 @@ use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::container::survival::SurvivalInventory;
-use crate::game::inventory::item::stack::ItemStack;
+use crate::game::inventory::item::stack::{ItemInstanceData, ItemStack};
 use crate::game::inventory::state::InventoryState;
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-pub const SAVE_VERSION: u32 = 5;
+pub const SAVE_VERSION: u32 = 6;
 
 /// 可序列化物品堆叠
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct SaveItemStack {
     pub item: String,
     pub count: u32,
+    #[serde(default)]
+    pub durability: Option<u32>,
 }
 
 impl SaveItemStack {
@@ -22,6 +24,7 @@ impl SaveItemStack {
         Self {
             item: "century_journey:air".into(),
             count: 0,
+            durability: None,
         }
     }
 
@@ -44,6 +47,10 @@ pub struct PlayerSaveData {
     pub health: f32,
     #[serde(default)]
     pub hunger: f32,
+    #[serde(default = "default_saturation")]
+    pub saturation: f32,
+    #[serde(default = "default_respawn_point")]
+    pub respawn_point: [f32; 3],
     pub hotbar_active: usize,
     #[serde(with = "serde_arrays")]
     pub hotbar: [SaveItemStack; HOTBAR_SIZE],
@@ -67,6 +74,8 @@ impl Default for PlayerSaveData {
             gamemode: "survival".into(),
             health: 20.0,
             hunger: 20.0,
+            saturation: default_saturation(),
+            respawn_point: default_respawn_point(),
             hotbar_active: 0,
             hotbar: std::array::from_fn(|_| SaveItemStack::air()),
             backpack: std::array::from_fn(|_| SaveItemStack::air()),
@@ -75,6 +84,14 @@ impl Default for PlayerSaveData {
             legacy_backpack_overflow: Vec::new(),
         }
     }
+}
+
+fn default_saturation() -> f32 {
+    5.0
+}
+
+fn default_respawn_point() -> [f32; 3] {
+    [0.0, 70.0, 0.0]
 }
 
 // ─── 序列化辅助函数 ──────────────────────────────────
@@ -98,6 +115,7 @@ fn optional_stack_to_save(opt: Option<&ItemStack>) -> SaveItemStack {
         Some(s) if !s.is_empty() => SaveItemStack {
             item: item_id_to_string(&s.item),
             count: s.count,
+            durability: s.instance.durability,
         },
         _ => SaveItemStack::air(),
     }
@@ -107,7 +125,13 @@ fn save_to_optional_stack(slot: &SaveItemStack) -> Option<ItemStack> {
     if slot.is_air() {
         None
     } else {
-        Some(ItemStack::new(string_to_item_id(&slot.item), slot.count))
+        Some(ItemStack::with_instance(
+            string_to_item_id(&slot.item),
+            slot.count,
+            ItemInstanceData {
+                durability: slot.durability,
+            },
+        ))
     }
 }
 
@@ -136,6 +160,8 @@ impl PlayerSaveData {
         inventory: &InventoryState,
         health: f32,
         hunger: f32,
+        saturation: f32,
+        respawn_point: Vec3,
     ) -> Self {
         let hotbar = std::array::from_fn(|i| optional_stack_to_save(inventory.hotbar.get_stack(i)));
         let backpack =
@@ -166,6 +192,8 @@ impl PlayerSaveData {
             gamemode: gamemode_to_string(gamemode.mode),
             health,
             hunger,
+            saturation,
+            respawn_point: respawn_point.to_array(),
             hotbar_active: inventory.hotbar.active_index,
             hotbar,
             backpack,
@@ -232,6 +260,10 @@ impl PlayerSaveData {
     pub fn camera_pitch(&self) -> f32 {
         self.camera_pitch
     }
+
+    pub fn respawn_point(&self) -> Vec3 {
+        Vec3::from_array(self.respawn_point)
+    }
 }
 
 /// 存档数据健康检查与自动修复
@@ -268,6 +300,16 @@ pub fn validate_player_data(data: &PlayerSaveData) -> PlayerSaveData {
         repaired = true;
     } else {
         data.hunger = data.hunger.clamp(0.0, 20.0);
+    }
+    if !data.saturation.is_finite() {
+        data.saturation = default_saturation();
+        repaired = true;
+    } else {
+        data.saturation = data.saturation.clamp(0.0, data.hunger);
+    }
+    if data.respawn_point.iter().any(|value| !value.is_finite()) {
+        data.respawn_point = default_respawn_point();
+        repaired = true;
     }
     if !matches!(data.gamemode.as_str(), "survival" | "creative") {
         log::warn!(
@@ -354,12 +396,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn player_runtime_round_trip_keeps_inventory_health_and_hunger() {
+    fn stage_seven_reload_keeps_inventory_durability_stats_and_respawn_point() {
         let mut inventory = InventoryState::default();
-        inventory.hotbar.set_stack(
-            2,
-            ItemStack::new(ItemId::item("century_journey:test_tool"), 1),
-        );
+        let mut tool = ItemStack::single(ItemId::item("century_journey:test_tool"));
+        tool.instance.durability = Some(23);
+        inventory.hotbar.set_stack(2, tool);
         inventory
             .survival
             .set_stack(4, ItemStack::new(ItemId::block("century_journey:dirt"), 17));
@@ -375,18 +416,26 @@ mod tests {
             &inventory,
             13.5,
             7.25,
+            3.0,
+            Vec3::new(8.0, 71.0, 4.0),
         );
         let restored = data.restore_inventory();
 
         assert_eq!(data.game_version, env!("CARGO_PKG_VERSION"));
         assert_eq!(data.health, 13.5);
         assert_eq!(data.hunger, 7.25);
+        assert_eq!(data.saturation, 3.0);
+        assert_eq!(data.respawn_point(), Vec3::new(8.0, 71.0, 4.0));
         assert_eq!(data.position, [3.0, 72.0, -5.0]);
         assert_eq!(data.camera_pitch, -0.25);
         assert_eq!(restored.hotbar.active_index, 2);
         assert_eq!(
             restored.hotbar.get_stack(2).map(|stack| stack.count),
             Some(1)
+        );
+        assert_eq!(
+            restored.hotbar.get_stack(2).and_then(ItemStack::durability),
+            Some(23)
         );
         assert_eq!(
             restored.survival.get_stack(4).map(|stack| stack.count),

@@ -61,6 +61,10 @@ pub struct ItemDefinition {
     #[serde(default)]
     pub tool: Option<ToolData>,
 
+    /// 食物数据；存在时该物品可以通过“使用”恢复饥饿值。
+    #[serde(default)]
+    pub food: Option<FoodData>,
+
     /// 手持渲染配置 (用于第一人称 ViewModel)
     #[serde(default)]
     pub held_renderer: HeldRenderDefinition,
@@ -88,6 +92,7 @@ impl ItemDefinition {
             model: None,
             placeable_block: Some(identifier.clone()),
             tool: None,
+            food: None,
             held_renderer: HeldRenderDefinition::Block,
             animations: AnimationConfig::default(),
         }
@@ -102,6 +107,11 @@ impl ItemDefinition {
         self.tool.as_ref()
     }
 
+    /// 获取食物属性。
+    pub fn food_data(&self) -> Option<&FoodData> {
+        self.food.as_ref()
+    }
+
     /// 是否为可放置的方块
     pub fn is_placeable(&self) -> bool {
         self.placeable_block.is_some()
@@ -114,4 +124,14 @@ impl ItemDefinition {
             IconDefinition::Texture(_) => None,
         }
     }
+}
+
+/// 食物的生存属性。
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct FoodData {
+    /// 恢复的饥饿值。
+    pub hunger: f32,
+    /// 恢复的饱和度，饱和度会优先承担行动消耗。
+    #[serde(default)]
+    pub saturation: f32,
 }

@@ -184,6 +184,7 @@ mod tests {
             model: None,
             placeable_block: None,
             tool: Some(ToolData::new(ToolType::Pickaxe, ToolTier::Iron, 250, 6.0)),
+            food: None,
             held_renderer: HeldRenderDefinition::default(),
             animations: AnimationConfig::default(),
         };

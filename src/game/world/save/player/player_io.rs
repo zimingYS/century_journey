@@ -10,6 +10,52 @@ use std::io::{Read, Write};
 
 const PLAYER_MAGIC: &[u8; 4] = b"CJPL";
 
+#[derive(Serialize, Deserialize, Clone)]
+struct LegacySaveItemStack {
+    item: String,
+    count: u32,
+}
+
+#[cfg(test)]
+impl LegacySaveItemStack {
+    fn air() -> Self {
+        Self {
+            item: "century_journey:air".into(),
+            count: 0,
+        }
+    }
+}
+
+impl From<LegacySaveItemStack> for SaveItemStack {
+    fn from(legacy: LegacySaveItemStack) -> Self {
+        Self {
+            item: legacy.item,
+            count: legacy.count,
+            durability: None,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct LegacyPlayerSaveDataV5 {
+    version: u32,
+    game_version: String,
+    position: [f32; 3],
+    rotation: [f32; 4],
+    camera_pitch: f32,
+    gamemode: String,
+    health: f32,
+    hunger: f32,
+    hotbar_active: usize,
+    #[serde(with = "serde_arrays")]
+    hotbar: [LegacySaveItemStack; 9],
+    #[serde(with = "serde_arrays")]
+    backpack: [LegacySaveItemStack; 27],
+    #[serde(with = "serde_arrays")]
+    equipment: [LegacySaveItemStack; SurvivalInventory::EQUIPMENT_SIZE],
+    accessories: Vec<LegacySaveItemStack>,
+}
+
 #[derive(Serialize, Deserialize)]
 struct LegacyPlayerSaveDataV4 {
     version: u32,
@@ -21,12 +67,12 @@ struct LegacyPlayerSaveDataV4 {
     hunger: f32,
     hotbar_active: usize,
     #[serde(with = "serde_arrays")]
-    hotbar: [SaveItemStack; 9],
+    hotbar: [LegacySaveItemStack; 9],
     #[serde(with = "serde_arrays")]
-    backpack: [SaveItemStack; 27],
+    backpack: [LegacySaveItemStack; 27],
     #[serde(with = "serde_arrays")]
-    equipment: [SaveItemStack; SurvivalInventory::EQUIPMENT_SIZE],
-    accessories: Vec<SaveItemStack>,
+    equipment: [LegacySaveItemStack; SurvivalInventory::EQUIPMENT_SIZE],
+    accessories: Vec<LegacySaveItemStack>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -43,26 +89,31 @@ struct LegacyPlayerSaveDataV3 {
     hunger: f32,
     hotbar_active: usize,
     #[serde(with = "serde_arrays")]
-    hotbar: [SaveItemStack; 9],
+    hotbar: [LegacySaveItemStack; 9],
     #[serde(with = "serde_arrays")]
-    backpack: [SaveItemStack; 36],
+    backpack: [LegacySaveItemStack; 36],
     #[serde(with = "serde_arrays")]
-    armor: [SaveItemStack; 4],
+    armor: [LegacySaveItemStack; 4],
     #[serde(with = "serde_arrays")]
-    accessories: [SaveItemStack; 6],
+    accessories: [LegacySaveItemStack; 6],
 }
 
 impl From<LegacyPlayerSaveDataV3> for PlayerSaveData {
     fn from(legacy: LegacyPlayerSaveDataV3) -> Self {
-        let backpack = std::array::from_fn(|i| legacy.backpack[i].clone());
+        let backpack = std::array::from_fn(|i| legacy.backpack[i].clone().into());
         let equipment = std::array::from_fn(|i| {
             legacy
                 .armor
                 .get(i)
                 .cloned()
+                .map(Into::into)
                 .unwrap_or_else(SaveItemStack::air)
         });
-        let legacy_backpack_overflow = legacy.backpack[27..].to_vec();
+        let legacy_backpack_overflow = legacy.backpack[27..]
+            .iter()
+            .cloned()
+            .map(Into::into)
+            .collect();
 
         Self {
             version: SAVE_VERSION,
@@ -73,11 +124,13 @@ impl From<LegacyPlayerSaveDataV3> for PlayerSaveData {
             gamemode: legacy.gamemode,
             health: legacy.health,
             hunger: legacy.hunger,
+            saturation: 5.0,
+            respawn_point: [0.0, 70.0, 0.0],
             hotbar_active: legacy.hotbar_active,
-            hotbar: legacy.hotbar,
+            hotbar: legacy.hotbar.map(Into::into),
             backpack,
             equipment,
-            accessories: legacy.accessories.to_vec(),
+            accessories: legacy.accessories.map(Into::into).to_vec(),
             legacy_backpack_overflow,
         }
     }
@@ -94,11 +147,36 @@ impl From<LegacyPlayerSaveDataV4> for PlayerSaveData {
             gamemode: legacy.gamemode,
             health: legacy.health,
             hunger: legacy.hunger,
+            saturation: 5.0,
+            respawn_point: [0.0, 70.0, 0.0],
             hotbar_active: legacy.hotbar_active,
-            hotbar: legacy.hotbar,
-            backpack: legacy.backpack,
-            equipment: legacy.equipment,
-            accessories: legacy.accessories,
+            hotbar: legacy.hotbar.map(Into::into),
+            backpack: legacy.backpack.map(Into::into),
+            equipment: legacy.equipment.map(Into::into),
+            accessories: legacy.accessories.into_iter().map(Into::into).collect(),
+            legacy_backpack_overflow: Vec::new(),
+        }
+    }
+}
+
+impl From<LegacyPlayerSaveDataV5> for PlayerSaveData {
+    fn from(legacy: LegacyPlayerSaveDataV5) -> Self {
+        Self {
+            version: SAVE_VERSION,
+            game_version: legacy.game_version,
+            position: legacy.position,
+            rotation: legacy.rotation,
+            camera_pitch: legacy.camera_pitch,
+            gamemode: legacy.gamemode,
+            health: legacy.health,
+            hunger: legacy.hunger,
+            saturation: 5.0,
+            respawn_point: [0.0, 70.0, 0.0],
+            hotbar_active: legacy.hotbar_active,
+            hotbar: legacy.hotbar.map(Into::into),
+            backpack: legacy.backpack.map(Into::into),
+            equipment: legacy.equipment.map(Into::into),
+            accessories: legacy.accessories.into_iter().map(Into::into).collect(),
             legacy_backpack_overflow: Vec::new(),
         }
     }
@@ -159,12 +237,19 @@ fn decode_player_data(bytes: &[u8]) -> Result<PlayerSaveData, String> {
         .read_to_end(&mut decompressed)
         .map_err(|e| format!("gzip decompress: {e}"))?;
     if current_format {
-        let data = bincode::DefaultOptions::new()
+        if let Ok(data) = bincode::DefaultOptions::new()
             .with_varint_encoding()
             .reject_trailing_bytes()
             .deserialize::<PlayerSaveData>(&decompressed)
-            .map_err(|error| format!("bincode deserialize v5: {error}"))?;
-        return migrate_player_data(data);
+        {
+            return migrate_player_data(data);
+        }
+        let legacy = bincode::DefaultOptions::new()
+            .with_varint_encoding()
+            .reject_trailing_bytes()
+            .deserialize::<LegacyPlayerSaveDataV5>(&decompressed)
+            .map_err(|error| format!("bincode deserialize v6/v5: {error}"))?;
+        return Ok(legacy.into());
     }
 
     if let Ok(legacy) = bincode::DefaultOptions::new()
@@ -184,7 +269,7 @@ fn decode_player_data(bytes: &[u8]) -> Result<PlayerSaveData, String> {
 
 fn migrate_player_data(mut data: PlayerSaveData) -> Result<PlayerSaveData, String> {
     match data.version {
-        0..=4 => {
+        0..=5 => {
             data.version = SAVE_VERSION;
             data.game_version = env!("CARGO_PKG_VERSION").to_string();
         }
@@ -226,20 +311,20 @@ mod tests {
             health: 18.0,
             hunger: 12.0,
             hotbar_active: 2,
-            hotbar: std::array::from_fn(|_| SaveItemStack::air()),
-            backpack: std::array::from_fn(|_| SaveItemStack::air()),
-            armor: std::array::from_fn(|_| SaveItemStack::air()),
-            accessories: std::array::from_fn(|_| SaveItemStack::air()),
+            hotbar: std::array::from_fn(|_| LegacySaveItemStack::air()),
+            backpack: std::array::from_fn(|_| LegacySaveItemStack::air()),
+            armor: std::array::from_fn(|_| LegacySaveItemStack::air()),
+            accessories: std::array::from_fn(|_| LegacySaveItemStack::air()),
         };
-        legacy.armor[0] = SaveItemStack {
+        legacy.armor[0] = LegacySaveItemStack {
             item: "century_journey:test_helmet".into(),
             count: 1,
         };
-        legacy.accessories[0] = SaveItemStack {
+        legacy.accessories[0] = LegacySaveItemStack {
             item: "century_journey:test_ring".into(),
             count: 1,
         };
-        legacy.backpack[27] = SaveItemStack {
+        legacy.backpack[27] = LegacySaveItemStack {
             item: "century_journey:legacy_overflow".into(),
             count: 3,
         };
@@ -285,6 +370,7 @@ mod tests {
         data.hotbar[0] = SaveItemStack {
             item: "century_journey:test_item".into(),
             count: 9,
+            durability: Some(17),
         };
 
         let decoded = decode_player_data(&encode_player_data(&data).unwrap()).unwrap();
@@ -293,6 +379,45 @@ mod tests {
         assert_eq!(decoded.health, 11.5);
         assert_eq!(decoded.hunger, 6.25);
         assert_eq!(decoded.hotbar[0].count, 9);
+        assert_eq!(decoded.hotbar[0].durability, Some(17));
+    }
+
+    #[test]
+    fn stage_seven_v5_player_file_migrates_to_v6_defaults() {
+        let mut legacy = LegacyPlayerSaveDataV5 {
+            version: 5,
+            game_version: "0.2.0".into(),
+            position: [4.0, 70.0, -3.0],
+            rotation: [0.0, 0.0, 0.0, 1.0],
+            camera_pitch: 0.2,
+            gamemode: "survival".into(),
+            health: 15.0,
+            hunger: 11.0,
+            hotbar_active: 0,
+            hotbar: std::array::from_fn(|_| LegacySaveItemStack::air()),
+            backpack: std::array::from_fn(|_| LegacySaveItemStack::air()),
+            equipment: std::array::from_fn(|_| LegacySaveItemStack::air()),
+            accessories: vec![LegacySaveItemStack::air(); 6],
+        };
+        legacy.hotbar[0] = LegacySaveItemStack {
+            item: "century_journey:wooden_axe".into(),
+            count: 1,
+        };
+        let serialized = bincode::DefaultOptions::new()
+            .with_varint_encoding()
+            .serialize(&legacy)
+            .unwrap();
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
+        encoder.write_all(&serialized).unwrap();
+        let mut encoded = PLAYER_MAGIC.to_vec();
+        encoded.extend(encoder.finish().unwrap());
+
+        let decoded = decode_player_data(&encoded).unwrap();
+
+        assert_eq!(decoded.version, SAVE_VERSION);
+        assert_eq!(decoded.saturation, 5.0);
+        assert_eq!(decoded.respawn_point, [0.0, 70.0, 0.0]);
+        assert_eq!(decoded.hotbar[0].durability, None);
     }
 
     #[test]
@@ -306,12 +431,12 @@ mod tests {
             health: 9.0,
             hunger: 8.0,
             hotbar_active: 0,
-            hotbar: std::array::from_fn(|_| SaveItemStack::air()),
-            backpack: std::array::from_fn(|_| SaveItemStack::air()),
-            equipment: std::array::from_fn(|_| SaveItemStack::air()),
-            accessories: vec![SaveItemStack::air(); 6],
+            hotbar: std::array::from_fn(|_| LegacySaveItemStack::air()),
+            backpack: std::array::from_fn(|_| LegacySaveItemStack::air()),
+            equipment: std::array::from_fn(|_| LegacySaveItemStack::air()),
+            accessories: vec![LegacySaveItemStack::air(); 6],
         };
-        legacy.equipment[6] = SaveItemStack {
+        legacy.equipment[6] = LegacySaveItemStack {
             item: "century_journey:test_backpack".into(),
             count: 1,
         };
