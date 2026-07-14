@@ -9,7 +9,8 @@ use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::stats::Health;
 use crate::game::player::components::{LocalPlayer, PlayerGravity};
-use crate::game::player::events::{DamageEvent, DeathEvent};
+use crate::game::player::events::{DamageEvent, DeathEvent, FoodConsumedEvent};
+use crate::shared::components::camera::FpsCamera;
 
 /// 下半身移动状态。该状态只描述玩家正在怎样移动，不负责移动玩家。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -157,6 +158,8 @@ pub struct PlayerAnimationParameters {
     pub locomotion_phase: f32,
     pub action_progress: f32,
     pub playback_speed: f32,
+    /// 本地相机俯仰角，供第三人称头部和上身跟随视线。
+    pub look_pitch: f32,
 }
 
 impl Default for PlayerAnimationParameters {
@@ -169,6 +172,7 @@ impl Default for PlayerAnimationParameters {
             locomotion_phase: 0.0,
             action_progress: 0.0,
             playback_speed: 1.0,
+            look_pitch: 0.0,
         }
     }
 }
@@ -361,6 +365,7 @@ pub struct AnimationControllerInput<'w, 's> {
     death_events: MessageReader<'w, 's, DeathEvent>,
     place_events: MessageReader<'w, 's, BlockPlaceEvent>,
     interact_events: MessageReader<'w, 's, BlockInteractEvent>,
+    food_events: MessageReader<'w, 's, FoodConsumedEvent>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -394,6 +399,7 @@ fn choose_behavior(signals: AnimationSignals) -> Option<PlayerBehaviorState> {
 /// 把游戏状态采样为动画状态。该系统绝不写回移动、生命或方块逻辑。
 pub fn player_animation_controller_system(
     mut input: AnimationControllerInput,
+    camera_query: Query<&FpsCamera, With<Camera3d>>,
     mut query: Query<
         (
             Entity,
@@ -406,6 +412,10 @@ pub fn player_animation_controller_system(
     >,
 ) {
     let delta_seconds = input.time.delta_secs().max(0.0001);
+    let look_pitch = camera_query
+        .single()
+        .map(|camera| camera.pitch)
+        .unwrap_or(0.0);
     let damaged: HashSet<Entity> = input
         .damage_events
         .read()
@@ -426,6 +436,7 @@ pub fn player_animation_controller_system(
         .read()
         .filter_map(|event| event.interactor)
         .collect();
+    let consumed: HashSet<Entity> = input.food_events.read().map(|event| event.player).collect();
     let holding_item = !input.inventory.hotbar.active_item().is_air();
 
     for (entity, transform, gravity, health, mut state) in &mut query {
@@ -438,6 +449,7 @@ pub fn player_animation_controller_system(
             &input.config,
             &input.actions,
         );
+        state.parameters.look_pitch = look_pitch;
 
         let current_behavior = state.upper_body.current;
         let playback_speed = state.parameters.playback_speed;
@@ -465,8 +477,7 @@ pub fn player_animation_controller_system(
             hurt: damaged.contains(&entity),
             mining: input.actions.pressed(PlayerAction::BreakBlock) && input.break_progress.visible,
             placed: placed.contains(&entity),
-            used: used.contains(&entity)
-                || (input.actions.just_pressed(PlayerAction::Use) && !placed.contains(&entity)),
+            used: used.contains(&entity) || consumed.contains(&entity),
             attacked: input.actions.just_pressed(PlayerAction::Attack)
                 && !input.break_progress.visible,
         };
@@ -492,9 +503,13 @@ fn update_motion_parameters(
     actions: &PlayerActionState,
 ) {
     let previous = state.previous_position.replace(position);
-    let horizontal_speed = previous.map_or(0.0, |last| {
+    let sampled_speed = previous.map_or(0.0, |last| {
         Vec2::new(position.x - last.x, position.z - last.z).length() / delta_seconds
     });
+    // 单帧位移容易受帧时间和台阶抬升影响，指数平滑能让步频与状态切换保持稳定。
+    let response = 1.0 - (-18.0 * delta_seconds).exp();
+    let horizontal_speed = state.parameters.horizontal_speed
+        + (sampled_speed.clamp(0.0, 30.0) - state.parameters.horizontal_speed) * response;
     let locomotion = if !gravity.is_grounded {
         if gravity.velocity_y > 0.0 {
             PlayerLocomotionState::Jump
@@ -503,7 +518,7 @@ fn update_motion_parameters(
         }
     } else if horizontal_speed < 0.05 {
         PlayerLocomotionState::Idle
-    } else if actions.pressed(PlayerAction::Sprint) {
+    } else if actions.pressed(PlayerAction::Sprint) || horizontal_speed > 11.5 {
         PlayerLocomotionState::Run
     } else {
         PlayerLocomotionState::Walk
@@ -610,6 +625,22 @@ fn smoothstep(value: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn feedback_fix_empty_right_click_does_not_start_an_animation() {
+        assert_eq!(choose_behavior(AnimationSignals::default()), None);
+    }
+
+    #[test]
+    fn feedback_fix_consumed_food_starts_using_animation() {
+        assert_eq!(
+            choose_behavior(AnimationSignals {
+                used: true,
+                ..default()
+            }),
+            Some(PlayerBehaviorState::Using)
+        );
+    }
 
     #[test]
     fn death_and_hurt_override_regular_actions() {

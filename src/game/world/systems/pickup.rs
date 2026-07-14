@@ -1,7 +1,7 @@
 use crate::game::inventory::events::InventoryFeedbackEvent;
 use crate::game::inventory::insert;
 use crate::game::inventory::state::InventoryState;
-use crate::game::player::components::Player;
+use crate::game::player::components::{Player, PlayerLifecycle};
 use crate::game::world::entity::dropped_item::{DroppedItem, despawn_dropped_item};
 use bevy::prelude::*;
 
@@ -13,7 +13,7 @@ const PICKUP_RANGE: f32 = 2.0;
 /// 成功则删除掉落物实体，失败则保留剩余物品
 pub fn pickup_system(
     time: Res<Time>,
-    player_query: Query<&Transform, With<Player>>,
+    player_query: Query<(&Transform, &PlayerLifecycle), With<Player>>,
     mut item_query: Query<(Entity, &Transform, &mut DroppedItem)>,
     mut inventory: ResMut<InventoryState>,
     mut commands: Commands,
@@ -21,9 +21,12 @@ pub fn pickup_system(
     mut full_feedback_cooldown: Local<f32>,
 ) {
     *full_feedback_cooldown = (*full_feedback_cooldown - time.delta_secs()).max(0.0);
-    let Ok(player_transform) = player_query.single() else {
+    let Ok((player_transform, lifecycle)) = player_query.single() else {
         return;
     };
+    if !lifecycle.is_alive() {
+        return;
+    }
     let player_pos = player_transform.translation;
 
     for (entity, item_transform, mut dropped) in &mut item_query {
@@ -66,5 +69,47 @@ pub fn pickup_system(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod stage_seven_tests {
+    use super::*;
+    use crate::game::inventory::events::InventoryFeedbackEvent;
+    use crate::game::inventory::item::stack::ItemStack;
+    use crate::game::player::components::PlayerLifecycle;
+    use crate::shared::item_id::ItemId;
+
+    #[test]
+    fn stage_seven_pickup_moves_drop_into_empty_inventory() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<InventoryState>()
+            .add_message::<InventoryFeedbackEvent>()
+            .add_systems(Update, pickup_system);
+        app.world_mut().spawn((
+            Player,
+            PlayerLifecycle::default(),
+            Transform::from_xyz(0.0, 70.0, 0.0),
+        ));
+        let mut dropped =
+            DroppedItem::new(ItemStack::new(ItemId::item("century_journey:stick"), 3));
+        dropped.pickup_delay = 0.0;
+        let drop_entity = app
+            .world_mut()
+            .spawn((dropped, Transform::from_xyz(0.5, 70.0, 0.0)))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<InventoryState>()
+                .hotbar
+                .get_stack(0)
+                .map(|stack| stack.count),
+            Some(3)
+        );
+        assert!(app.world().get_entity(drop_entity).is_err());
     }
 }

@@ -11,9 +11,10 @@ use crate::game::gameplay::block_action::{
     can_place_block, consume_placed_block_item, is_replaceable_block,
 };
 use crate::game::gameplay::gamemode::PlayerGameMode;
+use crate::game::inventory::item::stack::ToolDamageResult;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
-use crate::game::player::components::Player;
+use crate::game::player::components::{Player, PlayerCollider};
 use crate::game::player::systems::raycast::TargetVoxel;
 use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
 use crate::game::world::chunk::{ChunkComponents, ChunkState};
@@ -48,7 +49,7 @@ pub fn voxel_interaction_system(
     actions: Res<PlayerActionState>,
     mut inventory_state: ResMut<InventoryState>,
     tag_registry: Option<Res<RuntimeTagRegistry>>,
-    player_query: Query<Entity, With<Player>>,
+    player_query: Query<(Entity, &Transform, &PlayerCollider), With<Player>>,
     gamemode: Res<PlayerGameMode>,
     loot_registry: Option<Res<BlockLootRegistry>>,
     mut world_storage: ResMut<WorldStorage>,
@@ -62,15 +63,15 @@ pub fn voxel_interaction_system(
         break_runtime.progress.clear();
         return;
     };
-    let left_pressed = actions.pressed(PlayerAction::BreakBlock);
+    let break_active = break_action_active(&actions, &gamemode);
     let right_click =
         actions.just_pressed(PlayerAction::Use) || actions.just_pressed(PlayerAction::PlaceBlock);
 
-    if !left_pressed {
+    if !break_active {
         break_runtime.state.clear();
         break_runtime.progress.clear();
     }
-    if !left_pressed && !right_click {
+    if !break_active && !right_click {
         return;
     }
 
@@ -80,9 +81,9 @@ pub fn voxel_interaction_system(
         return;
     };
 
-    let player_entity = player_query.single().ok();
+    let player_entity = player_query.iter().next().map(|(entity, _, _)| entity);
 
-    if left_pressed {
+    if break_active {
         let hit_pos = ray_result.hit_pos;
         let hit_id = get_voxel_at_world(hit_pos, &world_storage);
 
@@ -100,6 +101,7 @@ pub fn voxel_interaction_system(
 
         let active_stack = inventory_state.hotbar.active_stack();
         let active_tool = active_tool_data(active_stack, item_registry.as_deref());
+        let active_tool_max_durability = active_tool.map(|tool| tool.max_durability);
         let active_item = inventory_state.hotbar.active_item().clone();
 
         let Some(required_seconds) = block_break_seconds(prop, &gamemode, active_tool) else {
@@ -141,6 +143,18 @@ pub fn voxel_interaction_system(
 
         if !broke_block {
             return;
+        }
+
+        if gamemode.is_survival()
+            && let Some(max_durability) = active_tool_max_durability
+        {
+            let slot = inventory_state.hotbar.active_stack_mut();
+            if let Some(stack) = slot.as_mut()
+                && stack.damage_tool(1, max_durability) == ToolDamageResult::Broken
+            {
+                *slot = None;
+                log::info!("[工具] 当前工具耐久耗尽并损坏");
+            }
         }
 
         events.break_events.write(BlockBreakEvent {
@@ -216,6 +230,13 @@ pub fn voxel_interaction_system(
         return;
     }
 
+    // 不允许把方块放进玩家碰撞箱；否则下一帧的脱困逻辑会被迫移动玩家。
+    if player_query.iter().any(|(_, transform, collider)| {
+        voxel_intersects_player(place_pos, transform.translation, collider.half_extents)
+    }) {
+        return;
+    }
+
     let behavior = behavior_registry.get_behavior_by_id(block_id, &reg);
     let allowed = behavior.on_place(
         place_pos,
@@ -250,6 +271,29 @@ pub fn voxel_interaction_system(
     });
 
     mark_dirty_chunks(place_pos, &mut chunk_query, &mut world_storage);
+}
+
+/// 创造模式的瞬间破坏只接受按下边沿，避免一次鼠标点击跨帧破坏整列方块。
+fn break_action_active(actions: &PlayerActionState, gamemode: &PlayerGameMode) -> bool {
+    if gamemode.is_creative() {
+        actions.just_pressed(PlayerAction::BreakBlock)
+    } else {
+        actions.pressed(PlayerAction::BreakBlock)
+    }
+}
+
+fn voxel_intersects_player(voxel: IVec3, player_position: Vec3, half_extents: Vec3) -> bool {
+    let block_min = voxel.as_vec3();
+    let block_max = block_min + Vec3::ONE;
+    let player_min = player_position - half_extents;
+    let player_max = player_position + half_extents;
+
+    player_min.x < block_max.x
+        && player_max.x > block_min.x
+        && player_min.y < block_max.y
+        && player_max.y > block_min.y
+        && player_min.z < block_max.z
+        && player_max.z > block_min.z
 }
 
 fn mark_dirty_chunks(
@@ -359,5 +403,44 @@ pub fn drop_active_hotbar_action_system(
     }
     if let Some(stack) = dropped {
         writer.write(crate::game::inventory::events::DropItemEvent { stack });
+    }
+}
+
+#[cfg(test)]
+mod placement_tests {
+    use super::*;
+    use crate::game::gameplay::gamemode::GameMode;
+
+    #[test]
+    fn creative_break_fix_held_click_only_breaks_on_first_frame() {
+        let creative = PlayerGameMode {
+            mode: GameMode::Creative,
+        };
+        let survival = PlayerGameMode::default();
+        let mut actions = PlayerActionState::default();
+
+        actions.update(true, [PlayerAction::BreakBlock]);
+        assert!(break_action_active(&actions, &creative));
+
+        actions.update(true, [PlayerAction::BreakBlock]);
+        assert!(!break_action_active(&actions, &creative));
+        assert!(break_action_active(&actions, &survival));
+    }
+
+    #[test]
+    fn requested_fix_block_inside_player_is_rejected() {
+        let half = Vec3::new(0.3, 0.9, 0.3);
+        let standing_position = Vec3::new(0.5, 10.9, 0.5);
+
+        assert!(voxel_intersects_player(
+            IVec3::new(0, 10, 0),
+            standing_position,
+            half
+        ));
+        assert!(!voxel_intersects_player(
+            IVec3::new(0, 9, 0),
+            standing_position,
+            half
+        ));
     }
 }

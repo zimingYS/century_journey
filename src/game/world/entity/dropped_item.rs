@@ -108,13 +108,10 @@ impl Default for DroppedItemVelocity {
     }
 }
 
-/// 在世界中生成一个掉落物实体。
-///
-/// 这个函数保留给方块破坏等旧调用方使用：传入方块坐标附近的位置，内部会把它移到方块中心上方。
+/// 在指定的精确世界坐标生成一个带轻微弹出的掉落物实体。
 pub fn spawn_dropped_item(commands: &mut Commands, position: Vec3, stack: ItemStack) -> Entity {
-    let spawn_position = position + Vec3::new(0.5, 1.0, 0.5);
-    let velocity = DroppedItemVelocity::passive(spawn_position);
-    spawn_dropped_item_with_velocity(commands, spawn_position, stack, velocity)
+    let velocity = DroppedItemVelocity::passive(position);
+    spawn_dropped_item_with_velocity(commands, position, stack, velocity)
 }
 
 /// 以指定世界坐标和速度生成掉落物。
@@ -174,7 +171,7 @@ pub fn dropped_item_physics_system(
         let mut should_be_grounded = false;
 
         if let Some(ground_y) = ground_height_at(next_position, &storage, reg)
-            && next_position.y <= ground_y
+            && crossed_ground_surface(transform.translation.y, next_position.y, ground_y)
         {
             next_position.y = ground_y;
             if velocity.linear.y < -DROPPED_ITEM_REST_Y_SPEED {
@@ -305,6 +302,11 @@ fn ground_height_at(pos: Vec3, storage: &WorldStorage, reg: &BlockRegistry) -> O
     }
 }
 
+/// 只有物品从表面上方落下时才吸附到表面，防止嵌入树干后逐格向树顶传送。
+fn crossed_ground_surface(previous_y: f32, next_y: f32, ground_y: f32) -> bool {
+    previous_y >= ground_y && next_y <= ground_y
+}
+
 /// 判断指定世界方块坐标是否是实体方块。
 fn solid_block_at(block_pos: IVec3, storage: &WorldStorage, reg: &BlockRegistry) -> bool {
     let chunk_pos = IVec3::new(
@@ -360,4 +362,15 @@ fn horizontal_direction(direction: Vec3) -> Vec3 {
 /// 根据坐标生成确定性的轻微抖动，避免方块掉落物完全叠在一起。
 fn deterministic_wave(value: f32) -> f32 {
     (value * 12.9898).sin()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn requested_fix_embedded_drop_is_not_lifted_to_block_top() {
+        assert!(!crossed_ground_surface(4.5, 4.4, 5.06));
+        assert!(crossed_ground_surface(5.2, 5.0, 5.06));
+    }
 }

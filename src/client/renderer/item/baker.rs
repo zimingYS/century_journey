@@ -113,14 +113,7 @@ fn bake_generated_model(
         handle
     };
 
-    let material = materials.add(StandardMaterial {
-        base_color: Color::WHITE,
-        alpha_mode: AlphaMode::Opaque,
-        cull_mode: None,
-        unlit: true,
-        perceptual_roughness: 1.0,
-        ..default()
-    });
+    let material = materials.add(generated_item_material());
 
     Some(BakedItemModel::single(
         "GeneratedItemMesh",
@@ -129,6 +122,18 @@ fn bake_generated_model(
         Transform::default(),
         definition.display.clone(),
     ))
+}
+
+/// 工具和普通物品在 3D 世界中使用受光材质，GUI 烘焙会另外复制并切换为 unlit。
+fn generated_item_material() -> StandardMaterial {
+    StandardMaterial {
+        base_color: Color::WHITE,
+        alpha_mode: AlphaMode::Opaque,
+        cull_mode: None,
+        unlit: false,
+        perceptual_roughness: 1.0,
+        ..default()
+    }
 }
 
 /// 烘焙自定义模型占位实现。
@@ -156,4 +161,14 @@ fn bake_custom_model(
         Transform::default(),
         definition.display.clone(),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn requested_fix_generated_item_material_receives_world_lighting() {
+        assert!(!generated_item_material().unlit);
+    }
 }

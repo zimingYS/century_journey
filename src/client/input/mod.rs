@@ -10,6 +10,7 @@ use crate::client::ui::navigation::UiNavigation;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
+use crate::game::player::components::{Player, PlayerLifecycle};
 use crate::shared::states::app_state::AppState;
 use crate::shared::states::{InputBlocked, InputContext, InputContextState, InputSet};
 use crate::shared::ui_types::SearchInputState;
@@ -220,9 +221,11 @@ fn resolve_input_context_system(
     search_state: Res<SearchInputState>,
     mut context: ResMut<InputContextState>,
     mut blocked: ResMut<InputBlocked>,
+    player_query: Query<&PlayerLifecycle, With<Player>>,
 ) {
+    let player_alive = player_query.single().is_ok_and(PlayerLifecycle::is_alive);
     resolve_context(
-        *app_state.get() == AppState::InGame,
+        *app_state.get() == AppState::InGame && player_alive,
         &inventory,
         &input_focus,
         &search_state,
@@ -238,9 +241,11 @@ fn refresh_input_context_system(
     search_state: Res<SearchInputState>,
     mut context: ResMut<InputContextState>,
     mut blocked: ResMut<InputBlocked>,
+    player_query: Query<&PlayerLifecycle, With<Player>>,
 ) {
+    let player_alive = player_query.single().is_ok_and(PlayerLifecycle::is_alive);
     resolve_context(
-        *app_state.get() == AppState::InGame,
+        *app_state.get() == AppState::InGame && player_alive,
         &inventory,
         &input_focus,
         &search_state,

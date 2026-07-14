@@ -46,6 +46,7 @@ impl Plugin for UIPlugin {
                     screens::creative_inventory::spawn_creative_inventory_system,
                     screens::survival_inventory::spawn_survival_inventory_system,
                     screens::crafting::spawn_crafting_system,
+                    screens::death::spawn_death_screen_system,
                     screens::menu::spawn_menu_screens_system,
                 )
                     .chain(),
@@ -60,6 +61,8 @@ impl Plugin for UIPlugin {
                     screens::menu::sync_world_name_draft_system,
                     screens::menu::sync_setting_values_system,
                     screens::menu::menu_button_system,
+                    screens::death::sync_death_screen_system,
+                    screens::death::respawn_button_system,
                 )
                     .chain(),
             )

@@ -59,6 +59,12 @@ impl Hunger {
     pub fn is_full(&self) -> bool {
         self.current >= self.max
     }
+
+    /// 食用物品并恢复饥饿与饱和度。
+    pub fn eat(&mut self, hunger: f32, saturation: f32) {
+        self.current = (self.current + hunger.max(0.0)).min(self.max);
+        self.saturation = (self.saturation + saturation.max(0.0)).min(self.current.max(0.0));
+    }
     /// 消耗, 优先从 saturation 扣除
     pub fn exhaust(&mut self, amount: f32) {
         if self.saturation > 0.0 {
@@ -78,6 +84,7 @@ pub struct Defense(pub f32);
 
 impl Defense {
     pub fn damage_reduction(&self) -> f32 {
-        self.0 / (self.0 + 10.0)
+        let defense = self.0.max(0.0);
+        defense / (defense + 10.0)
     }
 }

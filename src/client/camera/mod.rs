@@ -60,9 +60,10 @@ pub fn player_look_system(
         player_transform.rotate_y(-delta.x * sensitivity);
     }
 
-    // 上下旋转
-    if let Ok((mut camera_transform, _fps_camera)) = camera_query.single_mut() {
-        camera_transform.rotate_local_x(-delta.y * sensitivity);
+    // 使用绝对俯仰角重建旋转，避免累计旋转越过垂直方向后天地翻转。
+    if let Ok((mut camera_transform, mut fps_camera)) = camera_query.single_mut() {
+        fps_camera.add_pitch(-delta.y * sensitivity);
+        camera_transform.rotation = fps_camera.pitch_rotation();
     }
 }
 
@@ -92,12 +93,44 @@ pub fn camera_perspective_sync_system(
     mut camera_query: Query<(&FpsCamera, &mut Transform), With<Camera3d>>,
 ) {
     for (fps_camera, mut camera_transform) in camera_query.iter_mut() {
-        let offset = if fps_camera.is_first_person {
-            Vec3::new(0.0, 0.75, 0.0)
-        } else {
-            Vec3::new(0.0, 0.5, 5.0)
-        };
-        camera_transform.translation = offset;
+        camera_transform.translation = perspective_offset(fps_camera.is_first_person);
+        camera_transform.rotation = fps_camera.pitch_rotation();
+    }
+}
+
+fn perspective_offset(is_first_person: bool) -> Vec3 {
+    if is_first_person {
+        // 眼位略微前移到胸口前方，低头时视线不会穿过自己的躯干。
+        Vec3::new(0.0, 0.78, -0.18)
+    } else {
+        Vec3::new(0.0, 0.62, 4.5)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::game::player::model::components::PlayerPart;
+    use crate::game::player::model::config::PlayerModelConfig;
+    use crate::shared::components::camera::{MAX_CAMERA_PITCH, MIN_CAMERA_PITCH};
+
+    #[test]
+    fn player_visual_camera_pitch_is_clamped_before_world_can_flip() {
+        let mut camera = FpsCamera::default();
+        camera.add_pitch(10.0);
+        assert_eq!(camera.pitch, MAX_CAMERA_PITCH);
+
+        camera.add_pitch(-20.0);
+        assert_eq!(camera.pitch, MIN_CAMERA_PITCH);
+    }
+
+    #[test]
+    fn player_visual_first_person_eye_is_in_front_of_torso() {
+        let eye = perspective_offset(true);
+        let torso_front = -PlayerModelConfig::half_dims(PlayerPart::Body).z;
+
+        assert!(eye.z < torso_front);
+        assert!(eye.y > PlayerModelConfig::joint_offset(PlayerPart::Body).y);
     }
 }
 

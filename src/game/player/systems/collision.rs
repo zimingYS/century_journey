@@ -101,27 +101,32 @@ pub fn find_safe_position(
     world_storage: &WorldStorage,
     registry: &BlockRegistry,
 ) -> Option<Vec3> {
-    // 优先向上寻找
-    for i in 1..100 {
-        let test_pos = Vec3::new(start_pos.x, start_pos.y + i as f32 * 0.1, start_pos.z);
-        if !check_collision_at(test_pos, half_extents, world_storage, registry) {
-            return Some(test_pos);
-        }
-    }
-
-    // 上方不行，尝试四周
-    let offsets = [
-        Vec3::new(1.0, 0.0, 0.0),
-        Vec3::new(-1.0, 0.0, 0.0),
-        Vec3::new(0.0, 0.0, 1.0),
-        Vec3::new(0.0, 0.0, -1.0),
+    // 优先使用最短水平位移脱离碰撞，避免沿树干或方块柱一路传送到顶部。
+    let directions = [
+        Vec3::X,
+        Vec3::NEG_X,
+        Vec3::Z,
+        Vec3::NEG_Z,
+        Vec3::new(1.0, 0.0, 1.0).normalize(),
+        Vec3::new(-1.0, 0.0, 1.0).normalize(),
+        Vec3::new(1.0, 0.0, -1.0).normalize(),
+        Vec3::new(-1.0, 0.0, -1.0).normalize(),
     ];
-    for offset in offsets {
-        for i in 1..50 {
-            let test_pos = start_pos + offset * i as f32 * 0.1 + Vec3::new(0.0, 2.0, 0.0);
+    for step in 1..=16 {
+        let distance = step as f32 * 0.1;
+        for direction in directions {
+            let test_pos = start_pos + direction * distance;
             if !check_collision_at(test_pos, half_extents, world_storage, registry) {
                 return Some(test_pos);
             }
+        }
+    }
+
+    // 水平空间完全被堵住时才有限度向上恢复，禁止扫描整根方块柱。
+    for step in 1..=24 {
+        let test_pos = start_pos + Vec3::Y * (step as f32 * 0.1);
+        if !check_collision_at(test_pos, half_extents, world_storage, registry) {
+            return Some(test_pos);
         }
     }
 

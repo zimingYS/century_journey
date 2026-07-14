@@ -42,18 +42,36 @@ pub fn execute_block_break(
         && let Some(loot_registry) = loot_registry
     {
         let drops = loot_registry.roll(block_id);
-        let center = world_pos.as_vec3();
-
         for (i, (item_id, count)) in drops.into_iter().enumerate() {
-            let offset = Vec3::new(
-                (i as f32 * 0.3) % 1.0 - 0.5,
-                0.5,
-                (i as f32 * 0.7) % 1.0 - 0.5,
-            );
             let stack = ItemStack::new(item_id, count);
-            spawn_dropped_item(commands, center + offset, stack);
+            spawn_dropped_item(commands, block_drop_spawn_position(world_pos, i), stack);
         }
     }
 
     true
+}
+
+/// 掉落物生成在刚被清空的体素内部，避免与上方仍存在的树干重叠。
+fn block_drop_spawn_position(world_pos: IVec3, drop_index: usize) -> Vec3 {
+    let offset = Vec3::new(
+        ((drop_index as f32 * 0.37) % 1.0 - 0.5) * 0.3,
+        0.0,
+        ((drop_index as f32 * 0.73) % 1.0 - 0.5) * 0.3,
+    );
+    world_pos.as_vec3() + Vec3::splat(0.5) + offset
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn requested_fix_block_drop_starts_inside_broken_voxel() {
+        let block = IVec3::new(3, 12, -4);
+        let position = block_drop_spawn_position(block, 0);
+
+        assert!((block.x as f32..block.x as f32 + 1.0).contains(&position.x));
+        assert_eq!(position.y, block.y as f32 + 0.5);
+        assert!((block.z as f32..block.z as f32 + 1.0).contains(&position.z));
+    }
 }

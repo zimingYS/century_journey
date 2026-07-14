@@ -1,6 +1,7 @@
 pub mod armor_calc;
 pub mod collision;
 pub mod combat;
+pub mod environment;
 pub mod gravity;
 pub mod hunger;
 pub mod interaction;

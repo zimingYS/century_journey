@@ -2,6 +2,21 @@ use crate::content::item::ItemRegistry;
 use crate::shared::identifier::Identifier;
 use crate::shared::item_id::ItemId;
 
+/// 单个物品实例携带的可变数据。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ItemInstanceData {
+    /// 工具剩余可用次数。None 表示尚未初始化或该物品没有耐久。
+    pub durability: Option<u32>,
+}
+
+/// 工具承受一次耐久消耗后的结果。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToolDamageResult {
+    NotDamageable,
+    Damaged { remaining: u32 },
+    Broken,
+}
+
 // 这边先临时使用全部物品最大堆叠64个
 // 以后会根据物品种类进行最大堆叠分类
 // 故现在先写到这边
@@ -15,12 +30,27 @@ pub struct ItemStack {
     pub item: ItemId,
     /// 堆叠数量
     pub count: u32,
+    /// 该堆物品共享的实例数据；具有不同实例数据的物品不能合并。
+    pub instance: ItemInstanceData,
 }
 
 impl ItemStack {
     // 由数量创建物品
     pub fn new(item: ItemId, count: u32) -> Self {
-        Self { item, count }
+        Self {
+            item,
+            count,
+            instance: ItemInstanceData::default(),
+        }
+    }
+
+    /// 使用指定实例数据创建物品堆。
+    pub fn with_instance(item: ItemId, count: u32, instance: ItemInstanceData) -> Self {
+        Self {
+            item,
+            count,
+            instance,
+        }
     }
 
     // 创建一个物品
@@ -33,6 +63,7 @@ impl ItemStack {
         Self {
             item: ItemId::air(),
             count: 0,
+            instance: ItemInstanceData::default(),
         }
     }
 
@@ -43,7 +74,7 @@ impl ItemStack {
 
     /// 判断是否与另一个堆叠同种物品
     pub fn is_same_item(&self, other: &ItemStack) -> bool {
-        self.item == other.item
+        self.item == other.item && self.instance == other.instance
     }
 
     /// 判断是否可以与另一个堆叠合并
@@ -52,7 +83,7 @@ impl ItemStack {
         if !self.is_same_item(other) {
             return false;
         }
-        self.count + other.count <= MAX_STACK_SIZE
+        self.count.saturating_add(other.count) <= MAX_STACK_SIZE
     }
 
     /// 从另一个堆叠合并尽可能多的物品到自身
@@ -60,7 +91,7 @@ impl ItemStack {
         if !self.is_same_item(other) || other.is_empty() {
             return 0;
         }
-        let available = MAX_STACK_SIZE - self.count;
+        let available = MAX_STACK_SIZE.saturating_sub(self.count);
         let to_move = available.min(other.count);
         self.count += to_move;
         other.count -= to_move;
@@ -77,7 +108,11 @@ impl ItemStack {
         }
         let half = self.count / 2;
         self.count -= half;
-        Some(ItemStack::new(self.item.clone(), half))
+        Some(ItemStack::with_instance(
+            self.item.clone(),
+            half,
+            self.instance.clone(),
+        ))
     }
 
     /// 从自身取走指定数量，返回取走的堆叠
@@ -87,7 +122,7 @@ impl ItemStack {
         }
         let taken = amount.min(self.count);
         self.count -= taken;
-        let result = ItemStack::new(self.item.clone(), taken);
+        let result = ItemStack::with_instance(self.item.clone(), taken, self.instance.clone());
         if self.count == 0 {
             *self = ItemStack::empty();
         }
@@ -114,6 +149,32 @@ impl ItemStack {
         self.count >= MAX_STACK_SIZE
     }
 
+    /// 返回当前剩余耐久；尚未使用过的工具会返回 None。
+    pub fn durability(&self) -> Option<u32> {
+        self.instance.durability
+    }
+
+    /// 消耗一次工具耐久。首次消耗时从物品定义中的最大耐久开始计算。
+    pub fn damage_tool(&mut self, amount: u32, max_durability: u32) -> ToolDamageResult {
+        if amount == 0 || max_durability == 0 || self.is_empty() {
+            return ToolDamageResult::NotDamageable;
+        }
+
+        let remaining = self
+            .instance
+            .durability
+            .unwrap_or(max_durability)
+            .min(max_durability)
+            .saturating_sub(amount);
+        if remaining == 0 {
+            *self = Self::empty();
+            ToolDamageResult::Broken
+        } else {
+            self.instance.durability = Some(remaining);
+            ToolDamageResult::Damaged { remaining }
+        }
+    }
+
     /// 返回显示用的数量文本（空/1 时不显示）
     pub fn count_text(&self) -> Option<String> {
         if self.is_empty() || self.count <= 1 {
@@ -131,5 +192,37 @@ impl ItemStack {
 impl Default for ItemStack {
     fn default() -> Self {
         Self::empty()
+    }
+}
+
+#[cfg(test)]
+mod stage_seven_tests {
+    use super::*;
+
+    #[test]
+    fn stage_seven_tool_instance_loses_durability_and_breaks() {
+        let mut tool = ItemStack::single(ItemId::item("century_journey:test_pickaxe"));
+
+        assert_eq!(
+            tool.damage_tool(1, 3),
+            ToolDamageResult::Damaged { remaining: 2 }
+        );
+        assert_eq!(tool.durability(), Some(2));
+        assert_eq!(
+            tool.damage_tool(1, 3),
+            ToolDamageResult::Damaged { remaining: 1 }
+        );
+        assert_eq!(tool.damage_tool(1, 3), ToolDamageResult::Broken);
+        assert!(tool.is_empty());
+    }
+
+    #[test]
+    fn stage_seven_different_instance_data_never_merges() {
+        let mut used = ItemStack::single(ItemId::item("century_journey:test_pickaxe"));
+        used.instance.durability = Some(4);
+        let unused = ItemStack::single(ItemId::item("century_journey:test_pickaxe"));
+
+        assert!(!used.is_same_item(&unused));
+        assert!(!used.can_merge(&unused));
     }
 }

@@ -1,7 +1,9 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::game::constant::player::STEP_HEIGHT;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
-use crate::game::player::components::{Player, PlayerCollider, PlayerGravity, PlayerMovement};
+use crate::game::player::components::{
+    Player, PlayerCollider, PlayerGravity, PlayerLifecycle, PlayerMovement, PlayerVelocity,
+};
 use crate::game::player::systems::collision::check_collision_at;
 use crate::game::world::storage::WorldStorage;
 use bevy::prelude::*;
@@ -17,14 +19,20 @@ pub fn player_movement_system(
             &PlayerCollider,
             &PlayerMovement,
             &mut PlayerGravity,
+            &mut PlayerVelocity,
+            &PlayerLifecycle,
         ),
         With<Player>,
     >,
 ) {
     let Some(reg) = registry else { return };
-    let dt = time.delta_secs();
+    let dt = time.delta_secs().min(0.05);
 
-    for (mut transform, collider, movement, mut gravity) in &mut query {
+    for (mut transform, collider, movement, mut gravity, mut velocity, lifecycle) in &mut query {
+        if !lifecycle.is_alive() {
+            velocity.horizontal = Vec3::ZERO;
+            continue;
+        }
         let half = collider.half_extents;
 
         // 跳跃
@@ -50,12 +58,10 @@ pub fn player_movement_system(
             direction += transform.right().as_vec3();
         }
 
-        if direction.length() == 0.0 {
-            continue;
-        }
-
         direction.y = 0.0;
-        direction = direction.normalize();
+        if direction.length_squared() > 0.0 {
+            direction = direction.normalize();
+        }
 
         // 处理移动速度
         let speed = if actions.pressed(PlayerAction::Sprint) {
@@ -64,7 +70,27 @@ pub fn player_movement_system(
             movement.movement_speed
         };
 
-        let move_delta = direction * speed * dt;
+        let desired_velocity = direction * speed;
+        let changing_direction = direction != Vec3::ZERO
+            && velocity.horizontal.length_squared() > f32::EPSILON
+            && velocity.horizontal.normalize().dot(direction) < 0.8;
+        let control = if gravity.is_grounded {
+            if direction == Vec3::ZERO || changing_direction {
+                movement.deceleration
+            } else {
+                movement.acceleration
+            }
+        } else {
+            movement.acceleration * movement.air_control
+        };
+        velocity.horizontal =
+            approach_velocity(velocity.horizontal, desired_velocity, control * dt);
+        velocity.horizontal.y = 0.0;
+        let move_delta = velocity.horizontal * dt;
+
+        if move_delta.length_squared() <= f32::EPSILON {
+            continue;
+        }
 
         // 分轴移动与碰撞检测
         // 处理X轴移动
@@ -74,14 +100,18 @@ pub fn player_movement_system(
             transform.translation.x = new_pos_x.x;
         } else if gravity.is_grounded {
             // X 轴发生碰撞时，尝试沿 X 轴跨上台阶。
-            try_step_up(
+            if !try_step_up(
                 &mut transform.translation,
                 half,
                 move_delta.x,
                 0,
                 &world_storage,
                 &reg,
-            );
+            ) {
+                velocity.horizontal.x = 0.0;
+            }
+        } else {
+            velocity.horizontal.x = 0.0;
         }
 
         // 处理Z轴移动
@@ -91,15 +121,29 @@ pub fn player_movement_system(
             transform.translation.z = new_pos_z.z;
         } else if gravity.is_grounded {
             // Z 轴发生碰撞时，尝试沿 Z 轴跨上台阶。
-            try_step_up(
+            if !try_step_up(
                 &mut transform.translation,
                 half,
                 move_delta.z,
                 2,
                 &world_storage,
                 &reg,
-            );
+            ) {
+                velocity.horizontal.z = 0.0;
+            }
+        } else {
+            velocity.horizontal.z = 0.0;
         }
+    }
+}
+
+fn approach_velocity(current: Vec3, target: Vec3, max_delta: f32) -> Vec3 {
+    let delta = target - current;
+    let distance = delta.length();
+    if distance <= max_delta || distance <= f32::EPSILON {
+        target
+    } else {
+        current + delta / distance * max_delta.max(0.0)
     }
 }
 
@@ -110,7 +154,7 @@ fn try_step_up(
     axis: usize,
     world_storage: &WorldStorage,
     registry: &BlockRegistry,
-) {
+) -> bool {
     // 在碰撞轴上移动，同时向上抬升
     let stepped = match axis {
         0 => Vec3::new(pos.x + delta, pos.y + STEP_HEIGHT, pos.z),
@@ -123,5 +167,36 @@ fn try_step_up(
         pos.x = stepped.x;
         pos.y = stepped.y;
         pos.z = stepped.z;
+        true
+    } else {
+        false
+    }
+}
+
+#[cfg(test)]
+mod stage_seven_tests {
+    use super::*;
+
+    #[test]
+    fn stage_seven_horizontal_velocity_accelerates_and_decelerates_gradually() {
+        let accelerated = approach_velocity(Vec3::ZERO, Vec3::X * 10.0, 2.0);
+        assert_eq!(accelerated, Vec3::X * 2.0);
+
+        let decelerated = approach_velocity(accelerated, Vec3::ZERO, 0.5);
+        assert_eq!(decelerated, Vec3::X * 1.5);
+        assert_ne!(decelerated, Vec3::ZERO);
+    }
+
+    #[test]
+    fn ground_deceleration_stops_sprint_without_ice_like_sliding() {
+        let movement = PlayerMovement::default();
+        let dt = 1.0 / 60.0;
+        let mut velocity = Vec3::X * movement.movement_speed * movement.sprint_factor;
+
+        for _ in 0..5 {
+            velocity = approach_velocity(velocity, Vec3::ZERO, movement.deceleration * dt);
+        }
+
+        assert_eq!(velocity, Vec3::ZERO);
     }
 }

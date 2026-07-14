@@ -200,6 +200,8 @@ fn block_tag(path: &str) -> TagId {
 mod tests {
     use super::*;
     use crate::content::item::definition::tool::{ToolTier, ToolType};
+    use crate::content::loot::block_registry::BlockLootRegistry;
+    use crate::content::loot::table::LootTable;
 
     fn pickaxe(tier: ToolTier, efficiency: f32) -> ToolData {
         ToolData::new(ToolType::Pickaxe, tier, 100, efficiency)
@@ -266,5 +268,22 @@ mod tests {
             state.tick(IVec3::new(1, 2, 4), 5, &stone_pickaxe, 0.25),
             0.25
         );
+    }
+
+    #[test]
+    fn stage_seven_mining_rule_produces_registered_survival_drop() {
+        let block = BlockProperty {
+            hardness: 0.5,
+            required_tool: None,
+            ..default()
+        };
+        let gamemode = PlayerGameMode::default();
+        assert_eq!(block_break_seconds(&block, &gamemode, None), Some(0.5));
+
+        let dirt = ItemId::block("century_journey:dirt");
+        let mut loot = BlockLootRegistry::default();
+        loot.register(7, LootTable::single(dirt.clone(), 1));
+
+        assert_eq!(loot.roll(7), vec![(dirt, 1)]);
     }
 }
