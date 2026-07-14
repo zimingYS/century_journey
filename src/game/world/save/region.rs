@@ -1,4 +1,5 @@
 use crate::content::constant::world::*;
+use crate::engine::persistence;
 use crate::game::world::save::format::{
     RegionFile, RegionHeader, SavedChunk, chunk_local_index, chunk_to_region_pos,
     local_index_to_flat,
@@ -22,6 +23,10 @@ pub enum SaveError {
     Io(std::io::Error),
     /// 序列化/反序列化错误
     Serialize(String),
+    /// 原子替换或备份恢复错误
+    Atomic(String),
+    /// 文件格式比当前程序支持的版本更新
+    UnsupportedVersion { found: u32, supported: u32 },
 }
 
 /// 错误显示输出
@@ -30,6 +35,13 @@ impl std::fmt::Display for SaveError {
         match self {
             SaveError::Io(e) => write!(f, "IO error: {e}"),
             SaveError::Serialize(e) => write!(f, "Serialize error: {e}"),
+            SaveError::Atomic(e) => write!(f, "Atomic file error: {e}"),
+            SaveError::UnsupportedVersion { found, supported } => {
+                write!(
+                    f,
+                    "Unsupported save version {found}, current support is {supported}"
+                )
+            }
         }
     }
 }
@@ -45,6 +57,12 @@ impl From<std::io::Error> for SaveError {
 impl From<bincode::Error> for SaveError {
     fn from(e: bincode::Error) -> Self {
         SaveError::Serialize(e.to_string())
+    }
+}
+
+impl From<crate::engine::persistence::AtomicFileError> for SaveError {
+    fn from(error: crate::engine::persistence::AtomicFileError) -> Self {
+        SaveError::Atomic(error.to_string())
     }
 }
 
@@ -86,8 +104,7 @@ impl RegionManager {
             return Ok(None);
         }
 
-        let mut file = fs::File::open(&path)?;
-        let region = Self::read_region_file(&mut file)?;
+        let region = Self::read_region_path(&path)?;
 
         let (lx, ly, lz) = chunk_local_index(chunk_pos);
         let flat = local_index_to_flat(lx, ly, lz);
@@ -120,8 +137,7 @@ impl RegionManager {
         Self::ensure_dirs(world_name)?;
 
         let mut region = if path.exists() {
-            let mut file = fs::File::open(&path)?;
-            Self::read_region_file(&mut file)?
+            Self::read_region_path(&path)?
         } else {
             RegionFile {
                 header: RegionHeader {
@@ -153,8 +169,7 @@ impl RegionManager {
             region.chunks.insert(insert_pos, compressed);
         }
 
-        let mut file = fs::File::create(&path)?;
-        Self::write_region_file(&mut file, &region)?;
+        Self::write_region_path(&path, &region)?;
 
         Ok(())
     }
@@ -178,8 +193,7 @@ impl RegionManager {
             Self::ensure_dirs(world_name)?;
 
             let mut region = if path.exists() {
-                let mut file = fs::File::open(&path)?;
-                Self::read_region_file(&mut file)?
+                Self::read_region_path(&path)?
             } else {
                 RegionFile {
                     header: RegionHeader {
@@ -210,8 +224,7 @@ impl RegionManager {
                 }
             }
 
-            let mut file = fs::File::create(&path)?;
-            Self::write_region_file(&mut file, &region)?;
+            Self::write_region_path(&path, &region)?;
         }
 
         Ok(())
@@ -228,28 +241,74 @@ impl RegionManager {
 
 // 内部方法
 impl RegionManager {
-    /// Region文件读取
-    pub(crate) fn read_region_file(file: &mut fs::File) -> Result<RegionFile, SaveError> {
-        let mut data = Vec::new();
-        file.read_to_end(&mut data)?;
-
-        // 先解压整个 region 文件
-        let decompressed = Self::decompress(&data)?;
-        let region: RegionFile = bincode::DefaultOptions::new()
-            .with_varint_encoding()
-            .deserialize(&decompressed)?;
-
-        Ok(region)
+    /// 从路径读取 Region；主文件损坏时自动恢复最近有效备份。
+    pub(crate) fn read_region_path(path: &std::path::Path) -> Result<RegionFile, SaveError> {
+        match persistence::read_verified(path, Self::validate_region_bytes) {
+            Ok(bytes) => Self::decode_region(&bytes),
+            Err(primary_error)
+                if persistence::has_valid_backup(path, Self::validate_region_bytes) =>
+            {
+                log::warn!(
+                    "[存档系统] Region 主文件损坏，正在恢复最近备份: {} ({primary_error})",
+                    path.display()
+                );
+                persistence::restore_backup(path, Self::validate_region_bytes)?;
+                let bytes = persistence::read_verified(path, Self::validate_region_bytes)?;
+                Self::decode_region(&bytes)
+            }
+            Err(error) => Err(error.into()),
+        }
     }
 
-    /// Region文件写入
-    fn write_region_file(file: &mut fs::File, region: &RegionFile) -> Result<(), SaveError> {
+    fn write_region_path(path: &std::path::Path, region: &RegionFile) -> Result<(), SaveError> {
+        let bytes = Self::encode_region(region)?;
+        persistence::atomic_write_verified(path, &bytes, Self::validate_region_bytes)?;
+        Ok(())
+    }
+
+    fn encode_region(region: &RegionFile) -> Result<Vec<u8>, SaveError> {
         let serialized = bincode::DefaultOptions::new()
             .with_varint_encoding()
             .serialize(region)?;
+        Self::compress(&serialized)
+    }
 
-        let compressed = Self::compress(&serialized)?;
-        file.write_all(&compressed)?;
+    fn decode_region(data: &[u8]) -> Result<RegionFile, SaveError> {
+        let decompressed = Self::decompress(data)?;
+        let region = bincode::DefaultOptions::new()
+            .with_varint_encoding()
+            .reject_trailing_bytes()
+            .deserialize::<RegionFile>(&decompressed)?;
+        Self::validate_region_structure(&region)?;
+        Ok(region)
+    }
+
+    fn validate_region_bytes(data: &[u8]) -> Result<(), String> {
+        Self::decode_region(data)
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+
+    fn validate_region_structure(region: &RegionFile) -> Result<(), SaveError> {
+        let present_chunks: usize = region
+            .header
+            .chunk_present
+            .iter()
+            .map(|byte| byte.count_ones() as usize)
+            .sum();
+        if present_chunks != region.chunks.len() {
+            return Err(SaveError::Serialize(format!(
+                "Region 位图包含 {present_chunks} 个区块，但数据区包含 {} 个",
+                region.chunks.len()
+            )));
+        }
+        for chunk in &region.chunks {
+            let decompressed = Self::decompress(chunk)?;
+            bincode::DefaultOptions::new()
+                .with_varint_encoding()
+                .reject_trailing_bytes()
+                .deserialize::<SavedChunk>(&decompressed)?;
+        }
         Ok(())
     }
 

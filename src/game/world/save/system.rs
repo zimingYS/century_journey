@@ -140,6 +140,26 @@ pub fn process_save_queue_system(mut save_queue: ResMut<SaveQueue>, save_config:
     }
 }
 
+/// 同步写完队列中的所有区块。保存并退出必须在离开世界前调用此函数。
+pub fn flush_save_queue(
+    world_name: &str,
+    save_queue: &mut SaveQueue,
+) -> Result<usize, super::region::SaveError> {
+    let batch: Vec<SavedChunk> = save_queue.queue.drain(..).collect();
+    if batch.is_empty() {
+        return Ok(0);
+    }
+
+    if let Err(error) = RegionManager::write_chunks_batch(world_name, &batch) {
+        for chunk in batch.into_iter().rev() {
+            save_queue.queue.push_front(chunk);
+        }
+        return Err(error);
+    }
+
+    Ok(batch.len())
+}
+
 /// 从存档文件加载区块，加载到世界数据WorldStorage
 pub fn process_load_queue_system(
     mut load_queue: ResMut<LoadQueue>,
@@ -267,9 +287,7 @@ pub fn load_entire_world(
 
                     // 读取该 region 中所有区块
                     let region_path = RegionManager::region_path(world_name, region_pos);
-                    if let Ok(mut file) = std::fs::File::open(&region_path)
-                        && let Ok(region) = RegionManager::read_region_file(&mut file)
-                    {
+                    if let Ok(region) = RegionManager::read_region_path(&region_path) {
                         for compressed in &region.chunks {
                             if let Ok(decompressed) = RegionManager::decompress(compressed)
                                 && let Ok(mut saved) = bincode::DefaultOptions::new()

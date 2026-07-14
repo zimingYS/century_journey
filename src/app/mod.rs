@@ -7,6 +7,7 @@ pub mod application;
 pub mod config;
 pub mod flow;
 pub mod plugin;
+pub mod settings;
 pub mod state;
 
 pub use application::launcher::launch;

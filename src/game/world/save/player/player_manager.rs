@@ -3,6 +3,7 @@ use super::player_model::{PlayerSaveData, validate_player_data};
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::Player;
+use crate::game::player::components::stats::{Health, Hunger};
 use crate::game::world::save::events::SaveDirtySource;
 use crate::game::world::save::system::SaveConfig;
 use crate::shared::components::camera::FpsCamera;
@@ -84,12 +85,15 @@ fn perform_save(
     world_name: &str,
     gamemode: &PlayerGameMode,
     inventory: &InventoryState,
-    player_query: &Query<&Transform, With<Player>>,
+    player_query: &Query<(&Transform, &Health, &Hunger), With<Player>>,
     camera_query: &Query<&FpsCamera, With<Camera3d>>,
     save_manager: &mut PlayerSaveManager,
     time: &Time,
 ) {
-    let transform = player_query.single().cloned().unwrap_or_default();
+    let (transform, health, hunger) = player_query
+        .single()
+        .map(|(transform, health, hunger)| (*transform, health.current, hunger.current))
+        .unwrap_or((Transform::default(), 20.0, 20.0));
     let pitch = camera_query.single().map(|c| c.pitch).unwrap_or(0.0);
     let data = PlayerSaveData::from_runtime(
         transform.translation,
@@ -97,8 +101,8 @@ fn perform_save(
         pitch,
         gamemode,
         inventory,
-        20.0,
-        20.0,
+        health,
+        hunger,
     );
 
     let path = player_save_path(world_name);
@@ -126,12 +130,15 @@ pub fn save_player_now(
     world_name: &str,
     gamemode: &PlayerGameMode,
     inventory: &InventoryState,
-    player_query: &Query<&Transform, With<Player>>,
+    player_query: &Query<(&Transform, &Health, &Hunger), With<Player>>,
     camera_query: &Query<&FpsCamera, With<Camera3d>>,
     save_manager: &mut PlayerSaveManager,
     time: &Time,
 ) -> Result<(), String> {
-    let transform = player_query.single().cloned().unwrap_or_default();
+    let (transform, health, hunger) = player_query
+        .single()
+        .map(|(transform, health, hunger)| (*transform, health.current, hunger.current))
+        .unwrap_or((Transform::default(), 20.0, 20.0));
     let pitch = camera_query
         .single()
         .map(|camera| camera.pitch)
@@ -142,8 +149,8 @@ pub fn save_player_now(
         pitch,
         gamemode,
         inventory,
-        20.0,
-        20.0,
+        health,
+        hunger,
     );
     let path = player_save_path(world_name);
     write_player_data(&data, &path)?;
@@ -262,7 +269,7 @@ pub fn auto_save_player_system(
     save_config: Res<SaveConfig>,
     gamemode: Res<PlayerGameMode>,
     inventory: Res<InventoryState>,
-    player_query: Query<&Transform, With<Player>>,
+    player_query: Query<(&Transform, &Health, &Hunger), With<Player>>,
     camera_query: Query<&FpsCamera, With<Camera3d>>,
     mut save_manager: ResMut<PlayerSaveManager>,
 ) {
@@ -286,7 +293,7 @@ pub fn save_on_exit_system(
     save_config: Res<SaveConfig>,
     gamemode: Res<PlayerGameMode>,
     inventory: Res<InventoryState>,
-    player_query: Query<&Transform, With<Player>>,
+    player_query: Query<(&Transform, &Health, &Hunger), With<Player>>,
     camera_query: Query<&FpsCamera, With<Camera3d>>,
     mut save_manager: ResMut<PlayerSaveManager>,
     time: Res<Time>,
