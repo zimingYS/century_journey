@@ -1,6 +1,6 @@
 [package]
 name = "century_journey"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "An early-stage single-player voxel sandbox prototype built with Rust and Bevy"
 license = "MPL-2.0"
