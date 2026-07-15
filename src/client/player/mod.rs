@@ -4,8 +4,8 @@ use bevy::prelude::*;
 use crate::client::camera::{CameraPlugin, FpsCamera};
 use crate::game::player::components::stats::{Defense, Health, Hunger};
 use crate::game::player::components::{
-    EnvironmentExposure, LocalPlayer, Player, PlayerCollider, PlayerGravity, PlayerLifecycle,
-    PlayerMovement, PlayerVelocity, RespawnPoint,
+    EnvironmentExposure, FoodUseState, LocalPlayer, Player, PlayerCollider, PlayerGravity,
+    PlayerLifecycle, PlayerMovement, PlayerVelocity, RespawnPoint,
 };
 use crate::game::player::model::PlayerModelPlugin;
 use crate::game::player::model::animation::PlayerAnimationState;
@@ -63,6 +63,7 @@ fn spawn_player(
             PlayerCollider::default(),
             PlayerMovement::default(),
             PlayerVelocity::default(),
+            FoodUseState::default(),
             Health::default(),
             Hunger::default(),
             Defense::default(),

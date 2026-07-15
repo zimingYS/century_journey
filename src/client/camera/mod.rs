@@ -107,6 +107,23 @@ fn perspective_offset(is_first_person: bool) -> Vec3 {
     }
 }
 
+pub struct CameraPlugin;
+
+impl Plugin for CameraPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                player_look_system,
+                toggle_perspective_system,
+                camera_perspective_sync_system,
+                setup_player_camera_system,
+            )
+                .run_if(in_state(crate::shared::states::AppState::InGame)),
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -131,22 +148,5 @@ mod tests {
 
         assert!(eye.z < torso_front);
         assert!(eye.y > PlayerModelConfig::joint_offset(PlayerPart::Body).y);
-    }
-}
-
-pub struct CameraPlugin;
-
-impl Plugin for CameraPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                player_look_system,
-                toggle_perspective_system,
-                camera_perspective_sync_system,
-                setup_player_camera_system,
-            )
-                .run_if(in_state(crate::shared::states::AppState::InGame)),
-        );
     }
 }

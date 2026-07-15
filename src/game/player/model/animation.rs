@@ -8,7 +8,7 @@ use crate::game::gameplay::block_action::BlockBreakProgress;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::stats::Health;
-use crate::game::player::components::{LocalPlayer, PlayerGravity};
+use crate::game::player::components::{FoodUseState, LocalPlayer, PlayerGravity};
 use crate::game::player::events::{DamageEvent, DeathEvent, FoodConsumedEvent};
 use crate::shared::components::camera::FpsCamera;
 
@@ -51,7 +51,7 @@ impl PlayerBehaviorState {
     }
 
     pub const fn loops(self) -> bool {
-        matches!(self, Self::Mining)
+        matches!(self, Self::Mining | Self::Using)
     }
 
     pub const fn marker(self) -> Option<AnimationMarkerKind> {
@@ -406,6 +406,7 @@ pub fn player_animation_controller_system(
             &Transform,
             &PlayerGravity,
             &Health,
+            &FoodUseState,
             &mut PlayerAnimationState,
         ),
         With<LocalPlayer>,
@@ -439,7 +440,7 @@ pub fn player_animation_controller_system(
     let consumed: HashSet<Entity> = input.food_events.read().map(|event| event.player).collect();
     let holding_item = !input.inventory.hotbar.active_item().is_air();
 
-    for (entity, transform, gravity, health, mut state) in &mut query {
+    for (entity, transform, gravity, health, food_use, mut state) in &mut query {
         update_motion_parameters(
             &mut state,
             transform.translation,
@@ -477,7 +478,7 @@ pub fn player_animation_controller_system(
             hurt: damaged.contains(&entity),
             mining: input.actions.pressed(PlayerAction::BreakBlock) && input.break_progress.visible,
             placed: placed.contains(&entity),
-            used: used.contains(&entity) || consumed.contains(&entity),
+            used: food_use.is_active() || used.contains(&entity) || consumed.contains(&entity),
             attacked: input.actions.just_pressed(PlayerAction::Attack)
                 && !input.break_progress.visible,
         };
@@ -562,7 +563,7 @@ fn update_behavior(
         return;
     }
 
-    if current == PlayerBehaviorState::Mining || current_finished {
+    if current.loops() || current_finished {
         start_behavior(state, PlayerBehaviorState::None, config);
     }
 }

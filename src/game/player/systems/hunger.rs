@@ -4,9 +4,12 @@ use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::stats::{Health, Hunger};
-use crate::game::player::components::{Player, PlayerLifecycle};
+use crate::game::player::components::{FoodUseState, Player, PlayerLifecycle};
 use crate::game::player::events::{DamageEvent, DamageSource, FoodConsumedEvent, HealEvent};
 use bevy::prelude::*;
+
+/// Food must be used continuously for this long before it is consumed.
+pub const FOOD_USE_DURATION_SECONDS: f32 = 1.6;
 
 /// 动作消耗系统：冲刺和跳跃会消耗饥饿值。
 pub fn action_cost_system(
@@ -42,21 +45,34 @@ pub fn action_cost_system(
 
 /// 使用当前快捷栏中的食物。
 pub fn use_food_system(
+    time: Res<Time>,
     actions: Res<PlayerActionState>,
     gamemode: Res<PlayerGameMode>,
     item_registry: Option<Res<ItemRegistry>>,
     mut inventory: ResMut<InventoryState>,
-    mut query: Query<(Entity, &mut Hunger, &PlayerLifecycle), With<Player>>,
+    mut query: Query<(Entity, &mut Hunger, &PlayerLifecycle, &mut FoodUseState), With<Player>>,
     mut consumed_writer: MessageWriter<FoodConsumedEvent>,
 ) {
-    if !actions.just_pressed(PlayerAction::Use) || !gamemode.is_survival() {
+    let Ok((player, mut hunger, lifecycle, mut food_use)) = query.single_mut() else {
+        return;
+    };
+
+    if !actions.pressed(PlayerAction::Use)
+        || !gamemode.is_survival()
+        || !lifecycle.is_alive()
+        || hunger.is_full()
+    {
+        food_use.cancel();
         return;
     }
+
     let Some(item_registry) = item_registry else {
+        food_use.cancel();
         return;
     };
     let active_index = inventory.hotbar.active_index;
     let Some(active_stack) = inventory.hotbar.get_stack(active_index) else {
+        food_use.cancel();
         return;
     };
     let food_item = active_stack.item.clone();
@@ -65,26 +81,38 @@ pub fn use_food_system(
         .and_then(|definition| definition.food_data())
         .copied()
     else {
+        food_use.cancel();
         return;
     };
 
-    let Ok((player, mut hunger, lifecycle)) = query.single_mut() else {
+    if !food_use.matches(&food_item, active_index) {
+        food_use.start(food_item.clone(), active_index);
+    }
+    food_use.advance(time.delta_secs());
+    if food_use.elapsed_seconds() < FOOD_USE_DURATION_SECONDS {
         return;
-    };
-    if !lifecycle.is_alive() || hunger.is_full() {
+    }
+
+    let consumed = inventory
+        .hotbar
+        .get_stack_mut(active_index)
+        .filter(|stack| stack.item == food_item)
+        .and_then(|stack| stack.take(1))
+        .is_some();
+    if !consumed {
+        food_use.cancel();
         return;
     }
 
     hunger.eat(food.hunger, food.saturation);
-    if let Some(stack) = inventory.hotbar.get_stack_mut(active_index) {
-        let _ = stack.take(1);
-        if stack.is_empty() {
-            inventory.hotbar.set_stack(
-                active_index,
-                crate::game::inventory::item::stack::ItemStack::empty(),
-            );
-        }
+    if inventory
+        .hotbar
+        .get_stack(active_index)
+        .is_some_and(crate::game::inventory::item::stack::ItemStack::is_empty)
+    {
+        inventory.hotbar.clear_slot(active_index);
     }
+    food_use.cancel();
     consumed_writer.write(FoodConsumedEvent {
         player,
         item: food_item,
@@ -147,6 +175,8 @@ mod stage_seven_tests {
     use crate::shared::held_item::{AnimationConfig, HeldRenderDefinition};
     use crate::shared::identifier::Identifier;
     use crate::shared::item_id::ItemId;
+    use bevy::time::TimeUpdateStrategy;
+    use std::time::Duration;
 
     #[derive(Resource, Default)]
     struct FoodEventCount(usize);
@@ -159,7 +189,7 @@ mod stage_seven_tests {
     }
 
     #[test]
-    fn feedback_fix_food_use_consumes_one_and_emits_animation_event() {
+    fn food_is_consumed_only_after_the_use_animation_duration() {
         let apple = ItemId::item("century_journey:apple");
         let mut registry = ItemRegistry::default();
         registry.register(ItemDefinition {
@@ -183,13 +213,18 @@ mod stage_seven_tests {
         let mut inventory = InventoryState::default();
         inventory.hotbar.set_stack(0, ItemStack::new(apple, 2));
         let mut app = App::new();
-        app.insert_resource(registry)
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs(1)))
+            .insert_resource(registry)
             .insert_resource(inventory)
             .init_resource::<PlayerActionState>()
             .init_resource::<PlayerGameMode>()
             .init_resource::<FoodEventCount>()
             .add_message::<FoodConsumedEvent>()
             .add_systems(Update, (use_food_system, count_food_events).chain());
+        app.world_mut()
+            .resource_mut::<Time<bevy::time::Virtual>>()
+            .set_max_delta(Duration::from_secs(2));
         let player = app
             .world_mut()
             .spawn((
@@ -200,11 +235,28 @@ mod stage_seven_tests {
                     saturation: 0.0,
                 },
                 PlayerLifecycle::default(),
+                FoodUseState::default(),
             ))
             .id();
         app.world_mut()
             .resource_mut::<PlayerActionState>()
             .update(true, [PlayerAction::Use]);
+
+        app.update();
+        app.update();
+
+        let hunger = app.world().get::<Hunger>(player).unwrap();
+        assert_eq!(hunger.current, 10.0);
+        assert!(app.world().get::<FoodUseState>(player).unwrap().is_active());
+        assert_eq!(app.world().resource::<FoodEventCount>().0, 0);
+        assert_eq!(
+            app.world()
+                .resource::<InventoryState>()
+                .hotbar
+                .get_stack(0)
+                .map(|stack| stack.count),
+            Some(2)
+        );
 
         app.update();
 
@@ -219,6 +271,78 @@ mod stage_seven_tests {
                 .get_stack(0)
                 .map(|stack| stack.count),
             Some(1)
+        );
+    }
+
+    #[test]
+    fn releasing_use_cancels_food_without_consuming_it() {
+        let apple = ItemId::item("century_journey:apple");
+        let mut registry = ItemRegistry::default();
+        registry.register(ItemDefinition {
+            identifier: Identifier::parse("century_journey:apple").unwrap(),
+            display_name: "Apple".into(),
+            category: ItemCategory::Consumable,
+            max_stack: 64,
+            tags: vec!["food".into()],
+            icon: default(),
+            model: None,
+            placeable_block: None,
+            tool: None,
+            food: Some(FoodData {
+                hunger: 4.0,
+                saturation: 2.4,
+            }),
+            held_renderer: HeldRenderDefinition::default(),
+            animations: AnimationConfig::default(),
+        });
+        let mut inventory = InventoryState::default();
+        inventory
+            .hotbar
+            .set_stack(0, ItemStack::new(apple.clone(), 2));
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs(1)))
+            .insert_resource(registry)
+            .insert_resource(inventory)
+            .init_resource::<PlayerActionState>()
+            .init_resource::<PlayerGameMode>()
+            .add_message::<FoodConsumedEvent>()
+            .add_systems(Update, use_food_system);
+        app.world_mut()
+            .resource_mut::<Time<bevy::time::Virtual>>()
+            .set_max_delta(Duration::from_secs(2));
+        let player = app
+            .world_mut()
+            .spawn((
+                Player,
+                Hunger {
+                    current: 10.0,
+                    max: 20.0,
+                    saturation: 0.0,
+                },
+                PlayerLifecycle::default(),
+                FoodUseState::default(),
+            ))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<PlayerActionState>()
+            .update(true, [PlayerAction::Use]);
+        app.update();
+        app.world_mut()
+            .resource_mut::<PlayerActionState>()
+            .update(true, []);
+        app.update();
+
+        assert_eq!(app.world().get::<Hunger>(player).unwrap().current, 10.0);
+        assert!(!app.world().get::<FoodUseState>(player).unwrap().is_active());
+        assert_eq!(
+            app.world()
+                .resource::<InventoryState>()
+                .hotbar
+                .get_stack(0)
+                .map(|stack| stack.count),
+            Some(2)
         );
     }
 }

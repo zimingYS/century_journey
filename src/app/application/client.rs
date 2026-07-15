@@ -85,6 +85,7 @@ impl Application for ClientApplication {
         );
         app.insert_resource(world_streaming_config)
             .add_plugins(ClientPluginGroup);
+        crate::client::performance::configure_fixed_performance_scenario(&mut app);
         Ok(app)
     }
 }
