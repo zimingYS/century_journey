@@ -223,37 +223,53 @@ pub fn dropped_item_merge_system(
     mut commands: Commands,
     query: Query<(Entity, &Transform, &DroppedItem)>,
 ) {
-    let items: Vec<_> = query
+    let mut items: Vec<_> = query
         .iter()
-        .filter(|(_, _, dropped)| dropped.grounded)
-        .map(|(entity, transform, dropped)| (entity, transform.translation, dropped.stack.clone()))
+        .filter(|(_, _, dropped)| dropped.grounded && !dropped.stack.is_empty())
+        .map(|(entity, transform, dropped)| (entity, transform.translation, dropped.clone()))
         .collect();
-    let mut skip = std::collections::HashSet::new();
+    let original_counts: Vec<_> = items
+        .iter()
+        .map(|(_, _, dropped)| dropped.stack.count)
+        .collect();
+    let mut emptied = std::collections::HashSet::new();
+
     for i in 0..items.len() {
-        if skip.contains(&items[i].0) {
+        if emptied.contains(&items[i].0) || items[i].2.stack.is_full() {
             continue;
         }
         for j in (i + 1)..items.len() {
-            if skip.contains(&items[j].0) {
+            if emptied.contains(&items[j].0) {
                 continue;
             }
             if items[i].1.distance(items[j].1) > 1.5 {
                 continue;
             }
-            if items[i].2.item != items[j].2.item {
+            if !items[i].2.stack.is_same_item(&items[j].2.stack) {
                 continue;
             }
-            let total_count = items[i].2.count + items[j].2.count;
-            let max_count = crate::game::inventory::item::stack::ItemStack::MAX_STACK_SIZE;
-            if total_count <= max_count {
-                let mut merged =
-                    DroppedItem::new(ItemStack::new(items[i].2.item.clone(), total_count));
-                merged.grounded = true;
-                commands.entity(items[i].0).try_insert(merged);
-                despawn_dropped_item(&mut commands, items[j].0);
-                skip.insert(items[i].0);
-                skip.insert(items[j].0);
+
+            let moved = {
+                let (left, right) = items.split_at_mut(j);
+                left[i].2.stack.merge_from(&mut right[0].2.stack)
+            };
+            if moved == 0 {
+                continue;
             }
+            if items[j].2.stack.is_empty() {
+                emptied.insert(items[j].0);
+            }
+            if items[i].2.stack.is_full() {
+                break;
+            }
+        }
+    }
+
+    for (index, (entity, _, dropped)) in items.into_iter().enumerate() {
+        if emptied.contains(&entity) {
+            despawn_dropped_item(&mut commands, entity);
+        } else if dropped.stack.count != original_counts[index] {
+            commands.entity(entity).try_insert(dropped);
         }
     }
 }
@@ -283,7 +299,8 @@ impl Plugin for DroppedItemPlugin {
                 dropped_item_physics_system,
                 dropped_item_merge_system,
                 dropped_item_tick_system,
-            ),
+            )
+                .chain(),
         );
     }
 }
@@ -367,10 +384,103 @@ fn deterministic_wave(value: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::game::inventory::item::stack::ItemInstanceData;
+    use crate::shared::item_id::ItemId;
 
     #[test]
     fn requested_fix_embedded_drop_is_not_lifted_to_block_top() {
         assert!(!crossed_ground_surface(4.5, 4.4, 5.06));
         assert!(crossed_ground_surface(5.2, 5.0, 5.06));
+    }
+
+    fn grounded_drop(item: ItemStack, position: Vec3) -> (DroppedItem, Transform) {
+        let mut dropped = DroppedItem::new(item);
+        dropped.grounded = true;
+        (dropped, Transform::from_translation(position))
+    }
+
+    #[test]
+    fn nearby_drops_partially_merge_without_losing_overflow() {
+        let item = ItemId::item("century_journey:apple");
+        let mut app = App::new();
+        app.add_systems(Update, dropped_item_merge_system);
+        app.world_mut()
+            .spawn(grounded_drop(ItemStack::new(item.clone(), 60), Vec3::ZERO));
+        app.world_mut().spawn(grounded_drop(
+            ItemStack::new(item, 10),
+            Vec3::new(0.5, 0.0, 0.0),
+        ));
+
+        app.update();
+
+        let mut counts: Vec<_> = app
+            .world_mut()
+            .query::<&DroppedItem>()
+            .iter(app.world())
+            .map(|dropped| dropped.stack.count)
+            .collect();
+        counts.sort_unstable();
+        assert_eq!(counts, vec![6, 64]);
+    }
+
+    #[test]
+    fn three_nearby_drops_merge_to_the_minimum_stack_count() {
+        let item = ItemId::item("century_journey:stick");
+        let mut app = App::new();
+        app.add_systems(Update, dropped_item_merge_system);
+        for count in [40, 40, 40] {
+            app.world_mut().spawn(grounded_drop(
+                ItemStack::new(item.clone(), count),
+                Vec3::ZERO,
+            ));
+        }
+
+        app.update();
+
+        let mut counts: Vec<_> = app
+            .world_mut()
+            .query::<&DroppedItem>()
+            .iter(app.world())
+            .map(|dropped| dropped.stack.count)
+            .collect();
+        counts.sort_unstable();
+        assert_eq!(counts, vec![56, 64]);
+    }
+
+    #[test]
+    fn drops_with_different_instance_data_do_not_merge() {
+        let item = ItemId::item("century_journey:wooden_pickaxe");
+        let mut app = App::new();
+        app.add_systems(Update, dropped_item_merge_system);
+        app.world_mut().spawn(grounded_drop(
+            ItemStack::with_instance(
+                item.clone(),
+                1,
+                ItemInstanceData {
+                    durability: Some(10),
+                },
+            ),
+            Vec3::ZERO,
+        ));
+        app.world_mut().spawn(grounded_drop(
+            ItemStack::with_instance(
+                item,
+                1,
+                ItemInstanceData {
+                    durability: Some(9),
+                },
+            ),
+            Vec3::ZERO,
+        ));
+
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .query::<&DroppedItem>()
+                .iter(app.world())
+                .count(),
+            2
+        );
     }
 }

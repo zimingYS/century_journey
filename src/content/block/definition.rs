@@ -23,6 +23,10 @@ pub struct BlockProperty {
     #[serde(default)]
     pub required_tool: Option<ToolType>,
 
+    /// Tool type that receives its efficiency bonus without being required for drops.
+    #[serde(default)]
+    pub effective_tool: Option<ToolType>,
+
     #[serde(default)]
     pub harvest_level: u8,
 
@@ -83,6 +87,7 @@ impl Default for BlockProperty {
             textures: BlockTextureConfig::default(),
             hardness: 1.0,
             required_tool: None,
+            effective_tool: None,
             harvest_level: 0,
             model: BlockModelConfig::default(),
             sound: BlockSoundConfig::default(),

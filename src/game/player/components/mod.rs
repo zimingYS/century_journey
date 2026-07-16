@@ -1,6 +1,7 @@
 pub mod stats;
 
 use crate::game::constant::player::*;
+use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -109,6 +110,51 @@ impl Default for PlayerLifecycle {
 impl PlayerLifecycle {
     pub const fn is_alive(&self) -> bool {
         matches!(self.state, PlayerLifeState::Alive)
+    }
+}
+
+/// Tracks a food use action. The item is consumed only after the action completes.
+#[derive(Component, Debug, Clone, Default)]
+pub struct FoodUseState {
+    item: Option<ItemId>,
+    hotbar_slot: usize,
+    elapsed_seconds: f32,
+}
+
+impl FoodUseState {
+    pub fn start(&mut self, item: ItemId, hotbar_slot: usize) {
+        self.item = Some(item);
+        self.hotbar_slot = hotbar_slot;
+        self.elapsed_seconds = 0.0;
+    }
+
+    pub fn cancel(&mut self) {
+        *self = Self::default();
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.item.is_some()
+    }
+
+    pub fn matches(&self, item: &ItemId, hotbar_slot: usize) -> bool {
+        self.item.as_ref() == Some(item) && self.hotbar_slot == hotbar_slot
+    }
+
+    pub fn advance(&mut self, delta_seconds: f32) {
+        if delta_seconds.is_finite() && delta_seconds > 0.0 {
+            self.elapsed_seconds += delta_seconds;
+        }
+    }
+
+    pub fn elapsed_seconds(&self) -> f32 {
+        self.elapsed_seconds
+    }
+
+    pub fn progress(&self, duration_seconds: f32) -> f32 {
+        if duration_seconds <= 0.0 {
+            return 1.0;
+        }
+        (self.elapsed_seconds / duration_seconds).clamp(0.0, 1.0)
     }
 }
 

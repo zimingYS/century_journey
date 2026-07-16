@@ -4,8 +4,8 @@ use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::stats::{Defense, Health, Hunger};
 use crate::game::player::components::{
-    EnvironmentExposure, LocalPlayer, Player, PlayerGravity, PlayerLifeState, PlayerLifecycle,
-    PlayerVelocity, RespawnPoint,
+    EnvironmentExposure, FoodUseState, LocalPlayer, Player, PlayerGravity, PlayerLifeState,
+    PlayerLifecycle, PlayerVelocity, RespawnPoint,
 };
 use crate::game::player::events::{
     AttackEvent, DamageEvent, DamageSource, DeathEvent, HealEvent, RespawnRequest,
@@ -107,7 +107,7 @@ pub fn damage_system(
         let Ok((mut health, defense_opt, mut lifecycle)) = query.get_mut(event.target) else {
             continue;
         };
-        if !lifecycle.is_alive() || event.amount <= 0.0 {
+        if !lifecycle.is_alive() || !event.amount.is_finite() || event.amount <= 0.0 {
             continue;
         }
         let reduction = defense_opt.map_or(0.0, Defense::damage_reduction);
@@ -209,6 +209,7 @@ pub fn respawn_request_system(
             &mut PlayerVelocity,
             &mut PlayerGravity,
             &mut EnvironmentExposure,
+            &mut FoodUseState,
         ),
         With<Player>,
     >,
@@ -223,6 +224,7 @@ pub fn respawn_request_system(
             mut velocity,
             mut gravity,
             mut exposure,
+            mut food_use,
         )) = query.get_mut(request.entity)
         else {
             continue;
@@ -236,6 +238,7 @@ pub fn respawn_request_system(
         *velocity = PlayerVelocity::default();
         *gravity = PlayerGravity::default();
         *exposure = EnvironmentExposure::default();
+        food_use.cancel();
         lifecycle.state = PlayerLifeState::Respawning;
         lifecycle.respawn_remaining = 0.15;
     }
@@ -301,9 +304,19 @@ mod stage_seven_tests {
     #[derive(Resource, Default)]
     struct AttackEventCount(usize);
 
+    #[derive(Resource, Default)]
+    struct DeathEventCount(usize);
+
     fn count_attack_events(
         mut reader: MessageReader<AttackEvent>,
         mut count: ResMut<AttackEventCount>,
+    ) {
+        count.0 += reader.read().count();
+    }
+
+    fn count_death_events(
+        mut reader: MessageReader<DeathEvent>,
+        mut count: ResMut<DeathEventCount>,
     ) {
         count.0 += reader.read().count();
     }
@@ -331,6 +344,50 @@ mod stage_seven_tests {
         app.update();
 
         assert_eq!(app.world().resource::<AttackEventCount>().0, 0);
+    }
+
+    #[test]
+    fn exact_lethal_damage_emits_one_death_and_invalid_damage_is_ignored() {
+        let mut app = App::new();
+        app.init_resource::<DeathEventCount>()
+            .add_message::<DamageEvent>()
+            .add_message::<DeathEvent>()
+            .add_systems(Update, (damage_system, count_death_events).chain());
+        let player = app
+            .world_mut()
+            .spawn((
+                Player,
+                Health {
+                    current: 2.0,
+                    max: 20.0,
+                },
+                PlayerLifecycle::default(),
+            ))
+            .id();
+
+        app.world_mut().write_message(DamageEvent {
+            target: player,
+            amount: f32::NAN,
+            source: DamageSource::Generic,
+        });
+        app.world_mut().write_message(DamageEvent {
+            target: player,
+            amount: 2.0,
+            source: DamageSource::Generic,
+        });
+        app.world_mut().write_message(DamageEvent {
+            target: player,
+            amount: 2.0,
+            source: DamageSource::Generic,
+        });
+        app.update();
+
+        assert_eq!(app.world().get::<Health>(player).unwrap().current, 0.0);
+        assert_eq!(
+            app.world().get::<PlayerLifecycle>(player).unwrap().state,
+            PlayerLifeState::Dead
+        );
+        assert_eq!(app.world().resource::<DeathEventCount>().0, 1);
     }
 
     #[test]
@@ -377,6 +434,7 @@ mod stage_seven_tests {
                 PlayerVelocity::default(),
                 PlayerGravity::default(),
                 EnvironmentExposure::default(),
+                FoodUseState::default(),
             ))
             .id();
 
@@ -418,6 +476,8 @@ mod stage_seven_tests {
             respawn_point
         );
         assert_eq!(app.world().get::<Health>(player).unwrap().current, 20.0);
+        assert_eq!(app.world().get::<Hunger>(player).unwrap().current, 20.0);
+        assert!(!app.world().get::<FoodUseState>(player).unwrap().is_active());
 
         app.world_mut()
             .get_mut::<PlayerLifecycle>(player)

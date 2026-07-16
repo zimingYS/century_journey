@@ -5,7 +5,8 @@
   "is_solid": true,
   "light_emission": 0,
   "hardness": 1.0,
-  "required_tool": "axe",
+  "required_tool": null,
+  "effective_tool": "axe",
   "harvest_level": 0,
   "tags": ["mineable/axe", "wood_like"],
   "sound": {
