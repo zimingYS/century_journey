@@ -16,6 +16,7 @@ const REPLACEABLE_TAG: &str = "overworld_replaceable";
 const BASE_BREAK_SECONDS_PER_HARDNESS: f32 = 1.0;
 const MIN_SURVIVAL_BREAK_SECONDS: f32 = 0.08;
 const MIN_TOOL_EFFICIENCY: f32 = 0.1;
+const INCORRECT_TOOL_BREAK_TIME_MULTIPLIER: f32 = 5.0;
 
 #[derive(Resource, Debug, Clone)]
 pub struct BlockBreakProgress {
@@ -170,11 +171,17 @@ pub fn block_break_seconds(
         return Some(0.0);
     }
     if !can_harvest_block(block, active_tool) {
-        return None;
+        return Some(
+            (block.hardness
+                * BASE_BREAK_SECONDS_PER_HARDNESS
+                * INCORRECT_TOOL_BREAK_TIME_MULTIPLIER)
+                .max(MIN_SURVIVAL_BREAK_SECONDS),
+        );
     }
 
-    let efficiency = match (block.required_tool, active_tool) {
-        (Some(required_tool), Some(tool)) if tool.tool_type == required_tool => tool.efficiency,
+    let effective_tool = block.effective_tool.or(block.required_tool);
+    let efficiency = match (effective_tool, active_tool) {
+        (Some(effective_tool), Some(tool)) if tool.tool_type == effective_tool => tool.efficiency,
         _ => 1.0,
     }
     .max(MIN_TOOL_EFFICIENCY);
@@ -211,8 +218,12 @@ mod tests {
         ToolData::new(ToolType::Axe, tier, 100, efficiency)
     }
 
+    fn shovel(tier: ToolTier, efficiency: f32) -> ToolData {
+        ToolData::new(ToolType::Shovel, tier, 100, efficiency)
+    }
+
     #[test]
-    fn required_tool_rejects_wrong_tool_or_low_tier() {
+    fn harvest_requires_matching_tool_and_sufficient_tier() {
         let block = BlockProperty {
             required_tool: Some(ToolType::Pickaxe),
             harvest_level: 1,
@@ -227,6 +238,34 @@ mod tests {
         assert!(!can_harvest_block(&block, Some(&wood_pickaxe)));
         assert!(!can_harvest_block(&block, Some(&stone_axe)));
         assert!(can_harvest_block(&block, Some(&stone_pickaxe)));
+    }
+
+    #[test]
+    fn wrong_tool_or_low_tier_can_break_block_with_speed_penalty() {
+        let block = BlockProperty {
+            hardness: 3.0,
+            required_tool: Some(ToolType::Pickaxe),
+            harvest_level: 1,
+            ..default()
+        };
+        let gamemode = PlayerGameMode::default();
+        let wood_pickaxe = pickaxe(ToolTier::Wood, 1.5);
+        let stone_axe = axe(ToolTier::Stone, 2.0);
+        let stone_pickaxe = pickaxe(ToolTier::Stone, 2.0);
+
+        assert_eq!(block_break_seconds(&block, &gamemode, None), Some(15.0));
+        assert_eq!(
+            block_break_seconds(&block, &gamemode, Some(&wood_pickaxe)),
+            Some(15.0)
+        );
+        assert_eq!(
+            block_break_seconds(&block, &gamemode, Some(&stone_axe)),
+            Some(15.0)
+        );
+        assert_eq!(
+            block_break_seconds(&block, &gamemode, Some(&stone_pickaxe)),
+            Some(1.5)
+        );
     }
 
     #[test]
@@ -247,6 +286,52 @@ mod tests {
         assert!(fast_seconds < slow_seconds);
         assert_eq!(slow_seconds, 3.0);
         assert_eq!(fast_seconds, 1.0);
+    }
+
+    #[test]
+    fn optional_effective_tool_accelerates_wood_without_restricting_harvest() {
+        let block = BlockProperty {
+            hardness: 1.0,
+            required_tool: None,
+            effective_tool: Some(ToolType::Axe),
+            ..default()
+        };
+        let gamemode = PlayerGameMode::default();
+        let wooden_axe = axe(ToolTier::Wood, 1.2);
+        let stone_axe = axe(ToolTier::Stone, 1.5);
+        let iron_axe = axe(ToolTier::Iron, 2.0);
+        let iron_pickaxe = pickaxe(ToolTier::Iron, 3.0);
+
+        assert!(can_harvest_block(&block, None));
+        let hand_seconds = block_break_seconds(&block, &gamemode, None).unwrap();
+        let wooden_axe_seconds = block_break_seconds(&block, &gamemode, Some(&wooden_axe)).unwrap();
+        let stone_axe_seconds = block_break_seconds(&block, &gamemode, Some(&stone_axe)).unwrap();
+        let iron_axe_seconds = block_break_seconds(&block, &gamemode, Some(&iron_axe)).unwrap();
+
+        assert_eq!(hand_seconds, 1.0);
+        assert_eq!(
+            block_break_seconds(&block, &gamemode, Some(&iron_pickaxe)),
+            Some(hand_seconds)
+        );
+        assert!(wooden_axe_seconds < hand_seconds);
+        assert!(stone_axe_seconds < wooden_axe_seconds);
+        assert!(iron_axe_seconds < stone_axe_seconds);
+    }
+
+    #[test]
+    fn optional_shovel_accelerates_dirt_without_restricting_harvest() {
+        let block = BlockProperty {
+            hardness: 0.5,
+            required_tool: None,
+            effective_tool: Some(ToolType::Shovel),
+            ..default()
+        };
+        let gamemode = PlayerGameMode::default();
+        let wooden_shovel = shovel(ToolTier::Wood, 1.5);
+
+        assert!(can_harvest_block(&block, None));
+        assert_eq!(block_break_seconds(&block, &gamemode, None), Some(0.5));
+        assert!(block_break_seconds(&block, &gamemode, Some(&wooden_shovel)).unwrap() < 0.5);
     }
 
     #[test]

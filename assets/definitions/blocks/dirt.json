@@ -6,6 +6,7 @@
   "light_emission": 0,
   "hardness": 0.5,
   "required_tool": null,
+  "effective_tool": "shovel",
   "harvest_level": 0,
   "tags": ["mineable/shovel"],
   "sound": {
