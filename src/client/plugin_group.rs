@@ -11,6 +11,7 @@ use crate::client::sky::SkyPlugin;
 use crate::client::sound::ClientSoundPlugin;
 use crate::client::startup::plugin::ClientStartupPlugin;
 use crate::client::ui::UIPlugin;
+use crate::content::biome::plugin::BiomeContentPlugin;
 use crate::content::block::VoxelPlugin;
 use crate::content::item::plugin::ItemContentPlugin;
 use crate::content::lifecycle::ContentLifecyclePlugin;
@@ -35,6 +36,7 @@ impl PluginGroup for ClientPluginGroup {
             .add(TaskPlugin)
             // Content 层（数据驱动，不依赖 Game/Client）
             .add(ContentLifecyclePlugin)
+            .add(BiomeContentPlugin)
             .add(ItemContentPlugin)
             .add(VoxelPlugin)
             .add(LootPlugin)

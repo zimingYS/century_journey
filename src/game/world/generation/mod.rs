@@ -24,8 +24,8 @@ pub struct WorldGenerator {
 }
 
 impl WorldGenerator {
-    pub fn new(seed: u32) -> Self {
-        let pipeline = GenerationPipeline::new(seed);
+    pub fn new(seed: u32, biome_registry: BiomeRegistry) -> Self {
+        let pipeline = GenerationPipeline::new(seed, biome_registry);
 
         Self {
             seed,
@@ -48,5 +48,10 @@ impl WorldGenerator {
     /// 更新季节
     pub fn update_season(&mut self, season: climate::Season) {
         self.pipeline.update_season(season);
+    }
+
+    pub fn set_biome_registry(&mut self, biome_registry: BiomeRegistry) {
+        self.pipeline.biome_registry = biome_registry.clone();
+        self.shared_biome = Arc::new(biome_registry);
     }
 }

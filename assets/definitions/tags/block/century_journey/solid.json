@@ -1,4 +1,5 @@
 {
+  "format_version": 1,
   "replace": false,
   "values": [
     "century_journey:stone",
@@ -8,6 +9,8 @@
     "century_journey:snow",
     "century_journey:ice",
     "century_journey:wood",
+    "century_journey:planks",
+    "century_journey:crafting_table",
     "century_journey:leaves"
   ]
 }

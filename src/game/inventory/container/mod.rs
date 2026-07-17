@@ -3,6 +3,31 @@ pub mod hotbar;
 pub mod survival;
 
 use crate::game::inventory::item::stack::ItemStack;
+use crate::shared::ui_types::ContainerKind;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ContainerLayout {
+    pub columns: usize,
+    pub rows: usize,
+}
+
+impl ContainerLayout {
+    pub const fn new(columns: usize, rows: usize) -> Self {
+        Self { columns, rows }
+    }
+
+    pub const fn slot_count(self) -> usize {
+        self.columns * self.rows
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContainerSlotRole {
+    Storage,
+    Input,
+    Output,
+    Fuel,
+}
 
 /// 统一容器接口
 /// 所有容器（Hotbar、Backpack、Chest、Furnace 等）均实现此 trait。
@@ -32,5 +57,27 @@ pub trait InventoryContainer {
         } else {
             Some(std::mem::replace(slot, stack))
         }
+    }
+}
+
+/// 带布局和槽位语义的通用容器接口。
+///
+/// 背包等旧容器继续只需实现 `InventoryContainer`；工作台以及后续箱子、熔炉
+/// 使用此接口向交互和 UI 层公开统一的容器元数据。
+pub trait GameContainer: InventoryContainer {
+    fn kind(&self) -> ContainerKind;
+
+    fn layout(&self) -> ContainerLayout;
+
+    fn slot_role(&self, _index: usize) -> ContainerSlotRole {
+        ContainerSlotRole::Storage
+    }
+
+    fn can_insert(&self, index: usize, _stack: &ItemStack) -> bool {
+        index < self.slot_count() && self.slot_role(index) != ContainerSlotRole::Output
+    }
+
+    fn can_extract(&self, index: usize) -> bool {
+        index < self.slot_count()
     }
 }

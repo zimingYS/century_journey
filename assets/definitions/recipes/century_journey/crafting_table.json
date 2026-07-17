@@ -1,0 +1,17 @@
+{
+  "format_version": 1,
+  "type": "shaped",
+  "pattern": [
+    "PP",
+    "PP"
+  ],
+  "key": {
+    "P": {
+      "item": "century_journey:planks"
+    }
+  },
+  "result": {
+    "item": "century_journey:crafting_table",
+    "count": 1
+  }
+}

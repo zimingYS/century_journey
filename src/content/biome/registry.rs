@@ -1,9 +1,8 @@
-use crate::content::biome::definition::{BiomeDefinition, BiomeTerrainParams};
+use crate::content::biome::definition::BiomeDefinition;
 use crate::shared::identifier::Identifier;
-use bevy::prelude::*;
-use std::collections::HashMap;
+use bevy::prelude::Resource;
+use std::collections::{HashMap, HashSet};
 
-/// 生物群系注册表
 #[derive(Resource, Default, Clone)]
 pub struct BiomeRegistry {
     biomes: Vec<BiomeDefinition>,
@@ -11,124 +10,62 @@ pub struct BiomeRegistry {
 }
 
 impl BiomeRegistry {
-    pub fn register_builtin_biomes(&mut self) {
-        let builtin = vec![
-            BiomeDefinition {
-                identifier: Identifier::new("century_journey", "plains"),
-                display_name: "平原".to_string(),
-                temperature_range: (0.3, 0.7),
-                humidity_range: (0.3, 0.7),
-                terrain: BiomeTerrainParams {
-                    base_height: 64.0,
-                    height_amplitude: 8.0,
-                    roughness: 0.2,
-                },
-                surface_block: Identifier::new("century_journey", "grass"),
-                subsurface_block: Identifier::new("century_journey", "dirt"),
-                beach_block: Identifier::new("century_journey", "sand"),
-                tree_density: 0.02,
-                ore_config: "standard".to_string(),
-            },
-            BiomeDefinition {
-                identifier: Identifier::new("century_journey", "forest"),
-                display_name: "森林".to_string(),
-                temperature_range: (0.3, 0.7),
-                humidity_range: (0.5, 1.0),
-                terrain: BiomeTerrainParams {
-                    base_height: 64.0,
-                    height_amplitude: 12.0,
-                    roughness: 0.4,
-                },
-                surface_block: Identifier::new("century_journey", "grass"),
-                subsurface_block: Identifier::new("century_journey", "dirt"),
-                beach_block: Identifier::new("century_journey", "sand"),
-                tree_density: 0.15,
-                ore_config: "standard".to_string(),
-            },
-            BiomeDefinition {
-                identifier: Identifier::new("century_journey", "desert"),
-                display_name: "沙漠".to_string(),
-                temperature_range: (0.7, 1.0),
-                humidity_range: (0.0, 0.3),
-                terrain: BiomeTerrainParams {
-                    base_height: 64.0,
-                    height_amplitude: 6.0,
-                    roughness: 0.15,
-                },
-                surface_block: Identifier::new("century_journey", "sand"),
-                subsurface_block: Identifier::new("century_journey", "sand"),
-                beach_block: Identifier::new("century_journey", "sand"),
-                tree_density: 0.0,
-                ore_config: "desert".to_string(),
-            },
-            BiomeDefinition {
-                identifier: Identifier::new("century_journey", "snowy_mountains"),
-                display_name: "雪山".to_string(),
-                temperature_range: (0.0, 0.25),
-                humidity_range: (0.3, 0.8),
-                terrain: BiomeTerrainParams {
-                    base_height: 80.0,
-                    height_amplitude: 40.0,
-                    roughness: 0.7,
-                },
-                surface_block: Identifier::new("century_journey", "grass"),
-                subsurface_block: Identifier::new("century_journey", "dirt"),
-                beach_block: Identifier::new("century_journey", "sand"),
-                tree_density: 0.01,
-                ore_config: "mountain".to_string(),
-            },
-            BiomeDefinition {
-                identifier: Identifier::new("century_journey", "tundra"),
-                display_name: "冻原".to_string(),
-                temperature_range: (0.0, 0.25),
-                humidity_range: (0.0, 0.4),
-                terrain: BiomeTerrainParams {
-                    base_height: 64.0,
-                    height_amplitude: 5.0,
-                    roughness: 0.1,
-                },
-                surface_block: Identifier::new("century_journey", "grass"),
-                subsurface_block: Identifier::new("century_journey", "dirt"),
-                beach_block: Identifier::new("century_journey", "sand"),
-                tree_density: 0.0,
-                ore_config: "standard".to_string(),
-            },
-            BiomeDefinition {
-                identifier: Identifier::new("century_journey", "ocean"),
-                display_name: "海洋".to_string(),
-                temperature_range: (0.2, 0.8),
-                humidity_range: (0.6, 1.0),
-                terrain: BiomeTerrainParams {
-                    base_height: 50.0,
-                    height_amplitude: 5.0,
-                    roughness: 0.1,
-                },
-                surface_block: Identifier::new("century_journey", "sand"),
-                subsurface_block: Identifier::new("century_journey", "sand"),
-                beach_block: Identifier::new("century_journey", "sand"),
-                tree_density: 0.0,
-                ore_config: "ocean".to_string(),
-            },
-        ];
+    pub fn from_definitions(definitions: Vec<BiomeDefinition>) -> Result<Self, String> {
+        let mut registry = Self::default();
+        registry.replace_definitions(definitions)?;
+        Ok(registry)
+    }
 
-        for biome in builtin {
-            let idx = self.biomes.len() as u8;
-            self.identifier_to_index
-                .insert(biome.identifier.clone(), idx);
-            self.biomes.push(biome);
+    pub fn replace_definitions(
+        &mut self,
+        mut definitions: Vec<BiomeDefinition>,
+    ) -> Result<(), String> {
+        if definitions.is_empty() {
+            return Err("at least one biome definition is required".into());
         }
+        if definitions.len() > u8::MAX as usize + 1 {
+            return Err(format!(
+                "too many biome definitions: {}, maximum is 256",
+                definitions.len()
+            ));
+        }
+        definitions.sort_by(|left, right| {
+            left.generation_order
+                .cmp(&right.generation_order)
+                .then_with(|| left.identifier.cmp(&right.identifier))
+        });
+
+        let mut identifiers = HashSet::new();
+        let mut orders = HashSet::new();
+        for biome in &definitions {
+            if !identifiers.insert(biome.identifier.clone()) {
+                return Err(format!("duplicate biome identifier: {}", biome.identifier));
+            }
+            if !orders.insert(biome.generation_order) {
+                return Err(format!(
+                    "duplicate biome generation_order: {}",
+                    biome.generation_order
+                ));
+            }
+        }
+
+        self.biomes = definitions;
+        self.identifier_to_index.clear();
+        for (index, biome) in self.biomes.iter().enumerate() {
+            self.identifier_to_index
+                .insert(biome.identifier.clone(), index as u8);
+        }
+        Ok(())
     }
 
     pub fn get(&self, index: u8) -> Option<&BiomeDefinition> {
         self.biomes.get(index as usize)
     }
 
-    /// 遍历所有已注册群系
     pub fn biomes_iter(&self) -> impl Iterator<Item = (usize, &BiomeDefinition)> {
         self.biomes.iter().enumerate()
     }
 
-    /// 已注册群系数量
     pub fn len(&self) -> usize {
         self.biomes.len()
     }

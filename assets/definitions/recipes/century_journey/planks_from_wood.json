@@ -1,0 +1,13 @@
+{
+  "format_version": 1,
+  "type": "shapeless",
+  "ingredients": [
+    {
+      "item": "century_journey:wood"
+    }
+  ],
+  "result": {
+    "item": "century_journey:planks",
+    "count": 4
+  }
+}

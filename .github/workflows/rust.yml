@@ -13,6 +13,18 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  content:
+    name: Content
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: dtolnay/rust-toolchain@stable
+
+    - name: Validate content
+      run: cargo run --locked -- --check-content assets
+
   check:
     runs-on: windows-latest
 
