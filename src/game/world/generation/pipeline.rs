@@ -32,15 +32,11 @@ pub struct GenerationPipeline {
 }
 
 impl GenerationPipeline {
-    pub fn new(seed: u32) -> Self {
+    pub fn new(seed: u32, biome_registry: BiomeRegistry) -> Self {
         Self {
             noise_sampler: NoiseSampler::new(seed),
             climate_sampler: ClimateSampler::new(seed, ClimateConfig::default()),
-            biome_registry: {
-                let mut reg = BiomeRegistry::default();
-                reg.register_builtin_biomes();
-                reg
-            },
+            biome_registry,
             seed,
         }
     }
@@ -67,10 +63,9 @@ impl GenerationPipeline {
         current_season: crate::game::world::generation::climate::Season,
         biome_registry: BiomeRegistry,
     ) -> Self {
-        let mut pipeline = Self::new(seed);
+        let mut pipeline = Self::new(seed, biome_registry);
         pipeline.climate_sampler = ClimateSampler::new(seed, climate_config);
         pipeline.climate_sampler.current_season = current_season;
-        pipeline.biome_registry = biome_registry;
         pipeline
     }
 

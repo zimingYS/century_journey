@@ -1,12 +1,13 @@
 {
+  "format_version": 1,
   "type": "shaped",
   "pattern": [
-    "A",
-    "A"
+    "P",
+    "P"
   ],
   "key": {
-    "A": {
-      "item": "century_journey:wood"
+    "P": {
+      "item": "century_journey:planks"
     }
   },
   "result": {

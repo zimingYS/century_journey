@@ -1,11 +1,16 @@
 {
+  "format_version": 1,
   "type": "shaped",
   "pattern": [
-    "AA",
-    " A"
+    "PP ",
+    "PS ",
+    " S "
   ],
   "key": {
-    "A": {
+    "P": {
+      "item": "century_journey:planks"
+    },
+    "S": {
       "item": "century_journey:stick"
     }
   },

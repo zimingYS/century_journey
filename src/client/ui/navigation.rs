@@ -108,30 +108,43 @@ pub fn handle_ui_navigation_system(
             UiNavigation::Open(screen) => open_screen(screen, &mut stack, &mut interface),
             UiNavigation::Replace(screen) => {
                 if let Some(closed) = stack.back() {
-                    close_screen_state(closed, &mut interface);
+                    close_screen_and_parent(closed, &mut stack, &mut interface);
                 }
                 open_screen(screen, &mut stack, &mut interface);
             }
             UiNavigation::Back => {
                 if let Some(closed) = stack.back() {
-                    close_screen_state(closed, &mut interface);
+                    close_screen_and_parent(closed, &mut stack, &mut interface);
                 } else {
                     open_screen(UiScreen::PauseMenu, &mut stack, &mut interface);
                 }
             }
             UiNavigation::Close(screen) => {
                 if stack.close(screen) {
-                    close_screen_state(screen, &mut interface);
+                    close_screen_and_parent(screen, &mut stack, &mut interface);
                 }
             }
             UiNavigation::Reset(screen) => {
                 for closed in stack.iter().collect::<Vec<_>>() {
-                    close_screen_state(closed, &mut interface);
+                    close_screen_and_parent(closed, &mut stack, &mut interface);
                 }
                 stack.clear();
                 open_screen(screen, &mut stack, &mut interface);
             }
         }
+    }
+}
+
+fn close_screen_and_parent(
+    screen: UiScreen,
+    stack: &mut UiScreenStack,
+    interface: &mut MessageWriter<InterfaceCommand>,
+) {
+    if screen == UiScreen::Container {
+        stack.close(UiScreen::Inventory);
+        close_screen_state(UiScreen::Inventory, interface);
+    } else {
+        close_screen_state(screen, interface);
     }
 }
 
@@ -205,11 +218,16 @@ pub fn sync_screen_visibility_system(
         return;
     }
     for (root, mut visibility) in &mut query {
-        let audience_matches = match root.audience {
-            UiScreenAudience::Any => true,
-            UiScreenAudience::Creative => gamemode.is_creative(),
-            UiScreenAudience::Survival => gamemode.is_survival(),
-        };
+        let audience_matches =
+            if stack.contains(UiScreen::Container) && root.screen == UiScreen::Inventory {
+                root.audience == UiScreenAudience::Survival
+            } else {
+                match root.audience {
+                    UiScreenAudience::Any => true,
+                    UiScreenAudience::Creative => gamemode.is_creative(),
+                    UiScreenAudience::Survival => gamemode.is_survival(),
+                }
+            };
         *visibility = if stack.contains(root.screen) && audience_matches {
             Visibility::Visible
         } else {

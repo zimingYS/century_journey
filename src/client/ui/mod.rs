@@ -69,6 +69,7 @@ impl Plugin for UIPlugin {
             .add_systems(
                 Update,
                 (
+                    screens::crafting::open_crafting_station_ui_system,
                     navigation::handle_ui_navigation_system,
                     navigation::sync_legacy_screen_state_system,
                     navigation::sync_screen_visibility_system,
@@ -146,6 +147,7 @@ impl Plugin for UIPlugin {
             .add_systems(
                 Update,
                 (
+                    screens::crafting::sync_crafting_panel_system,
                     screens::creative_inventory::creative_hotbar_visual_sync_system,
                     screens::survival_inventory::survival_hotbar_visual_sync_system,
                     screens::survival_inventory::survival_grid_visual_sync_system,

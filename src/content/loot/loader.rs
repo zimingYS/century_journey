@@ -1,3 +1,4 @@
+use crate::content::format::load_versioned_json_dir;
 use crate::content::loot::table::LootTable;
 use crate::engine::asset::AssetFiles;
 use crate::engine::asset::manager::AssetManager;
@@ -18,7 +19,7 @@ use std::collections::HashMap;
 /// 返回: HashMap<Identifier, LootTable> — 标识符到掉落表的映射
 pub fn load_loot_tables(asset: &AssetManager) -> HashMap<Identifier, LootTable> {
     let files = AssetFiles::new(asset.resolver());
-    let pairs = files.read_json_dir::<LootTable>("definitions/loot/blocks");
+    let pairs = load_versioned_json_dir::<LootTable>(&files, "definitions/loot/blocks");
     let mut tables = HashMap::with_capacity(pairs.len());
 
     for (asset_path, table) in pairs {

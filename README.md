@@ -26,7 +26,7 @@ Century Journey is an early-stage voxel sandbox prototype focused on performance
 
 The current content pipeline is data-driven for blocks, items, recipes, loot tables, tags, and selected biome definitions. These formats are still evolving and are not yet a stable public modding API.
 
-当前内容管线已对方块、物品、配方、掉落表、标签和部分生物群系定义采用数据驱动设计。这些格式仍在演进，尚未形成稳定的公共模组 API。
+当前内容管线已对方块、物品、配方、掉落表、标签和生物群系定义采用数据驱动设计。格式版本、内容检查与覆盖顺序见 [内容格式文档](docs/content-format.md)；这些格式仍在演进，尚未形成稳定的公共模组 API。
 
 Project status: **early active development**. The current scope is a local single-player voxel sandbox technical prototype. Server mode, editor mode, multiplayer, and network synchronization are planned but not implemented yet.
 

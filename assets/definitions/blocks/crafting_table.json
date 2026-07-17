@@ -1,0 +1,25 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:crafting_table",
+  "display_name": "工作台",
+  "render_mode": "Opaque",
+  "is_solid": true,
+  "is_interactable": true,
+  "light_emission": 0,
+  "hardness": 1.2,
+  "required_tool": null,
+  "effective_tool": "axe",
+  "harvest_level": 0,
+  "tags": ["mineable/axe", "wood_like"],
+  "sound": {
+    "sound_material": "Wood",
+    "break_volume": 0.92,
+    "place_volume": 0.82,
+    "step_volume": 0.58
+  },
+  "textures": {
+    "top": "textures/blocks/crafting_table_top.png",
+    "bottom": "textures/blocks/planks.png",
+    "north": "textures/blocks/crafting_table_side.png"
+  }
+}

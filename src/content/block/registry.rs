@@ -1,5 +1,6 @@
 use crate::content::block::definition::BlockProperty;
 use crate::content::constant::world::CHUNK_SIZE;
+use crate::content::format::load_versioned_json_dir;
 use crate::engine::asset::AssetFiles;
 use crate::engine::asset::manager::AssetManager;
 use crate::shared::identifier::Identifier;
@@ -116,7 +117,7 @@ pub fn init_block_registry_system(
 
 fn load_block_configs(asset: &AssetManager) -> Vec<BlockProperty> {
     let files = AssetFiles::new(asset.resolver());
-    let pairs = files.read_json_dir::<BlockProperty>("definitions/blocks");
+    let pairs = load_versioned_json_dir::<BlockProperty>(&files, "definitions/blocks");
     let count = pairs.len();
     info!("[block registry] loaded {count} block definitions through AssetManager");
     pairs.into_iter().map(|(_, prop)| prop).collect()

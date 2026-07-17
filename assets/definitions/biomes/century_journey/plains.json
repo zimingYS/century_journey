@@ -1,0 +1,18 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:plains",
+  "display_name": "平原",
+  "generation_order": 0,
+  "temperature_range": [0.3, 0.7],
+  "humidity_range": [0.3, 0.7],
+  "terrain": {
+    "base_height": 64.0,
+    "height_amplitude": 8.0,
+    "roughness": 0.2
+  },
+  "surface_block": "century_journey:grass",
+  "subsurface_block": "century_journey:dirt",
+  "beach_block": "century_journey:sand",
+  "tree_density": 0.02,
+  "ore_config": "standard"
+}

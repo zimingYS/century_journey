@@ -17,7 +17,7 @@ pub mod resolver;
 pub mod texture;
 
 pub use cache::AssetCache;
-pub use files::AssetFiles;
+pub use files::{AssetFiles, ResolvedAssetFile};
 pub use identifier::{AssetId, asset_id};
 pub use location::AssetLocation;
 pub use manager::AssetManager;

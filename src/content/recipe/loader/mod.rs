@@ -1,3 +1,4 @@
+use crate::content::format::load_versioned_json_dir;
 use crate::content::recipe::definition::recipe_definition::RecipeDefinition;
 use crate::engine::asset::AssetFiles;
 use crate::engine::asset::manager::AssetManager;
@@ -6,7 +7,7 @@ use crate::shared::identifier::Identifier;
 /// 从 assets/definitions/recipes 加载所有 RecipeDefinition
 pub fn load_recipe_definitions(asset: &AssetManager) -> Vec<(Identifier, RecipeDefinition)> {
     let files = AssetFiles::new(asset.resolver());
-    let pairs = files.read_json_dir::<RecipeDefinition>("definitions/recipes");
+    let pairs = load_versioned_json_dir::<RecipeDefinition>(&files, "definitions/recipes");
     let mut recipes = Vec::with_capacity(pairs.len());
 
     for (asset_path, recipe) in pairs {

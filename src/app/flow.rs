@@ -491,7 +491,8 @@ fn prepare_world_system(pending: Res<PendingWorld>, mut params: PrepareWorldPara
             params.save_queue.queue.clear();
             params.load_queue.queue.clear();
             params.save_config.world_name = world_id.to_string();
-            *params.world_generator = WorldGenerator::new(level_data.seed as u32);
+            let biomes = params.world_generator.pipeline.biome_registry.clone();
+            *params.world_generator = WorldGenerator::new(level_data.seed as u32, biomes);
             params.time_of_day.current_time = level_data.time_of_day;
             params.session.fresh_load = true;
             params.session.active_world = Some(world_id.to_string());

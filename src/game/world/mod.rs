@@ -21,7 +21,10 @@ impl Plugin for WorldPlugin {
         app.init_resource::<storage::WorldStorage>()
             .init_resource::<crate::game::block::BlockBehaviorRegistry>()
             .add_systems(Startup, crate::game::block::init_behavior_registry_system)
-            .insert_resource(generation::WorldGenerator::new(12345))
+            .insert_resource(generation::WorldGenerator::new(
+                12345,
+                crate::content::biome::BiomeRegistry::default(),
+            ))
             .insert_resource(time::TimeOfDay::default())
             .init_resource::<generation::climate::SeasonResource>()
             .init_resource::<systems::TerrainGenChannel>()
@@ -46,12 +49,24 @@ impl Plugin for WorldPlugin {
             )
             .add_systems(
                 OnEnter(AppState::InGame),
-                cache_block_ids_system
+                (sync_world_biomes_system, cache_block_ids_system)
+                    .chain()
                     .after(crate::content::tag::plugin::init_tag_registry_system)
                     .in_set(ContentReloadSet::Consumers)
                     .run_if(content_reload_requested),
             );
     }
+}
+
+fn sync_world_biomes_system(
+    registry: Res<crate::content::biome::BiomeRegistry>,
+    mut world_generator: ResMut<generation::WorldGenerator>,
+) {
+    if registry.is_empty() {
+        log::error!("[世界] 群系注册表为空，跳过世界生成器刷新");
+        return;
+    }
+    world_generator.set_biome_registry(registry.clone());
 }
 
 fn cache_block_ids_system(
