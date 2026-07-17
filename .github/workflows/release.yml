@@ -6,15 +6,41 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   APP_NAME: century_journey
 
 jobs:
+  quality:
+    name: Quality
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check
+        run: cargo check --locked --all-targets --all-features --verbose
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+
+      - name: Test
+        run: cargo test --locked --verbose
+
   build-windows:
     name: Windows
+    needs: quality
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v7
@@ -22,7 +48,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Build
-        run: cargo build --release
+        run: cargo build --release --locked
 
       - name: Package
         shell: pwsh
@@ -68,7 +94,7 @@ jobs:
 #            libudev-dev
 #
 #      - name: Build
-#        run: cargo build --release
+#        run: cargo build --release --locked
 #
 #      - name: Package
 #        run: |
@@ -99,7 +125,7 @@ jobs:
 #      - uses: dtolnay/rust-toolchain@stable
 #
 #      - name: Build
-#        run: cargo build --release
+#        run: cargo build --release --locked
 #
 #      - name: Package
 #        run: |

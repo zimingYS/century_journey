@@ -9,6 +9,7 @@ readme = "README.md"
 
 [dependencies]
 bevy = "0.19.0"
+icu_provider = { version = "2.2.0", features = ["logging"] }
 log = { version = "0.4.33", features = ["max_level_debug", "release_max_level_warn"] }
 serde = { version = "1.0.228", features = ["derive"] }
 # 噪声生成算法
@@ -30,3 +31,8 @@ opt-level = 1
 # 为开发环境下的所有依赖库启用高强度优化
 [profile.dev.package."*"]
 opt-level = 3
+
+# Windows MSVC can exceed the PDB size limit when every Bevy test target emits
+# full debug information. Tests keep their optimized code but do not need PDBs.
+[profile.test]
+debug = 0
