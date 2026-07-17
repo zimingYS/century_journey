@@ -118,7 +118,7 @@ fn recipe_json_scan_registers_recipe_registry() {
         registry.register(id, recipe);
     }
 
-    let recipe_id = Identifier::parse("century_journey:stick_from_wood").unwrap();
+    let recipe_id = Identifier::parse("century_journey:stick_from_planks").unwrap();
     assert!(registry.get(&recipe_id).is_some());
     assert!(registry.all_recipes().count() >= 1);
 }

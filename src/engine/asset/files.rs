@@ -1,7 +1,16 @@
-use crate::engine::asset::identifier::{AssetId, asset_id};
+use crate::engine::asset::identifier::AssetId;
 use crate::engine::asset::resolver::AssetResolver;
 use serde::de::DeserializeOwned;
+use std::collections::BTreeMap;
 use std::path::Path;
+use std::path::PathBuf;
+
+#[derive(Debug, Clone)]
+pub struct ResolvedAssetFile {
+    pub asset_path: String,
+    pub full_path: PathBuf,
+    pub source_index: usize,
+}
 
 /// 同步文件/配置读取工具 —— 与 `AssetManager` 完全分离的 File API。
 ///
@@ -30,7 +39,7 @@ impl<'a> AssetFiles<'a> {
     }
 
     pub fn read_json<T: DeserializeOwned>(&self, id: &AssetId) -> Result<T, String> {
-        let location = self.resolver.resolve(id, "json");
+        let location = self.resolver.resolve_content(id, "json");
         let content = std::fs::read_to_string(&location.full_path)
             .map_err(|e| format!("read {}: {e}", location.full_path.display()))?;
         serde_json::from_str(&content).map_err(|e| format!("parse {}: {e}", id))
@@ -39,18 +48,55 @@ impl<'a> AssetFiles<'a> {
     /// 递归扫描逻辑目录（相对于 assets 根目录，如 `"definitions/blocks"`）下所有 JSON 文件并解析为 `T`。
     /// 取代原来 `read_json_dir_sync` + `read_json_dir_recursive_sync` 两个重复实现。
     pub fn read_json_dir<T: DeserializeOwned>(&self, dir_path: &str) -> Vec<(String, T)> {
-        let base = self.resolver.root_dir().join(dir_path);
         let mut results = Vec::new();
-        for relative in scan_dir(&base, "json") {
-            let no_ext = relative.strip_suffix(".json").unwrap_or(&relative);
-            let asset_path = format!("{dir_path}/{no_ext}");
-            let id = asset_id(&asset_path);
-            match self.read_json::<T>(&id) {
-                Ok(value) => results.push((asset_path, value)),
-                Err(err) => bevy::log::warn!("Failed to load asset '{}': {}", id, err),
+        for result in self.read_json_dir_results::<T>(dir_path) {
+            match result {
+                Ok(value) => results.push(value),
+                Err(err) => bevy::log::warn!("Failed to load asset: {err}"),
             }
         }
         results
+    }
+
+    /// 返回覆盖合并后的文件列表。后声明内容来源覆盖同相对路径文件。
+    pub fn resolved_files(&self, dir_path: &str, extension: &str) -> Vec<ResolvedAssetFile> {
+        let mut merged = BTreeMap::new();
+        for (source_index, root) in self.resolver.content_roots().iter().enumerate() {
+            let base = root.join(dir_path);
+            for relative in scan_dir(&base, extension) {
+                let full_path = base.join(relative.replace('/', std::path::MAIN_SEPARATOR_STR));
+                let no_ext = relative
+                    .strip_suffix(&format!(".{extension}"))
+                    .unwrap_or(&relative);
+                let asset_path = format!("{dir_path}/{no_ext}");
+                merged.insert(
+                    asset_path.clone(),
+                    ResolvedAssetFile {
+                        asset_path,
+                        full_path,
+                        source_index,
+                    },
+                );
+            }
+        }
+        merged.into_values().collect()
+    }
+
+    /// 严格读取目录，保留每个文件的解析错误供内容检查命令汇总。
+    pub fn read_json_dir_results<T: DeserializeOwned>(
+        &self,
+        dir_path: &str,
+    ) -> Vec<Result<(String, T), String>> {
+        self.resolved_files(dir_path, "json")
+            .into_iter()
+            .map(|file| {
+                let content = std::fs::read_to_string(&file.full_path)
+                    .map_err(|error| format!("read {}: {error}", file.full_path.display()))?;
+                let value = serde_json::from_str::<T>(&content)
+                    .map_err(|error| format!("parse {}: {error}", file.full_path.display()))?;
+                Ok((file.asset_path, value))
+            })
+            .collect()
     }
 }
 
@@ -79,5 +125,6 @@ pub fn scan_dir(base: &Path, extension: &str) -> Vec<String> {
     if base.exists() {
         walk(base, base, extension, &mut out);
     }
+    out.sort();
     out
 }

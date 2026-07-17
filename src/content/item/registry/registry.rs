@@ -1,3 +1,4 @@
+use crate::content::format::load_versioned_json_dir;
 use crate::content::item::definition::{ItemCategory, ItemDefinition};
 use crate::engine::asset::AssetFiles;
 use crate::engine::asset::manager::AssetManager;
@@ -97,7 +98,7 @@ pub fn load_item_definitions_system(
     }
     let files = AssetFiles::new(asset.resolver());
     let mut count = 0usize;
-    for (_path, def) in files.read_json_dir::<ItemDefinition>("definitions/items") {
+    for (_path, def) in load_versioned_json_dir::<ItemDefinition>(&files, "definitions/items") {
         // Registry 自动从 definition 推导 ItemId (RuntimeId)
         item_registry.register(def);
         count += 1;

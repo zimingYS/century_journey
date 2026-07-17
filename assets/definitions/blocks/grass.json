@@ -1,4 +1,5 @@
 {
+  "format_version": 1,
   "identifier": "century_journey:grass",
   "display_name": "草方块",
   "render_mode": "Opaque",

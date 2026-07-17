@@ -1,3 +1,4 @@
+use crate::content::format::load_versioned_json_dir;
 use crate::content::tag::definition::TagAction;
 use crate::engine::asset::AssetFiles;
 use crate::engine::asset::manager::AssetManager;
@@ -14,7 +15,7 @@ use crate::shared::tag::identifier::TagId;
 /// 返回: Vec<(TagId, TagAction)> — tag_id 和目标操作
 pub fn load_tag_actions(asset: &AssetManager) -> Vec<(TagId, TagAction)> {
     let files = AssetFiles::new(asset.resolver());
-    let pairs = files.read_json_dir::<TagAction>("definitions/tags");
+    let pairs = load_versioned_json_dir::<TagAction>(&files, "definitions/tags");
 
     let mut actions = Vec::with_capacity(pairs.len());
 

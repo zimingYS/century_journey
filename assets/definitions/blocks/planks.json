@@ -1,0 +1,22 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:planks",
+  "display_name": "木板",
+  "render_mode": "Opaque",
+  "is_solid": true,
+  "light_emission": 0,
+  "hardness": 0.8,
+  "required_tool": null,
+  "effective_tool": "axe",
+  "harvest_level": 0,
+  "tags": ["mineable/axe", "wood_like"],
+  "sound": {
+    "sound_material": "Wood",
+    "break_volume": 0.88,
+    "place_volume": 0.8,
+    "step_volume": 0.56
+  },
+  "textures": {
+    "top": "textures/blocks/planks.png"
+  }
+}

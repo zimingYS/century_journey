@@ -1,71 +1,140 @@
 use bevy::prelude::*;
 
+use crate::content::block::event::BlockInteractEvent;
+use crate::content::block::registry::BlockRegistry;
 use crate::content::recipe::registry::RecipeRegistry;
 use crate::content::tag::runtime::ItemTagIndex;
-use crate::game::crafting::grid::PlayerCrafting;
+use crate::game::crafting::grid::{
+    ActiveCrafting, CraftingGrid, PlayerCrafting, WorkbenchCrafting,
+};
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::events::SlotInteractionEvent;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::slot::SlotAction;
 use crate::game::inventory::state::InventoryState;
-use crate::shared::ui_types::SlotKind;
+use crate::shared::ui_types::{ContainerKind, SlotKind};
+
+#[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CraftingStationOpened {
+    pub position: IVec3,
+}
 
 pub struct CraftingPlugin;
 
 impl Plugin for CraftingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PlayerCrafting>().add_systems(
-            Update,
-            (crafting_interaction_system, return_crafting_on_close_system),
-        );
+        app.init_resource::<PlayerCrafting>()
+            .init_resource::<WorkbenchCrafting>()
+            .init_resource::<ActiveCrafting>()
+            .add_message::<CraftingStationOpened>()
+            .add_systems(
+                Update,
+                (
+                    open_workbench_system,
+                    crafting_interaction_system,
+                    return_crafting_on_close_system,
+                ),
+            );
+    }
+}
+
+fn open_workbench_system(
+    mut interactions: MessageReader<BlockInteractEvent>,
+    registry: Option<Res<BlockRegistry>>,
+    mut active: ResMut<ActiveCrafting>,
+    mut opened: MessageWriter<CraftingStationOpened>,
+) {
+    let Some(registry) = registry else { return };
+    for event in interactions.read() {
+        let is_workbench = registry
+            .get_identifier_by_id(event.block_id)
+            .is_some_and(|identifier| identifier == "century_journey:crafting_table");
+        if !is_workbench {
+            continue;
+        }
+        *active = ActiveCrafting::workbench(event.world_pos);
+        opened.write(CraftingStationOpened {
+            position: event.world_pos,
+        });
     }
 }
 
 fn crafting_interaction_system(
     mut reader: MessageReader<SlotInteractionEvent>,
     mut state: ResMut<InventoryState>,
-    mut crafting: ResMut<PlayerCrafting>,
+    active: Res<ActiveCrafting>,
+    mut player_crafting: ResMut<PlayerCrafting>,
+    mut workbench_crafting: ResMut<WorkbenchCrafting>,
     recipes: Res<RecipeRegistry>,
     tags: Option<Res<ItemTagIndex>>,
 ) {
     let Some(tags) = tags else { return };
     for event in reader.read() {
-        if event.kind != SlotKind::Container {
+        let SlotKind::Container(kind) = event.kind else {
+            continue;
+        };
+        if kind != active.kind {
             continue;
         }
-        if event.index < PlayerCrafting::SLOT_COUNT {
-            match event.action {
-                SlotAction::LeftClick => crate::game::inventory::interaction::left_click_slot(
-                    &mut *crafting,
-                    event.index,
-                    &mut state.cursor,
-                ),
-                SlotAction::RightClick => crate::game::inventory::interaction::right_click_slot(
-                    &mut *crafting,
-                    event.index,
-                    &mut state.cursor,
-                ),
-                _ => continue,
+        match kind {
+            ContainerKind::PlayerCrafting => handle_crafting_event(
+                event,
+                &mut state,
+                player_crafting.grid_mut(),
+                &recipes,
+                &tags,
+            ),
+            ContainerKind::Workbench => handle_crafting_event(
+                event,
+                &mut state,
+                workbench_crafting.grid_mut(),
+                &recipes,
+                &tags,
+            ),
+            ContainerKind::Chest | ContainerKind::Furnace => {}
+        }
+    }
+}
+
+fn handle_crafting_event(
+    event: &SlotInteractionEvent,
+    state: &mut InventoryState,
+    crafting: &mut CraftingGrid,
+    recipes: &RecipeRegistry,
+    tags: &ItemTagIndex,
+) {
+    if event.index < crafting.slot_count() {
+        match event.action {
+            SlotAction::LeftClick => crate::game::inventory::interaction::left_click_slot(
+                crafting,
+                event.index,
+                &mut state.cursor,
+            ),
+            SlotAction::RightClick => crate::game::inventory::interaction::right_click_slot(
+                crafting,
+                event.index,
+                &mut state.cursor,
+            ),
+            _ => return,
+        }
+        state.cursor.source = None;
+        crafting.refresh(recipes, tags);
+    } else if event.index == crafting.slot_count() {
+        match event.action {
+            SlotAction::LeftClick | SlotAction::RightClick => {
+                take_output(state, crafting, recipes, tags);
             }
-            state.cursor.source = None;
-            crafting.refresh(&recipes, &tags);
-        } else if event.index == PlayerCrafting::SLOT_COUNT {
-            match event.action {
-                SlotAction::LeftClick | SlotAction::RightClick => {
-                    take_output(&mut state, &mut crafting, &recipes, &tags);
-                }
-                SlotAction::ShiftClick => {
-                    while take_output_to_inventory(&mut state, &mut crafting, &recipes, &tags) {}
-                }
-                _ => {}
+            SlotAction::ShiftClick => {
+                while take_output_to_inventory(state, crafting, recipes, tags) {}
             }
+            _ => {}
         }
     }
 }
 
 fn take_output(
     state: &mut InventoryState,
-    crafting: &mut PlayerCrafting,
+    crafting: &mut CraftingGrid,
     recipes: &RecipeRegistry,
     tags: &ItemTagIndex,
 ) {
@@ -91,7 +160,7 @@ fn take_output(
 
 fn take_output_to_inventory(
     state: &mut InventoryState,
-    crafting: &mut PlayerCrafting,
+    crafting: &mut CraftingGrid,
     recipes: &RecipeRegistry,
     tags: &ItemTagIndex,
 ) -> bool {
@@ -166,11 +235,18 @@ fn insert_range<C: InventoryContainer + ?Sized>(
 
 fn return_crafting_on_close_system(
     mut state: ResMut<InventoryState>,
-    mut crafting: ResMut<PlayerCrafting>,
+    mut active: ResMut<ActiveCrafting>,
+    mut player_crafting: ResMut<PlayerCrafting>,
+    mut workbench_crafting: ResMut<WorkbenchCrafting>,
     mut was_opened: Local<bool>,
 ) {
     if *was_opened && !state.opened {
-        for stack in crafting.drain_inputs().into_iter().flatten() {
+        let inputs = match active.kind {
+            ContainerKind::PlayerCrafting => player_crafting.drain_inputs(),
+            ContainerKind::Workbench => workbench_crafting.drain_inputs(),
+            ContainerKind::Chest | ContainerKind::Furnace => Vec::new(),
+        };
+        for stack in inputs.into_iter().flatten() {
             let mut remaining = stack;
             let hotbar_slots = state.hotbar.slot_count();
             insert_range(&mut state.hotbar, &mut remaining, 0..hotbar_slots);
@@ -180,6 +256,7 @@ fn return_crafting_on_close_system(
                 0..crate::game::inventory::container::survival::SurvivalInventory::BACKPACK_SIZE,
             );
         }
+        *active = ActiveCrafting::player();
     }
     *was_opened = state.opened;
 }

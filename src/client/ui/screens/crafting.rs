@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::client::renderer::item_model::ItemModelRenderAssets;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
+use crate::client::ui::navigation::{UiNavigation, UiScreen};
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
@@ -10,14 +11,20 @@ use crate::client::ui::widgets::slot::{
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
-use crate::game::crafting::grid::PlayerCrafting;
+use crate::game::crafting::grid::{
+    ActiveCrafting, CraftingGrid, PlayerCrafting, WorkbenchCrafting,
+};
+use crate::game::crafting::plugin::CraftingStationOpened;
 use crate::game::inventory::container::InventoryContainer;
 use crate::shared::item_id::ItemId;
+use crate::shared::ui_types::ContainerKind;
 
 const CRAFTING_SLOT_SIZE: f32 = 42.0;
 
 #[derive(Component)]
-pub struct CraftingPanel;
+pub struct CraftingPanel {
+    kind: ContainerKind,
+}
 
 #[derive(Component)]
 pub struct CraftingHost;
@@ -34,11 +41,52 @@ pub fn spawn_crafting_system(
         return;
     }
     commands.entity(root).with_children(|root| {
-        root.spawn((
-            CraftingPanel,
+        spawn_crafting_panel(
+            root,
+            ContainerKind::PlayerCrafting,
+            "随身合成",
+            PlayerCrafting::WIDTH,
+            PlayerCrafting::HEIGHT,
+            true,
+            &theme,
+            &ui_font,
+        );
+        spawn_crafting_panel(
+            root,
+            ContainerKind::Workbench,
+            "工作台",
+            WorkbenchCrafting::WIDTH,
+            WorkbenchCrafting::HEIGHT,
+            false,
+            &theme,
+            &ui_font,
+        );
+    });
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spawn_crafting_panel(
+    parent: &mut ChildSpawnerCommands,
+    kind: ContainerKind,
+    title: &str,
+    columns: usize,
+    rows: usize,
+    visible: bool,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+) {
+    let grid_height = rows as f32 * CRAFTING_SLOT_SIZE + rows.saturating_sub(1) as f32 * 4.0;
+    parent
+        .spawn((
+            CraftingPanel { kind },
             Node {
+                display: if visible {
+                    Display::Flex
+                } else {
+                    Display::None
+                },
                 width: Val::Percent(100.0),
-                height: Val::Px(106.0),
+                height: Val::Px(grid_height + 18.0),
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -52,7 +100,7 @@ pub fn spawn_crafting_system(
         ))
         .with_children(|panel| {
             panel.spawn((
-                Text::new("合成"),
+                Text::new(title),
                 TextFont {
                     font: FontSource::from(ui_font.default.clone()),
                     font_size: FontSize::Px(theme.body_font_size),
@@ -66,15 +114,24 @@ pub fn spawn_crafting_system(
             panel
                 .spawn(Node {
                     display: Display::Grid,
-                    grid_template_columns: RepeatedGridTrack::px(2, CRAFTING_SLOT_SIZE),
-                    grid_template_rows: RepeatedGridTrack::px(2, CRAFTING_SLOT_SIZE),
+                    grid_template_columns: RepeatedGridTrack::px(
+                        columns as u16,
+                        CRAFTING_SLOT_SIZE,
+                    ),
+                    grid_template_rows: RepeatedGridTrack::px(rows as u16, CRAFTING_SLOT_SIZE),
                     column_gap: Val::Px(4.0),
                     row_gap: Val::Px(4.0),
                     ..default()
                 })
                 .with_children(|grid| {
-                    for index in 0..PlayerCrafting::SLOT_COUNT {
-                        spawn_empty_slot(grid, SlotKind::Container, index, &slot_theme, &ui_font);
+                    for index in 0..columns * rows {
+                        spawn_empty_slot(
+                            grid,
+                            SlotKind::Container(kind),
+                            index,
+                            &slot_theme,
+                            ui_font,
+                        );
                     }
                 });
 
@@ -90,17 +147,42 @@ pub fn spawn_crafting_system(
 
             spawn_empty_slot(
                 panel,
-                SlotKind::Container,
-                PlayerCrafting::SLOT_COUNT,
+                SlotKind::Container(kind),
+                columns * rows,
                 &slot_theme,
-                &ui_font,
+                ui_font,
             );
         });
-    });
+}
+
+pub fn open_crafting_station_ui_system(
+    mut reader: MessageReader<CraftingStationOpened>,
+    mut navigation: MessageWriter<UiNavigation>,
+) {
+    if reader.read().next().is_some() {
+        navigation.write(UiNavigation::Open(UiScreen::Container));
+    }
+}
+
+pub fn sync_crafting_panel_system(
+    active: Res<ActiveCrafting>,
+    mut panels: Query<(&CraftingPanel, &mut Node)>,
+) {
+    if !active.is_changed() {
+        return;
+    }
+    for (panel, mut node) in &mut panels {
+        node.display = if panel.kind == active.kind {
+            Display::Flex
+        } else {
+            Display::None
+        };
+    }
 }
 
 pub fn crafting_visual_sync_system(
-    crafting: Res<PlayerCrafting>,
+    player_crafting: Res<PlayerCrafting>,
+    workbench_crafting: Res<WorkbenchCrafting>,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
     item_model_assets: Res<ItemModelRenderAssets>,
@@ -116,19 +198,15 @@ pub fn crafting_visual_sync_system(
         return;
     };
     for (entity, slot, mut visual) in &mut slot_query {
-        if slot.kind != SlotKind::Container || slot.index > PlayerCrafting::SLOT_COUNT {
+        let SlotKind::Container(kind) = slot.kind else {
             continue;
-        }
-        let current = if slot.index < PlayerCrafting::SLOT_COUNT {
-            crafting
-                .get_stack(slot.index)
-                .map(|stack| (stack.item.clone(), stack.count))
-                .unwrap_or((ItemId::air(), 0))
-        } else {
-            crafting
-                .output()
-                .map(|stack| (stack.item.clone(), stack.count))
-                .unwrap_or((ItemId::air(), 0))
+        };
+        let current = match kind {
+            ContainerKind::PlayerCrafting => {
+                crafting_slot_value(player_crafting.grid(), slot.index)
+            }
+            ContainerKind::Workbench => crafting_slot_value(workbench_crafting.grid(), slot.index),
+            ContainerKind::Chest | ContainerKind::Furnace => continue,
         };
         if visual.item != current.0 || visual.count != current.1 {
             sync_slot_icon(
@@ -146,5 +224,19 @@ pub fn crafting_visual_sync_system(
             visual.item = current.0;
             visual.count = current.1;
         }
+    }
+}
+
+fn crafting_slot_value(grid: &CraftingGrid, index: usize) -> (ItemId, u32) {
+    if index < grid.slot_count() {
+        grid.get_stack(index)
+            .map(|stack| (stack.item.clone(), stack.count))
+            .unwrap_or((ItemId::air(), 0))
+    } else if index == grid.slot_count() {
+        grid.output()
+            .map(|stack| (stack.item.clone(), stack.count))
+            .unwrap_or((ItemId::air(), 0))
+    } else {
+        (ItemId::air(), 0)
     }
 }

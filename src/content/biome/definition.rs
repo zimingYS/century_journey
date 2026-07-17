@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct BiomeDefinition {
     pub identifier: Identifier,
     pub display_name: String,
+    pub generation_order: u16,
     pub temperature_range: (f64, f64),
     pub humidity_range: (f64, f64),
     pub terrain: BiomeTerrainParams,

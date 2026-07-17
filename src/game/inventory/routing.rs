@@ -134,7 +134,7 @@ pub fn handle_slot_interaction(
             }
         }
 
-        SlotKind::Container => {
+        SlotKind::Container(_) => {
             // 容器界面尚未接入世界实体；收到该类槽位事件时保持状态不变。
         }
     }

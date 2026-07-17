@@ -1,40 +1,56 @@
-use bevy::prelude::Resource;
+use bevy::prelude::{IVec3, Resource};
 
 use crate::content::recipe::definition::recipe_definition::RecipeDefinition;
 use crate::content::recipe::definition::shaped_recipe::ShapedRecipe;
 use crate::content::recipe::definition::{Ingredient, RecipeResult};
 use crate::content::recipe::registry::RecipeRegistry;
 use crate::content::tag::runtime::ItemTagIndex;
-use crate::game::inventory::container::InventoryContainer;
+use crate::game::inventory::container::{
+    ContainerLayout, ContainerSlotRole, GameContainer, InventoryContainer,
+};
 use crate::game::inventory::item::stack::ItemStack;
 use crate::shared::item_id::ItemId;
+use crate::shared::ui_types::ContainerKind;
 
-#[derive(Resource, Debug, Clone)]
-pub struct PlayerCrafting {
-    slots: [Option<ItemStack>; Self::SLOT_COUNT],
+#[derive(Debug, Clone)]
+pub struct CraftingGrid {
+    width: usize,
+    height: usize,
+    slots: Vec<Option<ItemStack>>,
     output: Option<ItemStack>,
 }
 
-impl Default for PlayerCrafting {
-    fn default() -> Self {
+impl CraftingGrid {
+    pub fn new(width: usize, height: usize) -> Self {
+        assert!(
+            width > 0 && height > 0,
+            "crafting grid dimensions must be positive"
+        );
+        let slot_count = width
+            .checked_mul(height)
+            .expect("crafting grid dimensions overflowed");
         Self {
-            slots: std::array::from_fn(|_| None),
+            width,
+            height,
+            slots: vec![None; slot_count],
             output: None,
         }
     }
-}
 
-impl PlayerCrafting {
-    pub const WIDTH: usize = 2;
-    pub const HEIGHT: usize = 2;
-    pub const SLOT_COUNT: usize = Self::WIDTH * Self::HEIGHT;
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
+    }
 
     pub fn output(&self) -> Option<&ItemStack> {
         self.output.as_ref()
     }
 
     pub fn refresh(&mut self, recipes: &RecipeRegistry, tags: &ItemTagIndex) {
-        self.output = find_recipe(&self.slots, recipes, tags)
+        self.output = find_recipe(&self.slots, self.width, self.height, recipes, tags)
             .map(|result| ItemStack::new(result.item, result.count));
     }
 
@@ -49,15 +65,15 @@ impl PlayerCrafting {
         self.output = None;
     }
 
-    pub fn drain_inputs(&mut self) -> [Option<ItemStack>; Self::SLOT_COUNT] {
+    pub fn drain_inputs(&mut self) -> Vec<Option<ItemStack>> {
         self.output = None;
-        std::mem::replace(&mut self.slots, std::array::from_fn(|_| None))
+        std::mem::replace(&mut self.slots, vec![None; self.width * self.height])
     }
 }
 
-impl InventoryContainer for PlayerCrafting {
+impl InventoryContainer for CraftingGrid {
     fn slot_count(&self) -> usize {
-        Self::SLOT_COUNT
+        self.slots.len()
     }
 
     fn get_stack(&self, index: usize) -> Option<&ItemStack> {
@@ -75,8 +91,165 @@ impl InventoryContainer for PlayerCrafting {
     }
 }
 
+#[derive(Resource, Debug, Clone)]
+pub struct PlayerCrafting(CraftingGrid);
+
+impl PlayerCrafting {
+    pub const WIDTH: usize = 2;
+    pub const HEIGHT: usize = 2;
+    pub const SLOT_COUNT: usize = Self::WIDTH * Self::HEIGHT;
+
+    pub fn grid(&self) -> &CraftingGrid {
+        &self.0
+    }
+
+    pub fn grid_mut(&mut self) -> &mut CraftingGrid {
+        &mut self.0
+    }
+
+    pub fn output(&self) -> Option<&ItemStack> {
+        self.0.output()
+    }
+
+    pub fn refresh(&mut self, recipes: &RecipeRegistry, tags: &ItemTagIndex) {
+        self.0.refresh(recipes, tags);
+    }
+
+    pub fn consume_recipe(&mut self) {
+        self.0.consume_recipe();
+    }
+
+    pub fn drain_inputs(&mut self) -> Vec<Option<ItemStack>> {
+        self.0.drain_inputs()
+    }
+}
+
+impl Default for PlayerCrafting {
+    fn default() -> Self {
+        Self(CraftingGrid::new(Self::WIDTH, Self::HEIGHT))
+    }
+}
+
+#[derive(Resource, Debug, Clone)]
+pub struct WorkbenchCrafting(CraftingGrid);
+
+impl WorkbenchCrafting {
+    pub const WIDTH: usize = 3;
+    pub const HEIGHT: usize = 3;
+    pub const SLOT_COUNT: usize = Self::WIDTH * Self::HEIGHT;
+
+    pub fn grid(&self) -> &CraftingGrid {
+        &self.0
+    }
+
+    pub fn grid_mut(&mut self) -> &mut CraftingGrid {
+        &mut self.0
+    }
+
+    pub fn output(&self) -> Option<&ItemStack> {
+        self.0.output()
+    }
+
+    pub fn refresh(&mut self, recipes: &RecipeRegistry, tags: &ItemTagIndex) {
+        self.0.refresh(recipes, tags);
+    }
+
+    pub fn consume_recipe(&mut self) {
+        self.0.consume_recipe();
+    }
+
+    pub fn drain_inputs(&mut self) -> Vec<Option<ItemStack>> {
+        self.0.drain_inputs()
+    }
+}
+
+impl Default for WorkbenchCrafting {
+    fn default() -> Self {
+        Self(CraftingGrid::new(Self::WIDTH, Self::HEIGHT))
+    }
+}
+
+macro_rules! impl_container_wrapper {
+    ($type:ty, $kind:expr, $width:expr, $height:expr) => {
+        impl InventoryContainer for $type {
+            fn slot_count(&self) -> usize {
+                self.0.slot_count()
+            }
+
+            fn get_stack(&self, index: usize) -> Option<&ItemStack> {
+                self.0.get_stack(index)
+            }
+
+            fn get_stack_mut(&mut self, index: usize) -> Option<&mut ItemStack> {
+                self.0.get_stack_mut(index)
+            }
+
+            fn set_stack(&mut self, index: usize, stack: ItemStack) {
+                self.0.set_stack(index, stack);
+            }
+        }
+
+        impl GameContainer for $type {
+            fn kind(&self) -> ContainerKind {
+                $kind
+            }
+
+            fn layout(&self) -> ContainerLayout {
+                ContainerLayout::new($width, $height)
+            }
+
+            fn slot_role(&self, _index: usize) -> ContainerSlotRole {
+                ContainerSlotRole::Input
+            }
+        }
+    };
+}
+
+impl_container_wrapper!(
+    PlayerCrafting,
+    ContainerKind::PlayerCrafting,
+    PlayerCrafting::WIDTH,
+    PlayerCrafting::HEIGHT
+);
+impl_container_wrapper!(
+    WorkbenchCrafting,
+    ContainerKind::Workbench,
+    WorkbenchCrafting::WIDTH,
+    WorkbenchCrafting::HEIGHT
+);
+
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ActiveCrafting {
+    pub kind: ContainerKind,
+    pub station_position: Option<IVec3>,
+}
+
+impl Default for ActiveCrafting {
+    fn default() -> Self {
+        Self::player()
+    }
+}
+
+impl ActiveCrafting {
+    pub const fn player() -> Self {
+        Self {
+            kind: ContainerKind::PlayerCrafting,
+            station_position: None,
+        }
+    }
+
+    pub const fn workbench(position: IVec3) -> Self {
+        Self {
+            kind: ContainerKind::Workbench,
+            station_position: Some(position),
+        }
+    }
+}
+
 fn find_recipe(
-    slots: &[Option<ItemStack>; PlayerCrafting::SLOT_COUNT],
+    slots: &[Option<ItemStack>],
+    grid_width: usize,
+    grid_height: usize,
     recipes: &RecipeRegistry,
     tags: &ItemTagIndex,
 ) -> Option<RecipeResult> {
@@ -85,7 +258,8 @@ fn find_recipe(
     entries.into_iter().find_map(|(_, recipe)| {
         let result = match recipe {
             RecipeDefinition::Shaped(recipe) => {
-                matches_shaped(slots, recipe, tags).then_some(recipe.result.clone())
+                matches_shaped(slots, grid_width, grid_height, recipe, tags)
+                    .then_some(recipe.result.clone())
             }
             RecipeDefinition::Shapeless(recipe) => {
                 matches_shapeless(slots, &recipe.ingredients, tags).then_some(recipe.result.clone())
@@ -103,7 +277,9 @@ fn ingredient_matches(ingredient: &Ingredient, id: &ItemId, tags: &ItemTagIndex)
 }
 
 fn matches_shaped(
-    slots: &[Option<ItemStack>; PlayerCrafting::SLOT_COUNT],
+    slots: &[Option<ItemStack>],
+    grid_width: usize,
+    grid_height: usize,
     recipe: &ShapedRecipe,
     tags: &ItemTagIndex,
 ) -> bool {
@@ -114,16 +290,25 @@ fn matches_shaped(
         .collect();
     let height = rows.len();
     let width = rows.iter().map(Vec::len).max().unwrap_or(0);
-    if height == 0 || width == 0 || height > PlayerCrafting::HEIGHT || width > PlayerCrafting::WIDTH
-    {
+    if height == 0 || width == 0 || height > grid_height || width > grid_width {
         return false;
     }
 
     for mirror in [false, true] {
-        for offset_y in 0..=(PlayerCrafting::HEIGHT - height) {
-            for offset_x in 0..=(PlayerCrafting::WIDTH - width) {
+        for offset_y in 0..=(grid_height - height) {
+            for offset_x in 0..=(grid_width - width) {
                 if shaped_at(
-                    slots, recipe, tags, &rows, width, height, offset_x, offset_y, mirror,
+                    slots,
+                    grid_width,
+                    grid_height,
+                    recipe,
+                    tags,
+                    &rows,
+                    width,
+                    height,
+                    offset_x,
+                    offset_y,
+                    mirror,
                 ) {
                     return true;
                 }
@@ -135,7 +320,9 @@ fn matches_shaped(
 
 #[allow(clippy::too_many_arguments)]
 fn shaped_at(
-    slots: &[Option<ItemStack>; PlayerCrafting::SLOT_COUNT],
+    slots: &[Option<ItemStack>],
+    grid_width: usize,
+    grid_height: usize,
     recipe: &ShapedRecipe,
     tags: &ItemTagIndex,
     rows: &[Vec<char>],
@@ -145,8 +332,8 @@ fn shaped_at(
     offset_y: usize,
     mirror: bool,
 ) -> bool {
-    for grid_y in 0..PlayerCrafting::HEIGHT {
-        for grid_x in 0..PlayerCrafting::WIDTH {
+    for grid_y in 0..grid_height {
+        for grid_x in 0..grid_width {
             let key = grid_x
                 .checked_sub(offset_x)
                 .zip(grid_y.checked_sub(offset_y))
@@ -157,7 +344,7 @@ fn shaped_at(
                 })
                 .copied()
                 .unwrap_or(' ');
-            let slot = slots[grid_y * PlayerCrafting::WIDTH + grid_x].as_ref();
+            let slot = slots[grid_y * grid_width + grid_x].as_ref();
             if key == ' ' {
                 if slot.is_some_and(|stack| !stack.is_empty()) {
                     return false;
@@ -179,7 +366,7 @@ fn shaped_at(
 }
 
 fn matches_shapeless(
-    slots: &[Option<ItemStack>; PlayerCrafting::SLOT_COUNT],
+    slots: &[Option<ItemStack>],
     ingredients: &[Ingredient],
     tags: &ItemTagIndex,
 ) -> bool {
@@ -311,18 +498,26 @@ mod tests {
     }
 
     #[test]
-    fn stage_seven_collected_sticks_craft_bootstrap_axe() {
+    fn wooden_axe_requires_the_workbench_three_by_three_grid() {
         let mut recipes = RecipeRegistry::default();
         recipes.register(
-            Identifier::parse("century_journey:wooden_axe_from_sticks").unwrap(),
+            Identifier::parse("century_journey:wooden_axe").unwrap(),
             RecipeDefinition::Shaped(ShapedRecipe {
-                pattern: vec!["AA".into(), " A".into()],
-                key: [(
-                    'A',
-                    Ingredient::Item {
-                        item: item("stick"),
-                    },
-                )]
+                pattern: vec!["PP ".into(), "PS ".into(), " S ".into()],
+                key: [
+                    (
+                        'P',
+                        Ingredient::Item {
+                            item: item("planks"),
+                        },
+                    ),
+                    (
+                        'S',
+                        Ingredient::Item {
+                            item: item("stick"),
+                        },
+                    ),
+                ]
                 .into_iter()
                 .collect(),
                 result: RecipeResult {
@@ -331,18 +526,57 @@ mod tests {
                 },
             }),
         );
-        let mut crafting = PlayerCrafting::default();
-        crafting.set_stack(0, ItemStack::single(item("stick")));
-        crafting.set_stack(1, ItemStack::single(item("stick")));
-        crafting.set_stack(3, ItemStack::single(item("stick")));
+        let mut player = PlayerCrafting::default();
+        player.refresh(&recipes, &ItemTagIndex::default());
+        assert!(player.output().is_none());
 
+        let mut crafting = WorkbenchCrafting::default();
+        for index in [0, 1, 3] {
+            crafting.set_stack(index, ItemStack::single(item("planks")));
+        }
+        for index in [4, 7] {
+            crafting.set_stack(index, ItemStack::single(item("stick")));
+        }
         crafting.refresh(&recipes, &ItemTagIndex::default());
-
         assert_eq!(
             crafting.output().map(|stack| stack.item.clone()),
             Some(item("wooden_axe"))
         );
         crafting.consume_recipe();
-        assert!(crafting.slots.iter().all(Option::is_none));
+        assert!((0..crafting.slot_count()).all(|index| crafting.get_stack(index).is_none()));
+    }
+
+    #[test]
+    fn matcher_accepts_grids_larger_than_the_current_workbench() {
+        let mut recipes = RecipeRegistry::default();
+        recipes.register(
+            Identifier::parse("test:wide").unwrap(),
+            RecipeDefinition::Shaped(ShapedRecipe {
+                pattern: vec!["AAAA".into()],
+                key: [(
+                    'A',
+                    Ingredient::Item {
+                        item: item("planks"),
+                    },
+                )]
+                .into_iter()
+                .collect(),
+                result: RecipeResult {
+                    item: item("wide_result"),
+                    count: 1,
+                },
+            }),
+        );
+        let mut grid = CraftingGrid::new(4, 3);
+        for index in 4..8 {
+            grid.set_stack(index, ItemStack::single(item("planks")));
+        }
+
+        grid.refresh(&recipes, &ItemTagIndex::default());
+
+        assert_eq!(
+            grid.output().map(|stack| stack.item.clone()),
+            Some(item("wide_result"))
+        );
     }
 }

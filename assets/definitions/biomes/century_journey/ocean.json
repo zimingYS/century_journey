@@ -1,0 +1,18 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:ocean",
+  "display_name": "海洋",
+  "generation_order": 5,
+  "temperature_range": [0.2, 0.8],
+  "humidity_range": [0.6, 1.0],
+  "terrain": {
+    "base_height": 50.0,
+    "height_amplitude": 5.0,
+    "roughness": 0.1
+  },
+  "surface_block": "century_journey:sand",
+  "subsurface_block": "century_journey:sand",
+  "beach_block": "century_journey:sand",
+  "tree_density": 0.0,
+  "ore_config": "ocean"
+}
