@@ -21,6 +21,15 @@ pub struct SlotCountText;
 #[derive(Component)]
 pub struct SlotPlaceholder;
 
+#[derive(Component, Debug, Clone, Copy)]
+pub struct SlotDurabilityBar {
+    pub kind: SlotKind,
+    pub index: usize,
+}
+
+#[derive(Component)]
+pub struct SlotDurabilityFill;
+
 /// 槽位的视觉状态缓存
 #[derive(Component, Debug, Clone, Default)]
 pub struct SlotVisual {

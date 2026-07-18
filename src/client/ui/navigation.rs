@@ -137,15 +137,10 @@ pub fn handle_ui_navigation_system(
 
 fn close_screen_and_parent(
     screen: UiScreen,
-    stack: &mut UiScreenStack,
+    _stack: &mut UiScreenStack,
     interface: &mut MessageWriter<InterfaceCommand>,
 ) {
-    if screen == UiScreen::Container {
-        stack.close(UiScreen::Inventory);
-        close_screen_state(UiScreen::Inventory, interface);
-    } else {
-        close_screen_state(screen, interface);
-    }
+    close_screen_state(screen, interface);
 }
 
 fn open_screen(
@@ -158,9 +153,6 @@ fn open_screen(
             interface.write(InterfaceCommand::OpenInventory);
         }
         UiScreen::Container => {
-            if !stack.contains(UiScreen::Inventory) {
-                stack.open(UiScreen::Inventory);
-            }
             interface.write(InterfaceCommand::OpenInventory);
         }
         UiScreen::MainMenu | UiScreen::PauseMenu | UiScreen::Settings => {
@@ -177,7 +169,9 @@ fn close_screen_state(screen: UiScreen, interface: &mut MessageWriter<InterfaceC
         UiScreen::Inventory => {
             interface.write(InterfaceCommand::CloseInventory);
         }
-        UiScreen::Container => {}
+        UiScreen::Container => {
+            interface.write(InterfaceCommand::CloseInventory);
+        }
         UiScreen::MainMenu | UiScreen::PauseMenu | UiScreen::Settings => {
             interface.write(InterfaceCommand::CloseMenu);
         }
@@ -187,10 +181,14 @@ fn close_screen_state(screen: UiScreen, interface: &mut MessageWriter<InterfaceC
 }
 
 pub fn sync_legacy_screen_state_system(
+    mut navigation: MessageReader<UiNavigation>,
     inventory: Res<InventoryState>,
     context: Res<InputContextState>,
     mut stack: ResMut<UiScreenStack>,
 ) {
+    if navigation.read().next().is_some() {
+        return;
+    }
     if inventory.opened {
         if !stack.contains(UiScreen::Inventory) && !stack.contains(UiScreen::Container) {
             stack.open(UiScreen::Inventory);
@@ -218,16 +216,11 @@ pub fn sync_screen_visibility_system(
         return;
     }
     for (root, mut visibility) in &mut query {
-        let audience_matches =
-            if stack.contains(UiScreen::Container) && root.screen == UiScreen::Inventory {
-                root.audience == UiScreenAudience::Survival
-            } else {
-                match root.audience {
-                    UiScreenAudience::Any => true,
-                    UiScreenAudience::Creative => gamemode.is_creative(),
-                    UiScreenAudience::Survival => gamemode.is_survival(),
-                }
-            };
+        let audience_matches = match root.audience {
+            UiScreenAudience::Any => true,
+            UiScreenAudience::Creative => gamemode.is_creative(),
+            UiScreenAudience::Survival => gamemode.is_survival(),
+        };
         *visibility = if stack.contains(root.screen) && audience_matches {
             Visibility::Visible
         } else {

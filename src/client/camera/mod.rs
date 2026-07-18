@@ -10,7 +10,7 @@ use bevy::pbr::AtmosphereSettings;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 
-pub use crate::shared::components::camera::FpsCamera;
+pub use crate::shared::components::camera::{CameraPerspective, FpsCamera};
 
 pub fn setup_player_camera_system(
     mut query: Query<Entity, Added<FpsCamera>>,
@@ -35,7 +35,7 @@ pub fn setup_player_camera_system(
 pub fn player_look_system(
     mut mouse_motion: MessageReader<MouseMotion>,
     mut player_query: Query<&mut Transform, With<Player>>,
-    mut camera_query: Query<(&mut Transform, &mut FpsCamera), Without<Player>>,
+    mut camera_query: Query<&mut FpsCamera, Without<Player>>,
     context: Res<InputContextState>,
     settings: Res<crate::app::flow::GameSettings>,
 ) {
@@ -61,9 +61,8 @@ pub fn player_look_system(
     }
 
     // 使用绝对俯仰角重建旋转，避免累计旋转越过垂直方向后天地翻转。
-    if let Ok((mut camera_transform, mut fps_camera)) = camera_query.single_mut() {
+    if let Ok(mut fps_camera) = camera_query.single_mut() {
         fps_camera.add_pitch(-delta.y * sensitivity);
-        camera_transform.rotation = fps_camera.pitch_rotation();
     }
 }
 
@@ -76,15 +75,8 @@ pub fn toggle_perspective_system(
         return;
     }
     for mut fps_camera in &mut camera_query {
-        fps_camera.is_first_person = !fps_camera.is_first_person;
-        info!(
-            "视角切换: {}",
-            if fps_camera.is_first_person {
-                "第一人称"
-            } else {
-                "第三人称"
-            }
-        );
+        fps_camera.perspective = fps_camera.perspective.next();
+        info!("视角切换: {}", fps_camera.perspective.display_name());
     }
 }
 
@@ -93,17 +85,25 @@ pub fn camera_perspective_sync_system(
     mut camera_query: Query<(&FpsCamera, &mut Transform), With<Camera3d>>,
 ) {
     for (fps_camera, mut camera_transform) in camera_query.iter_mut() {
-        camera_transform.translation = perspective_offset(fps_camera.is_first_person);
-        camera_transform.rotation = fps_camera.pitch_rotation();
+        camera_transform.translation = perspective_offset(fps_camera.perspective);
+        camera_transform.rotation = perspective_rotation(fps_camera);
     }
 }
 
-fn perspective_offset(is_first_person: bool) -> Vec3 {
-    if is_first_person {
-        // 眼位略微前移到胸口前方，低头时视线不会穿过自己的躯干。
-        Vec3::new(0.0, 0.78, -0.18)
-    } else {
-        Vec3::new(0.0, 0.62, 4.5)
+fn perspective_offset(perspective: CameraPerspective) -> Vec3 {
+    match perspective {
+        CameraPerspective::FirstPerson => Vec3::new(0.0, 0.78, -0.18),
+        CameraPerspective::SecondPerson => Vec3::new(0.0, 0.62, -4.5),
+        CameraPerspective::ThirdPerson => Vec3::new(0.0, 0.62, 4.5),
+    }
+}
+
+fn perspective_rotation(camera: &FpsCamera) -> Quat {
+    match camera.perspective {
+        CameraPerspective::FirstPerson | CameraPerspective::ThirdPerson => camera.pitch_rotation(),
+        CameraPerspective::SecondPerson => {
+            Quat::from_rotation_y(std::f32::consts::PI) * Quat::from_rotation_x(-camera.pitch)
+        }
     }
 }
 
@@ -114,9 +114,12 @@ impl Plugin for CameraPlugin {
         app.add_systems(
             Update,
             (
-                player_look_system,
-                toggle_perspective_system,
-                camera_perspective_sync_system,
+                (
+                    player_look_system,
+                    toggle_perspective_system,
+                    camera_perspective_sync_system,
+                )
+                    .chain(),
                 setup_player_camera_system,
             )
                 .run_if(in_state(crate::shared::states::AppState::InGame)),
@@ -143,10 +146,23 @@ mod tests {
 
     #[test]
     fn player_visual_first_person_eye_is_in_front_of_torso() {
-        let eye = perspective_offset(true);
+        let eye = perspective_offset(CameraPerspective::FirstPerson);
         let torso_front = -PlayerModelConfig::half_dims(PlayerPart::Body).z;
 
         assert!(eye.z < torso_front);
         assert!(eye.y > PlayerModelConfig::joint_offset(PlayerPart::Body).y);
+    }
+
+    #[test]
+    fn second_person_camera_is_in_front_and_faces_the_player() {
+        let camera = FpsCamera {
+            perspective: CameraPerspective::SecondPerson,
+            ..default()
+        };
+        let offset = perspective_offset(camera.perspective);
+        let forward = perspective_rotation(&camera) * Vec3::NEG_Z;
+
+        assert!(offset.z < 0.0);
+        assert!(forward.z > 0.99);
     }
 }

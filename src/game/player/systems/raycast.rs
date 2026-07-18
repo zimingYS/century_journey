@@ -3,6 +3,9 @@ use crate::game::world::chunk::ChunkData;
 use crate::game::world::storage::WorldStorage;
 use bevy::prelude::*;
 
+const PLAYER_EYE_HEIGHT: f32 = 0.78;
+const PLAYER_RAY_FORWARD_OFFSET: f32 = 0.24;
+
 #[derive(Debug)]
 pub struct RaycastResult {
     /// 击中的方块的世界绝对坐标
@@ -23,18 +26,28 @@ pub struct TargetVoxel {
 
 pub fn update_raycast_system(
     world_storage: Res<WorldStorage>,
-    camera_query: Query<&GlobalTransform, With<crate::shared::components::FpsCamera>>,
+    camera_query: Query<&crate::shared::components::FpsCamera>,
+    player_query: Query<&GlobalTransform, With<crate::game::player::components::Player>>,
     mut target_voxel: ResMut<TargetVoxel>,
 ) {
-    let Ok(global_transform) = camera_query.single() else {
+    let (Ok(camera), Ok(player_transform)) = (camera_query.single(), player_query.single()) else {
         target_voxel.result = None;
         return;
     };
 
-    let origin = global_transform.translation();
-    let direction = global_transform.forward();
+    let (origin, direction) = player_interaction_ray(player_transform, camera.pitch);
 
     target_voxel.result = raycast_voxel(&origin, &direction, &world_storage, 0.0);
+}
+
+fn player_interaction_ray(player_transform: &GlobalTransform, pitch: f32) -> (Vec3, Vec3) {
+    let player_rotation = player_transform.rotation();
+    let horizontal_forward = player_rotation * Vec3::NEG_Z;
+    let origin = player_transform.translation()
+        + Vec3::Y * PLAYER_EYE_HEIGHT
+        + horizontal_forward * PLAYER_RAY_FORWARD_OFFSET;
+    let direction = player_rotation * Quat::from_rotation_x(pitch.clamp(-1.5, 1.5)) * Vec3::NEG_Z;
+    (origin, direction.normalize())
 }
 
 pub fn raycast_voxel(
@@ -190,5 +203,34 @@ pub fn draw_voxel_highlight_system(
             Transform::from_translation(center).with_scale(Vec3::splat(scale)),
             Color::srgba(0.78 + pulse * 0.16, 0.93, 1.0, 0.88),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn interaction_ray_starts_at_player_and_uses_player_facing() {
+        let player = GlobalTransform::from(
+            Transform::from_xyz(10.0, 20.0, 30.0)
+                .with_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)),
+        );
+        let (origin, direction) = player_interaction_ray(&player, 0.0);
+
+        assert!((origin.y - (20.0 + PLAYER_EYE_HEIGHT)).abs() < 0.0001);
+        assert!(direction.x < -0.99);
+        assert!(origin.x < 10.0);
+    }
+
+    #[test]
+    fn interaction_ray_pitch_changes_direction_without_moving_to_camera() {
+        let player = GlobalTransform::from(Transform::from_xyz(2.0, 3.0, 4.0));
+        let (origin, level) = player_interaction_ray(&player, 0.0);
+        let (pitched_origin, pitched) = player_interaction_ray(&player, 0.5);
+
+        assert_eq!(origin, pitched_origin);
+        assert!(level.y.abs() < 0.0001);
+        assert!(pitched.y > 0.0);
     }
 }

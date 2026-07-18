@@ -2,8 +2,9 @@ pub mod components;
 
 pub use crate::shared::ui_types::{SearchInputState, SlotKind};
 pub use components::{
-    CategoryClickedEvent, CategoryTab, CreativeSearchInput, InventorySlot, SlotCountText, SlotIcon,
-    SlotInteractionEvent, SlotPlaceholder, SlotVisual,
+    CategoryClickedEvent, CategoryTab, CreativeSearchInput, InventorySlot, SlotCountText,
+    SlotDurabilityBar, SlotDurabilityFill, SlotIcon, SlotInteractionEvent, SlotPlaceholder,
+    SlotVisual,
 };
 
 use crate::client::renderer::item_model::{ItemModelRenderAssets, ItemModelRenderer};
@@ -13,7 +14,12 @@ use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
+use crate::game::crafting::grid::{CraftingGrid, PlayerCrafting, WorkbenchCrafting};
+use crate::game::inventory::container::InventoryContainer;
+use crate::game::inventory::item::stack::ItemStack;
+use crate::game::inventory::state::InventoryState;
 use crate::shared::item_id::ItemId;
+use crate::shared::ui_types::ContainerKind;
 use bevy::prelude::*;
 
 /// 生成空槽位。
@@ -71,6 +77,7 @@ pub fn spawn_empty_slot(
                 },
                 Visibility::Hidden,
             ));
+            spawn_durability_bar(slot, kind, index);
         });
 }
 
@@ -141,6 +148,7 @@ pub fn spawn_empty_slot_with_placeholder(
                 },
                 TextColor(theme.text_hint),
             ));
+            spawn_durability_bar(slot, kind, index);
         });
 }
 
@@ -205,6 +213,7 @@ pub fn spawn_slot_with_item(
                 },
                 Visibility::Hidden,
             ));
+            spawn_durability_bar(slot, kind, index);
         });
 }
 
@@ -313,6 +322,117 @@ fn plain_image_node(image: Handle<Image>) -> ImageNode {
         image,
         texture_atlas: None,
         ..default()
+    }
+}
+
+fn spawn_durability_bar(parent: &mut ChildSpawnerCommands, kind: SlotKind, index: usize) {
+    parent
+        .spawn((
+            SlotDurabilityBar { kind, index },
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(3.0),
+                right: Val::Px(3.0),
+                bottom: Val::Px(2.0),
+                height: Val::Px(4.0),
+                padding: UiRect::all(Val::Px(1.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.03, 0.03, 0.035)),
+            Visibility::Hidden,
+        ))
+        .with_children(|bar| {
+            bar.spawn((
+                SlotDurabilityFill,
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.2, 0.9, 0.2)),
+            ));
+        });
+}
+
+pub fn sync_slot_durability_system(
+    inventory: Res<InventoryState>,
+    player_crafting: Res<PlayerCrafting>,
+    workbench_crafting: Res<WorkbenchCrafting>,
+    item_registry: Option<Res<ItemRegistry>>,
+    mut bar_query: Query<(&SlotDurabilityBar, &Children, &mut Visibility)>,
+    mut fill_query: Query<(&mut Node, &mut BackgroundColor), With<SlotDurabilityFill>>,
+) {
+    let Some(item_registry) = item_registry else {
+        return;
+    };
+    for (bar, children, mut visibility) in &mut bar_query {
+        let Some(stack) = stack_for_slot(bar, &inventory, &player_crafting, &workbench_crafting)
+        else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let Some(max_durability) = item_registry
+            .get(&stack.item)
+            .and_then(|definition| definition.tool_data())
+            .map(|tool| tool.max_durability)
+            .filter(|max| *max > 0)
+        else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let remaining = stack
+            .durability()
+            .unwrap_or(max_durability)
+            .min(max_durability);
+        if remaining >= max_durability {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
+
+        let Some(&fill_entity) = children.first() else {
+            continue;
+        };
+        let Ok((mut fill, mut color)) = fill_query.get_mut(fill_entity) else {
+            continue;
+        };
+        let ratio = remaining as f32 / max_durability as f32;
+        fill.width = Val::Percent((ratio * 100.0).clamp(0.0, 100.0));
+        *color = BackgroundColor(Color::srgb(1.0 - ratio, 0.15 + ratio * 0.75, 0.06));
+        *visibility = Visibility::Inherited;
+    }
+}
+
+fn stack_for_slot<'a>(
+    bar: &SlotDurabilityBar,
+    inventory: &'a InventoryState,
+    player_crafting: &'a PlayerCrafting,
+    workbench_crafting: &'a WorkbenchCrafting,
+) -> Option<&'a ItemStack> {
+    match bar.kind {
+        SlotKind::Hotbar => inventory.hotbar.get_stack(bar.index),
+        SlotKind::SurvivalBackpack | SlotKind::SurvivalEquipment | SlotKind::SurvivalAccessory => {
+            let index = crate::game::inventory::routing::survival_index(bar.kind, bar.index)?;
+            inventory.survival.get_stack(index)
+        }
+        SlotKind::Container(ContainerKind::PlayerCrafting) => {
+            crafting_stack(player_crafting.grid(), bar.index)
+        }
+        SlotKind::Container(ContainerKind::Workbench) => {
+            crafting_stack(workbench_crafting.grid(), bar.index)
+        }
+        SlotKind::CreativeGrid
+        | SlotKind::Recent
+        | SlotKind::Container(ContainerKind::Chest | ContainerKind::Furnace) => None,
+    }
+}
+
+fn crafting_stack(grid: &CraftingGrid, index: usize) -> Option<&ItemStack> {
+    if index < grid.slot_count() {
+        grid.get_stack(index)
+    } else if index == grid.slot_count() {
+        grid.output()
+    } else {
+        None
     }
 }
 
@@ -482,5 +602,6 @@ pub fn spawn_display_only_slot(
                 },
                 Visibility::Hidden,
             ));
+            spawn_durability_bar(slot, kind, index);
         });
 }

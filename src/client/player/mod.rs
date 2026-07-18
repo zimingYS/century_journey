@@ -95,7 +95,7 @@ fn first_person_visibility_system(
 ) {
     let is_first_person = camera_query
         .single()
-        .map(|camera| camera.is_first_person)
+        .map(FpsCamera::is_first_person)
         .unwrap_or(true);
     let Ok(rig) = rig_query.single() else {
         return;

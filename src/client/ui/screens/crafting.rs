@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::client::renderer::item_model::ItemModelRenderAssets;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
-use crate::client::ui::navigation::{UiNavigation, UiScreen};
+use crate::client::ui::navigation::{UiNavigation, UiScreen, UiScreenRoot};
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
@@ -16,10 +16,15 @@ use crate::game::crafting::grid::{
 };
 use crate::game::crafting::plugin::CraftingStationOpened;
 use crate::game::inventory::container::InventoryContainer;
+use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
+use crate::game::inventory::container::survival::SurvivalInventory;
 use crate::shared::item_id::ItemId;
 use crate::shared::ui_types::ContainerKind;
 
 const CRAFTING_SLOT_SIZE: f32 = 42.0;
+const CONTAINER_SLOT_SIZE: f32 = 46.0;
+const WORKBENCH_PANEL_WIDTH: f32 = 580.0;
+const WORKBENCH_PANEL_HEIGHT: f32 = 510.0;
 
 #[derive(Component)]
 pub struct CraftingPanel {
@@ -28,6 +33,9 @@ pub struct CraftingPanel {
 
 #[derive(Component)]
 pub struct CraftingHost;
+
+#[derive(Component)]
+pub struct WorkbenchOverlay;
 
 pub fn spawn_crafting_system(
     roots: Query<Entity, With<CraftingHost>>,
@@ -51,17 +59,111 @@ pub fn spawn_crafting_system(
             &theme,
             &ui_font,
         );
-        spawn_crafting_panel(
-            root,
-            ContainerKind::Workbench,
-            "工作台",
-            WorkbenchCrafting::WIDTH,
-            WorkbenchCrafting::HEIGHT,
-            false,
-            &theme,
-            &ui_font,
-        );
     });
+    spawn_workbench_overlay(&mut commands, &theme, &ui_font);
+}
+
+fn spawn_workbench_overlay(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
+    commands
+        .spawn((
+            WorkbenchOverlay,
+            UiScreenRoot::new(UiScreen::Container),
+            Name::new("WorkbenchOverlay"),
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                padding: UiRect::all(Val::Px(12.0)),
+                ..default()
+            },
+            ZIndex(1_100),
+            BackgroundColor(Color::srgba(0.015, 0.02, 0.025, 0.76)),
+            Visibility::Hidden,
+        ))
+        .with_children(|overlay| {
+            overlay
+                .spawn((
+                    Name::new("WorkbenchRoot"),
+                    Node {
+                        width: Val::Px(WORKBENCH_PANEL_WIDTH),
+                        height: Val::Px(WORKBENCH_PANEL_HEIGHT),
+                        max_width: Val::Percent(100.0),
+                        max_height: Val::Percent(100.0),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        row_gap: Val::Px(10.0),
+                        padding: UiRect::all(Val::Px(14.0)),
+                        border: UiRect::all(Val::Px(2.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(0.075, 0.075, 0.085, 0.99)),
+                    BorderColor::all(theme.border_default),
+                ))
+                .with_children(|root| {
+                    spawn_crafting_panel(
+                        root,
+                        ContainerKind::Workbench,
+                        "工作台",
+                        WorkbenchCrafting::WIDTH,
+                        WorkbenchCrafting::HEIGHT,
+                        false,
+                        theme,
+                        ui_font,
+                    );
+                    spawn_player_storage(root, theme, ui_font);
+                });
+        });
+}
+
+fn spawn_player_storage(parent: &mut ChildSpawnerCommands, theme: &UiTheme, ui_font: &UiFont) {
+    parent.spawn((
+        Text::new("物品栏"),
+        TextFont {
+            font: FontSource::from(ui_font.default.clone()),
+            font_size: FontSize::Px(theme.body_font_size),
+            ..default()
+        },
+        TextColor(theme.text_primary),
+    ));
+
+    let mut slot_theme = theme.clone();
+    slot_theme.slot_size = CONTAINER_SLOT_SIZE;
+    parent
+        .spawn(Node {
+            display: Display::Grid,
+            grid_template_columns: RepeatedGridTrack::px(9, CONTAINER_SLOT_SIZE),
+            grid_template_rows: RepeatedGridTrack::px(3, CONTAINER_SLOT_SIZE),
+            column_gap: Val::Px(4.0),
+            row_gap: Val::Px(4.0),
+            padding: UiRect::all(Val::Px(6.0)),
+            ..default()
+        })
+        .with_children(|grid| {
+            for index in 0..SurvivalInventory::BACKPACK_SIZE {
+                spawn_empty_slot(
+                    grid,
+                    SlotKind::SurvivalBackpack,
+                    index,
+                    &slot_theme,
+                    ui_font,
+                );
+            }
+        });
+
+    parent
+        .spawn(Node {
+            flex_direction: FlexDirection::Row,
+            column_gap: Val::Px(4.0),
+            padding: UiRect::all(Val::Px(6.0)),
+            ..default()
+        })
+        .with_children(|hotbar| {
+            for index in 0..HOTBAR_SIZE {
+                spawn_empty_slot(hotbar, SlotKind::Hotbar, index, &slot_theme, ui_font);
+            }
+        });
 }
 
 #[allow(clippy::too_many_arguments)]

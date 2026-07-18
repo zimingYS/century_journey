@@ -1,0 +1,21 @@
+{
+  "format_version": 1,
+  "type": "shaped",
+  "pattern": [
+    "PPP",
+    " S ",
+    " S "
+  ],
+  "key": {
+    "P": {
+      "item": "century_journey:stone"
+    },
+    "S": {
+      "item": "century_journey:stick"
+    }
+  },
+  "result": {
+    "item": "century_journey:stone_pickaxe",
+    "count": 1
+  }
+}

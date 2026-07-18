@@ -5,9 +5,17 @@ use crate::client::ui::widgets::slot::{
 };
 use crate::game::inventory::slot::SlotAction;
 use crate::game::inventory::state::InventoryState;
+use bevy::input::mouse::MouseWheel;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::EditableText;
+use std::collections::HashSet;
+
+#[derive(Resource, Default)]
+pub struct SlotDragState {
+    button: Option<MouseButton>,
+    visited: HashSet<(SlotKind, usize)>,
+}
 
 /// 槽位左键或 Shift 左键交互。
 pub fn slot_interaction_system(
@@ -58,6 +66,93 @@ pub fn slot_right_click_system(
                 action: SlotAction::RightClick,
             });
             break;
+        }
+    }
+}
+
+/// Mouse Tweaks 风格的槽位拖拽：右键逐个放置，左键连续移动，Shift 左键连续快移。
+pub fn slot_drag_interaction_system(
+    query: Query<(&Interaction, &InventorySlot), With<Button>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut drag: ResMut<SlotDragState>,
+    mut writer: MessageWriter<SlotInteractionEvent>,
+) {
+    let active_button = if mouse.pressed(MouseButton::Right) {
+        Some(MouseButton::Right)
+    } else if mouse.pressed(MouseButton::Left) {
+        Some(MouseButton::Left)
+    } else {
+        None
+    };
+
+    if drag.button != active_button {
+        drag.button = active_button;
+        drag.visited.clear();
+    }
+    let Some(button) = active_button else {
+        return;
+    };
+
+    let just_started = mouse.just_pressed(button);
+    for (interaction, slot) in &query {
+        if !matches!(*interaction, Interaction::Hovered | Interaction::Pressed) {
+            continue;
+        }
+        if !drag.visited.insert((slot.kind, slot.index)) || just_started {
+            continue;
+        }
+        writer.write(SlotInteractionEvent {
+            kind: slot.kind,
+            index: slot.index,
+            action: drag_action(button, shift_pressed(&keyboard)),
+        });
+    }
+}
+
+fn shift_pressed(keyboard: &ButtonInput<KeyCode>) -> bool {
+    keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight)
+}
+
+fn drag_action(button: MouseButton, shift: bool) -> SlotAction {
+    match (button, shift) {
+        (MouseButton::Left, true) => SlotAction::ShiftClick,
+        (MouseButton::Right, _) => SlotAction::RightClick,
+        _ => SlotAction::LeftClick,
+    }
+}
+
+pub fn slot_wheel_interaction_system(
+    query: Query<(&Interaction, &InventorySlot), With<Button>>,
+    mut wheel: MessageReader<MouseWheel>,
+    mut writer: MessageWriter<SlotInteractionEvent>,
+) {
+    let hovered = query
+        .iter()
+        .find(|(interaction, _)| {
+            matches!(**interaction, Interaction::Hovered | Interaction::Pressed)
+        })
+        .map(|(_, slot)| *slot);
+    let Some(slot) = hovered else {
+        wheel.clear();
+        return;
+    };
+
+    for event in wheel.read() {
+        let action = if event.y > 0.0 {
+            SlotAction::ScrollUp
+        } else if event.y < 0.0 {
+            SlotAction::ScrollDown
+        } else {
+            continue;
+        };
+        let steps = (event.y.abs().ceil() as usize).clamp(1, 8);
+        for _ in 0..steps {
+            writer.write(SlotInteractionEvent {
+                kind: slot.kind,
+                index: slot.index,
+                action,
+            });
         }
     }
 }
@@ -188,4 +283,23 @@ fn editable_text_value(editable_text: &EditableText) -> String {
         value.push_str(part);
     }
     value
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn drag_actions_match_mouse_tweaks_gestures() {
+        assert_eq!(drag_action(MouseButton::Left, false), SlotAction::LeftClick);
+        assert_eq!(drag_action(MouseButton::Left, true), SlotAction::ShiftClick);
+        assert_eq!(
+            drag_action(MouseButton::Right, false),
+            SlotAction::RightClick
+        );
+        assert_eq!(
+            drag_action(MouseButton::Right, true),
+            SlotAction::RightClick
+        );
+    }
 }

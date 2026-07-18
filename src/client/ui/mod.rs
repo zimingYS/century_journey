@@ -34,6 +34,7 @@ impl Plugin for UIPlugin {
             .init_resource::<CategoryTheme>()
             .init_resource::<resources::ui_font::UiFont>()
             .init_resource::<SearchInputState>()
+            .init_resource::<interaction::SlotDragState>()
             .add_plugins(HudPlugin)
             // ── Startup: 独立元素 ──
             .add_systems(
@@ -114,6 +115,8 @@ impl Plugin for UIPlugin {
                 (
                     interaction::slot_interaction_system,
                     interaction::slot_right_click_system,
+                    interaction::slot_drag_interaction_system,
+                    interaction::slot_wheel_interaction_system,
                     interaction::slot_q_drop_system,
                     interaction::category_tab_interaction_system,
                 )
@@ -153,6 +156,7 @@ impl Plugin for UIPlugin {
                     screens::survival_inventory::survival_grid_visual_sync_system,
                     screens::survival_inventory::survival_stats_visual_sync_system,
                     screens::crafting::crafting_visual_sync_system,
+                    widgets::slot::sync_slot_durability_system,
                     screens::creative_inventory::update_category_highlight_system,
                     screens::creative_inventory::sync_creative_search_placeholder_system,
                 )

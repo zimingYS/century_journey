@@ -8,8 +8,13 @@ use crate::client::ui::components::SurvivalInventoryRoot;
 use crate::client::ui::navigation::{UiNavigation, UiScreen};
 use crate::client::ui::screens::menu::{PauseSettingsButton, ResumeButton, SaveQuitButton};
 use crate::content::block::registry::BlockRegistry;
+use crate::game::crafting::grid::ActiveCrafting;
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
+use crate::game::inventory::item::stack::{ItemInstanceData, ItemStack};
+use crate::game::inventory::state::InventoryState;
 use crate::game::world::save::level;
+use crate::shared::components::camera::{CameraPerspective, FpsCamera};
+use crate::shared::item_id::ItemId;
 use crate::shared::states::AppState;
 use crate::shared::time::NEW_WORLD_START_TIME;
 
@@ -22,6 +27,9 @@ enum ScreenshotTarget {
     Settings,
     Pause,
     Inventory,
+    Workbench,
+    SecondPerson,
+    ThirdPerson,
 }
 
 #[derive(Resource, Debug)]
@@ -55,6 +63,9 @@ pub fn configure_ui_screenshot_check(app: &mut App) {
         "main-menu" => ScreenshotTarget::MainMenu,
         "settings" => ScreenshotTarget::Settings,
         "pause" => ScreenshotTarget::Pause,
+        "workbench" => ScreenshotTarget::Workbench,
+        "second-person" => ScreenshotTarget::SecondPerson,
+        "third-person" => ScreenshotTarget::ThirdPerson,
         _ => ScreenshotTarget::Inventory,
     };
     app.insert_resource(UiScreenshotCheck {
@@ -76,6 +87,9 @@ fn ui_screenshot_check_system(
     app_state: Res<State<AppState>>,
     config: Option<ResMut<UiScreenshotCheck>>,
     mut gamemode: ResMut<PlayerGameMode>,
+    mut inventory: ResMut<InventoryState>,
+    mut active_crafting: ResMut<ActiveCrafting>,
+    mut camera: Query<&mut FpsCamera, With<Camera3d>>,
     mut navigation: MessageWriter<UiNavigation>,
     mut pending_world: ResMut<PendingWorld>,
     block_registry: Option<Res<BlockRegistry>>,
@@ -137,15 +151,43 @@ fn ui_screenshot_check_system(
         return;
     }
     if state == &AppState::InGame && !config.prepared {
-        if config.target == ScreenshotTarget::Pause && config.in_game_frames < FRAMES_BEFORE_CAPTURE
-        {
+        if config.in_game_frames < FRAMES_BEFORE_CAPTURE {
             config.in_game_frames += 1;
             return;
         }
         gamemode.mode = config.mode;
+        if matches!(
+            config.target,
+            ScreenshotTarget::Inventory | ScreenshotTarget::Workbench
+        ) {
+            inventory.hotbar.set_stack(
+                0,
+                ItemStack::with_instance(
+                    ItemId::item("century_journey:wooden_axe"),
+                    1,
+                    ItemInstanceData {
+                        durability: Some(18),
+                    },
+                ),
+            );
+        }
         match config.target {
             ScreenshotTarget::Inventory => {
                 navigation.write(UiNavigation::Open(UiScreen::Inventory));
+            }
+            ScreenshotTarget::Workbench => {
+                *active_crafting = ActiveCrafting::workbench(IVec3::ZERO);
+                navigation.write(UiNavigation::Open(UiScreen::Container));
+            }
+            ScreenshotTarget::SecondPerson => {
+                if let Ok(mut camera) = camera.single_mut() {
+                    camera.perspective = CameraPerspective::SecondPerson;
+                }
+            }
+            ScreenshotTarget::ThirdPerson => {
+                if let Ok(mut camera) = camera.single_mut() {
+                    camera.perspective = CameraPerspective::ThirdPerson;
+                }
             }
             ScreenshotTarget::Pause => {
                 navigation.write(UiNavigation::Open(UiScreen::PauseMenu));
@@ -163,6 +205,10 @@ fn ui_screenshot_check_system(
                 && survival_inventory.single().is_ok_and(|(node, inherited)| {
                     node.size().min_element() > 0.0 && inherited.get()
                 })
+        }
+        ScreenshotTarget::Workbench => state == &AppState::InGame,
+        ScreenshotTarget::SecondPerson | ScreenshotTarget::ThirdPerson => {
+            state == &AppState::InGame
         }
     };
     if !ready || !config.prepared {

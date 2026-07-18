@@ -115,9 +115,43 @@ fn handle_crafting_event(
                 event.index,
                 &mut state.cursor,
             ),
+            SlotAction::ScrollDown => {
+                let hotbar_slots = state.hotbar.slot_count();
+                if !crate::game::inventory::interaction::move_one_into_range(
+                    crafting,
+                    &mut state.hotbar,
+                    event.index,
+                    0..hotbar_slots,
+                ) {
+                    crate::game::inventory::interaction::move_one_into_range(
+                        crafting,
+                        &mut state.survival,
+                        event.index,
+                        0..crate::game::inventory::container::survival::SurvivalInventory::BACKPACK_SIZE,
+                    );
+                }
+            }
+            SlotAction::ScrollUp => {
+                let hotbar_slots = state.hotbar.slot_count();
+                if !crate::game::inventory::interaction::pull_one_matching(
+                    crafting,
+                    &mut state.hotbar,
+                    event.index,
+                    0..hotbar_slots,
+                ) {
+                    crate::game::inventory::interaction::pull_one_matching(
+                        crafting,
+                        &mut state.survival,
+                        event.index,
+                        0..crate::game::inventory::container::survival::SurvivalInventory::BACKPACK_SIZE,
+                    );
+                }
+            }
             _ => return,
         }
-        state.cursor.source = None;
+        if matches!(event.action, SlotAction::LeftClick | SlotAction::RightClick) {
+            state.cursor.source = None;
+        }
         crafting.refresh(recipes, tags);
     } else if event.index == crafting.slot_count() {
         match event.action {
@@ -126,6 +160,9 @@ fn handle_crafting_event(
             }
             SlotAction::ShiftClick => {
                 while take_output_to_inventory(state, crafting, recipes, tags) {}
+            }
+            SlotAction::ScrollDown => {
+                take_output_to_inventory(state, crafting, recipes, tags);
             }
             _ => {}
         }
