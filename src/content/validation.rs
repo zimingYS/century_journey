@@ -1,5 +1,6 @@
 use crate::content::biome::BiomeDefinition;
 use crate::content::block::definition::BlockProperty;
+use crate::content::block::model::BlockModel;
 use crate::content::format::versioned_json_dir_results;
 use crate::content::item::definition::ItemDefinition;
 use crate::content::item::texture::icon::IconDefinition;
@@ -8,10 +9,13 @@ use crate::content::recipe::definition::Ingredient;
 use crate::content::recipe::definition::recipe_definition::RecipeDefinition;
 use crate::content::tag::definition::TagAction;
 use crate::engine::asset::{AssetFiles, AssetResolver};
+use crate::shared::held_item::HeldRenderDefinition;
 use crate::shared::identifier::Identifier;
+use crate::shared::tag::identifier::TagId;
+use bevy::prelude::Resource;
 use std::collections::HashSet;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ContentCheckReport {
     pub checked_files: usize,
     pub errors: Vec<String>,
@@ -23,16 +27,62 @@ impl ContentCheckReport {
     }
 }
 
+/// 全局校验完成后唯一允许进入运行时注册表的数据集合。
+///
+/// 每个列表都已按稳定标识符排序，运行时动态 ID 不再取决于文件系统遍历顺序。
+#[derive(Debug, Clone, Default)]
+pub struct CompiledContent {
+    pub blocks: Vec<BlockProperty>,
+    pub items: Vec<ItemDefinition>,
+    pub biomes: Vec<BiomeDefinition>,
+    pub recipes: Vec<(Identifier, RecipeDefinition)>,
+    pub block_loot: Vec<(Identifier, LootTable)>,
+    pub tags: Vec<(TagId, TagAction)>,
+}
+
+#[derive(Resource, Debug, Clone, Default)]
+pub struct ContentCompilation {
+    pub report: ContentCheckReport,
+    pub content: CompiledContent,
+}
+
+impl ContentCompilation {
+    pub fn is_valid(&self) -> bool {
+        self.report.is_valid()
+    }
+
+    pub fn error_summary(&self, limit: usize) -> String {
+        let shown = self
+            .report
+            .errors
+            .iter()
+            .take(limit)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n");
+        let remaining = self.report.errors.len().saturating_sub(limit);
+        if remaining == 0 {
+            shown
+        } else {
+            format!("{shown}\n... 另有 {remaining} 个错误")
+        }
+    }
+}
+
 pub fn check_content(resolver: &AssetResolver) -> ContentCheckReport {
+    compile_content(resolver).report
+}
+
+pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
     let files = AssetFiles::new(resolver);
     let mut report = ContentCheckReport::default();
 
-    let blocks = load::<BlockProperty>(&files, "definitions/blocks", &mut report);
-    let items = load::<ItemDefinition>(&files, "definitions/items", &mut report);
-    let biomes = load::<BiomeDefinition>(&files, "definitions/biomes", &mut report);
-    let recipes = load::<RecipeDefinition>(&files, "definitions/recipes", &mut report);
-    let loot = load::<LootTable>(&files, "definitions/loot/blocks", &mut report);
-    let tags = load::<TagAction>(&files, "definitions/tags", &mut report);
+    let mut blocks = load::<BlockProperty>(&files, "definitions/blocks", &mut report);
+    let mut items = load::<ItemDefinition>(&files, "definitions/items", &mut report);
+    let mut biomes = load::<BiomeDefinition>(&files, "definitions/biomes", &mut report);
+    let mut recipes = load::<RecipeDefinition>(&files, "definitions/recipes", &mut report);
+    let mut loot = load::<LootTable>(&files, "definitions/loot/blocks", &mut report);
+    let mut tags = load::<TagAction>(&files, "definitions/tags", &mut report);
 
     let block_ids = unique_ids(
         blocks
@@ -49,7 +99,14 @@ pub fn check_content(resolver: &AssetResolver) -> ContentCheckReport {
         &mut report,
     );
     let mut item_ids = explicit_item_ids.clone();
-    item_ids.extend(block_ids.iter().cloned());
+    for block_id in &block_ids {
+        if explicit_item_ids.contains(block_id) {
+            report.errors.push(format!(
+                "definitions/items:identifier: explicit item {block_id} conflicts with the generated block item"
+            ));
+        }
+        item_ids.insert(block_id.clone());
+    }
 
     if !block_ids.contains("century_journey:air") {
         report
@@ -60,11 +117,103 @@ pub fn check_content(resolver: &AssetResolver) -> ContentCheckReport {
     validate_blocks(resolver, &blocks, &block_ids, &mut report);
     validate_items(resolver, &items, &block_ids, &mut report);
     validate_biomes(&biomes, &block_ids, &mut report);
-    validate_recipes(&recipes, &item_ids, &mut report);
+    let mut item_tag_ids = tags
+        .iter()
+        .filter_map(|(path, _)| tag_identity(path))
+        .filter_map(|identity| identity.strip_prefix("item:").map(ToOwned::to_owned))
+        .collect::<HashSet<_>>();
+    for (_, item) in &items {
+        item_tag_ids.extend(item.tags.iter().map(|tag| inline_tag_id(tag).to_full()));
+    }
+    validate_recipes(&recipes, &item_ids, &item_tag_ids, &mut report);
     validate_loot(&loot, &block_ids, &item_ids, &mut report);
     validate_tags(&tags, &block_ids, &item_ids, &biomes, &mut report);
+    validate_textures(resolver, &files, &mut report);
 
-    report
+    blocks.sort_by(|left, right| {
+        left.1
+            .identifier
+            .cmp(&right.1.identifier)
+            .then_with(|| left.0.cmp(&right.0))
+    });
+    items.sort_by(|left, right| {
+        left.1
+            .identifier
+            .cmp(&right.1.identifier)
+            .then_with(|| left.0.cmp(&right.0))
+    });
+    biomes.sort_by(|left, right| {
+        left.1
+            .generation_order
+            .cmp(&right.1.generation_order)
+            .then_with(|| left.1.identifier.cmp(&right.1.identifier))
+            .then_with(|| left.0.cmp(&right.0))
+    });
+    recipes.sort_by(|left, right| left.0.cmp(&right.0));
+    loot.sort_by(|left, right| left.0.cmp(&right.0));
+    tags.sort_by(|left, right| left.0.cmp(&right.0));
+
+    let mut recipe_ids = HashSet::new();
+    let recipes = recipes
+        .into_iter()
+        .filter_map(|(path, recipe)| {
+            let Some(identifier) = recipe_id(&path) else {
+                report
+                    .errors
+                    .push(format!("{path}:path: invalid recipe definition path"));
+                return None;
+            };
+            if !recipe_ids.insert(identifier.clone()) {
+                report.errors.push(format!(
+                    "{path}:path: duplicate recipe identifier {identifier}"
+                ));
+                return None;
+            }
+            Some((identifier, recipe))
+        })
+        .collect();
+    let mut loot_ids = HashSet::new();
+    let block_loot = loot
+        .into_iter()
+        .filter_map(|(path, table)| {
+            let Some(identifier) = block_loot_id(&path) else {
+                report
+                    .errors
+                    .push(format!("{path}:path: invalid block loot definition path"));
+                return None;
+            };
+            if !loot_ids.insert(identifier.clone()) {
+                report.errors.push(format!(
+                    "{path}:path: duplicate block loot identifier {identifier}"
+                ));
+                return None;
+            }
+            Some((identifier, table))
+        })
+        .collect();
+    let tags = tags
+        .into_iter()
+        .filter_map(|(path, action)| {
+            tag_runtime_id(&path).map(|id| (id, action)).or_else(|| {
+                report
+                    .errors
+                    .push(format!("{path}:path: invalid tag definition path"));
+                None
+            })
+        })
+        .collect();
+
+    ContentCompilation {
+        report,
+        content: CompiledContent {
+            blocks: blocks.into_iter().map(|(_, value)| value).collect(),
+            items: items.into_iter().map(|(_, value)| value).collect(),
+            biomes: biomes.into_iter().map(|(_, value)| value).collect(),
+            recipes,
+            block_loot,
+            tags,
+        },
+    }
 }
 
 fn load<T: serde::de::DeserializeOwned>(
@@ -94,9 +243,9 @@ fn unique_ids<'a>(
     let mut ids = HashSet::new();
     for (path, identifier) in entries {
         if !ids.insert(identifier.clone()) {
-            report
-                .errors
-                .push(format!("{path}: duplicate {kind} identifier {identifier}"));
+            report.errors.push(format!(
+                "{path}:identifier: duplicate {kind} identifier {identifier}"
+            ));
         }
     }
     ids
@@ -112,19 +261,25 @@ fn validate_blocks(
         if !block.hardness.is_finite() || block.hardness < 0.0 {
             report
                 .errors
-                .push(format!("{path}: hardness must be finite and non-negative"));
+                .push(format!("{path}:hardness: must be finite and non-negative"));
         }
         if block.light_emission > 15 {
             report
                 .errors
-                .push(format!("{path}: light_emission must be <= 15"));
+                .push(format!("{path}:light_emission: must be <= 15"));
+        }
+        if !block.light_transmission.is_finite() || !(0.0..=1.0).contains(&block.light_transmission)
+        {
+            report.errors.push(format!(
+                "{path}:light_transmission: must be finite and within 0..=1"
+            ));
         }
         for face in 0..6 {
             let texture = block.textures.get_face_texture(face);
-            if !resolver.root_dir().join(texture).is_file() {
-                report
-                    .errors
-                    .push(format!("{path}: missing block texture {texture}"));
+            if !content_file_exists(resolver, texture) {
+                report.errors.push(format!(
+                    "{path}:textures.{face}: missing block texture {texture}"
+                ));
             }
         }
         if let Some(drop) = &block.drop_identifier
@@ -132,8 +287,89 @@ fn validate_blocks(
         {
             report
                 .errors
-                .push(format!("{path}: unknown drop_identifier {drop}"));
+                .push(format!("{path}:drop_identifier: unknown block {drop}"));
         }
+        for (field, volume) in [
+            ("sound.break_volume", block.sound.break_volume),
+            ("sound.place_volume", block.sound.place_volume),
+            ("sound.step_volume", block.sound.step_volume),
+        ] {
+            if !volume.is_finite() || !(0.0..=1.0).contains(&volume) {
+                report
+                    .errors
+                    .push(format!("{path}:{field}: must be finite and within 0..=1"));
+            }
+        }
+        validate_block_model(path, &block.model.model, report);
+        let mut property_names = HashSet::new();
+        let mut state_count = 1usize;
+        for (index, property) in block.states.properties.iter().enumerate() {
+            let field = format!("states.properties[{index}]");
+            if property.name.is_empty() || !property_names.insert(property.name.as_str()) {
+                report
+                    .errors
+                    .push(format!("{path}:{field}.name: must be non-empty and unique"));
+            }
+            if property.values.is_empty() {
+                report
+                    .errors
+                    .push(format!("{path}:{field}.values: must not be empty"));
+                continue;
+            }
+            if property.default_index >= property.values.len() {
+                report.errors.push(format!(
+                    "{path}:{field}.default_index: exceeds values length {}",
+                    property.values.len()
+                ));
+            }
+            let unique_values = property.values.iter().collect::<HashSet<_>>();
+            if unique_values.len() != property.values.len() {
+                report
+                    .errors
+                    .push(format!("{path}:{field}.values: contains duplicates"));
+            }
+            state_count = state_count.saturating_mul(property.values.len());
+        }
+        if state_count > u16::MAX as usize + 1 {
+            report.errors.push(format!(
+                "{path}:states.properties: {state_count} combinations exceed the u16 state space"
+            ));
+        }
+    }
+}
+
+fn validate_block_model(path: &str, model: &BlockModel, report: &mut ContentCheckReport) {
+    match model {
+        BlockModel::Slab { thickness }
+            if !thickness.is_finite() || !(0.0..=1.0).contains(thickness) =>
+        {
+            report.errors.push(format!(
+                "{path}:model.model.thickness: must be finite and within 0..=1"
+            ));
+        }
+        BlockModel::Custom { faces } => {
+            for (index, face) in faces.iter().enumerate() {
+                if face
+                    .vertices
+                    .iter()
+                    .flatten()
+                    .any(|coordinate| !coordinate.is_finite())
+                    || face.normal.iter().any(|coordinate| !coordinate.is_finite())
+                {
+                    report.errors.push(format!(
+                        "{path}:model.model.faces[{index}]: vertices and normal must be finite"
+                    ));
+                }
+                if !face.ambient_occlusion.is_finite()
+                    || !(0.0..=1.0).contains(&face.ambient_occlusion)
+                {
+                    report.errors.push(format!(
+                        "{path}:model.model.faces[{index}].ambient_occlusion: must be finite and within 0..=1"
+                    ));
+                }
+            }
+        }
+        _ => {}
     }
 }
 
@@ -147,37 +383,70 @@ fn validate_items(
         if item.max_stack == 0 {
             report
                 .errors
-                .push(format!("{path}: max_stack must be positive"));
+                .push(format!("{path}:max_stack: must be positive"));
         }
         if let Some(block) = &item.placeable_block
             && !block_ids.contains(&block.to_string())
         {
             report
                 .errors
-                .push(format!("{path}: unknown placeable_block {block}"));
+                .push(format!("{path}:placeable_block: unknown block {block}"));
+        }
+        if let Some(tool) = &item.tool {
+            if tool.max_durability == 0 {
+                report
+                    .errors
+                    .push(format!("{path}:tool.max_durability: must be positive"));
+            }
+            if !tool.efficiency.is_finite() || tool.efficiency <= 0.0 {
+                report.errors.push(format!(
+                    "{path}:tool.efficiency: must be finite and positive"
+                ));
+            }
+        }
+        if let Some(food) = &item.food
+            && (!food.hunger.is_finite()
+                || !food.saturation.is_finite()
+                || food.hunger < 0.0
+                || food.saturation < 0.0)
+        {
+            report.errors.push(format!(
+                "{path}:food: hunger and saturation must be finite and non-negative"
+            ));
+        }
+        match &item.held_renderer {
+            HeldRenderDefinition::FlatItem { thickness }
+                if !thickness.is_finite() || *thickness <= 0.0 =>
+            {
+                report.errors.push(format!(
+                    "{path}:held_renderer.thickness: must be finite and positive"
+                ));
+            }
+            HeldRenderDefinition::Model { path: model_path } if model_path.trim().is_empty() => {
+                report
+                    .errors
+                    .push(format!("{path}:held_renderer.path: must not be empty"));
+            }
+            _ => {}
         }
         match &item.icon {
             IconDefinition::Block(block) if !block_ids.contains(&block.to_string()) => {
                 report
                     .errors
-                    .push(format!("{path}: unknown block icon {block}"));
+                    .push(format!("{path}:icon.value: unknown block {block}"));
             }
             IconDefinition::Texture(identifier) => match Identifier::parse(identifier) {
                 Ok(identifier) => {
-                    let texture = resolver
-                        .root_dir()
-                        .join("textures/items")
-                        .join(format!("{}.png", identifier.path()));
-                    if !texture.is_file() {
-                        report.errors.push(format!(
-                            "{path}: missing item texture {}",
-                            texture.display()
-                        ));
+                    let texture = format!("textures/items/{}.png", identifier.path());
+                    if !content_file_exists(resolver, &texture) {
+                        report
+                            .errors
+                            .push(format!("{path}:icon.value: missing item texture {texture}"));
                     }
                 }
-                Err(error) => report
-                    .errors
-                    .push(format!("{path}: invalid texture identifier: {error}")),
+                Err(error) => report.errors.push(format!(
+                    "{path}:icon.value: invalid texture identifier: {error}"
+                )),
             },
             IconDefinition::Block(_) => {}
         }
@@ -194,13 +463,13 @@ fn validate_biomes(
     for (path, biome) in biomes {
         if !ids.insert(biome.identifier.to_string()) {
             report.errors.push(format!(
-                "{path}: duplicate biome identifier {}",
+                "{path}:identifier: duplicate biome identifier {}",
                 biome.identifier
             ));
         }
         if !orders.insert(biome.generation_order) {
             report.errors.push(format!(
-                "{path}: duplicate biome generation_order {}",
+                "{path}:generation_order: duplicate value {}",
                 biome.generation_order
             ));
         }
@@ -209,7 +478,22 @@ fn validate_biomes(
         if !(0.0..=1.0).contains(&biome.tree_density) || !biome.tree_density.is_finite() {
             report
                 .errors
-                .push(format!("{path}: tree_density must be within 0..=1"));
+                .push(format!("{path}:tree_density: must be within 0..=1"));
+        }
+        if !biome.terrain.base_height.is_finite() {
+            report
+                .errors
+                .push(format!("{path}:terrain.base_height: must be finite"));
+        }
+        if !biome.terrain.height_amplitude.is_finite() || biome.terrain.height_amplitude < 0.0 {
+            report.errors.push(format!(
+                "{path}:terrain.height_amplitude: must be finite and non-negative"
+            ));
+        }
+        if !biome.terrain.roughness.is_finite() || biome.terrain.roughness < 0.0 {
+            report.errors.push(format!(
+                "{path}:terrain.roughness: must be finite and non-negative"
+            ));
         }
         for (field, block) in [
             ("surface_block", &biome.surface_block),
@@ -219,14 +503,14 @@ fn validate_biomes(
             if !block_ids.contains(&block.to_string()) {
                 report
                     .errors
-                    .push(format!("{path}: unknown {field} {block}"));
+                    .push(format!("{path}:{field}: unknown block {block}"));
             }
         }
     }
     if biomes.is_empty() {
         report
             .errors
-            .push("definitions/biomes: at least one biome is required".into());
+            .push("definitions/biomes:directory: at least one biome is required".into());
     }
 }
 
@@ -244,13 +528,14 @@ fn validate_unit_range(
     {
         report
             .errors
-            .push(format!("{path}: {field} must be ordered within 0..=1"));
+            .push(format!("{path}:{field}: must be ordered within 0..=1"));
     }
 }
 
 fn validate_recipes(
     recipes: &[(String, RecipeDefinition)],
     item_ids: &HashSet<String>,
+    item_tag_ids: &HashSet<String>,
     report: &mut ContentCheckReport,
 ) {
     for (path, recipe) in recipes {
@@ -259,7 +544,7 @@ fn validate_recipes(
                 if recipe.pattern.is_empty() {
                     report
                         .errors
-                        .push(format!("{path}: shaped pattern is empty"));
+                        .push(format!("{path}:pattern: must not be empty"));
                 }
                 let widths: HashSet<_> = recipe
                     .pattern
@@ -267,9 +552,9 @@ fn validate_recipes(
                     .map(|row| row.chars().count())
                     .collect();
                 if widths.len() > 1 || widths.contains(&0) {
-                    report.errors.push(format!(
-                        "{path}: shaped pattern rows must have one non-zero width"
-                    ));
+                    report
+                        .errors
+                        .push(format!("{path}:pattern: rows must have one non-zero width"));
                 }
                 let used_keys: HashSet<char> = recipe
                     .pattern
@@ -281,14 +566,14 @@ fn validate_recipes(
                     if !recipe.key.contains_key(key) {
                         report
                             .errors
-                            .push(format!("{path}: pattern key '{key}' has no ingredient"));
+                            .push(format!("{path}:key.{key}: missing ingredient"));
                     }
                 }
                 for key in recipe.key.keys() {
                     if *key == ' ' || !used_keys.contains(key) {
                         report
                             .errors
-                            .push(format!("{path}: unused or reserved recipe key '{key}'"));
+                            .push(format!("{path}:key.{key}: unused or reserved key"));
                     }
                 }
                 (recipe.key.values().collect::<Vec<_>>(), &recipe.result)
@@ -297,7 +582,7 @@ fn validate_recipes(
                 if recipe.ingredients.is_empty() {
                     report
                         .errors
-                        .push(format!("{path}: shapeless ingredients are empty"));
+                        .push(format!("{path}:ingredients: must not be empty"));
                 }
                 (
                     recipe.ingredients.iter().collect::<Vec<_>>(),
@@ -306,23 +591,30 @@ fn validate_recipes(
             }
         };
         for ingredient in ingredients {
-            if let Ingredient::Item { item } = ingredient
-                && !item_ids.contains(&item.to_string())
-            {
-                report
-                    .errors
-                    .push(format!("{path}: unknown ingredient item {item}"));
+            match ingredient {
+                Ingredient::Item { item } if !item_ids.contains(&item.to_string()) => {
+                    report
+                        .errors
+                        .push(format!("{path}:ingredients: unknown item {item}"));
+                }
+                Ingredient::Tag { tag } if !item_tag_ids.contains(&tag.to_full()) => {
+                    report.errors.push(format!(
+                        "{path}:ingredients: unknown item tag {}",
+                        tag.to_full()
+                    ));
+                }
+                _ => {}
             }
         }
         if result.count == 0 {
             report
                 .errors
-                .push(format!("{path}: recipe result count is zero"));
+                .push(format!("{path}:result.count: must be positive"));
         }
         if !item_ids.contains(&result.item.to_string()) {
             report
                 .errors
-                .push(format!("{path}: unknown recipe result {}", result.item));
+                .push(format!("{path}:result.item: unknown item {}", result.item));
         }
     }
 }
@@ -337,24 +629,30 @@ fn validate_loot(
         let block_id = definition_id(path, "definitions/loot/blocks/");
         if !block_ids.contains(&block_id) {
             report.errors.push(format!(
-                "{path}: loot table targets unknown block {block_id}"
+                "{path}:path: loot table targets unknown block {block_id}"
             ));
         }
-        for entry in &table.entries {
+        for (index, entry) in table.entries.iter().enumerate() {
             if !item_ids.contains(&entry.item.to_string()) {
-                report
-                    .errors
-                    .push(format!("{path}: unknown loot item {}", entry.item));
+                report.errors.push(format!(
+                    "{path}:entries[{index}].item: unknown item {}",
+                    entry.item
+                ));
             }
             if entry.min_count > entry.max_count {
-                report
-                    .errors
-                    .push(format!("{path}: loot count range is reversed"));
+                report.errors.push(format!(
+                    "{path}:entries[{index}].min_count: exceeds max_count"
+                ));
+            }
+            if entry.max_count == 0 {
+                report.errors.push(format!(
+                    "{path}:entries[{index}].max_count: must be positive"
+                ));
             }
             if !(0.0..=1.0).contains(&entry.chance) || !entry.chance.is_finite() {
-                report
-                    .errors
-                    .push(format!("{path}: loot chance must be within 0..=1"));
+                report.errors.push(format!(
+                    "{path}:entries[{index}].chance: must be finite and within 0..=1"
+                ));
             }
         }
     }
@@ -381,7 +679,7 @@ fn validate_tags(
                 .split_once(':')
                 .map(|(kind, rest)| (kind.to_string(), rest.to_string()))
         }) else {
-            report.errors.push(format!("{path}: invalid tag path"));
+            report.errors.push(format!("{path}:path: invalid tag path"));
             continue;
         };
         let known = match kind.as_str() {
@@ -391,7 +689,7 @@ fn validate_tags(
             _ => {
                 report
                     .errors
-                    .push(format!("{path}: unsupported tag kind {kind}"));
+                    .push(format!("{path}:path: unsupported tag kind {kind}"));
                 continue;
             }
         };
@@ -400,12 +698,12 @@ fn validate_tags(
                 if !tag_keys.contains(&format!("{kind}:{reference}")) {
                     report
                         .errors
-                        .push(format!("{path}: unresolved tag reference {value}"));
+                        .push(format!("{path}:values: unresolved tag reference {value}"));
                 }
             } else if !known.contains(value) {
                 report
                     .errors
-                    .push(format!("{path}: unknown {kind} tag member {value}"));
+                    .push(format!("{path}:values: unknown {kind} member {value}"));
             }
         }
     }
@@ -417,6 +715,82 @@ fn tag_values(action: &TagAction) -> &[String] {
         TagAction::Remove { remove } => remove,
         TagAction::Replace { replace } => replace,
         TagAction::Values { values, .. } => values,
+    }
+}
+
+fn content_file_exists(resolver: &AssetResolver, relative: &str) -> bool {
+    resolver
+        .content_roots()
+        .iter()
+        .rev()
+        .any(|root| root.join(relative).is_file())
+}
+
+fn validate_textures(
+    _resolver: &AssetResolver,
+    files: &AssetFiles<'_>,
+    report: &mut ContentCheckReport,
+) {
+    for directory in ["textures/blocks", "textures/items"] {
+        let textures = files.resolved_files(directory, "png");
+        report.checked_files += textures.len();
+        for texture in textures {
+            match std::fs::read(&texture.full_path) {
+                Ok(bytes) => match image::load_from_memory(&bytes) {
+                    Ok(image) if image.width() > 0 && image.height() > 0 => {}
+                    Ok(_) => report.errors.push(format!(
+                        "{}:image.dimensions: width and height must be positive",
+                        texture.full_path.display()
+                    )),
+                    Err(error) => report.errors.push(format!(
+                        "{}:image.data: cannot decode PNG: {error}",
+                        texture.full_path.display()
+                    )),
+                },
+                Err(error) => report.errors.push(format!(
+                    "{}:image.data: cannot read texture: {error}",
+                    texture.full_path.display()
+                )),
+            }
+        }
+    }
+}
+
+fn recipe_id(path: &str) -> Option<Identifier> {
+    definition_identifier(path, "definitions/recipes/", None)
+}
+
+fn block_loot_id(path: &str) -> Option<Identifier> {
+    definition_identifier(path, "definitions/loot/blocks/", Some("century_journey"))
+}
+
+fn definition_identifier(
+    path: &str,
+    prefix: &str,
+    default_namespace: Option<&str>,
+) -> Option<Identifier> {
+    let relative = path.strip_prefix(prefix)?.replace('\\', "/");
+    if let Some((namespace, name)) = relative.split_once('/') {
+        (!namespace.is_empty() && !name.is_empty()).then(|| Identifier::new(namespace, name))
+    } else {
+        default_namespace.map(|namespace| Identifier::new(namespace, relative))
+    }
+}
+
+fn tag_runtime_id(path: &str) -> Option<TagId> {
+    let relative = path.strip_prefix("definitions/tags/")?.replace('\\', "/");
+    let mut parts = relative.split('/');
+    let _kind = parts.next()?;
+    let namespace = parts.next()?;
+    let name = parts.collect::<Vec<_>>().join("/");
+    (!namespace.is_empty() && !name.is_empty()).then(|| TagId::new(namespace, name))
+}
+
+fn inline_tag_id(tag: &str) -> TagId {
+    if let Some((namespace, path)) = tag.split_once('/') {
+        TagId::new(namespace, path)
+    } else {
+        TagId::new("century_journey", tag)
     }
 }
 
@@ -447,6 +821,110 @@ mod tests {
             AssetResolver::new(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets"));
         let report = check_content(&resolver);
         assert!(report.errors.is_empty(), "{}", report.errors.join("\n"));
+    }
+
+    #[test]
+    fn compiled_registries_are_sorted_by_stable_identity() {
+        let resolver =
+            AssetResolver::new(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets"));
+        let compilation = compile_content(&resolver);
+        assert!(
+            compilation.is_valid(),
+            "{}",
+            compilation.error_summary(usize::MAX)
+        );
+
+        assert!(
+            compilation
+                .content
+                .blocks
+                .windows(2)
+                .all(|pair| { pair[0].identifier <= pair[1].identifier })
+        );
+        assert!(
+            compilation
+                .content
+                .items
+                .windows(2)
+                .all(|pair| { pair[0].identifier <= pair[1].identifier })
+        );
+        assert!(
+            compilation
+                .content
+                .recipes
+                .windows(2)
+                .all(|pair| { pair[0].0 <= pair[1].0 })
+        );
+        assert!(
+            compilation
+                .content
+                .block_loot
+                .windows(2)
+                .all(|pair| { pair[0].0 <= pair[1].0 })
+        );
+    }
+
+    #[test]
+    fn dangling_reference_reports_file_and_field_path() {
+        let root = std::env::temp_dir().join(format!(
+            "century_journey_content_dangling_{}",
+            std::process::id()
+        ));
+        let override_file = root.join("definitions/loot/blocks/stone.json");
+        std::fs::create_dir_all(override_file.parent().unwrap()).unwrap();
+        std::fs::write(
+            &override_file,
+            r#"{
+                "format_version": 1,
+                "entries": [{
+                    "item": "century_journey:oak_sapling",
+                    "min_count": 1,
+                    "max_count": 1,
+                    "chance": 1.0
+                }]
+            }"#,
+        )
+        .unwrap();
+        let resolver = AssetResolver::with_content_overrides(
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets"),
+            [root.clone()],
+        );
+
+        let compilation = compile_content(&resolver);
+
+        assert!(!compilation.is_valid());
+        assert!(compilation.report.errors.iter().any(|error| {
+            error.contains("definitions/loot/blocks/stone:entries[0].item")
+                && error.contains("oak_sapling")
+        }));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn invalid_png_is_part_of_global_content_validation() {
+        let root = std::env::temp_dir().join(format!(
+            "century_journey_content_texture_{}",
+            std::process::id()
+        ));
+        let override_file = root.join("textures/items/broken.png");
+        std::fs::create_dir_all(override_file.parent().unwrap()).unwrap();
+        std::fs::write(&override_file, b"not a png").unwrap();
+        let resolver = AssetResolver::with_content_overrides(
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets"),
+            [root.clone()],
+        );
+
+        let compilation = compile_content(&resolver);
+
+        assert!(!compilation.is_valid());
+        assert!(
+            compilation
+                .report
+                .errors
+                .iter()
+                .any(|error| { error.contains("broken.png:image.data: cannot decode PNG") })
+        );
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

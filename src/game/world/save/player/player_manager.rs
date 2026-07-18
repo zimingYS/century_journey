@@ -1,5 +1,6 @@
 use super::player_io::{player_save_path, write_player_data};
 use super::player_model::{PlayerSaveData, validate_player_data};
+use crate::content::item::registry::registry::ItemRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::stats::{Health, Hunger};
@@ -85,6 +86,7 @@ fn perform_save(
     world_name: &str,
     gamemode: &PlayerGameMode,
     inventory: &InventoryState,
+    item_registry: &ItemRegistry,
     player_query: &Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
     camera_query: &Query<&FpsCamera, With<Camera3d>>,
     save_manager: &mut PlayerSaveManager,
@@ -115,6 +117,7 @@ fn perform_save(
         pitch,
         gamemode,
         inventory,
+        item_registry,
         health,
         hunger,
         saturation,
@@ -146,6 +149,7 @@ pub fn save_player_now(
     world_name: &str,
     gamemode: &PlayerGameMode,
     inventory: &InventoryState,
+    item_registry: &ItemRegistry,
     player_query: &Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
     camera_query: &Query<&FpsCamera, With<Camera3d>>,
     save_manager: &mut PlayerSaveManager,
@@ -179,6 +183,7 @@ pub fn save_player_now(
         pitch,
         gamemode,
         inventory,
+        item_registry,
         health,
         hunger,
         saturation,
@@ -204,6 +209,7 @@ pub fn load_player_on_enter_system(
     save_config: Res<SaveConfig>,
     mut gamemode: ResMut<PlayerGameMode>,
     mut inventory: ResMut<InventoryState>,
+    item_registry: Res<ItemRegistry>,
     mut player_query: Query<
         (
             &mut Transform,
@@ -241,7 +247,7 @@ pub fn load_player_on_enter_system(
     let save_data = validate_player_data(&raw_data);
     *gamemode = save_data.restore_gamemode();
 
-    let restored = save_data.restore_inventory();
+    let restored = save_data.restore_inventory_with_registry(&item_registry);
     inventory.hotbar = restored.hotbar;
     inventory.survival = restored.survival;
 
@@ -323,6 +329,7 @@ pub fn auto_save_player_system(
     save_config: Res<SaveConfig>,
     gamemode: Res<PlayerGameMode>,
     inventory: Res<InventoryState>,
+    item_registry: Res<ItemRegistry>,
     player_query: Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
     camera_query: Query<&FpsCamera, With<Camera3d>>,
     mut save_manager: ResMut<PlayerSaveManager>,
@@ -334,6 +341,7 @@ pub fn auto_save_player_system(
         &save_config.world_name,
         &gamemode,
         &inventory,
+        &item_registry,
         &player_query,
         &camera_query,
         &mut save_manager,
@@ -347,6 +355,7 @@ pub fn save_on_exit_system(
     save_config: Res<SaveConfig>,
     gamemode: Res<PlayerGameMode>,
     inventory: Res<InventoryState>,
+    item_registry: Res<ItemRegistry>,
     player_query: Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
     camera_query: Query<&FpsCamera, With<Camera3d>>,
     mut save_manager: ResMut<PlayerSaveManager>,
@@ -363,6 +372,7 @@ pub fn save_on_exit_system(
         &save_config.world_name,
         &gamemode,
         &inventory,
+        &item_registry,
         &player_query,
         &camera_query,
         &mut save_manager,

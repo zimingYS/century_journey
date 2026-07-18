@@ -1,5 +1,6 @@
 use crate::content::block::event::*;
 use crate::content::block::sound::BlockSoundEvent;
+use crate::content::lifecycle::ContentStartupSet;
 use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 
@@ -22,7 +23,7 @@ impl Plugin for VoxelPlugin {
             .add_message::<BlockSoundEvent>()
             .add_systems(
                 OnEnter(AppState::Loading),
-                (registry::init_block_registry_system,),
+                registry::init_block_registry_system.in_set(ContentStartupSet::Registry),
             );
     }
 }
