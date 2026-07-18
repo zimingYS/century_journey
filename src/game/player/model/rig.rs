@@ -106,6 +106,8 @@ pub fn spawn_player_rig_v2(
         PlayerPart::Head,
         config,
     );
+    let detail_meshes =
+        spawn_player_details(commands, &cube, materials, head_joint, body_joint, config);
 
     let right_arm = build_arm_chain(commands, root, &cube, materials, true, config);
     let left_arm = build_arm_chain(commands, root, &cube, materials, false, config);
@@ -173,7 +175,7 @@ pub fn spawn_player_rig_v2(
     let chest = spawn_chest_anchor(commands, body_joint);
     let back = spawn_back_anchor(commands, body_joint);
 
-    let mesh_entities = vec![
+    let mut mesh_entities = vec![
         body_mesh,
         head_mesh,
         right_arm.upper_mesh,
@@ -189,6 +191,7 @@ pub fn spawn_player_rig_v2(
         calf_l_mesh,
         foot_l_mesh,
     ];
+    mesh_entities.extend(detail_meshes);
 
     let entities = PlayerRigEntities {
         root,
@@ -320,6 +323,163 @@ fn spawn_mesh(
         ))
         .id();
     commands.entity(joint).add_child(entity);
+    entity
+}
+
+fn spawn_player_details(
+    commands: &mut Commands,
+    cube: &Handle<Mesh>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    head_joint: Entity,
+    body_joint: Entity,
+    config: &PlayerModelConfig,
+) -> Vec<Entity> {
+    let hair = Color::srgb(0.10, 0.055, 0.035);
+    let eye = Color::srgb(0.07, 0.045, 0.035);
+    let shirt = Color::srgb(0.72, 0.78, 0.68);
+    let leather = Color::srgb(0.22, 0.10, 0.055);
+    let buckle = Color::srgb(0.72, 0.50, 0.18);
+    let base_scale = config.base_scale;
+    let mut spawn = |parent, owner, name, translation, scale, color| {
+        spawn_detail_mesh(
+            commands,
+            cube,
+            materials,
+            parent,
+            owner,
+            name,
+            translation,
+            scale,
+            color,
+            base_scale,
+        )
+    };
+
+    vec![
+        spawn(
+            head_joint,
+            PlayerPart::Head,
+            "HairTop",
+            Vec3::new(0.0, 0.205, 0.0),
+            Vec3::new(0.43, 0.07, 0.42),
+            hair,
+        ),
+        spawn(
+            head_joint,
+            PlayerPart::Head,
+            "HairBack",
+            Vec3::new(0.0, 0.035, 0.205),
+            Vec3::new(0.43, 0.30, 0.055),
+            hair,
+        ),
+        spawn(
+            head_joint,
+            PlayerPart::Head,
+            "HairLeft",
+            Vec3::new(-0.205, 0.07, 0.0),
+            Vec3::new(0.055, 0.25, 0.40),
+            hair,
+        ),
+        spawn(
+            head_joint,
+            PlayerPart::Head,
+            "HairRight",
+            Vec3::new(0.205, 0.07, 0.0),
+            Vec3::new(0.055, 0.25, 0.40),
+            hair,
+        ),
+        spawn(
+            head_joint,
+            PlayerPart::Head,
+            "EyeLeft",
+            Vec3::new(-0.09, 0.035, -0.205),
+            Vec3::new(0.052, 0.045, 0.018),
+            eye,
+        ),
+        spawn(
+            head_joint,
+            PlayerPart::Head,
+            "EyeRight",
+            Vec3::new(0.09, 0.035, -0.205),
+            Vec3::new(0.052, 0.045, 0.018),
+            eye,
+        ),
+        spawn(
+            head_joint,
+            PlayerPart::Head,
+            "Mouth",
+            Vec3::new(0.0, -0.085, -0.205),
+            Vec3::new(0.085, 0.018, 0.018),
+            Color::srgb(0.38, 0.13, 0.10),
+        ),
+        spawn(
+            body_joint,
+            PlayerPart::Body,
+            "ShirtInset",
+            Vec3::new(0.0, 0.07, -0.148),
+            Vec3::new(0.16, 0.35, 0.018),
+            shirt,
+        ),
+        spawn(
+            body_joint,
+            PlayerPart::Body,
+            "Collar",
+            Vec3::new(0.0, 0.245, -0.151),
+            Vec3::new(0.25, 0.055, 0.022),
+            Color::srgb(0.055, 0.20, 0.22),
+        ),
+        spawn(
+            body_joint,
+            PlayerPart::Body,
+            "Belt",
+            Vec3::new(0.0, -0.275, 0.0),
+            Vec3::new(0.50, 0.07, 0.295),
+            leather,
+        ),
+        spawn(
+            body_joint,
+            PlayerPart::Body,
+            "BeltBuckle",
+            Vec3::new(0.0, -0.275, -0.158),
+            Vec3::new(0.075, 0.06, 0.022),
+            buckle,
+        ),
+    ]
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spawn_detail_mesh(
+    commands: &mut Commands,
+    cube: &Handle<Mesh>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    parent: Entity,
+    owner: PlayerPart,
+    name: &str,
+    translation: Vec3,
+    scale: Vec3,
+    color: Color,
+    base_scale: f32,
+) -> Entity {
+    let material = materials.add(StandardMaterial {
+        base_color: color,
+        perceptual_roughness: 0.9,
+        ..default()
+    });
+    let entity = commands
+        .spawn((
+            PlayerMesh(owner),
+            Name::new(name.to_string()),
+            Mesh3d(cube.clone()),
+            MeshMaterial3d(material),
+            Transform {
+                translation: translation * base_scale,
+                scale: scale * base_scale,
+                ..default()
+            },
+            Visibility::default(),
+        ))
+        .id();
+    commands.entity(parent).add_child(entity);
     entity
 }
 

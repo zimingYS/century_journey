@@ -218,3 +218,126 @@ pub fn shift_click_into_range<C1: InventoryContainer, C2: InventoryContainer>(
         }
     }
 }
+
+/// 将来源槽位中的一个物品移动到目标范围，供滚轮快速转移使用。
+pub fn move_one_into_range<C1: InventoryContainer, C2: InventoryContainer>(
+    source: &mut C1,
+    dest: &mut C2,
+    source_index: usize,
+    dest_range: Range<usize>,
+) -> bool {
+    let Some(source_stack) = source.get_stack(source_index).cloned() else {
+        return false;
+    };
+    if source_stack.is_empty() {
+        return false;
+    }
+    let mut one =
+        ItemStack::with_instance(source_stack.item.clone(), 1, source_stack.instance.clone());
+    if !insert_one_into_range(dest, &mut one, dest_range) {
+        return false;
+    }
+
+    let emptied = source
+        .get_stack_mut(source_index)
+        .and_then(|stack| stack.take(1).map(|_| stack.is_empty()))
+        .unwrap_or(false);
+    if emptied {
+        source.set_stack(source_index, ItemStack::empty());
+    }
+    true
+}
+
+/// 从来源范围寻找与目标槽位相同的物品，并补入一个。
+pub fn pull_one_matching<C1: InventoryContainer, C2: InventoryContainer>(
+    dest: &mut C1,
+    source: &mut C2,
+    dest_index: usize,
+    source_range: Range<usize>,
+) -> bool {
+    let Some(target) = dest.get_stack(dest_index).cloned() else {
+        return false;
+    };
+    if target.is_empty() || target.is_full() {
+        return false;
+    }
+    let source_index = source_range.into_iter().find(|index| {
+        source
+            .get_stack(*index)
+            .is_some_and(|stack| stack.is_same_item(&target) && !stack.is_empty())
+    });
+    source_index.is_some_and(|index| {
+        move_one_into_range(
+            source,
+            dest,
+            index,
+            dest_index..dest_index.saturating_add(1),
+        )
+    })
+}
+
+fn insert_one_into_range<C: InventoryContainer>(
+    dest: &mut C,
+    one: &mut ItemStack,
+    range: Range<usize>,
+) -> bool {
+    for index in range.clone() {
+        if let Some(existing) = dest.get_stack_mut(index)
+            && existing.is_same_item(one)
+            && !existing.is_full()
+        {
+            existing.merge_from(one);
+            return one.is_empty();
+        }
+    }
+    for index in range {
+        if dest.get_stack(index).is_none_or(ItemStack::is_empty) {
+            dest.set_stack(index, std::mem::take(one));
+            return true;
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::game::inventory::container::survival::SurvivalInventory;
+    use crate::game::inventory::item::stack::ItemInstanceData;
+    use crate::shared::item_id::ItemId;
+
+    #[test]
+    fn wheel_transfer_moves_one_and_preserves_instance_data() {
+        let item = ItemId::item("century_journey:test_tool");
+        let mut source = SurvivalInventory::default();
+        let mut dest = SurvivalInventory::default();
+        source.set_stack(
+            0,
+            ItemStack::with_instance(
+                item.clone(),
+                2,
+                ItemInstanceData {
+                    durability: Some(7),
+                },
+            ),
+        );
+
+        assert!(move_one_into_range(&mut source, &mut dest, 0, 0..1));
+        assert_eq!(source.get_stack(0).unwrap().count, 1);
+        assert_eq!(dest.get_stack(0).unwrap().count, 1);
+        assert_eq!(dest.get_stack(0).unwrap().durability(), Some(7));
+    }
+
+    #[test]
+    fn wheel_pull_only_uses_matching_stacks() {
+        let item = ItemId::item("century_journey:planks");
+        let mut dest = SurvivalInventory::default();
+        let mut source = SurvivalInventory::default();
+        dest.set_stack(0, ItemStack::single(item.clone()));
+        source.set_stack(0, ItemStack::new(item, 3));
+
+        assert!(pull_one_matching(&mut dest, &mut source, 0, 0..1));
+        assert_eq!(dest.get_stack(0).unwrap().count, 2);
+        assert_eq!(source.get_stack(0).unwrap().count, 2);
+    }
+}

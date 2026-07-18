@@ -17,6 +17,10 @@ pub enum SlotAction {
     RightClick,
     /// Shift + 左键点击
     ShiftClick,
+    /// 滚轮向下：逐个移出当前槽位
+    ScrollDown,
+    /// 滚轮向上：从对应容器逐个补入当前槽位
+    ScrollUp,
     /// Q 丢弃 1 个
     DropOne,
     /// Shift+Q 丢弃整组

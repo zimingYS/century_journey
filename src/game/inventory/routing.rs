@@ -1,7 +1,10 @@
 use crate::game::inventory::container::InventoryContainer;
+use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
+use crate::game::inventory::container::survival::SurvivalInventory;
 use crate::game::inventory::cursor::{CursorData, CursorSource};
 use crate::game::inventory::interaction::{
-    left_click_slot, right_click_slot, shift_click, shift_click_into_range,
+    left_click_slot, move_one_into_range, pull_one_matching, right_click_slot, shift_click,
+    shift_click_into_range,
 };
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::slot::SlotAction;
@@ -102,8 +105,23 @@ pub fn handle_slot_interaction(
                 update_cursor_source(&mut state.cursor, CursorSource::Hotbar(index));
             }
             SlotAction::ShiftClick => {
-                use crate::game::inventory::container::survival::SurvivalInventory;
                 shift_click_into_range(
+                    &mut state.hotbar,
+                    &mut state.survival,
+                    index,
+                    0..SurvivalInventory::BACKPACK_SIZE,
+                );
+            }
+            SlotAction::ScrollDown => {
+                move_one_into_range(
+                    &mut state.hotbar,
+                    &mut state.survival,
+                    index,
+                    0..SurvivalInventory::BACKPACK_SIZE,
+                );
+            }
+            SlotAction::ScrollUp => {
+                pull_one_matching(
                     &mut state.hotbar,
                     &mut state.survival,
                     index,
@@ -129,6 +147,24 @@ pub fn handle_slot_interaction(
                 SlotAction::ShiftClick => {
                     let index = survival_index(kind, index).expect("checked above");
                     shift_click(&mut state.survival, &mut state.hotbar, index);
+                }
+                SlotAction::ScrollDown if kind == SlotKind::SurvivalBackpack => {
+                    let index = survival_index(kind, index).expect("checked above");
+                    move_one_into_range(
+                        &mut state.survival,
+                        &mut state.hotbar,
+                        index,
+                        0..HOTBAR_SIZE,
+                    );
+                }
+                SlotAction::ScrollUp if kind == SlotKind::SurvivalBackpack => {
+                    let index = survival_index(kind, index).expect("checked above");
+                    pull_one_matching(
+                        &mut state.survival,
+                        &mut state.hotbar,
+                        index,
+                        0..HOTBAR_SIZE,
+                    );
                 }
                 _ => {}
             }

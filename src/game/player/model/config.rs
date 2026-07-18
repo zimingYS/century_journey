@@ -27,14 +27,14 @@ impl PlayerModelConfig {
     /// 部件未缩放的半尺寸
     pub fn half_dims(part: PlayerPart) -> Vec3 {
         match part {
-            PlayerPart::Head => Vec3::new(0.24, 0.24, 0.24),
-            PlayerPart::Body => Vec3::new(0.24, 0.36, 0.13),
-            PlayerPart::UpperArmL(_) => Vec3::new(0.115, 0.19, 0.115),
-            PlayerPart::ForearmL(_) => Vec3::new(0.105, 0.16, 0.105),
-            PlayerPart::HandL(_) => Vec3::new(0.11, 0.07, 0.12),
-            PlayerPart::ThighL(_) => Vec3::new(0.13, 0.19, 0.14),
-            PlayerPart::CalfL(_) => Vec3::new(0.115, 0.15, 0.12),
-            PlayerPart::FootL(_) => Vec3::new(0.13, 0.07, 0.20),
+            PlayerPart::Head => Vec3::new(0.21, 0.215, 0.20),
+            PlayerPart::Body => Vec3::new(0.245, 0.34, 0.14),
+            PlayerPart::UpperArmL(_) => Vec3::new(0.105, 0.18, 0.105),
+            PlayerPart::ForearmL(_) => Vec3::new(0.095, 0.165, 0.095),
+            PlayerPart::HandL(_) => Vec3::new(0.10, 0.07, 0.105),
+            PlayerPart::ThighL(_) => Vec3::new(0.12, 0.20, 0.125),
+            PlayerPart::CalfL(_) => Vec3::new(0.105, 0.16, 0.11),
+            PlayerPart::FootL(_) => Vec3::new(0.12, 0.075, 0.18),
         }
     }
 
@@ -47,16 +47,12 @@ impl PlayerModelConfig {
     /// 部件颜色
     pub fn color(part: PlayerPart) -> Color {
         match part {
-            PlayerPart::Head => Color::srgb(0.90, 0.75, 0.60),
-            PlayerPart::Body => Color::srgb(0.30, 0.50, 0.80),
-            PlayerPart::UpperArmL(r) if r => Color::srgb(0.90, 0.75, 0.60),
-            PlayerPart::UpperArmL(_) => Color::srgb(0.95, 0.80, 0.65),
-            PlayerPart::ForearmL(r) if r => Color::srgb(0.90, 0.75, 0.60),
-            PlayerPart::ForearmL(_) => Color::srgb(0.95, 0.80, 0.65),
-            PlayerPart::HandL(r) if r => Color::srgb(0.90, 0.75, 0.60),
-            PlayerPart::HandL(_) => Color::srgb(0.95, 0.80, 0.65),
-            PlayerPart::ThighL(_) | PlayerPart::CalfL(_) => Color::srgb(0.25, 0.35, 0.60),
-            PlayerPart::FootL(_) => Color::srgb(0.10, 0.13, 0.22),
+            PlayerPart::Head => Color::srgb(0.88, 0.68, 0.52),
+            PlayerPart::Body | PlayerPart::UpperArmL(_) => Color::srgb(0.07, 0.28, 0.31),
+            PlayerPart::ForearmL(_) | PlayerPart::HandL(_) => Color::srgb(0.88, 0.68, 0.52),
+            PlayerPart::ThighL(_) => Color::srgb(0.12, 0.17, 0.26),
+            PlayerPart::CalfL(_) => Color::srgb(0.08, 0.12, 0.19),
+            PlayerPart::FootL(_) => Color::srgb(0.035, 0.045, 0.06),
         }
     }
 
@@ -64,17 +60,17 @@ impl PlayerModelConfig {
     pub fn joint_offset(child: PlayerPart) -> Vec3 {
         match child {
             // 直接挂在Root下的部分
-            PlayerPart::Body => Vec3::new(0.0, 0.22, 0.0),
-            PlayerPart::Head => Vec3::new(0.0, 0.79, 0.0),
-            PlayerPart::UpperArmL(false) => Vec3::new(-0.355, 0.54, 0.0),
-            PlayerPart::UpperArmL(true) => Vec3::new(0.355, 0.54, 0.0),
-            PlayerPart::ThighL(false) => Vec3::new(-0.13, -0.14, 0.0),
-            PlayerPart::ThighL(true) => Vec3::new(0.13, -0.14, 0.0),
+            PlayerPart::Body => Vec3::new(0.0, 0.20, 0.0),
+            PlayerPart::Head => Vec3::new(0.0, 0.77, 0.0),
+            PlayerPart::UpperArmL(false) => Vec3::new(-0.35, 0.50, 0.0),
+            PlayerPart::UpperArmL(true) => Vec3::new(0.35, 0.50, 0.0),
+            PlayerPart::ThighL(false) => Vec3::new(-0.12, -0.10, 0.0),
+            PlayerPart::ThighL(true) => Vec3::new(0.12, -0.10, 0.0),
             // 子关节
-            PlayerPart::ForearmL(_) => Vec3::new(0.0, -0.38, 0.0),
-            PlayerPart::HandL(_) => Vec3::new(0.0, -0.32, 0.0),
-            PlayerPart::CalfL(_) => Vec3::new(0.0, -0.38, 0.0),
-            PlayerPart::FootL(_) => Vec3::new(0.0, -0.24, 0.0),
+            PlayerPart::ForearmL(_) => Vec3::new(0.0, -0.36, 0.0),
+            PlayerPart::HandL(_) => Vec3::new(0.0, -0.33, 0.0),
+            PlayerPart::CalfL(_) => Vec3::new(0.0, -0.40, 0.0),
+            PlayerPart::FootL(_) => Vec3::new(0.0, -0.25, 0.0),
         }
     }
 
