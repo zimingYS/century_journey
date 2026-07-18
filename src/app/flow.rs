@@ -21,6 +21,7 @@ use crate::game::player::components::stats::{Health, Hunger};
 use crate::game::player::components::{Player, RespawnPoint};
 use crate::game::world::chunk::ChunkComponents;
 use crate::game::world::generation::WorldGenerator;
+use crate::game::world::generation::pipeline::CURRENT_GENERATION_VERSION;
 use crate::game::world::save::level;
 use crate::game::world::save::player::player_io::{
     player_backup_available, player_save_path, read_player_data, restore_player_backup,
@@ -343,6 +344,7 @@ fn handle_flow_commands_system(
                 match level::save_level(
                     &id,
                     seed,
+                    CURRENT_GENERATION_VERSION,
                     Vec3::new(0.0, 70.0, 0.0),
                     NEW_WORLD_START_TIME,
                     registry,
@@ -524,8 +526,17 @@ fn prepare_world_system(pending: Res<PendingWorld>, mut params: PrepareWorldPara
             params.save_queue.queue.clear();
             params.load_queue.queue.clear();
             params.save_config.world_name = world_id.to_string();
-            let biomes = params.world_generator.pipeline.biome_registry.clone();
-            *params.world_generator = WorldGenerator::new(level_data.seed as u32, biomes);
+            let biomes = params
+                .world_generator
+                .pipeline
+                .biome_registry
+                .as_ref()
+                .clone();
+            *params.world_generator = WorldGenerator::with_generation_version(
+                level_data.seed as u32,
+                level_data.generation_version,
+                biomes,
+            );
             params.time_of_day.current_time = level_data.time_of_day;
             params.session.fresh_load = true;
             params.session.active_world = Some(world_id.to_string());
@@ -613,6 +624,7 @@ fn save_and_quit_system(mut request: ResMut<SaveAndQuitRequest>, mut params: Sav
         &params.world_storage,
         registry,
         params.world_generator.seed as u64,
+        params.world_generator.generation_version,
         spawn,
         params.time_of_day.current_time,
     ) {

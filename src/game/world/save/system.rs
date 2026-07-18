@@ -151,6 +151,7 @@ pub fn auto_save_on_unload_system(
     if let Err(error) = level::save_level(
         &save_config.world_name,
         world_generator.seed as u64,
+        world_generator.generation_version,
         spawn_pos,
         time_of_day.current_time,
         &block_registry,
@@ -378,11 +379,19 @@ pub fn save_entire_world(
     world_storage: &WorldStorage,
     block_registry: &BlockRegistry,
     seed: u64,
+    generation_version: u32,
     spawn_pos: Vec3,
     time_of_day: f32,
 ) -> Result<(), super::region::SaveError> {
     // 保存世界数据到 level.dat
-    level::save_level(world_name, seed, spawn_pos, time_of_day, block_registry)?;
+    level::save_level(
+        world_name,
+        seed,
+        generation_version,
+        spawn_pos,
+        time_of_day,
+        block_registry,
+    )?;
 
     // 获取当前时间戳
     let now = std::time::SystemTime::now()

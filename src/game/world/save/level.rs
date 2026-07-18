@@ -1,5 +1,8 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::engine::persistence;
+use crate::game::world::generation::pipeline::{
+    CURRENT_GENERATION_VERSION, LEGACY_GENERATION_VERSION,
+};
 use crate::game::world::save::format::LevelData;
 use crate::game::world::save::region::{RegionManager, SaveError};
 use bevy::prelude::*;
@@ -20,6 +23,16 @@ struct LegacyLevelDataV0 {
     version: f32,
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+struct LegacyLevelDataV1 {
+    version: u32,
+    game_version: String,
+    seed: u64,
+    spawn_position: [f32; 3],
+    time_of_day: f32,
+    block_id_map: Vec<(u16, String)>,
+}
+
 /// 检测存档是否存在
 pub fn world_exists(world_name: &str) -> bool {
     let path = RegionManager::level_path(world_name);
@@ -30,6 +43,7 @@ pub fn world_exists(world_name: &str) -> bool {
 pub fn save_level(
     world_name: &str,
     seed: u64,
+    generation_version: u32,
     spawn_pos: Vec3,
     time_of_day: f32,
     block_registry: &BlockRegistry,
@@ -44,6 +58,7 @@ pub fn save_level(
         version: LevelData::CURRENT_VERSION,
         game_version: LevelData::GAME_VERSION.to_string(),
         seed,
+        generation_version,
         spawn_position: [spawn_pos.x, spawn_pos.y, spawn_pos.z],
         time_of_day,
         block_id_map,
@@ -96,11 +111,18 @@ fn encode_level(level: &LevelData) -> Result<Vec<u8>, SaveError> {
 fn decode_level(bytes: &[u8]) -> Result<LevelData, SaveError> {
     if let Some(compressed) = bytes.strip_prefix(LEVEL_MAGIC) {
         let decompressed = decompress(compressed)?;
-        let current = bincode::DefaultOptions::new()
+        if let Ok(current) = bincode::DefaultOptions::new()
             .with_varint_encoding()
             .reject_trailing_bytes()
-            .deserialize::<LevelData>(&decompressed)?;
-        return migrate_level_data(current);
+            .deserialize::<LevelData>(&decompressed)
+        {
+            return migrate_level_data(current);
+        }
+        let legacy = bincode::DefaultOptions::new()
+            .with_varint_encoding()
+            .reject_trailing_bytes()
+            .deserialize::<LegacyLevelDataV1>(&decompressed)?;
+        return migrate_legacy_level_data_v1(legacy);
     }
 
     let decompressed = decompress(bytes)?;
@@ -113,17 +135,26 @@ fn decode_level(bytes: &[u8]) -> Result<LevelData, SaveError> {
 
 fn migrate_level_data(mut level: LevelData) -> Result<LevelData, SaveError> {
     match level.version {
-        0 => {
-            level.version = 1;
+        0..=1 => {
+            level.version = LevelData::CURRENT_VERSION;
             level.game_version = LevelData::GAME_VERSION.to_string();
+            level.generation_version = LEGACY_GENERATION_VERSION;
         }
-        1 => {}
+        2 => {}
         found => {
             return Err(SaveError::UnsupportedVersion {
                 found,
                 supported: LevelData::CURRENT_VERSION,
             });
         }
+    }
+
+    if !(LEGACY_GENERATION_VERSION..=CURRENT_GENERATION_VERSION).contains(&level.generation_version)
+    {
+        return Err(SaveError::Serialize(format!(
+            "不支持的基础地形生成版本 {}，当前支持 {}..={}",
+            level.generation_version, LEGACY_GENERATION_VERSION, CURRENT_GENERATION_VERSION
+        )));
     }
 
     if !level.time_of_day.is_finite() {
@@ -145,6 +176,25 @@ fn migrate_legacy_level_data(legacy: LegacyLevelDataV0) -> Result<LevelData, Sav
         version: LevelData::CURRENT_VERSION,
         game_version: LevelData::GAME_VERSION.to_string(),
         seed: legacy.seed,
+        generation_version: LEGACY_GENERATION_VERSION,
+        spawn_position: legacy.spawn_position,
+        time_of_day: legacy.time_of_day,
+        block_id_map: legacy.block_id_map,
+    })
+}
+
+fn migrate_legacy_level_data_v1(legacy: LegacyLevelDataV1) -> Result<LevelData, SaveError> {
+    if legacy.version > 1 {
+        return Err(SaveError::UnsupportedVersion {
+            found: legacy.version,
+            supported: LevelData::CURRENT_VERSION,
+        });
+    }
+    migrate_level_data(LevelData {
+        version: LevelData::CURRENT_VERSION,
+        game_version: legacy.game_version,
+        seed: legacy.seed,
+        generation_version: LEGACY_GENERATION_VERSION,
         spawn_position: legacy.spawn_position,
         time_of_day: legacy.time_of_day,
         block_id_map: legacy.block_id_map,
@@ -200,6 +250,7 @@ mod tests {
             version: LevelData::CURRENT_VERSION,
             game_version: LevelData::GAME_VERSION.to_string(),
             seed: 42,
+            generation_version: CURRENT_GENERATION_VERSION,
             spawn_position: [1.0, 70.0, -2.0],
             time_of_day: 8.0,
             block_id_map: vec![(1, "century_journey:stone".into())],
@@ -212,6 +263,7 @@ mod tests {
         assert_eq!(decoded.version, LevelData::CURRENT_VERSION);
         assert_eq!(decoded.game_version, env!("CARGO_PKG_VERSION"));
         assert_eq!(decoded.seed, 42);
+        assert_eq!(decoded.generation_version, CURRENT_GENERATION_VERSION);
         assert_eq!(decoded.time_of_day, 8.0);
         assert_eq!(decoded.spawn_position, [1.0, 70.0, -2.0]);
     }
@@ -234,6 +286,31 @@ mod tests {
         assert_eq!(decoded.version, LevelData::CURRENT_VERSION);
         assert_eq!(decoded.game_version, env!("CARGO_PKG_VERSION"));
         assert_eq!(decoded.seed, 7);
+        assert_eq!(decoded.generation_version, LEGACY_GENERATION_VERSION);
         assert_eq!(decoded.time_of_day, 12.0);
+    }
+
+    #[test]
+    fn v1_level_file_migrates_to_the_legacy_generation_version() {
+        let legacy = LegacyLevelDataV1 {
+            version: 1,
+            game_version: "0.2.0".into(),
+            seed: 99,
+            spawn_position: [0.0, 70.0, 0.0],
+            time_of_day: 18.0,
+            block_id_map: Vec::new(),
+        };
+        let serialized = bincode::DefaultOptions::new()
+            .with_varint_encoding()
+            .serialize(&legacy)
+            .unwrap();
+        let mut encoded = LEVEL_MAGIC.to_vec();
+        encoded.extend(compress(&serialized).unwrap());
+
+        let decoded = decode_level(&encoded).unwrap();
+
+        assert_eq!(decoded.version, LevelData::CURRENT_VERSION);
+        assert_eq!(decoded.seed, 99);
+        assert_eq!(decoded.generation_version, LEGACY_GENERATION_VERSION);
     }
 }

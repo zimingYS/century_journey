@@ -101,6 +101,7 @@ pub fn save_load_keybind_system(
             &world_storage,
             &block_registry,
             world_generator.seed as u64,
+            world_generator.generation_version,
             spawn_pos,
             time_of_day.current_time,
         ) {

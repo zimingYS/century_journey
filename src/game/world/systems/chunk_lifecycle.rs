@@ -164,10 +164,7 @@ pub fn spawn_terrain_gen_tasks(
         let world_name = save_config.world_name.clone();
         let remap = cached_remap.0.clone();
         let block_ids = cached_ids.0.clone();
-        let biome_registry = Arc::clone(&world_generator.shared_biome);
-        let noise_sampler = Arc::clone(&world_generator.shared_noise);
-        let climate_sampler = Arc::clone(&world_generator.shared_climate);
-        let current_season = world_generator.pipeline.climate_sampler.current_season;
+        let pipeline = world_generator.pipeline.clone();
         let in_flight = Arc::clone(&channel.in_flight);
 
         channel.in_flight.fetch_add(1, Ordering::Relaxed);
@@ -190,20 +187,7 @@ pub fn spawn_terrain_gen_tasks(
                     })
                 }
                 _ => {
-                    let ctx =
-                        crate::game::world::generation::terrain::TerrainGenerator::sample_context(
-                            &noise_sampler,
-                            &climate_sampler,
-                            current_season,
-                            &biome_registry,
-                            chunk_pos,
-                        );
-                    let chunk_data =
-                        crate::game::world::generation::terrain::TerrainGenerator::generate_terrain(
-                            &ctx,
-                            &block_ids,
-                            &biome_registry,
-                        );
+                    let (chunk_data, ctx) = pipeline.generate_base_chunk(chunk_pos, &block_ids);
                     sender.send(TerrainGenResult {
                         chunk_pos,
                         chunk_data,
@@ -298,15 +282,7 @@ pub fn generate_structures_system(
             .gen_contexts
             .get(&chunk_pos)
             .cloned()
-            .unwrap_or_else(|| {
-                crate::game::world::generation::terrain::TerrainGenerator::sample_context(
-                    &world_generator.pipeline.noise_sampler,
-                    &world_generator.pipeline.climate_sampler,
-                    world_generator.pipeline.climate_sampler.current_season,
-                    &world_generator.pipeline.biome_registry,
-                    chunk_pos,
-                )
-            });
+            .unwrap_or_else(|| world_generator.pipeline.sample_context(chunk_pos));
 
         let mut input_chunks: HashMap<IVec3, Arc<ChunkData>> = HashMap::new();
         input_chunks.insert(chunk_pos, chunk_data);
@@ -321,7 +297,7 @@ pub fn generate_structures_system(
         let sender = channel.sender.clone();
         let in_flight = Arc::clone(&channel.in_flight);
         let block_ids = cached_ids.0.clone();
-        let biome_registry = world_generator.pipeline.biome_registry.clone();
+        let biome_registry = Arc::clone(&world_generator.pipeline.biome_registry);
         let seed = world_generator.seed;
 
         channel.in_flight.fetch_add(1, Ordering::Relaxed);

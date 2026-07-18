@@ -167,6 +167,7 @@ fn fixed_performance_scenario_system(
             && let Err(error) = level::save_level(
                 WORLD_NAME,
                 WORLD_SEED,
+                crate::game::world::generation::pipeline::CURRENT_GENERATION_VERSION,
                 Vec3::new(0.0, 70.0, 0.0),
                 NEW_WORLD_START_TIME,
                 &block_registry,

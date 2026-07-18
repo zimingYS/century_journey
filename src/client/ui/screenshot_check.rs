@@ -137,6 +137,7 @@ fn ui_screenshot_check_system(
             if let Err(error) = level::save_level(
                 SCREENSHOT_WORLD,
                 12_345,
+                crate::game::world::generation::pipeline::CURRENT_GENERATION_VERSION,
                 Vec3::new(0.0, 70.0, 0.0),
                 NEW_WORLD_START_TIME,
                 &block_registry,

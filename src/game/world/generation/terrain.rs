@@ -2,10 +2,10 @@ use crate::content::biome::registry::BiomeRegistry;
 use crate::content::constant::world::*;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::biome_selector::{blend_terrain_params, select_biome};
-use crate::game::world::generation::climate::{ClimateSampler, Season};
+use crate::game::world::generation::climate::ClimateSampler;
 use crate::game::world::generation::context::ChunkGenContext;
 use crate::game::world::generation::noise::{GenerationBlockIds, NoiseSampler};
-use bevy::prelude::IVec3;
+use crate::game::world::generation::pipeline::BaseGenerationKey;
 use noise::NoiseFn;
 
 /// 地形生成器 — 根据群系参数生成地形
@@ -16,10 +16,12 @@ impl TerrainGenerator {
     pub fn sample_context(
         noise_sampler: &NoiseSampler,
         climate_sampler: &ClimateSampler,
-        season: Season,
         biome_registry: &BiomeRegistry,
-        chunk_pos: IVec3,
+        key: BaseGenerationKey,
     ) -> ChunkGenContext {
+        debug_assert_eq!(noise_sampler.seed, key.seed);
+        debug_assert_eq!(climate_sampler.seed, key.seed);
+        let chunk_pos = key.chunk_pos;
         let world_start_x = chunk_pos.x * CHUNK_SIZE as i32;
         let world_start_z = chunk_pos.z * CHUNK_SIZE as i32;
 
@@ -39,10 +41,16 @@ impl TerrainGenerator {
                 let world_z = world_start_z + z as i32 - 1;
 
                 // 采样气候
-                let temperature =
-                    climate_sampler.sample_temperature_with_season(world_x, world_z, season);
-                let humidity =
-                    climate_sampler.sample_humidity_with_season(world_x, world_z, season);
+                let temperature = climate_sampler.sample_generation_temperature(
+                    world_x,
+                    world_z,
+                    key.generation_version,
+                );
+                let humidity = climate_sampler.sample_generation_humidity(
+                    world_x,
+                    world_z,
+                    key.generation_version,
+                );
                 cached_temperature[x][z] = temperature;
                 cached_humidity[x][z] = humidity;
 

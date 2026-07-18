@@ -4,119 +4,89 @@ use crate::game::world::generation::climate::{ClimateConfig, ClimateSampler};
 use crate::game::world::generation::context::ChunkGenContext;
 use crate::game::world::generation::noise::{GenerationBlockIds, NoiseSampler};
 use crate::game::world::generation::terrain::TerrainGenerator;
-use crate::game::world::storage::WorldStorage;
 use bevy::prelude::IVec3;
+use std::sync::Arc;
 
-/// 生成管线阶段
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GenerationStage {
-    /// 采样气候 + 选择群系
-    ClimateAndBiome,
-    /// 生成基础地形
-    Terrain,
-    /// 放置结构（树/矿脉）
-    Structure,
-    /// 后处理（洞穴/侵蚀）
-    PostProcess,
-    /// 完成
-    Done,
+/// 当前基础地形算法版本。它只在明确修改基础体素生成规则时递增。
+pub const CURRENT_GENERATION_VERSION: u32 = 2;
+/// 旧存档在引入显式生成版本前使用的基础地形规则。
+pub const LEGACY_GENERATION_VERSION: u32 = 1;
+
+/// 一次基础区块生成的完整可变输入键。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BaseGenerationKey {
+    pub seed: u32,
+    pub chunk_pos: IVec3,
+    pub generation_version: u32,
 }
 
-/// 生成管线 — 组合所有生成阶段
+/// 只读、可跨线程克隆的基础生成管线。
+///
+/// 区块生命周期由 `ChunkState` 驱动；这里不再维护一套没有执行能力的阶段枚举。
 #[derive(Clone)]
 pub struct GenerationPipeline {
-    pub noise_sampler: NoiseSampler,
-    pub climate_sampler: ClimateSampler,
-    pub biome_registry: BiomeRegistry,
+    pub noise_sampler: Arc<NoiseSampler>,
+    pub climate_sampler: Arc<ClimateSampler>,
+    pub biome_registry: Arc<BiomeRegistry>,
     pub seed: u32,
+    pub generation_version: u32,
 }
 
 impl GenerationPipeline {
     pub fn new(seed: u32, biome_registry: BiomeRegistry) -> Self {
-        Self {
-            noise_sampler: NoiseSampler::new(seed),
-            climate_sampler: ClimateSampler::new(seed, ClimateConfig::default()),
-            biome_registry,
-            seed,
-        }
+        Self::with_generation_version(seed, CURRENT_GENERATION_VERSION, biome_registry)
     }
 
-    /// 生成区块地形
-    pub fn generate_chunk(&self, chunk_pos: IVec3, block_ids: GenerationBlockIds) -> ChunkData {
-        // 采样气候和群系
-        let ctx = TerrainGenerator::sample_context(
-            &self.noise_sampler,
-            &self.climate_sampler,
-            self.climate_sampler.current_season,
-            &self.biome_registry,
-            chunk_pos,
-        );
-
-        // 生成地形
-        TerrainGenerator::generate_terrain(&ctx, &block_ids, &self.biome_registry)
-    }
-
-    /// 根据种子、气候、当前季节与生物群系注册表重建世界生成
-    pub fn rebuild_from_seed(
+    pub fn with_generation_version(
         seed: u32,
-        climate_config: ClimateConfig,
-        current_season: crate::game::world::generation::climate::Season,
+        generation_version: u32,
         biome_registry: BiomeRegistry,
     ) -> Self {
-        let mut pipeline = Self::new(seed, biome_registry);
-        pipeline.climate_sampler = ClimateSampler::new(seed, climate_config);
-        pipeline.climate_sampler.current_season = current_season;
-        pipeline
-    }
-
-    /// 分阶段生成：允许逐帧执行，减少卡顿
-    pub fn generate_chunk_staged(
-        &self,
-        chunk_pos: IVec3,
-        block_ids: GenerationBlockIds,
-        from_stage: GenerationStage,
-        context: Option<ChunkGenContext>,
-        chunk_data: Option<ChunkData>,
-        _world_storage: &mut WorldStorage,
-    ) -> (Option<ChunkData>, ChunkGenContext, GenerationStage) {
-        match from_stage {
-            GenerationStage::ClimateAndBiome => {
-                let ctx = TerrainGenerator::sample_context(
-                    &self.noise_sampler,
-                    &self.climate_sampler,
-                    self.climate_sampler.current_season,
-                    &self.biome_registry,
-                    chunk_pos,
-                );
-                (None, ctx, GenerationStage::Terrain)
-            }
-            GenerationStage::Terrain => {
-                let ctx = context.expect("Terrain stage requires context");
-                let data =
-                    TerrainGenerator::generate_terrain(&ctx, &block_ids, &self.biome_registry);
-                (Some(data), ctx, GenerationStage::Structure)
-            }
-            GenerationStage::Structure => {
-                let data = chunk_data.expect("Structure stage requires chunk_data");
-                let ctx = context.expect("Structure stage requires context");
-                (Some(data), ctx, GenerationStage::PostProcess)
-            }
-            GenerationStage::PostProcess => {
-                // 后处理暂为空操作
-                let data = chunk_data.expect("PostProcess stage requires chunk_data");
-                let ctx = context.expect("PostProcess stage requires context");
-                (Some(data), ctx, GenerationStage::Done)
-            }
-            GenerationStage::Done => {
-                let data = chunk_data.expect("Done stage requires chunk_data");
-                let ctx = context.expect("Done stage requires context");
-                (Some(data), ctx, GenerationStage::Done)
-            }
+        assert!(
+            (LEGACY_GENERATION_VERSION..=CURRENT_GENERATION_VERSION).contains(&generation_version),
+            "unsupported generation version {generation_version}"
+        );
+        Self {
+            noise_sampler: Arc::new(NoiseSampler::new(seed)),
+            climate_sampler: Arc::new(ClimateSampler::new(seed, ClimateConfig::default())),
+            biome_registry: Arc::new(biome_registry),
+            seed,
+            generation_version,
         }
     }
 
-    /// 更新季节（由昼夜循环系统调用）
-    pub fn update_season(&mut self, season: crate::game::world::generation::climate::Season) {
-        self.climate_sampler.current_season = season;
+    pub fn key(&self, chunk_pos: IVec3) -> BaseGenerationKey {
+        BaseGenerationKey {
+            seed: self.seed,
+            chunk_pos,
+            generation_version: self.generation_version,
+        }
+    }
+
+    pub fn sample_context(&self, chunk_pos: IVec3) -> ChunkGenContext {
+        TerrainGenerator::sample_context(
+            &self.noise_sampler,
+            &self.climate_sampler,
+            &self.biome_registry,
+            self.key(chunk_pos),
+        )
+    }
+
+    pub fn generate_base_chunk(
+        &self,
+        chunk_pos: IVec3,
+        block_ids: &GenerationBlockIds,
+    ) -> (ChunkData, ChunkGenContext) {
+        let context = self.sample_context(chunk_pos);
+        let data = TerrainGenerator::generate_terrain(&context, block_ids, &self.biome_registry);
+        (data, context)
+    }
+
+    pub fn generate_chunk(&self, chunk_pos: IVec3, block_ids: GenerationBlockIds) -> ChunkData {
+        self.generate_base_chunk(chunk_pos, &block_ids).0
+    }
+
+    pub fn replace_biome_registry(&mut self, biome_registry: BiomeRegistry) {
+        self.biome_registry = Arc::new(biome_registry);
     }
 }
