@@ -16,6 +16,13 @@ struct LegacySaveItemStack {
     count: u32,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+struct LegacySaveItemStackV6 {
+    item: String,
+    count: u32,
+    durability: Option<u32>,
+}
+
 #[cfg(test)]
 impl LegacySaveItemStack {
     fn air() -> Self {
@@ -29,11 +36,56 @@ impl LegacySaveItemStack {
 impl From<LegacySaveItemStack> for SaveItemStack {
     fn from(legacy: LegacySaveItemStack) -> Self {
         Self {
+            runtime_id: None,
             item: legacy.item,
             count: legacy.count,
             durability: None,
         }
     }
+}
+
+#[cfg(test)]
+impl LegacySaveItemStackV6 {
+    fn air() -> Self {
+        Self {
+            item: "century_journey:air".into(),
+            count: 0,
+            durability: None,
+        }
+    }
+}
+
+impl From<LegacySaveItemStackV6> for SaveItemStack {
+    fn from(legacy: LegacySaveItemStackV6) -> Self {
+        Self {
+            runtime_id: None,
+            item: legacy.item,
+            count: legacy.count,
+            durability: legacy.durability,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct LegacyPlayerSaveDataV6 {
+    version: u32,
+    game_version: String,
+    position: [f32; 3],
+    rotation: [f32; 4],
+    camera_pitch: f32,
+    gamemode: String,
+    health: f32,
+    hunger: f32,
+    saturation: f32,
+    respawn_point: [f32; 3],
+    hotbar_active: usize,
+    #[serde(with = "serde_arrays")]
+    hotbar: [LegacySaveItemStackV6; 9],
+    #[serde(with = "serde_arrays")]
+    backpack: [LegacySaveItemStackV6; 27],
+    #[serde(with = "serde_arrays")]
+    equipment: [LegacySaveItemStackV6; SurvivalInventory::EQUIPMENT_SIZE],
+    accessories: Vec<LegacySaveItemStackV6>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -131,6 +183,7 @@ impl From<LegacyPlayerSaveDataV3> for PlayerSaveData {
             backpack,
             equipment,
             accessories: legacy.accessories.map(Into::into).to_vec(),
+            item_id_map: Vec::new(),
             legacy_backpack_overflow,
         }
     }
@@ -154,6 +207,7 @@ impl From<LegacyPlayerSaveDataV4> for PlayerSaveData {
             backpack: legacy.backpack.map(Into::into),
             equipment: legacy.equipment.map(Into::into),
             accessories: legacy.accessories.into_iter().map(Into::into).collect(),
+            item_id_map: Vec::new(),
             legacy_backpack_overflow: Vec::new(),
         }
     }
@@ -177,6 +231,31 @@ impl From<LegacyPlayerSaveDataV5> for PlayerSaveData {
             backpack: legacy.backpack.map(Into::into),
             equipment: legacy.equipment.map(Into::into),
             accessories: legacy.accessories.into_iter().map(Into::into).collect(),
+            item_id_map: Vec::new(),
+            legacy_backpack_overflow: Vec::new(),
+        }
+    }
+}
+
+impl From<LegacyPlayerSaveDataV6> for PlayerSaveData {
+    fn from(legacy: LegacyPlayerSaveDataV6) -> Self {
+        Self {
+            version: SAVE_VERSION,
+            game_version: legacy.game_version,
+            position: legacy.position,
+            rotation: legacy.rotation,
+            camera_pitch: legacy.camera_pitch,
+            gamemode: legacy.gamemode,
+            health: legacy.health,
+            hunger: legacy.hunger,
+            saturation: legacy.saturation,
+            respawn_point: legacy.respawn_point,
+            hotbar_active: legacy.hotbar_active,
+            hotbar: legacy.hotbar.map(Into::into),
+            backpack: legacy.backpack.map(Into::into),
+            equipment: legacy.equipment.map(Into::into),
+            accessories: legacy.accessories.into_iter().map(Into::into).collect(),
+            item_id_map: Vec::new(),
             legacy_backpack_overflow: Vec::new(),
         }
     }
@@ -244,11 +323,18 @@ fn decode_player_data(bytes: &[u8]) -> Result<PlayerSaveData, String> {
         {
             return migrate_player_data(data);
         }
+        if let Ok(legacy) = bincode::DefaultOptions::new()
+            .with_varint_encoding()
+            .reject_trailing_bytes()
+            .deserialize::<LegacyPlayerSaveDataV6>(&decompressed)
+        {
+            return Ok(legacy.into());
+        }
         let legacy = bincode::DefaultOptions::new()
             .with_varint_encoding()
             .reject_trailing_bytes()
             .deserialize::<LegacyPlayerSaveDataV5>(&decompressed)
-            .map_err(|error| format!("bincode deserialize v6/v5: {error}"))?;
+            .map_err(|error| format!("bincode deserialize v7/v6/v5: {error}"))?;
         return Ok(legacy.into());
     }
 
@@ -269,7 +355,7 @@ fn decode_player_data(bytes: &[u8]) -> Result<PlayerSaveData, String> {
 
 fn migrate_player_data(mut data: PlayerSaveData) -> Result<PlayerSaveData, String> {
     match data.version {
-        0..=5 => {
+        0..=6 => {
             data.version = SAVE_VERSION;
             data.game_version = env!("CARGO_PKG_VERSION").to_string();
         }
@@ -368,6 +454,7 @@ mod tests {
             ..PlayerSaveData::default()
         };
         data.hotbar[0] = SaveItemStack {
+            runtime_id: None,
             item: "century_journey:test_item".into(),
             count: 9,
             durability: Some(17),
@@ -380,6 +467,47 @@ mod tests {
         assert_eq!(decoded.hunger, 6.25);
         assert_eq!(decoded.hotbar[0].count, 9);
         assert_eq!(decoded.hotbar[0].durability, Some(17));
+    }
+
+    #[test]
+    fn v6_player_file_migrates_to_v7_identifier_mapping() {
+        let mut legacy = LegacyPlayerSaveDataV6 {
+            version: 6,
+            game_version: "0.2.0".into(),
+            position: [2.0, 71.0, 4.0],
+            rotation: [0.0, 0.0, 0.0, 1.0],
+            camera_pitch: 0.1,
+            gamemode: "survival".into(),
+            health: 17.0,
+            hunger: 12.0,
+            saturation: 4.0,
+            respawn_point: [0.0, 70.0, 0.0],
+            hotbar_active: 0,
+            hotbar: std::array::from_fn(|_| LegacySaveItemStackV6::air()),
+            backpack: std::array::from_fn(|_| LegacySaveItemStackV6::air()),
+            equipment: std::array::from_fn(|_| LegacySaveItemStackV6::air()),
+            accessories: vec![LegacySaveItemStackV6::air(); 6],
+        };
+        legacy.hotbar[0] = LegacySaveItemStackV6 {
+            item: "century_journey:wooden_axe".into(),
+            count: 1,
+            durability: Some(31),
+        };
+        let serialized = bincode::DefaultOptions::new()
+            .with_varint_encoding()
+            .serialize(&legacy)
+            .unwrap();
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
+        encoder.write_all(&serialized).unwrap();
+        let mut encoded = PLAYER_MAGIC.to_vec();
+        encoded.extend(encoder.finish().unwrap());
+
+        let decoded = decode_player_data(&encoded).unwrap();
+
+        assert_eq!(decoded.version, SAVE_VERSION);
+        assert!(decoded.item_id_map.is_empty());
+        assert_eq!(decoded.hotbar[0].runtime_id, None);
+        assert_eq!(decoded.hotbar[0].durability, Some(31));
     }
 
     #[test]

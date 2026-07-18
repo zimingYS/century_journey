@@ -12,7 +12,9 @@ use crate::client::renderer::world::MeshBuildChannel;
 use crate::client::ui::hud::HudRoot;
 use crate::client::ui::theme::scale::UiScaleSettings;
 use crate::content::block::registry::BlockRegistry;
+use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::lifecycle::{ContentReloadRequested, ContentReloadSet};
+use crate::content::validation::ContentCompilation;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::stats::{Health, Hunger};
@@ -192,7 +194,10 @@ impl Plugin for GameFlowPlugin {
             .add_message::<FlowCommand>()
             .add_systems(Startup, load_settings_system)
             .add_systems(OnEnter(AppState::Boot), enter_boot_system)
-            .add_systems(OnEnter(AppState::MainMenu), refresh_world_catalog_system)
+            .add_systems(
+                OnEnter(AppState::MainMenu),
+                (refresh_world_catalog_system, show_content_errors_system).chain(),
+            )
             .add_systems(OnEnter(AppState::WorldLoading), prepare_world_system)
             .add_systems(
                 OnEnter(AppState::InGame),
@@ -243,6 +248,23 @@ fn enter_boot_system(
 
 fn refresh_world_catalog_system(mut catalog: ResMut<WorldCatalog>) {
     refresh_world_catalog(&mut catalog);
+}
+
+fn show_content_errors_system(
+    compilation: Option<Res<ContentCompilation>>,
+    mut dialog: ResMut<DialogState>,
+) {
+    let Some(compilation) = compilation.filter(|compilation| !compilation.is_valid()) else {
+        return;
+    };
+    dialog.error(
+        "内容编译失败",
+        format!(
+            "发现 {} 个内容错误，已阻止进入游戏。\n{}",
+            compilation.report.errors.len(),
+            compilation.error_summary(12)
+        ),
+    );
 }
 
 fn refresh_world_catalog(catalog: &mut WorldCatalog) {
@@ -297,6 +319,7 @@ fn handle_flow_commands_system(
     mut menu_page: ResMut<MenuPage>,
     mut settings: ResMut<GameSettings>,
     mut settings_persistence: ResMut<SettingsPersistenceState>,
+    compilation: Option<Res<ContentCompilation>>,
     block_registry: Option<Res<BlockRegistry>>,
     mut save_quit: ResMut<SaveAndQuitRequest>,
     mut next_state: ResMut<NextState<AppState>>,
@@ -332,6 +355,16 @@ fn handle_flow_commands_system(
                 }
             }
             FlowCommand::PlaySelected => {
+                if let Some(compilation) = compilation
+                    .as_deref()
+                    .filter(|compilation| !compilation.is_valid())
+                {
+                    dialog.error(
+                        "无法进入世界",
+                        format!("内容编译失败：\n{}", compilation.error_summary(12)),
+                    );
+                    continue;
+                }
                 if let Some(selected) = catalog.selected.clone() {
                     pending.0 = Some(selected);
                     next_state.set(AppState::WorldLoading);
@@ -542,6 +575,7 @@ struct SaveQuitParams<'w, 's> {
     camera_query: Query<'w, 's, &'static FpsCamera, With<Camera3d>>,
     gamemode: Res<'w, PlayerGameMode>,
     inventory: Res<'w, InventoryState>,
+    item_registry: Res<'w, ItemRegistry>,
     save_manager: ResMut<'w, PlayerSaveManager>,
     time: Res<'w, Time>,
     chunk_query: Query<'w, 's, Entity, With<ChunkComponents>>,
@@ -589,6 +623,7 @@ fn save_and_quit_system(mut request: ResMut<SaveAndQuitRequest>, mut params: Sav
         &params.save_config.world_name,
         &params.gamemode,
         &params.inventory,
+        &params.item_registry,
         &params.player_query,
         &params.camera_query,
         &mut params.save_manager,

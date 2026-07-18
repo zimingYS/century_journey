@@ -1,7 +1,6 @@
-use crate::content::biome::loader::load_biome_definitions;
 use crate::content::biome::registry::BiomeRegistry;
 use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
-use crate::engine::asset::AssetManager;
+use crate::content::validation::ContentCompilation;
 use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 
@@ -18,8 +17,8 @@ impl Plugin for BiomeContentPlugin {
     }
 }
 
-fn load_biomes_system(mut registry: ResMut<BiomeRegistry>, asset: Res<AssetManager>) {
-    let definitions = load_biome_definitions(&asset);
+fn load_biomes_system(mut registry: ResMut<BiomeRegistry>, compilation: Res<ContentCompilation>) {
+    let definitions = compilation.content.biomes.clone();
     match registry.replace_definitions(definitions) {
         Ok(()) => log::info!("[Biome] loaded {} definitions", registry.len()),
         Err(error) => log::error!("[Biome] failed to build registry: {error}"),

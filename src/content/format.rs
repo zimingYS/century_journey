@@ -16,7 +16,7 @@ impl<T> Versioned<T> {
     pub fn into_current(self, asset_path: &str) -> Result<T, String> {
         if self.format_version != CONTENT_FORMAT_VERSION {
             return Err(format!(
-                "{asset_path}: unsupported format_version {}, expected {}",
+                "{asset_path}:format_version: unsupported value {}, expected {}",
                 self.format_version, CONTENT_FORMAT_VERSION
             ));
         }

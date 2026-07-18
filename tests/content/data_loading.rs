@@ -9,6 +9,9 @@ use century_journey::content::recipe::loader::load_recipe_definitions;
 use century_journey::content::recipe::registry::RecipeRegistry;
 use century_journey::content::tag::compiler::TagRegistryCompiler;
 use century_journey::content::tag::loader::load_tag_actions;
+use century_journey::content::validation::{
+    ContentCheckReport, ContentCompilation, compile_content,
+};
 use century_journey::engine::asset::{AssetFiles, AssetManager};
 use century_journey::shared::identifier::Identifier;
 use century_journey::shared::item_id::ItemId;
@@ -20,6 +23,16 @@ fn load_block_registry() -> App {
     app.add_plugins((MinimalPlugins, StatesPlugin));
     app.init_state::<AppState>();
     app.init_resource::<AssetManager>();
+    let compilation = {
+        let asset = app.world().resource::<AssetManager>();
+        compile_content(asset.resolver())
+    };
+    assert!(
+        compilation.is_valid(),
+        "{}",
+        compilation.error_summary(usize::MAX)
+    );
+    app.insert_resource(compilation);
     app.add_systems(Update, init_block_registry_system);
     app.update();
     app
@@ -41,6 +54,25 @@ fn block_json_scan_registers_runtime_block_registry() {
     );
     assert!(registry.iter_properties().count() >= 10);
     assert!(registry.total_layer_count() > 0);
+}
+
+#[test]
+fn invalid_compilation_never_builds_runtime_block_registry() {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, StatesPlugin));
+    app.init_state::<AppState>();
+    app.insert_resource(ContentCompilation {
+        report: ContentCheckReport {
+            checked_files: 1,
+            errors: vec!["definitions/blocks/bad:hardness: invalid".into()],
+        },
+        ..default()
+    });
+    app.add_systems(Update, init_block_registry_system);
+
+    app.update();
+
+    assert!(!app.world().contains_resource::<BlockRegistry>());
 }
 
 #[test]

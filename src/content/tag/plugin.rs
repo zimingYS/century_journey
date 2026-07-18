@@ -4,8 +4,7 @@ use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::content::tag::compiler::TagRegistryCompiler;
-use crate::content::tag::loader::load_tag_actions;
-use crate::engine::asset::manager::AssetManager;
+use crate::content::validation::ContentCompilation;
 use crate::shared::states::app_state::AppState;
 
 /// Content 层 Tag Plugin。
@@ -30,7 +29,7 @@ impl Plugin for TagContentPlugin {
 
 pub(crate) fn init_tag_registry_system(
     mut commands: Commands,
-    asset: Res<AssetManager>,
+    compilation: Res<ContentCompilation>,
     block_registry: Res<BlockRegistry>,
     item_registry: Option<Res<ItemRegistry>>,
 ) {
@@ -46,10 +45,10 @@ pub(crate) fn init_tag_registry_system(
     }
 
     // 4. 加载 TagActions 并应用
-    let actions = load_tag_actions(&asset);
+    let actions = &compilation.content.tags;
     let mut applied = 0usize;
     for (tag_id, action) in actions {
-        compiler.apply_action(tag_id, &action);
+        compiler.apply_action(tag_id.clone(), action);
         applied += 1;
     }
     if applied > 0 {

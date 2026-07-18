@@ -1,7 +1,6 @@
 use crate::content::block::registry::BlockRegistry;
-use crate::content::loot::loader::load_loot_tables;
-use crate::content::loot::table::{LootDrop, LootEntry, LootTable};
-use crate::engine::asset::manager::AssetManager;
+use crate::content::loot::table::{LootDrop, LootTable};
+use crate::content::validation::ContentCompilation;
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -33,18 +32,21 @@ impl BlockLootRegistry {
     }
 }
 
-/// 初始化方块掉落表（JSON 驱动 + 硬编码 fallback）
+/// 初始化方块掉落表（JSON 驱动 + 默认掉落自身）
 ///
 /// 优先从 `definitions/loot/blocks/` 加载 JSON 掉落表。
 /// 未在 JSON 中定义的方块默认掉落自身。
-/// 保留少量硬编码作为设计参考（Minecraft 经典规则），后续迁移到 JSON。
 pub fn init_default_loot_system(
     block_registry: Res<BlockRegistry>,
-    asset: Res<AssetManager>,
+    compilation: Res<ContentCompilation>,
     mut loot_registry: ResMut<BlockLootRegistry>,
 ) {
-    // 1. 从 JSON 加载
-    let json_tables = load_loot_tables(&asset);
+    let json_tables = compilation
+        .content
+        .block_loot
+        .iter()
+        .cloned()
+        .collect::<HashMap<_, _>>();
 
     // 2. 遍历所有方块，构建掉落表
     for (&block_id, identifier) in block_registry.id_identifier_pairs() {
@@ -52,7 +54,6 @@ pub fn init_default_loot_system(
             continue; // 空气不掉落
         }
 
-        let id_str = identifier.to_string();
         let item_id = ItemId::new(identifier.clone());
 
         // 2a. JSON 覆盖优先
@@ -61,24 +62,8 @@ pub fn init_default_loot_system(
             continue;
         }
 
-        // 2b. 硬编码 fallback（后续迁移到 JSON 后删除）
-        let table = match id_str.as_str() {
-            "century_journey:grass" | "century_journey:grass_block" => {
-                LootTable::single(ItemId::block("century_journey:dirt"), 1)
-            }
-            "century_journey:leaves" | "century_journey:oak_leaves" => {
-                LootTable::single(ItemId::block("century_journey:stick"), 1).with(LootEntry {
-                    item: ItemId::block("century_journey:oak_sapling"),
-                    min_count: 1,
-                    max_count: 1,
-                    chance: 0.05,
-                })
-            }
-            _ => {
-                // 默认：掉落自身
-                LootTable::single(item_id, 1)
-            }
-        };
+        // 未定义掉落表的方块默认掉落自身；所有特殊规则必须进入 JSON 才能参与全局校验。
+        let table = LootTable::single(item_id, 1);
 
         loot_registry.register(block_id, table);
     }

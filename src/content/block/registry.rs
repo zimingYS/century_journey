@@ -1,8 +1,6 @@
 use crate::content::block::definition::BlockProperty;
 use crate::content::constant::world::CHUNK_SIZE;
-use crate::content::format::load_versioned_json_dir;
-use crate::engine::asset::AssetFiles;
-use crate::engine::asset::manager::AssetManager;
+use crate::content::validation::ContentCompilation;
 use crate::shared::identifier::Identifier;
 use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
@@ -101,26 +99,21 @@ impl BlockRegistry {
 
 pub fn init_block_registry_system(
     mut commands: Commands,
-    asset: Res<AssetManager>,
+    compilation: Res<ContentCompilation>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
-    let raw_configs = load_block_configs(&asset);
+    if !compilation.is_valid() {
+        next_state.set(AppState::MainMenu);
+        return;
+    }
 
     let mut registry = BlockRegistry::default();
-    register_blocks(&mut registry, raw_configs);
+    register_blocks(&mut registry, compilation.content.blocks.clone());
 
     commands.insert_resource(registry);
     next_state.set(AppState::MainMenu);
 
     info!("[block registry] loaded block definitions and switched to MainMenu");
-}
-
-fn load_block_configs(asset: &AssetManager) -> Vec<BlockProperty> {
-    let files = AssetFiles::new(asset.resolver());
-    let pairs = load_versioned_json_dir::<BlockProperty>(&files, "definitions/blocks");
-    let count = pairs.len();
-    info!("[block registry] loaded {count} block definitions through AssetManager");
-    pairs.into_iter().map(|(_, prop)| prop).collect()
 }
 
 fn register_blocks(registry: &mut BlockRegistry, mut raw_configs: Vec<BlockProperty>) {

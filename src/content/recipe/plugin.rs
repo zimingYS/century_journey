@@ -1,7 +1,6 @@
 use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
-use crate::content::recipe::loader::load_recipe_definitions;
 use crate::content::recipe::registry::RecipeRegistry;
-use crate::engine::asset::manager::AssetManager;
+use crate::content::validation::ContentCompilation;
 use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 
@@ -20,8 +19,8 @@ impl Plugin for RecipeContentPlugin {
     }
 }
 
-fn load_recipes_system(mut registry: ResMut<RecipeRegistry>, asset: Res<AssetManager>) {
-    let recipes = load_recipe_definitions(&asset);
+fn load_recipes_system(mut registry: ResMut<RecipeRegistry>, compilation: Res<ContentCompilation>) {
+    let recipes = compilation.content.recipes.clone();
 
     for (id, recipe) in recipes {
         registry.register(id, recipe);
