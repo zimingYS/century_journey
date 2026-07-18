@@ -21,6 +21,7 @@ use crate::game::player::components::stats::{Health, Hunger};
 use crate::game::player::components::{Player, RespawnPoint};
 use crate::game::world::chunk::ChunkComponents;
 use crate::game::world::generation::WorldGenerator;
+use crate::game::world::generation::pipeline::CURRENT_GENERATION_VERSION;
 use crate::game::world::save::level;
 use crate::game::world::save::player::player_io::{
     player_backup_available, player_save_path, read_player_data, restore_player_backup,
@@ -34,10 +35,9 @@ use crate::game::world::storage::WorldStorage;
 use crate::game::world::systems::{
     PlayerChunkCache, StructureGenChannel, TerrainGenChannel, WorldStreamingConfig,
 };
-use crate::game::world::time::TimeOfDay;
+use crate::game::world::time::{TimeOfDay, WorldSimulationClock};
 use crate::shared::components::camera::FpsCamera;
 use crate::shared::states::{AppState, InputContextState};
-use crate::shared::time::NEW_WORLD_START_TIME;
 
 #[derive(Resource, Debug, Default)]
 pub struct GameSession {
@@ -343,8 +343,9 @@ fn handle_flow_commands_system(
                 match level::save_level(
                     &id,
                     seed,
+                    CURRENT_GENERATION_VERSION,
+                    &WorldSimulationClock::default(),
                     Vec3::new(0.0, 70.0, 0.0),
-                    NEW_WORLD_START_TIME,
                     registry,
                 ) {
                     Ok(()) => {
@@ -462,6 +463,7 @@ struct PrepareWorldParams<'w, 's> {
     save_config: ResMut<'w, SaveConfig>,
     world_generator: ResMut<'w, WorldGenerator>,
     time_of_day: ResMut<'w, TimeOfDay>,
+    simulation_clock: ResMut<'w, WorldSimulationClock>,
     world_storage: ResMut<'w, WorldStorage>,
     player_cache: ResMut<'w, PlayerChunkCache>,
     terrain_channel: ResMut<'w, TerrainGenChannel>,
@@ -524,9 +526,23 @@ fn prepare_world_system(pending: Res<PendingWorld>, mut params: PrepareWorldPara
             params.save_queue.queue.clear();
             params.load_queue.queue.clear();
             params.save_config.world_name = world_id.to_string();
-            let biomes = params.world_generator.pipeline.biome_registry.clone();
-            *params.world_generator = WorldGenerator::new(level_data.seed as u32, biomes);
-            params.time_of_day.current_time = level_data.time_of_day;
+            let biomes = params
+                .world_generator
+                .pipeline
+                .biome_registry
+                .as_ref()
+                .clone();
+            *params.world_generator = WorldGenerator::with_generation_version(
+                level_data.seed as u32,
+                level_data.generation_version,
+                biomes,
+            );
+            *params.simulation_clock = WorldSimulationClock::from_persisted(
+                level_data.simulation_tick,
+                level_data.game_minute,
+                level_data.subminute_tick,
+            );
+            params.time_of_day.current_time = params.simulation_clock.visual_hour(0.0);
             params.session.fresh_load = true;
             params.session.active_world = Some(world_id.to_string());
             params.loading.detail = "正在生成出生区域...".into();
@@ -558,7 +574,7 @@ struct SaveQuitParams<'w, 's> {
     world_storage: Res<'w, WorldStorage>,
     block_registry: Option<Res<'w, BlockRegistry>>,
     world_generator: Res<'w, WorldGenerator>,
-    time_of_day: Res<'w, TimeOfDay>,
+    simulation_clock: Res<'w, WorldSimulationClock>,
     save_queue: ResMut<'w, SaveQueue>,
     save_worker: ResMut<'w, SaveWorker>,
     player_query: Query<
@@ -613,8 +629,9 @@ fn save_and_quit_system(mut request: ResMut<SaveAndQuitRequest>, mut params: Sav
         &params.world_storage,
         registry,
         params.world_generator.seed as u64,
+        params.world_generator.generation_version,
+        &params.simulation_clock,
         spawn,
-        params.time_of_day.current_time,
     ) {
         params.dialog.error("保存失败", error.to_string());
         return;

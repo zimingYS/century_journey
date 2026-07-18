@@ -11,6 +11,14 @@ pub struct LevelData {
     pub game_version: String,
     /// 世界种子
     pub seed: u64,
+    /// 基础地形算法版本；旧世界必须保留原版本，不能随游戏升级自动改变。
+    pub generation_version: u32,
+    /// 单调递增的服务端模拟 Tick。
+    pub simulation_tick: u64,
+    /// 绝对游戏分钟，日历字段均由此推导。
+    pub game_minute: u64,
+    /// 当前游戏分钟内已经经过的固定 Tick。
+    pub subminute_tick: u32,
     /// 出生地坐标
     pub spawn_position: [f32; 3],
     /// 游戏时间
@@ -20,7 +28,7 @@ pub struct LevelData {
 }
 
 impl LevelData {
-    pub const CURRENT_VERSION: u32 = 1;
+    pub const CURRENT_VERSION: u32 = 3;
     pub const GAME_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 }
 

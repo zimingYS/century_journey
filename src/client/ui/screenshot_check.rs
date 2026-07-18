@@ -16,7 +16,6 @@ use crate::game::world::save::level;
 use crate::shared::components::camera::{CameraPerspective, FpsCamera};
 use crate::shared::item_id::ItemId;
 use crate::shared::states::AppState;
-use crate::shared::time::NEW_WORLD_START_TIME;
 
 const FRAMES_BEFORE_CAPTURE: u32 = 30;
 const SECONDS_BEFORE_CAPTURE: f32 = 1.5;
@@ -137,8 +136,9 @@ fn ui_screenshot_check_system(
             if let Err(error) = level::save_level(
                 SCREENSHOT_WORLD,
                 12_345,
+                crate::game::world::generation::pipeline::CURRENT_GENERATION_VERSION,
+                &crate::game::world::time::WorldSimulationClock::default(),
                 Vec3::new(0.0, 70.0, 0.0),
-                NEW_WORLD_START_TIME,
                 &block_registry,
             ) {
                 error!("创建 UI 截图测试世界失败: {error}");

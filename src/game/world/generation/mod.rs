@@ -8,30 +8,32 @@ pub mod terrain;
 
 use crate::content::biome::registry::BiomeRegistry;
 use crate::game::world::chunk::ChunkData;
-use crate::game::world::generation::climate::ClimateSampler;
-use crate::game::world::generation::noise::{GenerationBlockIds, NoiseSampler};
-use crate::game::world::generation::pipeline::GenerationPipeline;
+use crate::game::world::generation::noise::GenerationBlockIds;
+use crate::game::world::generation::pipeline::{CURRENT_GENERATION_VERSION, GenerationPipeline};
 use bevy::prelude::*;
-use std::sync::Arc;
 
 #[derive(Resource)]
 pub struct WorldGenerator {
     pub seed: u32,
+    pub generation_version: u32,
     pub pipeline: GenerationPipeline,
-    pub shared_noise: Arc<NoiseSampler>,
-    pub shared_climate: Arc<ClimateSampler>,
-    pub shared_biome: Arc<BiomeRegistry>,
 }
 
 impl WorldGenerator {
     pub fn new(seed: u32, biome_registry: BiomeRegistry) -> Self {
-        let pipeline = GenerationPipeline::new(seed, biome_registry);
+        Self::with_generation_version(seed, CURRENT_GENERATION_VERSION, biome_registry)
+    }
 
+    pub fn with_generation_version(
+        seed: u32,
+        generation_version: u32,
+        biome_registry: BiomeRegistry,
+    ) -> Self {
+        let pipeline =
+            GenerationPipeline::with_generation_version(seed, generation_version, biome_registry);
         Self {
             seed,
-            shared_noise: Arc::new(pipeline.noise_sampler.clone()),
-            shared_climate: Arc::new(pipeline.climate_sampler.clone()),
-            shared_biome: Arc::new(pipeline.biome_registry.clone()),
+            generation_version,
             pipeline,
         }
     }
@@ -45,13 +47,7 @@ impl WorldGenerator {
         self.pipeline.generate_chunk(chunk_pos, block_ids)
     }
 
-    /// 更新季节
-    pub fn update_season(&mut self, season: climate::Season) {
-        self.pipeline.update_season(season);
-    }
-
     pub fn set_biome_registry(&mut self, biome_registry: BiomeRegistry) {
-        self.pipeline.biome_registry = biome_registry.clone();
-        self.shared_biome = Arc::new(biome_registry);
+        self.pipeline.replace_biome_registry(biome_registry);
     }
 }

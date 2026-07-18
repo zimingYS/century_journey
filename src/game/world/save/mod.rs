@@ -75,7 +75,7 @@ pub fn save_load_keybind_system(
     world_storage: Res<WorldStorage>,
     block_registry: Res<BlockRegistry>,
     save_config: Res<SaveConfig>,
-    time_of_day: Res<crate::game::world::time::TimeOfDay>,
+    simulation_clock: Res<crate::game::world::time::WorldSimulationClock>,
     player_query: Query<&Transform, With<Player>>,
     world_generator: Res<crate::game::world::generation::WorldGenerator>,
     mut save_queue: ResMut<SaveQueue>,
@@ -101,8 +101,9 @@ pub fn save_load_keybind_system(
             &world_storage,
             &block_registry,
             world_generator.seed as u64,
+            world_generator.generation_version,
+            &simulation_clock,
             spawn_pos,
-            time_of_day.current_time,
         ) {
             log::error!("[世界] 保存世界失败: {e}");
         } else {

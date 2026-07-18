@@ -1,5 +1,4 @@
-use crate::content::constant::world::HOURS_PER_DAY;
-use bevy::prelude::*;
+use crate::game::world::time::Season;
 use noise::{NoiseFn, Perlin, Seedable};
 use serde::{Deserialize, Serialize};
 
@@ -27,22 +26,7 @@ impl Default for ClimateConfig {
     }
 }
 
-/// 四季枚举
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Season {
-    Spring,
-    Summer,
-    Autumn,
-    Winter,
-}
-
 impl Season {
-    /// 从世界时间获取当前季节
-    pub fn from_time(time_of_day: f32) -> Self {
-        let season_res = SeasonResource::default();
-        season_res.current_season(time_of_day)
-    }
-
     /// 季节对温度的偏移 (-1.0 ~ 1.0)
     pub fn temperature_offset(&self) -> f64 {
         match self {
@@ -70,8 +54,6 @@ pub struct ClimateSampler {
     pub temperature_noise: Perlin,
     pub humidity_noise: Perlin,
     pub config: ClimateConfig,
-    /// 当前季节（可动态更新）
-    pub current_season: Season,
 }
 
 impl ClimateSampler {
@@ -81,8 +63,23 @@ impl ClimateSampler {
             temperature_noise: Perlin::new(seed).set_seed(seed),
             humidity_noise: Perlin::new(seed).set_seed(seed.wrapping_add(1000)),
             config,
-            current_season: Season::Spring,
         }
+    }
+
+    fn sample_base_temperature(&self, world_x: i32, world_z: i32) -> f64 {
+        let raw = self.temperature_noise.get([
+            world_x as f64 * self.config.temperature_scale,
+            world_z as f64 * self.config.temperature_scale,
+        ]);
+        ((raw + 1.0) * 0.5).clamp(0.0, 1.0)
+    }
+
+    fn sample_base_humidity(&self, world_x: i32, world_z: i32) -> f64 {
+        let raw = self.humidity_noise.get([
+            world_x as f64 * self.config.humidity_scale,
+            world_z as f64 * self.config.humidity_scale,
+        ]);
+        ((raw + 1.0) * 0.5).clamp(0.0, 1.0)
     }
 
     /// 采样某点的温度 (0.0=极寒, 1.0=极热)
@@ -92,12 +89,7 @@ impl ClimateSampler {
         world_z: i32,
         season: Season,
     ) -> f64 {
-        let raw = self.temperature_noise.get([
-            world_x as f64 * self.config.temperature_scale,
-            world_z as f64 * self.config.temperature_scale,
-        ]);
-        // 原始 Perlin 输出大约 -1.0 ~ 1.0，映射到 0.0 ~ 1.0
-        let base = (raw + 1.0) * 0.5;
+        let base = self.sample_base_temperature(world_x, world_z);
         // 叠加季节偏移
         let seasonal = season.temperature_offset() * self.config.season_temperature_amplitude;
         (base + seasonal).clamp(0.0, 1.0)
@@ -105,59 +97,49 @@ impl ClimateSampler {
 
     /// 采样某点的湿度 (0.0=极干, 1.0=极湿)
     pub fn sample_humidity_with_season(&self, world_x: i32, world_z: i32, season: Season) -> f64 {
-        let raw = self.humidity_noise.get([
-            world_x as f64 * self.config.humidity_scale,
-            world_z as f64 * self.config.humidity_scale,
-        ]);
-        let base = (raw + 1.0) * 0.5;
+        let base = self.sample_base_humidity(world_x, world_z);
         let seasonal = season.humidity_offset() * self.config.season_humidity_amplitude;
         (base + seasonal).clamp(0.0, 1.0)
     }
 
     pub fn sample_temperature(&self, world_x: i32, world_z: i32) -> f64 {
-        self.sample_temperature_with_season(world_x, world_z, self.current_season)
+        self.sample_base_temperature(world_x, world_z)
     }
 
     pub fn sample_humidity(&self, world_x: i32, world_z: i32) -> f64 {
-        self.sample_humidity_with_season(world_x, world_z, self.current_season)
+        self.sample_base_humidity(world_x, world_z)
+    }
+
+    /// 基础生成气候只受生成版本控制，实时季节只能用于生成后的环境表现。
+    pub fn sample_generation_temperature(
+        &self,
+        world_x: i32,
+        world_z: i32,
+        generation_version: u32,
+    ) -> f64 {
+        if generation_version == 1 {
+            self.sample_temperature_with_season(world_x, world_z, Season::Spring)
+        } else {
+            self.sample_temperature(world_x, world_z)
+        }
+    }
+
+    pub fn sample_generation_humidity(
+        &self,
+        world_x: i32,
+        world_z: i32,
+        generation_version: u32,
+    ) -> f64 {
+        if generation_version == 1 {
+            self.sample_humidity_with_season(world_x, world_z, Season::Spring)
+        } else {
+            self.sample_humidity(world_x, world_z)
+        }
     }
 }
 
 impl Clone for ClimateSampler {
     fn clone(&self) -> Self {
-        let mut new = Self::new(self.seed, self.config.clone());
-        new.current_season = self.current_season;
-        new
-    }
-}
-
-#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
-pub struct SeasonResource {
-    /// 一个季节持续多少游戏日
-    /// （默认12天一个季度,对应2天一个节气）
-    pub days_per_season: f32,
-}
-
-impl Default for SeasonResource {
-    fn default() -> Self {
-        Self {
-            days_per_season: 12.0,
-        }
-    }
-}
-
-impl SeasonResource {
-    /// 从世界时间（天数）计算当前季节
-    pub fn current_season(&self, total_elapsed_hours: f32) -> Season {
-        let total_days = total_elapsed_hours / HOURS_PER_DAY;
-        let day_in_year = total_days % (self.days_per_season * 4.0);
-        let season_progress = day_in_year / self.days_per_season;
-
-        match season_progress as u32 % 4 {
-            0 => Season::Spring,
-            1 => Season::Summer,
-            2 => Season::Autumn,
-            _ => Season::Winter,
-        }
+        Self::new(self.seed, self.config.clone())
     }
 }

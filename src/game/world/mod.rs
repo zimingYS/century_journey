@@ -26,7 +26,16 @@ impl Plugin for WorldPlugin {
                 crate::content::biome::BiomeRegistry::default(),
             ))
             .insert_resource(time::TimeOfDay::default())
-            .init_resource::<generation::climate::SeasonResource>()
+            .insert_resource(time::WorldSimulationClock::default())
+            .insert_resource(Time::<Fixed>::from_hz(
+                time::SIMULATION_TICKS_PER_SECOND as f64,
+            ))
+            .add_message::<time::GameMinuteElapsed>()
+            .add_message::<time::GameHourElapsed>()
+            .add_message::<time::GameDayElapsed>()
+            .add_message::<time::SolarTermChanged>()
+            .add_message::<time::SeasonChanged>()
+            .add_message::<time::GameYearElapsed>()
             .init_resource::<systems::TerrainGenChannel>()
             .init_resource::<systems::StructureGenChannel>()
             .init_resource::<systems::PlayerChunkCache>()
@@ -42,10 +51,17 @@ impl Plugin for WorldPlugin {
                     systems::generate_structures_system,
                     systems::receive_structure_results,
                     systems::pickup::pickup_system,
-                    time::update_time_system,
                 )
                     .chain()
                     .run_if(in_state(AppState::InGame)),
+            )
+            .add_systems(
+                FixedUpdate,
+                time::advance_world_simulation_clock.run_if(in_state(AppState::InGame)),
+            )
+            .add_systems(
+                PreUpdate,
+                time::update_visual_time.run_if(in_state(AppState::InGame)),
             )
             .add_systems(
                 OnEnter(AppState::InGame),

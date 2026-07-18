@@ -7,7 +7,7 @@ use crate::game::world::save::format::{LevelData, SavedChunk};
 use crate::game::world::save::level;
 use crate::game::world::save::region::RegionManager;
 use crate::game::world::storage::WorldStorage;
-use crate::game::world::time::TimeOfDay;
+use crate::game::world::time::WorldSimulationClock;
 use bevy::prelude::*;
 use bincode::Options;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -115,7 +115,7 @@ pub fn auto_save_on_unload_system(
     mut save_queue: ResMut<SaveQueue>,
     block_registry: Res<BlockRegistry>,
     world_generator: Res<WorldGenerator>,
-    time_of_day: Res<TimeOfDay>,
+    simulation_clock: Res<WorldSimulationClock>,
     player_query: Query<&Transform, With<Player>>,
 ) {
     // 禁用自动保存则跳过
@@ -151,8 +151,9 @@ pub fn auto_save_on_unload_system(
     if let Err(error) = level::save_level(
         &save_config.world_name,
         world_generator.seed as u64,
+        world_generator.generation_version,
+        &simulation_clock,
         spawn_pos,
-        time_of_day.current_time,
         &block_registry,
     ) {
         log::error!("[自动保存] 世界元数据保存失败: {error}");
@@ -378,11 +379,19 @@ pub fn save_entire_world(
     world_storage: &WorldStorage,
     block_registry: &BlockRegistry,
     seed: u64,
+    generation_version: u32,
+    simulation_clock: &WorldSimulationClock,
     spawn_pos: Vec3,
-    time_of_day: f32,
 ) -> Result<(), super::region::SaveError> {
     // 保存世界数据到 level.dat
-    level::save_level(world_name, seed, spawn_pos, time_of_day, block_registry)?;
+    level::save_level(
+        world_name,
+        seed,
+        generation_version,
+        simulation_clock,
+        spawn_pos,
+        block_registry,
+    )?;
 
     // 获取当前时间戳
     let now = std::time::SystemTime::now()

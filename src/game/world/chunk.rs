@@ -61,7 +61,8 @@ impl ChunkData {
     }
 }
 
-/// 标记区块状态
+/// 区块生成、结构和渲染任务的唯一生命周期阶段。
+/// `GenerationPipeline` 只执行纯生成步骤，不再维护第二套阶段状态。
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChunkState {
     /// 空区块
