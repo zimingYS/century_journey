@@ -7,18 +7,12 @@ use super::{NEW_WORLD_START_TIME, SUNRISE_END, SUNRISE_START, SUNSET_END, SUNSET
 pub struct TimeOfDay {
     /// 当前世界时间（0.0 ~ 24.0 小时）
     pub current_time: f32,
-    /// 累计经过的游戏小时数，用于季节等长期计时
-    pub total_elapsed_hours: f32,
-    /// 时间流逝速度（游戏秒/现实秒）
-    pub speed: f32,
 }
 
 impl Default for TimeOfDay {
     fn default() -> Self {
         Self {
             current_time: NEW_WORLD_START_TIME,
-            total_elapsed_hours: 0.0,
-            speed: 60.0,
         }
     }
 }

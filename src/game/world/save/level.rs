@@ -5,6 +5,7 @@ use crate::game::world::generation::pipeline::{
 };
 use crate::game::world::save::format::LevelData;
 use crate::game::world::save::region::{RegionManager, SaveError};
+use crate::game::world::time::WorldSimulationClock;
 use bevy::prelude::*;
 use bincode::Options;
 use flate2::Compression;
@@ -33,6 +34,17 @@ struct LegacyLevelDataV1 {
     block_id_map: Vec<(u16, String)>,
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+struct LegacyLevelDataV2 {
+    version: u32,
+    game_version: String,
+    seed: u64,
+    generation_version: u32,
+    spawn_position: [f32; 3],
+    time_of_day: f32,
+    block_id_map: Vec<(u16, String)>,
+}
+
 /// 检测存档是否存在
 pub fn world_exists(world_name: &str) -> bool {
     let path = RegionManager::level_path(world_name);
@@ -44,8 +56,8 @@ pub fn save_level(
     world_name: &str,
     seed: u64,
     generation_version: u32,
+    clock: &WorldSimulationClock,
     spawn_pos: Vec3,
-    time_of_day: f32,
     block_registry: &BlockRegistry,
 ) -> Result<(), SaveError> {
     // 确保当前世界文件存在
@@ -59,8 +71,11 @@ pub fn save_level(
         game_version: LevelData::GAME_VERSION.to_string(),
         seed,
         generation_version,
+        simulation_tick: clock.simulation_tick(),
+        game_minute: clock.total_game_minutes(),
+        subminute_tick: clock.subminute_tick(),
         spawn_position: [spawn_pos.x, spawn_pos.y, spawn_pos.z],
-        time_of_day,
+        time_of_day: clock.visual_hour(0.0),
         block_id_map,
     };
 
@@ -118,6 +133,13 @@ fn decode_level(bytes: &[u8]) -> Result<LevelData, SaveError> {
         {
             return migrate_level_data(current);
         }
+        if let Ok(legacy) = bincode::DefaultOptions::new()
+            .with_varint_encoding()
+            .reject_trailing_bytes()
+            .deserialize::<LegacyLevelDataV2>(&decompressed)
+        {
+            return migrate_legacy_level_data_v2(legacy);
+        }
         let legacy = bincode::DefaultOptions::new()
             .with_varint_encoding()
             .reject_trailing_bytes()
@@ -139,8 +161,13 @@ fn migrate_level_data(mut level: LevelData) -> Result<LevelData, SaveError> {
             level.version = LevelData::CURRENT_VERSION;
             level.game_version = LevelData::GAME_VERSION.to_string();
             level.generation_version = LEGACY_GENERATION_VERSION;
+            apply_legacy_clock(&mut level);
         }
-        2 => {}
+        2 => {
+            level.version = LevelData::CURRENT_VERSION;
+            apply_legacy_clock(&mut level);
+        }
+        3 => {}
         found => {
             return Err(SaveError::UnsupportedVersion {
                 found,
@@ -156,6 +183,16 @@ fn migrate_level_data(mut level: LevelData) -> Result<LevelData, SaveError> {
             level.generation_version, LEGACY_GENERATION_VERSION, CURRENT_GENERATION_VERSION
         )));
     }
+
+    let clock = WorldSimulationClock::from_persisted(
+        level.simulation_tick,
+        level.game_minute,
+        level.subminute_tick,
+    );
+    level.simulation_tick = clock.simulation_tick();
+    level.game_minute = clock.total_game_minutes();
+    level.subminute_tick = clock.subminute_tick();
+    level.time_of_day = clock.visual_hour(0.0);
 
     if !level.time_of_day.is_finite() {
         level.time_of_day = crate::shared::time::NEW_WORLD_START_TIME;
@@ -173,14 +210,40 @@ fn migrate_legacy_level_data(legacy: LegacyLevelDataV0) -> Result<LevelData, Sav
         )));
     }
     migrate_level_data(LevelData {
-        version: LevelData::CURRENT_VERSION,
+        version: 0,
         game_version: LevelData::GAME_VERSION.to_string(),
         seed: legacy.seed,
         generation_version: LEGACY_GENERATION_VERSION,
+        simulation_tick: 0,
+        game_minute: 0,
+        subminute_tick: 0,
         spawn_position: legacy.spawn_position,
         time_of_day: legacy.time_of_day,
         block_id_map: legacy.block_id_map,
     })
+}
+
+fn migrate_legacy_level_data_v2(legacy: LegacyLevelDataV2) -> Result<LevelData, SaveError> {
+    let level = LevelData {
+        version: 2,
+        game_version: legacy.game_version,
+        seed: legacy.seed,
+        generation_version: legacy.generation_version,
+        simulation_tick: 0,
+        game_minute: 0,
+        subminute_tick: 0,
+        spawn_position: legacy.spawn_position,
+        time_of_day: legacy.time_of_day,
+        block_id_map: legacy.block_id_map,
+    };
+    migrate_level_data(level)
+}
+
+fn apply_legacy_clock(level: &mut LevelData) {
+    let clock = WorldSimulationClock::from_legacy_time_of_day(level.time_of_day);
+    level.simulation_tick = clock.simulation_tick();
+    level.game_minute = clock.total_game_minutes();
+    level.subminute_tick = clock.subminute_tick();
 }
 
 fn migrate_legacy_level_data_v1(legacy: LegacyLevelDataV1) -> Result<LevelData, SaveError> {
@@ -191,10 +254,13 @@ fn migrate_legacy_level_data_v1(legacy: LegacyLevelDataV1) -> Result<LevelData, 
         });
     }
     migrate_level_data(LevelData {
-        version: LevelData::CURRENT_VERSION,
+        version: 1,
         game_version: legacy.game_version,
         seed: legacy.seed,
         generation_version: LEGACY_GENERATION_VERSION,
+        simulation_tick: 0,
+        game_minute: 0,
+        subminute_tick: 0,
         spawn_position: legacy.spawn_position,
         time_of_day: legacy.time_of_day,
         block_id_map: legacy.block_id_map,
@@ -251,6 +317,9 @@ mod tests {
             game_version: LevelData::GAME_VERSION.to_string(),
             seed: 42,
             generation_version: CURRENT_GENERATION_VERSION,
+            simulation_tick: 123,
+            game_minute: 480,
+            subminute_tick: 0,
             spawn_position: [1.0, 70.0, -2.0],
             time_of_day: 8.0,
             block_id_map: vec![(1, "century_journey:stone".into())],
@@ -264,6 +333,9 @@ mod tests {
         assert_eq!(decoded.game_version, env!("CARGO_PKG_VERSION"));
         assert_eq!(decoded.seed, 42);
         assert_eq!(decoded.generation_version, CURRENT_GENERATION_VERSION);
+        assert_eq!(decoded.simulation_tick, 123);
+        assert_eq!(decoded.game_minute, 480);
+        assert_eq!(decoded.subminute_tick, 0);
         assert_eq!(decoded.time_of_day, 8.0);
         assert_eq!(decoded.spawn_position, [1.0, 70.0, -2.0]);
     }
@@ -312,5 +384,32 @@ mod tests {
         assert_eq!(decoded.version, LevelData::CURRENT_VERSION);
         assert_eq!(decoded.seed, 99);
         assert_eq!(decoded.generation_version, LEGACY_GENERATION_VERSION);
+    }
+
+    #[test]
+    fn v2_level_file_migrates_legacy_float_time_to_simulation_clock() {
+        let legacy = LegacyLevelDataV2 {
+            version: 2,
+            game_version: "0.3.0".into(),
+            seed: 101,
+            generation_version: CURRENT_GENERATION_VERSION,
+            spawn_position: [0.0, 70.0, 0.0],
+            time_of_day: 13.5,
+            block_id_map: Vec::new(),
+        };
+        let serialized = bincode::DefaultOptions::new()
+            .with_varint_encoding()
+            .serialize(&legacy)
+            .unwrap();
+        let mut encoded = LEVEL_MAGIC.to_vec();
+        encoded.extend(compress(&serialized).unwrap());
+
+        let decoded = decode_level(&encoded).unwrap();
+
+        assert_eq!(decoded.version, LevelData::CURRENT_VERSION);
+        assert_eq!(decoded.generation_version, CURRENT_GENERATION_VERSION);
+        assert_eq!(decoded.game_minute, 810);
+        assert_eq!(decoded.simulation_tick, 0);
+        assert_eq!(decoded.time_of_day, 13.5);
     }
 }

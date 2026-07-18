@@ -20,7 +20,6 @@ use crate::game::world::systems::{
     PlayerChunkCache, StructureGenChannel, TerrainGenChannel, WorldStreamingConfig,
 };
 use crate::shared::states::AppState;
-use crate::shared::time::NEW_WORLD_START_TIME;
 
 const SCENARIO_NAME: &str = "survival_spawn_v1";
 const WORLD_NAME: &str = "__perf_survival_spawn_v1";
@@ -168,8 +167,8 @@ fn fixed_performance_scenario_system(
                 WORLD_NAME,
                 WORLD_SEED,
                 crate::game::world::generation::pipeline::CURRENT_GENERATION_VERSION,
+                &crate::game::world::time::WorldSimulationClock::default(),
                 Vec3::new(0.0, 70.0, 0.0),
-                NEW_WORLD_START_TIME,
                 &block_registry,
             )
         {

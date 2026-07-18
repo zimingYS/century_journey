@@ -3,8 +3,8 @@ use century_journey::content::biome::{BiomeDefinition, BiomeRegistry};
 use century_journey::content::format::load_versioned_json_dir;
 use century_journey::engine::asset::{AssetFiles, AssetResolver};
 use century_journey::game::world::generation::WorldGenerator;
-use century_journey::game::world::generation::climate::Season;
 use century_journey::game::world::generation::noise::GenerationBlockIds;
+use century_journey::game::world::time::Season;
 use std::collections::HashSet;
 
 fn test_block_ids() -> GenerationBlockIds {
