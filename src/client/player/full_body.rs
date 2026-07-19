@@ -45,11 +45,7 @@ pub struct FullBodyFirstPersonPlugin;
 impl Plugin for FullBodyFirstPersonPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FullBodyHeldItemRenderState>()
-            .add_systems(
-                Update,
-                sync_full_body_held_item_system
-                    .after(crate::game::player::systems::hunger::use_food_system),
-            );
+            .add_systems(Update, sync_full_body_held_item_system);
     }
 }
 

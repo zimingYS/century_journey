@@ -2,6 +2,7 @@ use crate::content::block::registry::BlockRegistry;
 use crate::content::loot::table::{LootDrop, LootTable};
 use crate::content::validation::ContentCompilation;
 use crate::shared::item_id::ItemId;
+use crate::shared::random::RandomSource;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -24,10 +25,10 @@ impl BlockLootRegistry {
 
     /// 计算方块的掉落物品列表
     /// 返回 (ItemId, count) tokens，由 Game 层转换为 ItemStack
-    pub fn roll(&self, block_id: u16) -> Vec<LootDrop> {
+    pub fn roll(&self, block_id: u16, rng: &mut dyn RandomSource) -> Vec<LootDrop> {
         self.tables
             .get(&block_id)
-            .map(|t| t.roll())
+            .map(|table| table.roll(rng))
             .unwrap_or_default()
     }
 }

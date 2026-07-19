@@ -10,7 +10,10 @@ use crate::client::ui::navigation::UiNavigation;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
-use crate::game::player::components::{Player, PlayerLifecycle};
+use crate::game::player::command::{PlayerCommand, PlayerCommandBuffer};
+use crate::game::player::components::{LocalPlayer, Player, PlayerLifecycle};
+use crate::game::world::time::WorldSimulationClock;
+use crate::shared::components::FpsCamera;
 use crate::shared::states::app_state::AppState;
 use crate::shared::states::{InputBlocked, InputContext, InputContextState, InputSet};
 use crate::shared::ui_types::SearchInputState;
@@ -43,9 +46,27 @@ pub struct UiInteractionLifecycleEvent {
 
 pub struct ClientInputPlugin;
 
+#[derive(Resource, Debug, Clone, Default)]
+pub struct ClientActionState(PlayerActionState);
+
+impl std::ops::Deref for ClientActionState {
+    type Target = PlayerActionState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ClientActionState {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl Plugin for ClientInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<InputContextState>()
+            .init_resource::<ClientActionState>()
             .add_message::<InterfaceCommand>()
             .add_message::<UiInteractionLifecycleEvent>()
             .configure_sets(
@@ -285,7 +306,11 @@ fn collect_player_actions_system(
     mouse: Res<ButtonInput<MouseButton>>,
     mut mouse_wheel: MessageReader<MouseWheel>,
     context: Res<InputContextState>,
-    mut state: ResMut<PlayerActionState>,
+    mut state: ResMut<ClientActionState>,
+    clock: Option<Res<WorldSimulationClock>>,
+    command_buffer: Option<ResMut<PlayerCommandBuffer>>,
+    player_query: Query<&Transform, With<LocalPlayer>>,
+    camera_query: Query<&FpsCamera, With<Camera3d>>,
 ) {
     let mut actions = Vec::with_capacity(16);
     if context.active().allows_gameplay() {
@@ -368,6 +393,24 @@ fn collect_player_actions_system(
         mouse_wheel.clear();
     }
     state.update(context.active().allows_gameplay(), actions);
+
+    let (Some(clock), Some(mut command_buffer)) = (clock, command_buffer) else {
+        return;
+    };
+    let yaw = player_query
+        .single()
+        .map(|transform| transform.rotation.to_euler(EulerRot::YXZ).0)
+        .unwrap_or(0.0);
+    let pitch = camera_query
+        .single()
+        .map(|camera| camera.pitch)
+        .unwrap_or(0.0);
+    command_buffer.enqueue(PlayerCommand::from_action_state(
+        clock.simulation_tick().saturating_add(1),
+        &state,
+        yaw,
+        pitch,
+    ));
 }
 
 fn push_pressed(

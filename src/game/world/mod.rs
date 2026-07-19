@@ -10,6 +10,7 @@ pub mod time;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::content::tag::runtime::RuntimeTagRegistry;
+use crate::game::simulation::{SimulationRng, SimulationSet};
 use crate::game::world::generation::noise::CachedBlockIds;
 use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
@@ -50,19 +51,28 @@ impl Plugin for WorldPlugin {
                     systems::receive_terrain_results,
                     systems::generate_structures_system,
                     systems::receive_structure_results,
-                    systems::pickup::pickup_system,
                 )
                     .chain()
                     .run_if(in_state(AppState::InGame)),
             )
             .add_systems(
                 FixedUpdate,
-                time::advance_world_simulation_clock.run_if(in_state(AppState::InGame)),
+                time::advance_world_simulation_clock
+                    .in_set(SimulationSet::Clock)
+                    .run_if(in_state(AppState::InGame)),
+            )
+            .add_systems(
+                FixedUpdate,
+                systems::pickup::pickup_system
+                    .after(entity::dropped_item::dropped_item_tick_system)
+                    .in_set(SimulationSet::Entities)
+                    .run_if(in_state(AppState::InGame)),
             )
             .add_systems(
                 PreUpdate,
                 time::update_visual_time.run_if(in_state(AppState::InGame)),
             )
+            .add_systems(OnEnter(AppState::InGame), sync_simulation_rng_seed_system)
             .add_systems(
                 OnEnter(AppState::InGame),
                 (sync_world_biomes_system, cache_block_ids_system)
@@ -72,6 +82,13 @@ impl Plugin for WorldPlugin {
                     .run_if(content_reload_requested),
             );
     }
+}
+
+fn sync_simulation_rng_seed_system(
+    world_generator: Res<generation::WorldGenerator>,
+    mut simulation_rng: ResMut<SimulationRng>,
+) {
+    simulation_rng.set_world_seed(world_generator.seed as u64);
 }
 
 fn sync_world_biomes_system(

@@ -103,7 +103,27 @@ impl Default for BlockProperty {
 }
 
 fn default_light_transmission() -> f32 {
-    if cfg!(debug_assertions) { 1.0 } else { 0.0 }
+    0.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn omitted_light_transmission_has_the_same_release_and_debug_default() {
+        let value = serde_json::json!({
+            "identifier": "test:stone",
+            "display_name": "Stone",
+            "render_mode": "Opaque",
+            "textures": { "top": "blocks/stone" },
+            "hardness": 1.0
+        });
+
+        let block: BlockProperty = serde_json::from_value(value).unwrap();
+
+        assert_eq!(block.light_transmission, 0.0);
+    }
 }
 
 /// 方块渲染归类

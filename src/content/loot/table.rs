@@ -1,4 +1,5 @@
 use crate::shared::item_id::ItemId;
+use crate::shared::random::RandomSource;
 use serde::{Deserialize, Serialize};
 
 // LootTable 返回 tokens (ItemId, count) 而非 ItemStack，
@@ -74,15 +75,14 @@ impl LootTable {
 
     /// 根据概率计算实际掉落的物品列表
     /// 返回 (ItemId, count) tokens，由 Game 层转换为 ItemStack
-    pub fn roll(&self) -> Vec<LootDrop> {
+    pub fn roll(&self, rng: &mut dyn RandomSource) -> Vec<LootDrop> {
         let mut results = Vec::new();
         for entry in &self.entries {
-            if rand::random::<f32>() < entry.chance {
+            if rng.next_f32() < entry.chance {
                 let count = if entry.min_count == entry.max_count {
                     entry.min_count
                 } else {
-                    entry.min_count
-                        + (rand::random::<u32>() % (entry.max_count - entry.min_count + 1))
+                    rng.range_u32_inclusive(entry.min_count, entry.max_count)
                 };
                 if count > 0 {
                     results.push((entry.item.clone(), count));
