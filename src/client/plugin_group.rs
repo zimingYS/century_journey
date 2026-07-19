@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use crate::app::plugin::CorePlugin;
 use crate::client::effect::ClientEffectPlugin;
 use crate::client::input::ClientInputPlugin;
+use crate::client::interpolation::ClientInterpolationPlugin;
 use crate::client::particle::ClientParticlePlugin;
 use crate::client::player::ClientPlayerPlugin;
 use crate::client::renderer::ClientRenderingPlugin;
@@ -23,6 +24,7 @@ use crate::engine::task::TaskPlugin;
 use crate::game::crafting::plugin::CraftingPlugin;
 use crate::game::gameplay::GameplayPlugin;
 use crate::game::inventory::plugin::InventoryPlugin;
+use crate::game::simulation::SimulationPlugin;
 use crate::game::world::WorldPlugin;
 
 /// 客户端 Plugin 集合。
@@ -44,6 +46,7 @@ impl PluginGroup for ClientPluginGroup {
             .add(RecipeContentPlugin)
             // Game 层（运行时逻辑，依赖 Content）
             .add(GameplayPlugin)
+            .add(SimulationPlugin)
             .add(CraftingPlugin)
             .add(WorldPlugin)
             .add(InventoryPlugin)
@@ -53,6 +56,7 @@ impl PluginGroup for ClientPluginGroup {
             .add(ClientInputPlugin)
             .add(ClientRenderingPlugin)
             .add(ClientPlayerPlugin)
+            .add(ClientInterpolationPlugin)
             .add(SkyPlugin)
             .add(UIPlugin)
             .add(ClientSoundPlugin)

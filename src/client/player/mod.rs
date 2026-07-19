@@ -2,16 +2,18 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 
 use crate::client::camera::{CameraPlugin, FpsCamera};
+use crate::client::interpolation::SimulationPresentation;
 use crate::game::player::components::stats::{Defense, Health, Hunger};
 use crate::game::player::components::{
-    EnvironmentExposure, FoodUseState, LocalPlayer, Player, PlayerCollider, PlayerGravity,
-    PlayerLifecycle, PlayerMovement, PlayerVelocity, RespawnPoint,
+    EnvironmentExposure, FoodUseState, LocalPlayer, Player, PlayerAim, PlayerCollider,
+    PlayerGravity, PlayerLifecycle, PlayerMovement, PlayerVelocity, RespawnPoint,
 };
 use crate::game::player::model::PlayerModelPlugin;
 use crate::game::player::model::animation::PlayerAnimationState;
 use crate::game::player::model::components::{PlayerMesh, PlayerPart};
 use crate::game::player::model::config::PlayerModelConfig;
 use crate::game::player::plugin::GamePlayerPlugin;
+use crate::game::simulation::SimulationTransformHistory;
 
 pub mod full_body;
 
@@ -53,10 +55,22 @@ fn spawn_player(
         ))
         .id();
 
+    let presentation_root = commands
+        .spawn((
+            Name::new("PlayerPresentation"),
+            SimulationPresentation::translation_only(),
+            Transform::default(),
+            Visibility::default(),
+        ))
+        .id();
+
+    let player_transform = Transform::from_xyz(0.0, 70.0, 0.0);
+
     let player = commands
         .spawn((
             Player,
             LocalPlayer,
+            PlayerAim::default(),
             rig_entities.clone(),
             PlayerAnimationState::default(),
             PlayerGravity::default(),
@@ -67,7 +81,7 @@ fn spawn_player(
             Health::default(),
             Hunger::default(),
             Defense::default(),
-            Transform::from_xyz(0.0, 70.0, 0.0),
+            player_transform,
             Visibility::default(),
         ))
         .id();
@@ -76,10 +90,12 @@ fn spawn_player(
         PlayerLifecycle::default(),
         RespawnPoint::default(),
         EnvironmentExposure::default(),
+        SimulationTransformHistory::new(player_transform),
     ));
 
+    commands.entity(player).add_child(presentation_root);
     commands
-        .entity(player)
+        .entity(presentation_root)
         .add_child(rig_root)
         .add_child(camera);
 }

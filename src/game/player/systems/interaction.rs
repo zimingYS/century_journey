@@ -16,6 +16,7 @@ use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::{Player, PlayerCollider};
 use crate::game::player::systems::raycast::TargetVoxel;
+use crate::game::simulation::{LOOT_RANDOM_DOMAIN, SimulationRng};
 use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
 use crate::game::world::chunk::{ChunkComponents, ChunkState};
 use crate::game::world::entity::dropped_item::{
@@ -23,6 +24,7 @@ use crate::game::world::entity::dropped_item::{
 };
 use crate::game::world::storage::WorldStorage;
 use crate::game::world::systems::break_pipeline::execute_block_break;
+use crate::game::world::time::WorldSimulationClock;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
@@ -39,6 +41,8 @@ pub struct BlockBreakRuntime<'w> {
     pub time: Res<'w, Time>,
     pub state: ResMut<'w, BlockBreakState>,
     pub progress: ResMut<'w, BlockBreakProgress>,
+    pub clock: Res<'w, WorldSimulationClock>,
+    pub random: Res<'w, SimulationRng>,
 }
 
 pub fn voxel_interaction_system(
@@ -125,6 +129,12 @@ pub fn voxel_interaction_system(
             }
         }
 
+        let event_key = SimulationRng::block_event_key(hit_pos, hit_id);
+        let mut loot_rng = break_runtime.random.for_event(
+            LOOT_RANDOM_DOMAIN,
+            break_runtime.clock.simulation_tick(),
+            event_key,
+        );
         let broke_block = execute_block_break(
             hit_pos,
             hit_id,
@@ -134,6 +144,7 @@ pub fn voxel_interaction_system(
             &reg,
             &behavior_registry,
             loot_registry.as_deref(),
+            &mut loot_rng,
             &mut world_storage,
             &mut commands,
         );

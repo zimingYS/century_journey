@@ -89,8 +89,7 @@ impl Plugin for ClientParticlePlugin {
             Update,
             (
                 spawn_block_particles_system,
-                spawn_action_particles_system
-                    .after(crate::game::player::systems::combat::melee_attack_input_system),
+                spawn_action_particles_system,
                 update_feedback_particles_system,
             )
                 .run_if(in_state(AppState::InGame)),

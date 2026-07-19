@@ -1,4 +1,5 @@
 pub mod action;
+pub mod command;
 pub mod components;
 pub mod events;
 pub mod model;

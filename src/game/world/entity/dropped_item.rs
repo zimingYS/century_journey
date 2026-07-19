@@ -1,7 +1,10 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::content::constant::world::CHUNK_SIZE;
 use crate::game::inventory::item::stack::ItemStack;
+use crate::game::simulation::SimulationSet;
+use crate::game::simulation::SimulationTransformHistory;
 use crate::game::world::storage::WorldStorage;
+use crate::shared::states::AppState;
 use bevy::prelude::*;
 
 /// 掉落物默认存在时间，超过后自动销毁。
@@ -123,12 +126,14 @@ pub fn spawn_dropped_item_with_velocity(
     stack: ItemStack,
     velocity: DroppedItemVelocity,
 ) -> Entity {
+    let transform = Transform::from_translation(position);
     commands
         .spawn((
             DroppedItem::new(stack),
             velocity,
             Name::new("DroppedItem".to_string()),
-            Transform::from_translation(position),
+            transform,
+            SimulationTransformHistory::new(transform),
             Visibility::default(),
         ))
         .id()
@@ -294,13 +299,15 @@ impl Plugin for DroppedItemPlugin {
     /// 只注册掉落物的玩法逻辑；视觉模型由 Client 渲染插件负责。
     fn build(&self, app: &mut App) {
         app.add_systems(
-            Update,
+            FixedUpdate,
             (
                 dropped_item_physics_system,
                 dropped_item_merge_system,
                 dropped_item_tick_system,
             )
-                .chain(),
+                .chain()
+                .in_set(SimulationSet::Entities)
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

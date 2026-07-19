@@ -209,6 +209,7 @@ mod tests {
     use crate::content::item::definition::tool::{ToolTier, ToolType};
     use crate::content::loot::block_registry::BlockLootRegistry;
     use crate::content::loot::table::LootTable;
+    use crate::shared::random::DeterministicRng;
 
     fn pickaxe(tier: ToolTier, efficiency: f32) -> ToolData {
         ToolData::new(ToolType::Pickaxe, tier, 100, efficiency)
@@ -369,6 +370,7 @@ mod tests {
         let mut loot = BlockLootRegistry::default();
         loot.register(7, LootTable::single(dirt.clone(), 1));
 
-        assert_eq!(loot.roll(7), vec![(dirt, 1)]);
+        let mut rng = DeterministicRng::new(7);
+        assert_eq!(loot.roll(7, &mut rng), vec![(dirt, 1)]);
     }
 }

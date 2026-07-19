@@ -110,6 +110,33 @@ impl PlayerActionState {
             None
         }
     }
+
+    pub fn clear(&mut self) {
+        *self = Self::default();
+    }
+
+    pub(crate) fn active_snapshot(&self) -> [bool; PlayerAction::COUNT] {
+        self.active
+    }
+
+    pub(crate) fn pressed_snapshot(&self) -> [bool; PlayerAction::COUNT] {
+        self.pressed
+    }
+
+    pub(crate) fn released_snapshot(&self) -> [bool; PlayerAction::COUNT] {
+        self.released
+    }
+
+    pub(crate) fn cancelled_snapshot(&self) -> [bool; PlayerAction::COUNT] {
+        self.cancelled
+    }
+
+    pub(crate) fn apply_command(&mut self, command: &super::command::PlayerCommand) {
+        self.active = command.active;
+        self.pressed = command.pressed;
+        self.released = command.released;
+        self.cancelled = command.cancelled;
+    }
 }
 
 #[cfg(test)]

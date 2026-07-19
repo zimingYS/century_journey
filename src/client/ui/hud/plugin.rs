@@ -11,7 +11,7 @@ use crate::client::ui::hud::bottom::bars::{
     HudStatusIconAssets, load_hud_status_icon_assets_system, spawn_bars_hud_system,
 };
 use crate::client::ui::hud::bottom::hotbar::{
-    handle_hotbar_switch_system, hud_hotbar_visual_sync_system, spawn_hotbar_ui_system,
+    hud_hotbar_visual_sync_system, spawn_hotbar_ui_system,
 };
 use crate::client::ui::hud::bottom::spawn_bottom_hud_system;
 use crate::client::ui::hud::center::crosshair::spawn_crosshair;
@@ -108,7 +108,6 @@ impl Plugin for HudPlugin {
             Update,
             (
                 hud_hotbar_visual_sync_system,
-                handle_hotbar_switch_system,
                 health_bar_sync_system,
                 armor_bar_sync_system,
                 hunger_bar_sync_system,

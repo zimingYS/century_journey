@@ -13,6 +13,11 @@ pub struct Player;
 #[derive(Component)]
 pub struct LocalPlayer;
 
+#[derive(Component, Debug, Clone, Copy, Default)]
+pub struct PlayerAim {
+    pub pitch: f32,
+}
+
 #[derive(Component)]
 pub struct PlayerMovement {
     pub movement_speed: f32,

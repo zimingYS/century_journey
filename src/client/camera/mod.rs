@@ -1,6 +1,7 @@
-use crate::game::player::action::{PlayerAction, PlayerActionState};
+use crate::client::input::ClientActionState;
+use crate::game::player::action::PlayerAction;
 use crate::game::player::components::Player;
-use crate::shared::states::InputContextState;
+use crate::shared::states::{InputContextState, InputSet};
 use bevy::audio::SpatialListener;
 use bevy::camera::Exposure;
 use bevy::core_pipeline::tonemapping::Tonemapping;
@@ -68,7 +69,7 @@ pub fn player_look_system(
 
 /// 使用 F5 切换第一人称与第三人称视角。
 pub fn toggle_perspective_system(
-    actions: Res<PlayerActionState>,
+    actions: Res<ClientActionState>,
     mut camera_query: Query<&mut FpsCamera, With<Camera3d>>,
 ) {
     if !actions.just_pressed(PlayerAction::TogglePerspective) {
@@ -112,14 +113,16 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
+            PreUpdate,
+            player_look_system
+                .after(InputSet::ResolveContext)
+                .before(InputSet::CollectActions)
+                .run_if(in_state(crate::shared::states::AppState::InGame)),
+        )
+        .add_systems(
             Update,
             (
-                (
-                    player_look_system,
-                    toggle_perspective_system,
-                    camera_perspective_sync_system,
-                )
-                    .chain(),
+                (toggle_perspective_system, camera_perspective_sync_system).chain(),
                 setup_player_camera_system,
             )
                 .run_if(in_state(crate::shared::states::AppState::InGame)),

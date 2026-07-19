@@ -26,24 +26,26 @@ pub struct TargetVoxel {
 
 pub fn update_raycast_system(
     world_storage: Res<WorldStorage>,
-    camera_query: Query<&crate::shared::components::FpsCamera>,
-    player_query: Query<&GlobalTransform, With<crate::game::player::components::Player>>,
+    player_query: Query<
+        (&Transform, &crate::game::player::components::PlayerAim),
+        With<crate::game::player::components::Player>,
+    >,
     mut target_voxel: ResMut<TargetVoxel>,
 ) {
-    let (Ok(camera), Ok(player_transform)) = (camera_query.single(), player_query.single()) else {
+    let Ok((player_transform, aim)) = player_query.single() else {
         target_voxel.result = None;
         return;
     };
 
-    let (origin, direction) = player_interaction_ray(player_transform, camera.pitch);
+    let (origin, direction) = player_interaction_ray(player_transform, aim.pitch);
 
     target_voxel.result = raycast_voxel(&origin, &direction, &world_storage, 0.0);
 }
 
-fn player_interaction_ray(player_transform: &GlobalTransform, pitch: f32) -> (Vec3, Vec3) {
-    let player_rotation = player_transform.rotation();
+fn player_interaction_ray(player_transform: &Transform, pitch: f32) -> (Vec3, Vec3) {
+    let player_rotation = player_transform.rotation;
     let horizontal_forward = player_rotation * Vec3::NEG_Z;
-    let origin = player_transform.translation()
+    let origin = player_transform.translation
         + Vec3::Y * PLAYER_EYE_HEIGHT
         + horizontal_forward * PLAYER_RAY_FORWARD_OFFSET;
     let direction = player_rotation * Quat::from_rotation_x(pitch.clamp(-1.5, 1.5)) * Vec3::NEG_Z;
@@ -212,10 +214,8 @@ mod tests {
 
     #[test]
     fn interaction_ray_starts_at_player_and_uses_player_facing() {
-        let player = GlobalTransform::from(
-            Transform::from_xyz(10.0, 20.0, 30.0)
-                .with_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)),
-        );
+        let player = Transform::from_xyz(10.0, 20.0, 30.0)
+            .with_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2));
         let (origin, direction) = player_interaction_ray(&player, 0.0);
 
         assert!((origin.y - (20.0 + PLAYER_EYE_HEIGHT)).abs() < 0.0001);
@@ -225,7 +225,7 @@ mod tests {
 
     #[test]
     fn interaction_ray_pitch_changes_direction_without_moving_to_camera() {
-        let player = GlobalTransform::from(Transform::from_xyz(2.0, 3.0, 4.0));
+        let player = Transform::from_xyz(2.0, 3.0, 4.0);
         let (origin, level) = player_interaction_ray(&player, 0.0);
         let (pitched_origin, pitched) = player_interaction_ray(&player, 0.5);
 

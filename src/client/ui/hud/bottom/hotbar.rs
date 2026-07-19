@@ -11,7 +11,6 @@ use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::state::InventoryState;
-use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 
@@ -159,51 +158,5 @@ pub fn hud_hotbar_visual_sync_system(
                 theme.border_default
             });
         }
-    }
-}
-
-/// 数字键/滚轮切换快捷栏
-pub fn handle_hotbar_switch_system(
-    actions: Res<PlayerActionState>,
-    mut state: ResMut<InventoryState>,
-) {
-    if !actions.pressed(PlayerAction::Hotbar1)
-        && !actions.pressed(PlayerAction::Hotbar2)
-        && !actions.pressed(PlayerAction::Hotbar3)
-        && !actions.pressed(PlayerAction::Hotbar4)
-        && !actions.pressed(PlayerAction::Hotbar5)
-        && !actions.pressed(PlayerAction::Hotbar6)
-        && !actions.pressed(PlayerAction::Hotbar7)
-        && !actions.pressed(PlayerAction::Hotbar8)
-        && !actions.pressed(PlayerAction::Hotbar9)
-        && !actions.pressed(PlayerAction::HotbarPrevious)
-        && !actions.pressed(PlayerAction::HotbarNext)
-    {
-        return;
-    }
-
-    let hotbar_actions = [
-        PlayerAction::Hotbar1,
-        PlayerAction::Hotbar2,
-        PlayerAction::Hotbar3,
-        PlayerAction::Hotbar4,
-        PlayerAction::Hotbar5,
-        PlayerAction::Hotbar6,
-        PlayerAction::Hotbar7,
-        PlayerAction::Hotbar8,
-        PlayerAction::Hotbar9,
-    ];
-    for (index, action) in hotbar_actions.into_iter().enumerate() {
-        if actions.just_pressed(action) {
-            state.hotbar.active_index = index;
-            break;
-        }
-    }
-
-    if actions.just_pressed(PlayerAction::HotbarPrevious) {
-        state.hotbar.select_prev();
-    }
-    if actions.just_pressed(PlayerAction::HotbarNext) {
-        state.hotbar.select_next();
     }
 }

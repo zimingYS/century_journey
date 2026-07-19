@@ -7,6 +7,7 @@ pub mod components;
 pub mod held_item;
 pub mod identifier;
 pub mod item_id;
+pub mod random;
 pub mod states;
 pub mod tag;
 pub mod time;

@@ -1,3 +1,4 @@
+use crate::client::interpolation::SimulationPresentation;
 use crate::client::renderer::item::{
     ItemDisplayContext, ItemModelCache, ItemRenderContext, ItemRenderer,
 };
@@ -61,7 +62,10 @@ pub fn dropped_item_visual_system(
             &mut render_context,
         );
 
-        if spawned.is_some() {
+        if let Some(spawned) = spawned {
+            commands
+                .entity(spawned.root)
+                .insert(SimulationPresentation::full_transform());
             commands.entity(entity).insert(DroppedItemVisualReady);
         }
     }
