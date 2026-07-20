@@ -3,6 +3,7 @@ pub mod chunk;
 pub mod entity;
 pub mod generation;
 pub mod save;
+pub mod state;
 pub mod storage;
 pub mod systems;
 pub mod time;
@@ -19,7 +20,9 @@ pub struct WorldPlugin;
 
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<storage::WorldStorage>()
+        app.init_resource::<state::WorldState>()
+            .init_resource::<state::ChunkRuntime>()
+            .init_resource::<storage::WorldStorage>()
             .init_resource::<crate::game::block::BlockBehaviorRegistry>()
             .add_systems(Startup, crate::game::block::init_behavior_registry_system)
             .insert_resource(generation::WorldGenerator::new(
