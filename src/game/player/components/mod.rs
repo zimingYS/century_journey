@@ -4,6 +4,17 @@ use crate::game::constant::player::*;
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct PlayerId(pub u64);
+
+impl PlayerId {
+    pub const LOCAL: Self = Self(0);
+
+    pub const fn new(value: u64) -> Self {
+        Self(value)
+    }
+}
+
 #[derive(Component)]
 pub struct Player;
 

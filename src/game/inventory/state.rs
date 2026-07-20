@@ -5,8 +5,10 @@ use crate::game::inventory::cursor::CursorData;
 use crate::game::inventory::recent::RecentItems;
 use bevy::prelude::*;
 
+use crate::game::player::components::LocalPlayer;
+
 /// 统一的物品栏状态资源
-#[derive(Resource, Debug, Default)]
+#[derive(Component, Debug, Default)]
 pub struct InventoryState {
     /// 快捷栏
     pub hotbar: HotbarData,
@@ -21,6 +23,9 @@ pub struct InventoryState {
     /// 任意物品栏界面是否打开
     pub opened: bool,
 }
+
+pub type LocalInventory<'w, 's> = Single<'w, 's, &'static InventoryState, With<LocalPlayer>>;
+pub type LocalInventoryMut<'w, 's> = Single<'w, 's, &'static mut InventoryState, With<LocalPlayer>>;
 
 impl InventoryState {
     /// 切换物品栏打开状态

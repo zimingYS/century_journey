@@ -14,10 +14,13 @@ use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
+use crate::game::crafting::grid::ActiveCrafting;
 use crate::game::crafting::grid::{CraftingGrid, PlayerCrafting, WorkbenchCrafting};
 use crate::game::inventory::container::InventoryContainer;
+use crate::game::inventory::container::world::WorldContainers;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
+use crate::game::player::components::LocalPlayer;
 use crate::shared::item_id::ItemId;
 use crate::shared::ui_types::ContainerKind;
 use bevy::prelude::*;
@@ -355,9 +358,8 @@ fn spawn_durability_bar(parent: &mut ChildSpawnerCommands, kind: SlotKind, index
 }
 
 pub fn sync_slot_durability_system(
-    inventory: Res<InventoryState>,
-    player_crafting: Res<PlayerCrafting>,
-    workbench_crafting: Res<WorkbenchCrafting>,
+    player_query: Query<(&InventoryState, &PlayerCrafting, &ActiveCrafting), With<LocalPlayer>>,
+    containers: Res<WorldContainers>,
     item_registry: Option<Res<ItemRegistry>>,
     mut bar_query: Query<(&SlotDurabilityBar, &Children, &mut Visibility)>,
     mut fill_query: Query<(&mut Node, &mut BackgroundColor), With<SlotDurabilityFill>>,
@@ -365,9 +367,12 @@ pub fn sync_slot_durability_system(
     let Some(item_registry) = item_registry else {
         return;
     };
+    let Ok((inventory, player_crafting, active)) = player_query.single() else {
+        return;
+    };
+    let workbench = active.container_id.and_then(|id| containers.workbench(id));
     for (bar, children, mut visibility) in &mut bar_query {
-        let Some(stack) = stack_for_slot(bar, &inventory, &player_crafting, &workbench_crafting)
-        else {
+        let Some(stack) = stack_for_slot(bar, inventory, player_crafting, workbench) else {
             *visibility = Visibility::Hidden;
             continue;
         };
@@ -406,7 +411,7 @@ fn stack_for_slot<'a>(
     bar: &SlotDurabilityBar,
     inventory: &'a InventoryState,
     player_crafting: &'a PlayerCrafting,
-    workbench_crafting: &'a WorkbenchCrafting,
+    workbench_crafting: Option<&'a WorkbenchCrafting>,
 ) -> Option<&'a ItemStack> {
     match bar.kind {
         SlotKind::Hotbar => inventory.hotbar.get_stack(bar.index),
@@ -418,7 +423,7 @@ fn stack_for_slot<'a>(
             crafting_stack(player_crafting.grid(), bar.index)
         }
         SlotKind::Container(ContainerKind::Workbench) => {
-            crafting_stack(workbench_crafting.grid(), bar.index)
+            workbench_crafting.and_then(|workbench| crafting_stack(workbench.grid(), bar.index))
         }
         SlotKind::CreativeGrid
         | SlotKind::Recent

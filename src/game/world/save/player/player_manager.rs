@@ -2,9 +2,11 @@ use super::player_io::{player_save_path, write_player_data};
 use super::player_model::{PlayerSaveData, validate_player_data};
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
-use crate::game::inventory::state::InventoryState;
+use crate::game::inventory::state::{InventoryState, LocalInventory, LocalInventoryMut};
 use crate::game::player::components::stats::{Health, Hunger};
-use crate::game::player::components::{Player, PlayerLifecycle, PlayerVelocity, RespawnPoint};
+use crate::game::player::components::{
+    LocalPlayer, Player, PlayerLifecycle, PlayerVelocity, RespawnPoint,
+};
 use crate::game::world::save::events::SaveDirtySource;
 use crate::game::world::save::system::SaveConfig;
 use crate::shared::components::camera::FpsCamera;
@@ -208,7 +210,7 @@ pub fn save_player_now(
 pub fn load_player_on_enter_system(
     save_config: Res<SaveConfig>,
     mut gamemode: ResMut<PlayerGameMode>,
-    mut inventory: ResMut<InventoryState>,
+    mut inventory: LocalInventoryMut,
     item_registry: Res<ItemRegistry>,
     mut player_query: Query<
         (
@@ -305,10 +307,10 @@ pub fn player_position_dirty_system(
 
 /// 背包变化脏数据追踪
 pub fn inventory_dirty_tracking_system(
-    inventory: Res<InventoryState>,
+    inventory: Query<(), (With<LocalPlayer>, Changed<InventoryState>)>,
     mut save_manager: ResMut<PlayerSaveManager>,
 ) {
-    if inventory.is_changed() {
+    if !inventory.is_empty() {
         save_manager.set_dirty(SaveDirtySource::Inventory);
     }
 }
@@ -328,7 +330,7 @@ pub fn auto_save_player_system(
     time: Res<Time>,
     save_config: Res<SaveConfig>,
     gamemode: Res<PlayerGameMode>,
-    inventory: Res<InventoryState>,
+    inventory: LocalInventory,
     item_registry: Res<ItemRegistry>,
     player_query: Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
     camera_query: Query<&FpsCamera, With<Camera3d>>,
@@ -354,7 +356,7 @@ pub fn save_on_exit_system(
     mut exit_reader: MessageReader<AppExit>,
     save_config: Res<SaveConfig>,
     gamemode: Res<PlayerGameMode>,
-    inventory: Res<InventoryState>,
+    inventory: LocalInventory,
     item_registry: Res<ItemRegistry>,
     player_query: Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
     camera_query: Query<&FpsCamera, With<Camera3d>>,

@@ -49,11 +49,20 @@ pub fn use_food_system(
     actions: Res<PlayerActionState>,
     gamemode: Res<PlayerGameMode>,
     item_registry: Option<Res<ItemRegistry>>,
-    mut inventory: ResMut<InventoryState>,
-    mut query: Query<(Entity, &mut Hunger, &PlayerLifecycle, &mut FoodUseState), With<Player>>,
+    mut query: Query<
+        (
+            Entity,
+            &mut Hunger,
+            &PlayerLifecycle,
+            &mut FoodUseState,
+            &mut InventoryState,
+        ),
+        With<Player>,
+    >,
     mut consumed_writer: MessageWriter<FoodConsumedEvent>,
 ) {
-    let Ok((player, mut hunger, lifecycle, mut food_use)) = query.single_mut() else {
+    let Ok((player, mut hunger, lifecycle, mut food_use, mut inventory)) = query.single_mut()
+    else {
         return;
     };
 
@@ -216,7 +225,6 @@ mod stage_seven_tests {
         app.add_plugins(MinimalPlugins)
             .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs(1)))
             .insert_resource(registry)
-            .insert_resource(inventory)
             .init_resource::<PlayerActionState>()
             .init_resource::<PlayerGameMode>()
             .init_resource::<FoodEventCount>()
@@ -236,6 +244,7 @@ mod stage_seven_tests {
                 },
                 PlayerLifecycle::default(),
                 FoodUseState::default(),
+                inventory,
             ))
             .id();
         app.world_mut()
@@ -251,7 +260,8 @@ mod stage_seven_tests {
         assert_eq!(app.world().resource::<FoodEventCount>().0, 0);
         assert_eq!(
             app.world()
-                .resource::<InventoryState>()
+                .get::<InventoryState>(player)
+                .unwrap()
                 .hotbar
                 .get_stack(0)
                 .map(|stack| stack.count),
@@ -266,7 +276,8 @@ mod stage_seven_tests {
         assert_eq!(app.world().resource::<FoodEventCount>().0, 1);
         assert_eq!(
             app.world()
-                .resource::<InventoryState>()
+                .get::<InventoryState>(player)
+                .unwrap()
                 .hotbar
                 .get_stack(0)
                 .map(|stack| stack.count),
@@ -303,7 +314,6 @@ mod stage_seven_tests {
         app.add_plugins(MinimalPlugins)
             .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs(1)))
             .insert_resource(registry)
-            .insert_resource(inventory)
             .init_resource::<PlayerActionState>()
             .init_resource::<PlayerGameMode>()
             .add_message::<FoodConsumedEvent>()
@@ -322,6 +332,7 @@ mod stage_seven_tests {
                 },
                 PlayerLifecycle::default(),
                 FoodUseState::default(),
+                inventory,
             ))
             .id();
 
@@ -338,7 +349,8 @@ mod stage_seven_tests {
         assert!(!app.world().get::<FoodUseState>(player).unwrap().is_active());
         assert_eq!(
             app.world()
-                .resource::<InventoryState>()
+                .get::<InventoryState>(player)
+                .unwrap()
                 .hotbar
                 .get_stack(0)
                 .map(|stack| stack.count),

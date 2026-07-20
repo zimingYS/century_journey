@@ -1,4 +1,4 @@
-use crate::game::inventory::state::InventoryState;
+use crate::game::inventory::state::LocalInventory;
 use bevy::prelude::*;
 
 pub mod bottom;
@@ -34,7 +34,7 @@ pub fn spawn_hud_root_system(mut commands: Commands) {
 
 /// HUD 显隐同步 — 控制 HudRoot 整体, 子元素 (准心/血条等) 继承 Visibility
 pub fn sync_hud_visibility_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     mut query: Query<&mut Visibility, With<HudRoot>>,
 ) {
     let Ok(mut vis) = query.single_mut() else {

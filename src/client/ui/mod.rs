@@ -5,6 +5,7 @@ use crate::client::ui::theme::scale::UiScaleSettings;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{CategoryClickedEvent, SearchInputState};
 use crate::game::inventory::state::InventoryState;
+use crate::game::player::components::LocalPlayer;
 use crate::shared::states::{InputContext, InputContextState};
 use bevy::prelude::*;
 
@@ -127,8 +128,7 @@ impl Plugin for UIPlugin {
             // ── Update: 事件 → 状态 ──
             .add_systems(
                 Update,
-                (interaction::handle_category_clicked_system,)
-                    .run_if(|state: Res<InventoryState>| state.opened),
+                (interaction::handle_category_clicked_system,).run_if(local_inventory_open),
             )
             // ── Update: 搜索 ──
             .add_systems(
@@ -183,4 +183,8 @@ impl Plugin for UIPlugin {
                 ),
             );
     }
+}
+
+fn local_inventory_open(query: Query<&InventoryState, With<LocalPlayer>>) -> bool {
+    query.single().is_ok_and(|inventory| inventory.opened)
 }

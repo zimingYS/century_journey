@@ -1,5 +1,7 @@
+use crate::game::inventory::container::world::ContainerId;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::slot::SlotAction;
+use crate::game::player::components::PlayerId;
 use crate::shared::item_id::ItemId;
 use crate::shared::ui_types::SlotKind;
 use bevy::prelude::*;
@@ -20,11 +22,14 @@ pub struct ItemPlacedToHotbarEvent {
 /// Q 丢弃事件
 #[derive(Message, Debug, Clone)]
 pub struct DropItemEvent {
+    pub player_id: PlayerId,
     pub stack: ItemStack,
 }
 
 #[derive(Message, Debug, Clone, Copy)]
 pub struct SlotInteractionEvent {
+    pub player_id: PlayerId,
+    pub container_id: Option<ContainerId>,
     pub kind: SlotKind,
     pub index: usize,
     pub action: SlotAction,

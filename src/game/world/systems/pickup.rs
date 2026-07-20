@@ -13,32 +13,37 @@ const PICKUP_RANGE: f32 = 2.0;
 /// 成功则删除掉落物实体，失败则保留剩余物品
 pub fn pickup_system(
     time: Res<Time>,
-    player_query: Query<(&Transform, &PlayerLifecycle), With<Player>>,
+    mut player_query: Query<(&Transform, &PlayerLifecycle, &mut InventoryState), With<Player>>,
     mut item_query: Query<(Entity, &Transform, &mut DroppedItem)>,
-    mut inventory: ResMut<InventoryState>,
     mut commands: Commands,
     mut feedback_writer: MessageWriter<InventoryFeedbackEvent>,
     mut full_feedback_cooldown: Local<f32>,
 ) {
     *full_feedback_cooldown = (*full_feedback_cooldown - time.delta_secs()).max(0.0);
-    let Ok((player_transform, lifecycle)) = player_query.single() else {
-        return;
-    };
-    if !lifecycle.is_alive() {
-        return;
-    }
-    let player_pos = player_transform.translation;
-
     for (entity, item_transform, mut dropped) in &mut item_query {
         // 刚生成的掉落物先等待一小段时间，避免玩家按 Q 后马上又捡回来。
         if !dropped.can_pickup() {
             continue;
         }
 
-        // 距离检查
-        if player_pos.distance(item_transform.translation) > PICKUP_RANGE {
+        let Some((_, _, mut inventory)) = player_query
+            .iter_mut()
+            .filter(|(transform, lifecycle, _)| {
+                lifecycle.is_alive()
+                    && transform.translation.distance(item_transform.translation) <= PICKUP_RANGE
+            })
+            .min_by(|(left, _, _), (right, _, _)| {
+                left.translation
+                    .distance_squared(item_transform.translation)
+                    .total_cmp(
+                        &right
+                            .translation
+                            .distance_squared(item_transform.translation),
+                    )
+            })
+        else {
             continue;
-        }
+        };
 
         // 尝试插入背包（优先快捷栏，再背包）
         // 两步插入避免同时 borrow hotbar 和 survival
@@ -84,12 +89,12 @@ mod stage_seven_tests {
     fn stage_seven_pickup_moves_drop_into_empty_inventory() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
-            .init_resource::<InventoryState>()
             .add_message::<InventoryFeedbackEvent>()
             .add_systems(Update, pickup_system);
         app.world_mut().spawn((
             Player,
             PlayerLifecycle::default(),
+            InventoryState::default(),
             Transform::from_xyz(0.0, 70.0, 0.0),
         ));
         let mut dropped =
@@ -103,8 +108,10 @@ mod stage_seven_tests {
         app.update();
 
         assert_eq!(
-            app.world()
-                .resource::<InventoryState>()
+            app.world_mut()
+                .query::<&InventoryState>()
+                .single(app.world())
+                .unwrap()
                 .hotbar
                 .get_stack(0)
                 .map(|stack| stack.count),

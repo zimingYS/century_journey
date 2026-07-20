@@ -3,10 +3,12 @@ use bevy::prelude::*;
 
 use crate::client::camera::{CameraPlugin, FpsCamera};
 use crate::client::interpolation::SimulationPresentation;
+use crate::game::crafting::grid::{ActiveCrafting, PlayerCrafting};
+use crate::game::inventory::state::InventoryState;
 use crate::game::player::components::stats::{Defense, Health, Hunger};
 use crate::game::player::components::{
     EnvironmentExposure, FoodUseState, LocalPlayer, Player, PlayerAim, PlayerCollider,
-    PlayerGravity, PlayerLifecycle, PlayerMovement, PlayerVelocity, RespawnPoint,
+    PlayerGravity, PlayerId, PlayerLifecycle, PlayerMovement, PlayerVelocity, RespawnPoint,
 };
 use crate::game::player::model::PlayerModelPlugin;
 use crate::game::player::model::animation::PlayerAnimationState;
@@ -91,6 +93,10 @@ fn spawn_player(
         RespawnPoint::default(),
         EnvironmentExposure::default(),
         SimulationTransformHistory::new(player_transform),
+        PlayerId::LOCAL,
+        InventoryState::default(),
+        PlayerCrafting::default(),
+        ActiveCrafting::default(),
     ));
 
     commands.entity(player).add_child(presentation_root);

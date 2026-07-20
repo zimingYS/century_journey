@@ -1,10 +1,11 @@
-use bevy::prelude::{IVec3, Resource};
+use bevy::prelude::{Component, IVec3};
 
 use crate::content::recipe::definition::recipe_definition::RecipeDefinition;
 use crate::content::recipe::definition::shaped_recipe::ShapedRecipe;
 use crate::content::recipe::definition::{Ingredient, RecipeResult};
 use crate::content::recipe::registry::RecipeRegistry;
 use crate::content::tag::runtime::ItemTagIndex;
+use crate::game::inventory::container::world::ContainerId;
 use crate::game::inventory::container::{
     ContainerLayout, ContainerSlotRole, GameContainer, InventoryContainer,
 };
@@ -91,7 +92,7 @@ impl InventoryContainer for CraftingGrid {
     }
 }
 
-#[derive(Resource, Debug, Clone)]
+#[derive(Component, Debug, Clone)]
 pub struct PlayerCrafting(CraftingGrid);
 
 impl PlayerCrafting {
@@ -130,7 +131,7 @@ impl Default for PlayerCrafting {
     }
 }
 
-#[derive(Resource, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct WorkbenchCrafting(CraftingGrid);
 
 impl WorkbenchCrafting {
@@ -218,10 +219,12 @@ impl_container_wrapper!(
     WorkbenchCrafting::HEIGHT
 );
 
-#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ActiveCrafting {
     pub kind: ContainerKind,
     pub station_position: Option<IVec3>,
+    pub container_id: Option<ContainerId>,
+    pub was_opened: bool,
 }
 
 impl Default for ActiveCrafting {
@@ -235,13 +238,17 @@ impl ActiveCrafting {
         Self {
             kind: ContainerKind::PlayerCrafting,
             station_position: None,
+            container_id: None,
+            was_opened: false,
         }
     }
 
-    pub const fn workbench(position: IVec3) -> Self {
+    pub const fn workbench(position: IVec3, container_id: ContainerId) -> Self {
         Self {
             kind: ContainerKind::Workbench,
             station_position: Some(position),
+            container_id: Some(container_id),
+            was_opened: false,
         }
     }
 }

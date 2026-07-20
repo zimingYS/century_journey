@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::client::input::InterfaceCommand;
 use crate::game::gameplay::gamemode::PlayerGameMode;
-use crate::game::inventory::state::InventoryState;
+use crate::game::inventory::state::LocalInventory;
 use crate::shared::states::InputContextState;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -182,7 +182,7 @@ fn close_screen_state(screen: UiScreen, interface: &mut MessageWriter<InterfaceC
 
 pub fn sync_legacy_screen_state_system(
     mut navigation: MessageReader<UiNavigation>,
-    inventory: Res<InventoryState>,
+    inventory: LocalInventory,
     context: Res<InputContextState>,
     mut stack: ResMut<UiScreenStack>,
 ) {

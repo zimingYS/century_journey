@@ -29,7 +29,7 @@ use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::container::survival::SurvivalInventory;
 use crate::game::inventory::equipment::{AccessorySlotDefinitions, EquipmentSlot};
 use crate::game::inventory::item::stack::ItemStack;
-use crate::game::inventory::state::InventoryState;
+use crate::game::inventory::state::{InventoryState, LocalInventory, LocalInventoryMut};
 use crate::game::player::components::LocalPlayer;
 use crate::game::player::components::stats::{Defense, Health, Hunger};
 use crate::game::player::model::config::PlayerModelConfig;
@@ -49,15 +49,11 @@ pub fn spawn_survival_inventory_system(
     theme: Res<UiTheme>,
     ui_font: Res<UiFont>,
     accessory_definitions: Res<AccessorySlotDefinitions>,
-    mut inventory: ResMut<InventoryState>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     player_model_config: Res<PlayerModelConfig>,
 ) {
-    inventory
-        .survival
-        .ensure_accessory_slots(accessory_definitions.slots.len());
     let preview_image = spawn_player_preview(
         &mut commands,
         &mut images,
@@ -545,7 +541,7 @@ pub fn update_survival_visibility_system(
 /// 存档恢复发生在 Startup 之后，因此每帧只做廉价的扩容检查。
 pub fn sync_accessory_slot_count_system(
     definitions: Res<AccessorySlotDefinitions>,
-    mut state: ResMut<InventoryState>,
+    mut state: LocalInventoryMut,
 ) {
     state
         .survival
@@ -587,7 +583,7 @@ pub fn populate_survival_grid_system(
 }
 
 pub fn survival_grid_visual_sync_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
     item_model_assets: Res<ItemModelRenderAssets>,
@@ -660,7 +656,7 @@ pub fn survival_grid_visual_sync_system(
 }
 
 pub fn survival_hotbar_visual_sync_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
     item_model_assets: Res<ItemModelRenderAssets>,
@@ -749,7 +745,7 @@ pub fn survival_hotbar_visual_sync_system(
 }
 
 pub fn init_survival_hotbar_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
     item_model_assets: Res<ItemModelRenderAssets>,

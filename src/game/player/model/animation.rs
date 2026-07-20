@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use crate::content::block::event::{BlockInteractEvent, BlockPlaceEvent};
 use crate::game::gameplay::block_action::BlockBreakProgress;
-use crate::game::inventory::state::InventoryState;
+use crate::game::inventory::state::LocalInventory;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::stats::Health;
 use crate::game::player::components::{FoodUseState, LocalPlayer, PlayerGravity};
@@ -358,7 +358,7 @@ impl PlayerAnimationConfig {
 pub struct AnimationControllerInput<'w, 's> {
     time: Res<'w, Time>,
     actions: Res<'w, PlayerActionState>,
-    inventory: Res<'w, InventoryState>,
+    inventory: LocalInventory<'w, 's>,
     break_progress: Res<'w, BlockBreakProgress>,
     config: Res<'w, PlayerAnimationConfig>,
     damage_events: MessageReader<'w, 's, DamageEvent>,

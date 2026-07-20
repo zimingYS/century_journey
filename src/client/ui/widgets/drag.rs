@@ -2,7 +2,7 @@ use crate::client::renderer::item_model::{ItemModelRenderAssets, ItemModelRender
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
-use crate::game::inventory::state::InventoryState;
+use crate::game::inventory::state::LocalInventory;
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 
@@ -88,7 +88,7 @@ pub fn cursor_follow_system(
 
 /// 根据光标物品状态控制拖拽图标显隐。
 pub fn cursor_visibility_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     mut query: Query<&mut Visibility, With<CursorItemIcon>>,
 ) {
     for mut vis in &mut query {
@@ -102,7 +102,7 @@ pub fn cursor_visibility_system(
 
 /// 同步拖拽图标图片和数量。
 pub fn cursor_texture_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     item_registry: Option<Res<ItemRegistry>>,
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
     item_model_assets: Res<ItemModelRenderAssets>,
