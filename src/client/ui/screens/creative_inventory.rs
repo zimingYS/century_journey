@@ -25,7 +25,7 @@ use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::inventory::container::creative::CreativeCategory;
 use crate::game::inventory::item::stack::ItemStack;
-use crate::game::inventory::state::InventoryState;
+use crate::game::inventory::state::{LocalInventory, LocalInventoryMut};
 use crate::shared::item_id::ItemId;
 use crate::shared::tag::identifier::TagId;
 
@@ -39,7 +39,7 @@ const CREATIVE_SLOT_GAP: f32 = 6.0;
 
 /// 同步创造物品栏遮罩显隐。
 pub fn update_creative_visibility_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     gamemode: Res<crate::game::gameplay::gamemode::PlayerGameMode>,
     mut query: Query<&mut Visibility, With<CreativeInventoryOverlay>>,
 ) {
@@ -71,7 +71,7 @@ pub fn creative_close_button_system(
 
 /// 同步搜索框占位文字显隐，避免占位文字参与真实搜索。
 pub fn sync_creative_search_placeholder_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     search_state: Res<SearchInputState>,
     mut query: Query<&mut Visibility, With<CreativeSearchPlaceholder>>,
 ) {
@@ -90,7 +90,7 @@ pub fn sync_creative_search_placeholder_system(
 pub fn build_creative_categories_system(
     tag_registry: Option<Res<RuntimeTagRegistry>>,
     block_registry: Option<Res<BlockRegistry>>,
-    mut state: ResMut<InventoryState>,
+    mut state: LocalInventoryMut,
     category_panel: Query<Entity, With<CreativeCategoryPanel>>,
     ui_font: Res<UiFont>,
     theme: Res<UiTheme>,
@@ -212,7 +212,7 @@ fn items_for_tag(
 pub fn update_creative_filter_system(
     block_registry: Option<Res<BlockRegistry>>,
     item_registry: Option<Res<ItemRegistry>>,
-    mut state: ResMut<InventoryState>,
+    mut state: LocalInventoryMut,
 ) {
     let Some(reg) = block_registry else { return };
     if state.creative.categories.is_empty() {
@@ -268,7 +268,7 @@ pub fn update_creative_filter_system(
 
 /// 创造模式物品网格填充。
 pub fn populate_creative_grid_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
     item_model_assets: Res<ItemModelRenderAssets>,
@@ -362,7 +362,7 @@ pub fn populate_creative_grid_system(
 
 /// 最近使用面板填充：固定补齐 12 个槽位，保持右侧栏稳定。
 pub fn populate_recent_panel_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
     item_model_assets: Res<ItemModelRenderAssets>,
@@ -525,7 +525,7 @@ pub fn populate_recent_panel_system(
 
 /// 创造模式快捷栏。
 pub fn init_creative_hotbar_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
     item_model_assets: Res<ItemModelRenderAssets>,
@@ -586,7 +586,7 @@ pub fn init_creative_hotbar_system(
 
 /// 创造模式快捷栏视觉同步。
 pub fn creative_hotbar_visual_sync_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
     item_model_assets: Res<ItemModelRenderAssets>,
@@ -634,7 +634,7 @@ pub fn creative_hotbar_visual_sync_system(
 
 /// 关闭物品栏时清理创造模式快捷栏子实体。
 pub fn cleanup_creative_hotbar_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     hotbar_query: Query<Entity, With<CreativeHotbarPanel>>,
     children_query: Query<&Children>,
     mut commands: Commands,
@@ -654,7 +654,7 @@ pub fn cleanup_creative_hotbar_system(
 
 /// 分类标签高亮。
 pub fn update_category_highlight_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     mut query: Query<(&CategoryTab, &mut UiControl)>,
 ) {
     for (tab, mut control) in &mut query {

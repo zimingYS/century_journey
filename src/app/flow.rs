@@ -16,7 +16,7 @@ use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::lifecycle::{ContentReloadRequested, ContentReloadSet};
 use crate::content::validation::ContentCompilation;
 use crate::game::gameplay::gamemode::PlayerGameMode;
-use crate::game::inventory::state::InventoryState;
+use crate::game::inventory::state::LocalInventory;
 use crate::game::player::components::stats::{Health, Hunger};
 use crate::game::player::components::{Player, RespawnPoint};
 use crate::game::world::chunk::ChunkComponents;
@@ -590,7 +590,7 @@ struct SaveQuitParams<'w, 's> {
     >,
     camera_query: Query<'w, 's, &'static FpsCamera, With<Camera3d>>,
     gamemode: Res<'w, PlayerGameMode>,
-    inventory: Res<'w, InventoryState>,
+    inventory: LocalInventory<'w, 's>,
     item_registry: Res<'w, ItemRegistry>,
     save_manager: ResMut<'w, PlayerSaveManager>,
     time: Res<'w, Time>,

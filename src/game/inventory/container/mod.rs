@@ -1,6 +1,7 @@
 pub mod creative;
 pub mod hotbar;
 pub mod survival;
+pub mod world;
 
 use crate::game::inventory::item::stack::ItemStack;
 use crate::shared::ui_types::ContainerKind;

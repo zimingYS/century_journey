@@ -4,18 +4,20 @@ use crate::content::block::event::BlockInteractEvent;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::recipe::registry::RecipeRegistry;
 use crate::content::tag::runtime::ItemTagIndex;
-use crate::game::crafting::grid::{
-    ActiveCrafting, CraftingGrid, PlayerCrafting, WorkbenchCrafting,
-};
+use crate::game::crafting::grid::{ActiveCrafting, CraftingGrid, PlayerCrafting};
 use crate::game::inventory::container::InventoryContainer;
+use crate::game::inventory::container::world::{ContainerId, WorldContainers};
 use crate::game::inventory::events::SlotInteractionEvent;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::slot::SlotAction;
 use crate::game::inventory::state::InventoryState;
+use crate::game::player::components::PlayerId;
 use crate::shared::ui_types::{ContainerKind, SlotKind};
 
 #[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CraftingStationOpened {
+    pub player_id: PlayerId,
+    pub container_id: ContainerId,
     pub position: IVec3,
 }
 
@@ -23,9 +25,7 @@ pub struct CraftingPlugin;
 
 impl Plugin for CraftingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PlayerCrafting>()
-            .init_resource::<WorkbenchCrafting>()
-            .init_resource::<ActiveCrafting>()
+        app.init_resource::<WorldContainers>()
             .add_message::<CraftingStationOpened>()
             .add_systems(
                 Update,
@@ -41,7 +41,8 @@ impl Plugin for CraftingPlugin {
 fn open_workbench_system(
     mut interactions: MessageReader<BlockInteractEvent>,
     registry: Option<Res<BlockRegistry>>,
-    mut active: ResMut<ActiveCrafting>,
+    mut players: Query<(&PlayerId, &mut ActiveCrafting)>,
+    mut containers: ResMut<WorldContainers>,
     mut opened: MessageWriter<CraftingStationOpened>,
 ) {
     let Some(registry) = registry else { return };
@@ -52,8 +53,20 @@ fn open_workbench_system(
         if !is_workbench {
             continue;
         }
-        *active = ActiveCrafting::workbench(event.world_pos);
+        let Some(interactor) = event.interactor else {
+            continue;
+        };
+        let Ok((player_id, mut active)) = players.get_mut(interactor) else {
+            continue;
+        };
+        let Some(container_id) = containers.ensure_at(event.world_pos, ContainerKind::Workbench)
+        else {
+            continue;
+        };
+        *active = ActiveCrafting::workbench(event.world_pos, container_id);
         opened.write(CraftingStationOpened {
+            player_id: *player_id,
+            container_id,
             position: event.world_pos,
         });
     }
@@ -61,10 +74,13 @@ fn open_workbench_system(
 
 fn crafting_interaction_system(
     mut reader: MessageReader<SlotInteractionEvent>,
-    mut state: ResMut<InventoryState>,
-    active: Res<ActiveCrafting>,
-    mut player_crafting: ResMut<PlayerCrafting>,
-    mut workbench_crafting: ResMut<WorkbenchCrafting>,
+    mut players: Query<(
+        &PlayerId,
+        &mut InventoryState,
+        &mut PlayerCrafting,
+        &ActiveCrafting,
+    )>,
+    mut containers: ResMut<WorldContainers>,
     recipes: Res<RecipeRegistry>,
     tags: Option<Res<ItemTagIndex>>,
 ) {
@@ -73,7 +89,13 @@ fn crafting_interaction_system(
         let SlotKind::Container(kind) = event.kind else {
             continue;
         };
-        if kind != active.kind {
+        let Some((_, mut state, mut player_crafting, active)) = players
+            .iter_mut()
+            .find(|(player_id, _, _, _)| **player_id == event.player_id)
+        else {
+            continue;
+        };
+        if kind != active.kind || event.container_id != active.container_id {
             continue;
         }
         match kind {
@@ -84,13 +106,15 @@ fn crafting_interaction_system(
                 &recipes,
                 &tags,
             ),
-            ContainerKind::Workbench => handle_crafting_event(
-                event,
-                &mut state,
-                workbench_crafting.grid_mut(),
-                &recipes,
-                &tags,
-            ),
+            ContainerKind::Workbench => {
+                let Some(container_id) = event.container_id else {
+                    continue;
+                };
+                let Some(workbench) = containers.workbench_mut(container_id) else {
+                    continue;
+                };
+                handle_crafting_event(event, &mut state, workbench.grid_mut(), &recipes, &tags);
+            }
             ContainerKind::Chest | ContainerKind::Furnace => {}
         }
     }
@@ -271,29 +295,164 @@ fn insert_range<C: InventoryContainer + ?Sized>(
 }
 
 fn return_crafting_on_close_system(
-    mut state: ResMut<InventoryState>,
-    mut active: ResMut<ActiveCrafting>,
-    mut player_crafting: ResMut<PlayerCrafting>,
-    mut workbench_crafting: ResMut<WorkbenchCrafting>,
-    mut was_opened: Local<bool>,
+    mut players: Query<(
+        &mut InventoryState,
+        &mut ActiveCrafting,
+        &mut PlayerCrafting,
+    )>,
 ) {
-    if *was_opened && !state.opened {
-        let inputs = match active.kind {
-            ContainerKind::PlayerCrafting => player_crafting.drain_inputs(),
-            ContainerKind::Workbench => workbench_crafting.drain_inputs(),
-            ContainerKind::Chest | ContainerKind::Furnace => Vec::new(),
-        };
-        for stack in inputs.into_iter().flatten() {
-            let mut remaining = stack;
-            let hotbar_slots = state.hotbar.slot_count();
-            insert_range(&mut state.hotbar, &mut remaining, 0..hotbar_slots);
-            insert_range(
+    for (mut state, mut active, mut player_crafting) in &mut players {
+        if active.was_opened && !state.opened {
+            let inputs = match active.kind {
+                ContainerKind::PlayerCrafting => player_crafting.drain_inputs(),
+                ContainerKind::Workbench | ContainerKind::Chest | ContainerKind::Furnace => {
+                    Vec::new()
+                }
+            };
+            for stack in inputs.into_iter().flatten() {
+                let mut remaining = stack;
+                let hotbar_slots = state.hotbar.slot_count();
+                insert_range(&mut state.hotbar, &mut remaining, 0..hotbar_slots);
+                insert_range(
                 &mut state.survival,
                 &mut remaining,
                 0..crate::game::inventory::container::survival::SurvivalInventory::BACKPACK_SIZE,
             );
+            }
+            *active = ActiveCrafting::player();
         }
-        *active = ActiveCrafting::player();
+        active.was_opened = state.opened;
     }
-    *was_opened = state.opened;
+}
+
+#[cfg(test)]
+mod isolation_tests {
+    use super::*;
+    use crate::game::inventory::container::InventoryContainer;
+    use crate::shared::item_id::ItemId;
+
+    #[test]
+    fn two_players_and_two_workbenches_are_fully_isolated() {
+        let mut app = App::new();
+        app.init_resource::<RecipeRegistry>()
+            .init_resource::<ItemTagIndex>()
+            .init_resource::<WorldContainers>()
+            .add_message::<SlotInteractionEvent>()
+            .add_systems(Update, crafting_interaction_system);
+
+        let (first_container, second_container) = {
+            let mut containers = app.world_mut().resource_mut::<WorldContainers>();
+            (
+                containers
+                    .ensure_at(IVec3::new(1, 2, 3), ContainerKind::Workbench)
+                    .unwrap(),
+                containers
+                    .ensure_at(IVec3::new(9, 2, 3), ContainerKind::Workbench)
+                    .unwrap(),
+            )
+        };
+        let first_player_id = PlayerId::new(1);
+        let second_player_id = PlayerId::new(2);
+        let first_item = ItemId::item("test:first_player_item");
+        let second_item = ItemId::item("test:second_player_item");
+
+        let mut first_inventory = InventoryState::default();
+        first_inventory
+            .cursor
+            .set_stack(ItemStack::single(first_item.clone()));
+        let mut second_inventory = InventoryState::default();
+        second_inventory
+            .cursor
+            .set_stack(ItemStack::single(second_item.clone()));
+
+        let first_player = app
+            .world_mut()
+            .spawn((
+                first_player_id,
+                first_inventory,
+                PlayerCrafting::default(),
+                ActiveCrafting::workbench(IVec3::new(1, 2, 3), first_container),
+            ))
+            .id();
+        app.world_mut().spawn((
+            second_player_id,
+            second_inventory,
+            PlayerCrafting::default(),
+            ActiveCrafting::workbench(IVec3::new(9, 2, 3), second_container),
+        ));
+
+        app.world_mut().write_message(SlotInteractionEvent {
+            player_id: first_player_id,
+            container_id: Some(first_container),
+            kind: SlotKind::Container(ContainerKind::Workbench),
+            index: 0,
+            action: SlotAction::LeftClick,
+        });
+        app.world_mut().write_message(SlotInteractionEvent {
+            player_id: second_player_id,
+            container_id: Some(second_container),
+            kind: SlotKind::Container(ContainerKind::Workbench),
+            index: 0,
+            action: SlotAction::LeftClick,
+        });
+        app.update();
+
+        let containers = app.world().resource::<WorldContainers>();
+        assert_eq!(
+            containers
+                .workbench(first_container)
+                .and_then(|workbench| workbench.get_stack(0))
+                .map(|stack| &stack.item),
+            Some(&first_item)
+        );
+        assert_eq!(
+            containers
+                .workbench(second_container)
+                .and_then(|workbench| workbench.get_stack(0))
+                .map(|stack| &stack.item),
+            Some(&second_item)
+        );
+        assert_ne!(first_container, second_container);
+
+        let mut inventories = app.world_mut().query::<(&PlayerId, &InventoryState)>();
+        for (player_id, inventory) in inventories.iter(app.world()) {
+            assert!(
+                !inventory.cursor.has_item(),
+                "cursor was not consumed for {player_id:?}"
+            );
+        }
+
+        let cross_item = ItemId::item("test:cross_container_attempt");
+        app.world_mut()
+            .get_mut::<InventoryState>(first_player)
+            .unwrap()
+            .cursor
+            .set_stack(ItemStack::single(cross_item.clone()));
+        app.world_mut().write_message(SlotInteractionEvent {
+            player_id: first_player_id,
+            container_id: Some(second_container),
+            kind: SlotKind::Container(ContainerKind::Workbench),
+            index: 1,
+            action: SlotAction::LeftClick,
+        });
+        app.update();
+
+        assert!(
+            app.world()
+                .resource::<WorldContainers>()
+                .workbench(second_container)
+                .unwrap()
+                .get_stack(1)
+                .is_none()
+        );
+        assert_eq!(
+            app.world()
+                .get::<InventoryState>(first_player)
+                .unwrap()
+                .cursor
+                .stack()
+                .map(|stack| &stack.item),
+            Some(&cross_item)
+        );
+    }
 }

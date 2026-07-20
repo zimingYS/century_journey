@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::game::inventory::container::InventoryContainer;
+use crate::game::inventory::container::world::WorldContainers;
 use crate::game::inventory::events::{
     DropItemEvent, InventoryCommand, InventoryFeedbackEvent, SlotInteractionEvent,
 };
@@ -9,6 +10,7 @@ use crate::game::inventory::slot::SlotAction;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::command::apply_player_command_system;
+use crate::game::player::components::{LocalPlayer, PlayerId};
 use crate::game::simulation::SimulationSet;
 use crate::shared::states::AppState;
 use crate::shared::ui_types::SlotKind;
@@ -21,8 +23,8 @@ pub struct InventoryPlugin;
 
 impl Plugin for InventoryPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<InventoryState>()
-            .init_resource::<crate::game::inventory::equipment::AccessorySlotDefinitions>()
+        app.init_resource::<crate::game::inventory::equipment::AccessorySlotDefinitions>()
+            .init_resource::<WorldContainers>()
             .add_message::<SlotInteractionEvent>()
             .add_message::<DropItemEvent>()
             .add_message::<InventoryCommand>()
@@ -46,8 +48,11 @@ impl Plugin for InventoryPlugin {
 
 fn handle_hotbar_command_system(
     actions: Res<PlayerActionState>,
-    mut inventory: ResMut<InventoryState>,
+    mut inventory_query: Query<&mut InventoryState, With<LocalPlayer>>,
 ) {
+    let Ok(mut inventory) = inventory_query.single_mut() else {
+        return;
+    };
     let direct = [
         PlayerAction::Hotbar1,
         PlayerAction::Hotbar2,
@@ -75,8 +80,11 @@ fn handle_hotbar_command_system(
 
 fn handle_inventory_command_system(
     mut reader: MessageReader<InventoryCommand>,
-    mut inventory: ResMut<InventoryState>,
+    mut inventory_query: Query<&mut InventoryState, With<LocalPlayer>>,
 ) {
+    let Ok(mut inventory) = inventory_query.single_mut() else {
+        return;
+    };
     for command in reader.read() {
         match command {
             InventoryCommand::CompactBackpack => compact_backpack(&mut inventory.survival.backpack),
@@ -131,10 +139,19 @@ fn sort_backpack(
 
 fn handle_slot_interaction_system(
     mut reader: MessageReader<SlotInteractionEvent>,
-    mut inventory: ResMut<InventoryState>,
+    mut inventories: Query<(&PlayerId, &mut InventoryState)>,
     mut drop_writer: MessageWriter<DropItemEvent>,
 ) {
     for event in reader.read() {
+        let Some((_, mut inventory)) = inventories
+            .iter_mut()
+            .find(|(player_id, _)| **player_id == event.player_id)
+        else {
+            continue;
+        };
+        if matches!(event.kind, SlotKind::Container(_)) {
+            continue;
+        }
         if matches!(event.action, SlotAction::DropOne | SlotAction::DropAll) {
             drop_from_slot(event, &mut inventory, &mut drop_writer);
             continue;
@@ -176,6 +193,9 @@ fn drop_from_slot(
         container.set_stack(index, ItemStack::empty());
     }
     if let Some(stack) = dropped {
-        drop_writer.write(DropItemEvent { stack });
+        drop_writer.write(DropItemEvent {
+            player_id: event.player_id,
+            stack,
+        });
     }
 }

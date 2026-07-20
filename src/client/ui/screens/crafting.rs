@@ -18,6 +18,8 @@ use crate::game::crafting::plugin::CraftingStationOpened;
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::container::survival::SurvivalInventory;
+use crate::game::inventory::container::world::WorldContainers;
+use crate::game::player::components::{LocalPlayer, PlayerId};
 use crate::shared::item_id::ItemId;
 use crate::shared::ui_types::ContainerKind;
 
@@ -260,16 +262,20 @@ fn spawn_crafting_panel(
 pub fn open_crafting_station_ui_system(
     mut reader: MessageReader<CraftingStationOpened>,
     mut navigation: MessageWriter<UiNavigation>,
+    local_player: Single<&PlayerId, With<LocalPlayer>>,
 ) {
-    if reader.read().next().is_some() {
+    if reader.read().any(|event| event.player_id == **local_player) {
         navigation.write(UiNavigation::Open(UiScreen::Container));
     }
 }
 
 pub fn sync_crafting_panel_system(
-    active: Res<ActiveCrafting>,
+    active_query: Query<Ref<ActiveCrafting>, With<LocalPlayer>>,
     mut panels: Query<(&CraftingPanel, &mut Node)>,
 ) {
+    let Ok(active) = active_query.single() else {
+        return;
+    };
     if !active.is_changed() {
         return;
     }
@@ -283,8 +289,8 @@ pub fn sync_crafting_panel_system(
 }
 
 pub fn crafting_visual_sync_system(
-    player_crafting: Res<PlayerCrafting>,
-    workbench_crafting: Res<WorkbenchCrafting>,
+    player_query: Query<(&PlayerCrafting, &ActiveCrafting), With<LocalPlayer>>,
+    containers: Res<WorldContainers>,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
     item_model_assets: Res<ItemModelRenderAssets>,
@@ -299,6 +305,9 @@ pub fn crafting_visual_sync_system(
     else {
         return;
     };
+    let Ok((player_crafting, active)) = player_query.single() else {
+        return;
+    };
     for (entity, slot, mut visual) in &mut slot_query {
         let SlotKind::Container(kind) = slot.kind else {
             continue;
@@ -307,7 +316,11 @@ pub fn crafting_visual_sync_system(
             ContainerKind::PlayerCrafting => {
                 crafting_slot_value(player_crafting.grid(), slot.index)
             }
-            ContainerKind::Workbench => crafting_slot_value(workbench_crafting.grid(), slot.index),
+            ContainerKind::Workbench => active
+                .container_id
+                .and_then(|id| containers.workbench(id))
+                .map(|workbench| crafting_slot_value(workbench.grid(), slot.index))
+                .unwrap_or((ItemId::air(), 0)),
             ContainerKind::Chest | ContainerKind::Furnace => continue,
         };
         if visual.item != current.0 || visual.count != current.1 {

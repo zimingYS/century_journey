@@ -8,7 +8,7 @@ use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use crate::app::flow::{DialogState, FlowCommand, MenuPage};
 use crate::client::ui::navigation::UiNavigation;
 use crate::game::gameplay::gamemode::PlayerGameMode;
-use crate::game::inventory::state::InventoryState;
+use crate::game::inventory::state::{InventoryState, LocalInventory, LocalInventoryMut};
 use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::command::{PlayerCommand, PlayerCommandBuffer};
 use crate::game::player::components::{LocalPlayer, Player, PlayerLifecycle};
@@ -106,7 +106,7 @@ fn handle_interface_input_system(
     app_state: Res<State<AppState>>,
     mut commands: MessageReader<InterfaceCommand>,
     gamemode: Res<PlayerGameMode>,
-    mut inventory: ResMut<InventoryState>,
+    mut inventory: LocalInventoryMut,
     mut context: ResMut<InputContextState>,
     mut input_focus: ResMut<InputFocus>,
     mut search_state: ResMut<SearchInputState>,
@@ -237,7 +237,7 @@ fn clear_text_focus(input_focus: &mut InputFocus, search_state: &mut SearchInput
 
 fn resolve_input_context_system(
     app_state: Res<State<AppState>>,
-    inventory: Res<InventoryState>,
+    inventory: LocalInventory,
     input_focus: Res<InputFocus>,
     search_state: Res<SearchInputState>,
     mut context: ResMut<InputContextState>,
@@ -257,7 +257,7 @@ fn resolve_input_context_system(
 
 fn refresh_input_context_system(
     app_state: Res<State<AppState>>,
-    inventory: Res<InventoryState>,
+    inventory: LocalInventory,
     input_focus: Res<InputFocus>,
     search_state: Res<SearchInputState>,
     mut context: ResMut<InputContextState>,

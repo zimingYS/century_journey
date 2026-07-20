@@ -10,8 +10,10 @@ use crate::client::ui::screens::menu::{PauseSettingsButton, ResumeButton, SaveQu
 use crate::content::block::registry::BlockRegistry;
 use crate::game::crafting::grid::ActiveCrafting;
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
+use crate::game::inventory::container::world::WorldContainers;
 use crate::game::inventory::item::stack::{ItemInstanceData, ItemStack};
 use crate::game::inventory::state::InventoryState;
+use crate::game::player::components::LocalPlayer;
 use crate::game::world::save::level;
 use crate::shared::components::camera::{CameraPerspective, FpsCamera};
 use crate::shared::item_id::ItemId;
@@ -86,8 +88,8 @@ fn ui_screenshot_check_system(
     app_state: Res<State<AppState>>,
     config: Option<ResMut<UiScreenshotCheck>>,
     mut gamemode: ResMut<PlayerGameMode>,
-    mut inventory: ResMut<InventoryState>,
-    mut active_crafting: ResMut<ActiveCrafting>,
+    mut player_query: Query<(&mut InventoryState, &mut ActiveCrafting), With<LocalPlayer>>,
+    mut containers: ResMut<WorldContainers>,
     mut camera: Query<&mut FpsCamera, With<Camera3d>>,
     mut navigation: MessageWriter<UiNavigation>,
     mut pending_world: ResMut<PendingWorld>,
@@ -156,6 +158,9 @@ fn ui_screenshot_check_system(
             return;
         }
         gamemode.mode = config.mode;
+        let Ok((mut inventory, mut active_crafting)) = player_query.single_mut() else {
+            return;
+        };
         if matches!(
             config.target,
             ScreenshotTarget::Inventory | ScreenshotTarget::Workbench
@@ -176,7 +181,13 @@ fn ui_screenshot_check_system(
                 navigation.write(UiNavigation::Open(UiScreen::Inventory));
             }
             ScreenshotTarget::Workbench => {
-                *active_crafting = ActiveCrafting::workbench(IVec3::ZERO);
+                let Some(container_id) = containers.ensure_at(
+                    IVec3::ZERO,
+                    crate::shared::ui_types::ContainerKind::Workbench,
+                ) else {
+                    return;
+                };
+                *active_crafting = ActiveCrafting::workbench(IVec3::ZERO, container_id);
                 navigation.write(UiNavigation::Open(UiScreen::Container));
             }
             ScreenshotTarget::SecondPerson => {

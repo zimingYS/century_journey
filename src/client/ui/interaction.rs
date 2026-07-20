@@ -3,8 +3,10 @@ use crate::client::ui::widgets::slot::{
     CategoryClickedEvent, CategoryTab, CreativeSearchInput, InventorySlot, SearchInputState,
     SlotInteractionEvent, SlotKind,
 };
+use crate::game::crafting::grid::ActiveCrafting;
 use crate::game::inventory::slot::SlotAction;
-use crate::game::inventory::state::InventoryState;
+use crate::game::inventory::state::{LocalInventory, LocalInventoryMut};
+use crate::game::player::components::{LocalPlayer, PlayerId};
 use bevy::input::mouse::MouseWheel;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
@@ -23,6 +25,7 @@ pub fn slot_interaction_system(
     mouse: Res<ButtonInput<MouseButton>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut writer: MessageWriter<SlotInteractionEvent>,
+    context: Single<(&PlayerId, &ActiveCrafting), With<LocalPlayer>>,
 ) {
     for (interaction, slot) in &query {
         if *interaction != Interaction::Pressed {
@@ -36,11 +39,7 @@ pub fn slot_interaction_system(
             } else {
                 continue;
             };
-        writer.write(SlotInteractionEvent {
-            kind: slot.kind,
-            index: slot.index,
-            action,
-        });
+        writer.write(slot_interaction_event(&context, slot, action));
     }
 }
 
@@ -50,6 +49,7 @@ pub fn slot_right_click_system(
     mouse: Res<ButtonInput<MouseButton>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut writer: MessageWriter<SlotInteractionEvent>,
+    context: Single<(&PlayerId, &ActiveCrafting), With<LocalPlayer>>,
 ) {
     if !mouse.just_pressed(MouseButton::Right) {
         return;
@@ -60,11 +60,11 @@ pub fn slot_right_click_system(
 
     for (interaction, slot) in &query {
         if *interaction == Interaction::Hovered {
-            writer.write(SlotInteractionEvent {
-                kind: slot.kind,
-                index: slot.index,
-                action: SlotAction::RightClick,
-            });
+            writer.write(slot_interaction_event(
+                &context,
+                slot,
+                SlotAction::RightClick,
+            ));
             break;
         }
     }
@@ -77,6 +77,7 @@ pub fn slot_drag_interaction_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut drag: ResMut<SlotDragState>,
     mut writer: MessageWriter<SlotInteractionEvent>,
+    context: Single<(&PlayerId, &ActiveCrafting), With<LocalPlayer>>,
 ) {
     let active_button = if mouse.pressed(MouseButton::Right) {
         Some(MouseButton::Right)
@@ -102,11 +103,11 @@ pub fn slot_drag_interaction_system(
         if !drag.visited.insert((slot.kind, slot.index)) || just_started {
             continue;
         }
-        writer.write(SlotInteractionEvent {
-            kind: slot.kind,
-            index: slot.index,
-            action: drag_action(button, shift_pressed(&keyboard)),
-        });
+        writer.write(slot_interaction_event(
+            &context,
+            slot,
+            drag_action(button, shift_pressed(&keyboard)),
+        ));
     }
 }
 
@@ -126,6 +127,7 @@ pub fn slot_wheel_interaction_system(
     query: Query<(&Interaction, &InventorySlot), With<Button>>,
     mut wheel: MessageReader<MouseWheel>,
     mut writer: MessageWriter<SlotInteractionEvent>,
+    context: Single<(&PlayerId, &ActiveCrafting), With<LocalPlayer>>,
 ) {
     let hovered = query
         .iter()
@@ -148,11 +150,7 @@ pub fn slot_wheel_interaction_system(
         };
         let steps = (event.y.abs().ceil() as usize).clamp(1, 8);
         for _ in 0..steps {
-            writer.write(SlotInteractionEvent {
-                kind: slot.kind,
-                index: slot.index,
-                action,
-            });
+            writer.write(slot_interaction_event(&context, &slot, action));
         }
     }
 }
@@ -162,6 +160,7 @@ pub fn slot_q_drop_system(
     query: Query<(&Interaction, &InventorySlot), With<Button>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut writer: MessageWriter<SlotInteractionEvent>,
+    context: Single<(&PlayerId, &ActiveCrafting), With<LocalPlayer>>,
 ) {
     if !keyboard.just_pressed(KeyCode::KeyQ) {
         return;
@@ -175,13 +174,29 @@ pub fn slot_q_drop_system(
                 } else {
                     SlotAction::DropOne
                 };
-            writer.write(SlotInteractionEvent {
-                kind: slot.kind,
-                index: slot.index,
-                action,
-            });
+            writer.write(slot_interaction_event(&context, slot, action));
             break;
         }
+    }
+}
+
+fn slot_interaction_event(
+    context: &Single<(&PlayerId, &ActiveCrafting), With<LocalPlayer>>,
+    slot: &InventorySlot,
+    action: SlotAction,
+) -> SlotInteractionEvent {
+    let (player_id, active) = **context;
+    let container_id = match slot.kind {
+        SlotKind::Container(crate::shared::ui_types::ContainerKind::PlayerCrafting) => None,
+        SlotKind::Container(_) => active.container_id,
+        _ => None,
+    };
+    SlotInteractionEvent {
+        player_id: *player_id,
+        container_id,
+        kind: slot.kind,
+        index: slot.index,
+        action,
     }
 }
 
@@ -204,7 +219,7 @@ pub fn category_tab_interaction_system(
 pub fn sync_search_input_focus_system(
     mut input_focus: ResMut<InputFocus>,
     input_query: Query<Entity, With<CreativeSearchInput>>,
-    inventory: Res<InventoryState>,
+    inventory: LocalInventory,
     mut search_state: ResMut<SearchInputState>,
 ) {
     let focused_search = input_focus
@@ -222,7 +237,7 @@ pub fn sync_search_input_focus_system(
 
 /// 把 EditableText 的真实文本同步到创造物品栏过滤条件。
 pub fn sync_search_text_from_editable_system(
-    mut inventory: ResMut<InventoryState>,
+    mut inventory: LocalInventoryMut,
     query: Query<&EditableText, (With<CreativeSearchInput>, Changed<EditableText>)>,
 ) {
     let Ok(editable_text) = query.single() else {
@@ -238,7 +253,7 @@ pub fn sync_search_text_from_editable_system(
 /// 分类切换事件处理。
 pub fn handle_category_clicked_system(
     mut reader: MessageReader<CategoryClickedEvent>,
-    mut inventory: ResMut<InventoryState>,
+    mut inventory: LocalInventoryMut,
 ) {
     for event in reader.read() {
         inventory.creative.selected_tab = event.category_index;
@@ -248,7 +263,7 @@ pub fn handle_category_clicked_system(
 /// 槽位边框高亮。
 pub fn slot_hover_system(
     theme: Res<UiTheme>,
-    state: Res<InventoryState>,
+    state: LocalInventory,
     mut query: Query<
         (&InventorySlot, &Interaction, &mut BorderColor),
         (Changed<Interaction>, With<Button>),

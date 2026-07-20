@@ -14,7 +14,7 @@ use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::item::stack::ToolDamageResult;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
-use crate::game::player::components::{Player, PlayerCollider};
+use crate::game::player::components::{LocalPlayer, Player, PlayerCollider, PlayerId};
 use crate::game::player::systems::raycast::TargetVoxel;
 use crate::game::simulation::{LOOT_RANDOM_DOMAIN, SimulationRng};
 use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
@@ -51,9 +51,9 @@ pub fn voxel_interaction_system(
     item_registry: Option<Res<ItemRegistry>>,
     behavior_registry: Res<BlockBehaviorRegistry>,
     actions: Res<PlayerActionState>,
-    mut inventory_state: ResMut<InventoryState>,
     tag_registry: Option<Res<RuntimeTagRegistry>>,
     player_query: Query<(Entity, &Transform, &PlayerCollider), With<Player>>,
+    mut inventory_query: Query<&mut InventoryState, With<Player>>,
     gamemode: Res<PlayerGameMode>,
     loot_registry: Option<Res<BlockLootRegistry>>,
     mut world_storage: ResMut<WorldStorage>,
@@ -85,7 +85,12 @@ pub fn voxel_interaction_system(
         return;
     };
 
-    let player_entity = player_query.iter().next().map(|(entity, _, _)| entity);
+    let Some(player_entity) = player_query.iter().next().map(|(entity, _, _)| entity) else {
+        return;
+    };
+    let Ok(mut inventory_state) = inventory_query.get_mut(player_entity) else {
+        return;
+    };
 
     if break_active {
         let hit_pos = ray_result.hit_pos;
@@ -171,7 +176,7 @@ pub fn voxel_interaction_system(
         events.break_events.write(BlockBreakEvent {
             world_pos: hit_pos,
             block_id: hit_id,
-            breaker: player_entity,
+            breaker: Some(player_entity),
         });
 
         events.sound_events.write(BlockSoundEvent {
@@ -195,7 +200,7 @@ pub fn voxel_interaction_system(
             world_pos: hit_pos,
             block_id: hit_id,
             face_normal: ray_result.normal,
-            interactor: player_entity,
+            interactor: Some(player_entity),
         });
 
         let behavior = behavior_registry.get_behavior_by_id(hit_id, &reg);
@@ -270,7 +275,7 @@ pub fn voxel_interaction_system(
         world_pos: place_pos,
         block_id,
         face_normal: ray_result.normal,
-        placer: player_entity,
+        placer: Some(player_entity),
     });
 
     let prop = reg.get(block_id);
@@ -364,25 +369,26 @@ fn mark_dirty_chunks(
 
 pub fn drop_item_system(
     mut reader: MessageReader<crate::game::inventory::events::DropItemEvent>,
-    player_query: Query<&Transform, With<Player>>,
+    player_query: Query<(&PlayerId, &Transform), With<Player>>,
     mut commands: Commands,
 ) {
-    let Ok(player_transform) = player_query.single() else {
-        return;
-    };
-
-    let forward = player_transform.forward().as_vec3();
-    let horizontal_forward = Vec3::new(forward.x, 0.0, forward.z);
-    let throw_direction = if horizontal_forward.length_squared() > 0.0001 {
-        horizontal_forward.normalize()
-    } else {
-        Vec3::Z
-    };
-
     for event in reader.read() {
         if event.stack.is_empty() {
             continue;
         }
+        let Some((_, player_transform)) = player_query
+            .iter()
+            .find(|(player_id, _)| **player_id == event.player_id)
+        else {
+            continue;
+        };
+        let forward = player_transform.forward().as_vec3();
+        let horizontal_forward = Vec3::new(forward.x, 0.0, forward.z);
+        let throw_direction = if horizontal_forward.length_squared() > 0.0001 {
+            horizontal_forward.normalize()
+        } else {
+            Vec3::Z
+        };
 
         let pos = player_transform.translation + Vec3::Y * 1.25 + throw_direction * 0.75;
         let velocity = DroppedItemVelocity::thrown(throw_direction);
@@ -393,7 +399,7 @@ pub fn drop_item_system(
 
 pub fn drop_active_hotbar_action_system(
     actions: Res<PlayerActionState>,
-    mut inventory: ResMut<InventoryState>,
+    mut player: Single<(&PlayerId, &mut InventoryState), With<LocalPlayer>>,
     mut writer: MessageWriter<crate::game::inventory::events::DropItemEvent>,
 ) {
     if !actions.just_pressed(PlayerAction::DropItem) {
@@ -404,6 +410,7 @@ pub fn drop_active_hotbar_action_system(
     } else {
         1
     };
+    let (player_id, inventory) = &mut *player;
     let slot = inventory.hotbar.active_stack_mut();
     let Some(stack) = slot.as_mut() else {
         return;
@@ -413,7 +420,10 @@ pub fn drop_active_hotbar_action_system(
         *slot = None;
     }
     if let Some(stack) = dropped {
-        writer.write(crate::game::inventory::events::DropItemEvent { stack });
+        writer.write(crate::game::inventory::events::DropItemEvent {
+            player_id: **player_id,
+            stack,
+        });
     }
 }
 

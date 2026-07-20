@@ -8,7 +8,7 @@ use crate::content::block::registry::BlockRegistry;
 use crate::content::item::model::ItemModelRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
-use crate::game::inventory::state::InventoryState;
+use crate::game::inventory::state::LocalInventory;
 use crate::game::player::components::LocalPlayer;
 use crate::game::player::events::FoodConsumedEvent;
 use crate::game::player::model::rig::PlayerRigEntities;
@@ -54,7 +54,7 @@ impl Plugin for FullBodyFirstPersonPlugin {
 /// 外部只提供 ItemId；这里统一走 ItemRenderer 解析、烘焙并生成实体，保证第一人称和第三人称看到同一个物品模型。
 fn sync_full_body_held_item_system(
     time: Res<Time>,
-    inventory: Res<InventoryState>,
+    inventory: LocalInventory,
     item_registry: Option<Res<ItemRegistry>>,
     item_model_registry: Option<Res<ItemModelRegistry>>,
     item_textures: Res<ItemTextureRegistry>,

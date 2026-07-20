@@ -145,17 +145,18 @@ pub fn death_system(
             &mut PlayerVelocity,
             &mut PlayerGravity,
             &PlayerLifecycle,
+            &mut InventoryState,
         ),
         With<Player>,
     >,
     gamemode: Res<PlayerGameMode>,
     rules: Res<DeathRules>,
-    mut inventory: ResMut<InventoryState>,
     mut last_death: ResMut<LastDeathInfo>,
     mut commands: Commands,
 ) {
     for event in reader.read() {
-        let Ok((transform, mut velocity, mut gravity, lifecycle)) = query.get_mut(event.entity)
+        let Ok((transform, mut velocity, mut gravity, lifecycle, mut inventory)) =
+            query.get_mut(event.entity)
         else {
             continue;
         };
@@ -401,7 +402,6 @@ mod stage_seven_tests {
 
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
-            .insert_resource(inventory)
             .init_resource::<PlayerGameMode>()
             .init_resource::<DeathRules>()
             .init_resource::<LastDeathInfo>()
@@ -435,6 +435,7 @@ mod stage_seven_tests {
                 PlayerGravity::default(),
                 EnvironmentExposure::default(),
                 FoodUseState::default(),
+                inventory,
             ))
             .id();
 
@@ -451,7 +452,8 @@ mod stage_seven_tests {
         );
         assert!(
             app.world()
-                .resource::<InventoryState>()
+                .get::<InventoryState>(player)
+                .unwrap()
                 .hotbar
                 .get_stack(0)
                 .is_none()

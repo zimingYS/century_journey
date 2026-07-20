@@ -10,7 +10,7 @@ use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
-use crate::game::inventory::state::InventoryState;
+use crate::game::inventory::state::LocalInventory;
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 
@@ -62,7 +62,7 @@ pub fn spawn_hotbar_ui_system(
 
 /// HUD快捷栏视觉同步
 pub fn hud_hotbar_visual_sync_system(
-    state: Res<InventoryState>,
+    state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
     item_model_assets: Res<ItemModelRenderAssets>,
