@@ -6,47 +6,50 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 /// 生成太阳纹理（径向渐变发光圆盘）
 pub fn generate_sun_texture(size: u32) -> image::RgbaImage {
     let mut img = image::RgbaImage::new(size, size);
-    let center = size as f32 / 2.0;
-
-    // 方形核心半径（占纹理 30%）
-    let core_half = size as f32 * 0.30;
-    // 外发光半径（占纹理 45%）
-    let glow_half = size as f32 * 0.45;
+    let center = (size.saturating_sub(1)) as f32 * 0.5;
+    let radius = size as f32 * 0.5;
 
     for y in 0..size {
         for x in 0..size {
             let dx = x as f32 - center;
             let dy = y as f32 - center;
+            let normalized = (dx * dx + dy * dy).sqrt() / radius;
 
-            let chebyshev = dx.abs().max(dy.abs());
-
-            let (r, g, b, a) = if chebyshev <= core_half {
-                // 方形核心：纯白偏暖
-                (255, 255, 220, 255)
-            } else if chebyshev <= core_half * 1.15 {
-                // 核心边缘：暖黄渐变
-                let t = (chebyshev - core_half) / (core_half * 0.15);
-                let r = 255;
-                let g = (255.0 - t * 50.0) as u8;
-                let b = (220.0 - t * 120.0) as u8;
-                (r, g, b, 255)
-            } else if chebyshev <= glow_half {
-                // 外发光区域：橙红渐变+透明衰减
-                let t = (chebyshev - core_half * 1.15) / (glow_half - core_half * 1.15);
-                let r = 255;
-                let g = (205.0 - t * 130.0) as u8;
-                let b = (100.0 - t * 80.0) as u8;
-                let a = ((1.0 - t * t) * 255.0) as u8;
-                (r, g, b, a)
+            let pixel = if normalized <= 0.50 {
+                image::Rgba([255, 250, 222, 255])
+            } else if normalized <= 0.61 {
+                let t = smoothstep((normalized - 0.50) / 0.11);
+                image::Rgba([
+                    255,
+                    lerp_u8(250, 224, t),
+                    lerp_u8(222, 155, t),
+                    lerp_u8(255, 220, t),
+                ])
+            } else if normalized <= 0.94 {
+                let t = smoothstep((normalized - 0.61) / 0.33);
+                image::Rgba([
+                    255,
+                    lerp_u8(224, 196, t),
+                    lerp_u8(155, 116, t),
+                    lerp_u8(82, 0, t),
+                ])
             } else {
-                (0, 0, 0, 0)
+                image::Rgba([0, 0, 0, 0])
             };
-
-            img.put_pixel(x, y, image::Rgba([r, g, b, a]));
+            img.put_pixel(x, y, pixel);
         }
     }
 
     img
+}
+
+fn lerp_u8(from: u8, to: u8, amount: f32) -> u8 {
+    (from as f32 + (to as f32 - from as f32) * amount.clamp(0.0, 1.0)).round() as u8
+}
+
+fn smoothstep(value: f32) -> f32 {
+    let value = value.clamp(0.0, 1.0);
+    value * value * (3.0 - 2.0 * value)
 }
 
 /// 生成月亮纹理
@@ -152,4 +155,17 @@ pub fn rgba_image_to_bevy(img: image::RgbaImage) -> Image {
     );
     image.sampler = ImageSampler::linear();
     image
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sun_has_a_round_opaque_core_and_transparent_corners() {
+        let texture = generate_sun_texture(128);
+        assert_eq!(texture.get_pixel(64, 64).0[3], 255);
+        assert_eq!(texture.get_pixel(0, 0).0[3], 0);
+        assert_eq!(texture.get_pixel(64, 0).0[3], 0);
+    }
 }

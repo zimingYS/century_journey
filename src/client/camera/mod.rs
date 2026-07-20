@@ -6,8 +6,8 @@ use bevy::audio::SpatialListener;
 use bevy::camera::Exposure;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::input::mouse::MouseMotion;
-use bevy::light::{AtmosphereEnvironmentMapLight, VolumetricFog};
-use bevy::pbr::AtmosphereSettings;
+use bevy::light::{AtmosphereEnvironmentMapLight, ShadowFilteringMethod, VolumetricFog};
+use bevy::pbr::{AtmosphereSettings, DistanceFog, FogFalloff};
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 
@@ -19,15 +19,36 @@ pub fn setup_player_camera_system(
 ) {
     for entity in &mut query {
         commands.entity(entity).insert((
-            AtmosphereSettings::default(),
-            AtmosphereEnvironmentMapLight::default(),
-            Exposure { ..default() },
+            AtmosphereSettings {
+                aerial_view_lut_max_distance: 640.0,
+                sky_view_lut_samples: 24,
+                aerial_view_lut_samples: 16,
+                sky_max_samples: 24,
+                ..default()
+            },
+            AtmosphereEnvironmentMapLight {
+                intensity: 1.8,
+                size: UVec2::splat(256),
+                ..default()
+            },
+            Exposure { ev100: 13.0 },
             Tonemapping::AcesFitted,
             Bloom::NATURAL,
             VolumetricFog {
-                ambient_intensity: 0.0,
+                ambient_color: Color::srgb(0.62, 0.72, 0.82),
+                ambient_intensity: 0.16,
                 ..default()
             },
+            DistanceFog {
+                color: Color::srgba(0.58, 0.69, 0.78, 0.52),
+                directional_light_color: Color::srgba(1.0, 0.76, 0.48, 0.24),
+                directional_light_exponent: 24.0,
+                falloff: FogFalloff::Linear {
+                    start: 64.0,
+                    end: 190.0,
+                },
+            },
+            ShadowFilteringMethod::Gaussian,
             SpatialListener::new(0.22),
         ));
     }

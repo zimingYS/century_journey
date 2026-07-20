@@ -87,7 +87,7 @@ pub fn build_texture_atlas(
 
     for (layer_idx, path) in unique_paths.iter().enumerate() {
         let id = crate::engine::asset::identifier::asset_id(path);
-        let image = match files.read_bytes(&id) {
+        let mut image = match files.read_bytes(&id) {
             Ok(bytes) => match image::load_from_memory(&bytes) {
                 Ok(img) => img.to_rgba8(),
                 Err(e) => {
@@ -100,6 +100,7 @@ pub fn build_texture_atlas(
                 create_missing_texture_placeholder()
             }
         };
+        grade_builtin_world_texture(path, &mut image);
 
         let resized = image::imageops::resize(
             &image,
@@ -165,10 +166,11 @@ pub fn build_texture_atlas(
 
     let transparent_material = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
-        base_color: Color::srgba(1.0, 1.0, 1.0, 0.85),
-        perceptual_roughness: 0.2,
-        metallic: 0.05,
+        base_color: Color::srgba(0.76, 0.90, 1.0, 0.72),
+        perceptual_roughness: 0.12,
+        metallic: 0.0,
         alpha_mode: AlphaMode::Blend,
+        cull_mode: None,
         ..default()
     });
 
@@ -178,6 +180,26 @@ pub fn build_texture_atlas(
         opaque_material,
         cutout_material,
         transparent_material,
+    }
+}
+
+fn grade_builtin_world_texture(path: &str, image: &mut image::RgbaImage) {
+    let normalized = path.replace('\\', "/");
+    let (gain, lift) = match normalized.as_str() {
+        "textures/blocks/sand.png" => ([0.90, 0.94, 1.10], [4.0, 4.0, 4.0]),
+        "textures/blocks/leaves.png" => ([1.15, 1.22, 1.35], [6.0, 6.0, 6.0]),
+        _ => return,
+    };
+
+    for pixel in image.pixels_mut() {
+        if pixel[3] == 0 {
+            continue;
+        }
+        for channel in 0..3 {
+            pixel[channel] = (pixel[channel] as f32 * gain[channel] + lift[channel])
+                .round()
+                .clamp(0.0, 255.0) as u8;
+        }
     }
 }
 
@@ -194,4 +216,29 @@ fn create_missing_texture_placeholder() -> image::RgbaImage {
         }
     }
     img
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builtin_palette_grade_neutralizes_sand_and_lifts_leaves() {
+        let mut sand = image::RgbaImage::from_pixel(1, 1, image::Rgba([225, 200, 143, 255]));
+        grade_builtin_world_texture("textures/blocks/sand.png", &mut sand);
+        assert!(sand.get_pixel(0, 0)[0] < 225);
+        assert!(sand.get_pixel(0, 0)[2] > 143);
+
+        let mut leaves = image::RgbaImage::from_pixel(1, 1, image::Rgba([69, 113, 20, 255]));
+        grade_builtin_world_texture("textures/blocks/leaves.png", &mut leaves);
+        assert!(leaves.get_pixel(0, 0)[1] > 113);
+    }
+
+    #[test]
+    fn custom_texture_colors_are_untouched() {
+        let original = image::Rgba([10, 20, 30, 255]);
+        let mut custom = image::RgbaImage::from_pixel(1, 1, original);
+        grade_builtin_world_texture("textures/modded/custom.png", &mut custom);
+        assert_eq!(*custom.get_pixel(0, 0), original);
+    }
 }

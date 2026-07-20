@@ -4,6 +4,8 @@ use crate::game::world::chunk::ChunkData;
 use bevy::prelude::*;
 use std::sync::Arc;
 
+const WATER_SURFACE_INSET: f32 = 0.12;
+
 use super::{BlockInfoSnapshot, DIRECTIONS, MeshBufferData, MeshBuildInput};
 
 /// 构建贪心网格
@@ -168,7 +170,7 @@ fn greedy_merge_pass(
                 height += 1;
             }
 
-            let (positions, uvs) = get_merged_face_data(
+            let (mut positions, uvs) = get_merged_face_data(
                 mx,
                 my,
                 depth,
@@ -181,6 +183,9 @@ fn greedy_merge_pass(
                 texture_layer,
                 block_info.total_layers,
             );
+            if buffer_idx == 2 {
+                inset_water_surface(&mut positions, face_idx);
+            }
             let (_, normal) = DIRECTIONS[face_idx];
 
             let buf = match buffer_idx {
@@ -198,6 +203,28 @@ fn greedy_merge_pass(
 
             mx += width;
         }
+    }
+}
+
+fn inset_water_surface(positions: &mut [[f32; 3]; 4], face_idx: usize) {
+    match face_idx {
+        0 => {
+            for position in positions {
+                position[1] -= WATER_SURFACE_INSET;
+            }
+        }
+        2..=5 => {
+            let top = positions
+                .iter()
+                .map(|position| position[1])
+                .fold(f32::NEG_INFINITY, f32::max);
+            for position in positions {
+                if (position[1] - top).abs() <= f32::EPSILON {
+                    position[1] -= WATER_SURFACE_INSET;
+                }
+            }
+        }
+        _ => {}
     }
 }
 
@@ -346,4 +373,36 @@ fn is_face_visible_snapshot(
         .copied()
         .unwrap_or(true);
     !nbr_is_solid || neighbor_voxel_id == block_info.water_id
+}
+
+#[cfg(test)]
+mod water_surface_tests {
+    use super::*;
+
+    #[test]
+    fn water_top_is_lower_than_adjacent_solid_blocks() {
+        let (mut positions, _) = get_merged_face_data(0, 0, 0, 1, 1, 0, 1, 0, 2, 0, 1);
+        inset_water_surface(&mut positions, 0);
+        assert!(
+            positions
+                .iter()
+                .all(|position| (position[1] - (1.0 - WATER_SURFACE_INSET)).abs() < 0.0001)
+        );
+    }
+
+    #[test]
+    fn water_side_keeps_its_bottom_and_lowers_only_the_top_edge() {
+        let (mut positions, _) = get_merged_face_data(0, 0, 0, 1, 1, 2, 0, 2, 1, 0, 1);
+        inset_water_surface(&mut positions, 2);
+        let top_vertices = positions
+            .iter()
+            .filter(|position| position[1] > 0.0)
+            .count();
+        let bottom_vertices = positions
+            .iter()
+            .filter(|position| position[1] == 0.0)
+            .count();
+        assert_eq!(top_vertices, 2);
+        assert_eq!(bottom_vertices, 2);
+    }
 }
