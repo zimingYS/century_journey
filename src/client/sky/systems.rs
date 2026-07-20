@@ -1,13 +1,16 @@
 use super::constants::*;
+use crate::app::flow::GameSettings;
 use crate::client::sky::components::*;
 use crate::client::sky::texture;
+use crate::content::constant::world::CHUNK_SIZE;
 use crate::game::world::time::TimeOfDay;
 use bevy::camera::{Exposure, visibility::RenderLayers};
 use bevy::light::atmosphere::ScatteringMedium;
 use bevy::light::{
-    Atmosphere, CascadeShadowConfigBuilder, GlobalAmbientLight, NotShadowCaster, NotShadowReceiver,
-    VolumetricFog, VolumetricLight,
+    Atmosphere, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, GlobalAmbientLight,
+    NotShadowCaster, NotShadowReceiver, VolumetricFog, VolumetricLight,
 };
+use bevy::pbr::{DistanceFog, FogFalloff};
 use bevy::prelude::*;
 use rand::{RngExt, SeedableRng};
 use std::f32::consts::TAU;
@@ -26,11 +29,12 @@ pub fn setup_sky_system(
     // 构造级联阴影
     let cascade_shadow_config = CascadeShadowConfigBuilder {
         // 第一个阴影级联的远边界
-        first_cascade_far_bound: 16.0,
+        first_cascade_far_bound: 18.0,
         // 阴影的最大渲染距离
-        maximum_distance: 64.0,
+        maximum_distance: 112.0,
         // 级联数量
         num_cascades: 4,
+        overlap_proportion: 0.28,
         ..default()
     }
     .build();
@@ -39,7 +43,7 @@ pub fn setup_sky_system(
     commands.spawn((
         Sun,
         DirectionalLight {
-            illuminance: light_consts::lux::RAW_SUNLIGHT,
+            illuminance: DAY_SUN_ILLUMINANCE,
             shadow_maps_enabled: true,
             ..default()
         },
@@ -148,11 +152,17 @@ pub fn setup_sky_system(
 
 pub fn atmosphere_system(
     time_of_day: Res<TimeOfDay>,
+    settings: Res<GameSettings>,
     mut ambient_light: ResMut<GlobalAmbientLight>,
     mut sun_query: Query<(&mut Transform, &mut DirectionalLight), (With<Sun>, Without<Moon>)>,
     mut moon_query: Query<(&mut Transform, &mut DirectionalLight), (With<Moon>, Without<Sun>)>,
     mut camera_query: Query<
-        (&mut Exposure, Option<&mut VolumetricFog>),
+        (
+            &mut Exposure,
+            Option<&mut VolumetricFog>,
+            Option<&mut DistanceFog>,
+            Option<&mut AtmosphereEnvironmentMapLight>,
+        ),
         With<crate::shared::components::FpsCamera>,
     >,
 ) {
@@ -173,19 +183,16 @@ pub fn atmosphere_system(
 
         // 太阳高度淡出
         sun_fade = ((-sun_forward_y + 0.12) / 1.12).clamp(0.0, 1.0);
-        sun_light.illuminance = sun_fade * light_consts::lux::RAW_SUNLIGHT;
+        sun_light.illuminance = sun_fade * DAY_SUN_ILLUMINANCE;
 
         // 日出/日落时太阳光颜色偏暖
         let twilight = time_of_day.twilight_factor();
         if twilight > 0.0 && twilight < 1.0 {
             // 过渡期：混合暖色
             let warmth = 1.0 - (twilight - 0.5).abs() * 2.0; // 在中间最暖
-            let r = 1.0;
-            let g = 0.85 + warmth * 0.15 - warmth * 0.2;
-            let b = 0.7 - warmth * 0.3;
-            sun_light.color = Color::srgb(r, g.max(0.65), b.max(0.4));
+            sun_light.color = Color::srgb(1.0, 0.98 - warmth * 0.16, 0.94 - warmth * 0.30);
         } else {
-            sun_light.color = Color::WHITE;
+            sun_light.color = Color::srgb(1.0, 0.99, 0.97);
         }
     }
 
@@ -203,20 +210,31 @@ pub fn atmosphere_system(
     let night_mix = smoothstep(night_factor);
 
     // 深夜保留冷色环境光，让地形仍可辨认，同时避免看起来像白天。
+    let day_mix = 1.0 - night_mix;
     ambient_light.color = Color::srgb(
-        1.0 + (0.38 - 1.0) * night_mix,
-        1.0 + (0.48 - 1.0) * night_mix,
-        1.0 + (0.72 - 1.0) * night_mix,
+        0.30 + (0.78 - 0.30) * day_mix,
+        0.40 + (0.87 - 0.40) * day_mix,
+        0.68 + (1.00 - 0.68) * day_mix,
     );
     ambient_light.brightness =
         DAY_AMBIENT_BRIGHTNESS + (NIGHT_AMBIENT_BRIGHTNESS - DAY_AMBIENT_BRIGHTNESS) * night_mix;
 
-    for (mut exposure, fog) in &mut camera_query {
+    let twilight = time_of_day.twilight_factor();
+    let twilight_glow = (4.0 * twilight * (1.0 - twilight)).clamp(0.0, 1.0);
+    let view_distance = settings.render_distance.max(4) as f32 * CHUNK_SIZE as f32;
+    let fog_start = (view_distance * 0.48).clamp(52.0, 180.0);
+    let fog_end = (view_distance * 1.45).clamp(160.0, 560.0);
+
+    for (mut exposure, volumetric_fog, distance_fog, environment_light) in &mut camera_query {
         exposure.ev100 = visibility_exposure_ev100(sun_fade, current_sun_y, night_factor);
 
         // 体积雾环境光联动
-        if let Some(mut vol_fog) = fog {
-            let twilight = time_of_day.twilight_factor();
+        if let Some(mut vol_fog) = volumetric_fog {
+            vol_fog.ambient_color = Color::srgb(
+                0.25 + (0.62 - 0.25) * day_mix,
+                0.34 + (0.73 - 0.34) * day_mix,
+                0.58 + (0.84 - 0.58) * day_mix,
+            );
             if twilight > 0.0 && twilight < 1.0 {
                 vol_fog.ambient_intensity = TWILIGHT_FOG_AMBIENT;
             } else if night_factor > 0.5 {
@@ -225,12 +243,37 @@ pub fn atmosphere_system(
                 vol_fog.ambient_intensity = DAY_FOG_AMBIENT;
             }
         }
+        if let Some(mut fog) = distance_fog {
+            let base = [
+                0.10 + (0.57 - 0.10) * day_mix,
+                0.15 + (0.69 - 0.15) * day_mix,
+                0.28 + (0.79 - 0.28) * day_mix,
+            ];
+            let warm = [0.78, 0.58, 0.43];
+            let warmth = twilight_glow * 0.34;
+            fog.color = Color::srgba(
+                base[0] + (warm[0] - base[0]) * warmth,
+                base[1] + (warm[1] - base[1]) * warmth,
+                base[2] + (warm[2] - base[2]) * warmth,
+                0.64 + (0.50 - 0.64) * day_mix,
+            );
+            fog.directional_light_color = Color::srgba(1.0, 0.76, 0.48, 0.10 + 0.18 * day_mix);
+            fog.directional_light_exponent = 24.0;
+            fog.falloff = FogFalloff::Linear {
+                start: fog_start,
+                end: fog_end,
+            };
+        }
+        if let Some(mut environment_light) = environment_light {
+            environment_light.intensity = 0.70 + 1.10 * day_mix;
+        }
     }
 }
 
 fn visibility_exposure_ev100(sun_fade: f32, sun_y: f32, night_factor: f32) -> f32 {
-    let daylight_ev100 = (11.5 - 5.0 * sun_y - 1.5 * sun_y * sun_y).clamp(8.0, 15.0);
-    let twilight_ev100 = NIGHT_EXPOSURE_EV100 + (1.0 - night_factor.clamp(0.0, 1.0)) * 1.5;
+    let sun_height = (-sun_y).clamp(0.0, 1.0);
+    let daylight_ev100 = 11.8 + 2.3 * sun_height;
+    let twilight_ev100 = NIGHT_EXPOSURE_EV100 + (1.0 - night_factor.clamp(0.0, 1.0)) * 1.8;
     let daylight_mix = smoothstep((sun_fade / 0.25).clamp(0.0, 1.0));
     twilight_ev100 + (daylight_ev100 - twilight_ev100) * daylight_mix
 }

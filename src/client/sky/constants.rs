@@ -1,5 +1,5 @@
 /// 日月纹理尺寸
-pub const CELESTIAL_MESH_SIZE: f32 = 64.0;
+pub const CELESTIAL_MESH_SIZE: f32 = 38.0;
 
 /// 太阳/月亮到原点的距离（用于billboard定位）
 pub const CELESTIAL_DISTANCE: f32 = 500.0;
@@ -22,6 +22,10 @@ pub const STAR_SPHERE_RADIUS: f32 = 480.0;
 /// 星星Mesh面片大小
 pub const STAR_QUAD_SIZE: f32 = 2.0;
 
+/// Direct sunlight is intentionally softer than raw physical sunlight so the
+/// voxel albedo and the shaded side of the player remain readable together.
+pub const DAY_SUN_ILLUMINANCE: f32 = 72_000.0;
+
 /// 月光最大照度。为保证体素地形可读性，使用高于物理满月的玩法标定值。
 pub const MAX_MOON_ILLUMINANCE: f32 = 2.5;
 
@@ -32,14 +36,14 @@ pub const MIN_MOON_ILLUMINANCE: f32 = 0.05;
 pub const NIGHT_EXPOSURE_EV100: f32 = 5.5;
 
 /// 白天和深夜的全局环境光亮度。
-pub const DAY_AMBIENT_BRIGHTNESS: f32 = 80.0;
-pub const NIGHT_AMBIENT_BRIGHTNESS: f32 = 22.0;
+pub const DAY_AMBIENT_BRIGHTNESS: f32 = 180.0;
+pub const NIGHT_AMBIENT_BRIGHTNESS: f32 = 30.0;
 
 /// 夜间VolumetricFog环境光强度
-pub const NIGHT_FOG_AMBIENT: f32 = 0.07;
+pub const NIGHT_FOG_AMBIENT: f32 = 0.09;
 
 /// 白天VolumetricFog环境光强度
-pub const DAY_FOG_AMBIENT: f32 = 0.1;
+pub const DAY_FOG_AMBIENT: f32 = 0.16;
 
 /// 日出/日落VolumetricFog环境光强度
-pub const TWILIGHT_FOG_AMBIENT: f32 = 0.06;
+pub const TWILIGHT_FOG_AMBIENT: f32 = 0.12;
