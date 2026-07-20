@@ -15,7 +15,8 @@ pub struct ClientRenderingPlugin;
 impl Plugin for ClientRenderingPlugin {
     /// 注册客户端渲染资源和运行时系统。
     fn build(&self, app: &mut App) {
-        app.init_resource::<item::cache::ItemModelCache>()
+        app.init_resource::<crate::client::presentation::ClientPresentation>()
+            .init_resource::<item::cache::ItemModelCache>()
             .init_resource::<item::gui_icon_cache::GuiItemIconCache>()
             .init_resource::<world::MeshBuildChannel>()
             .init_resource::<world::CachedBlockInfo>()

@@ -4,7 +4,10 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-/// 存储世界数据
+/// Legacy compatibility storage.
+///
+/// New code should use `WorldState`, `ChunkRuntime`, and `ClientPresentation`.
+/// This type remains temporarily for save/structure adapters during migration.
 #[derive(Resource, Default)]
 pub struct WorldStorage {
     /// 键是区块的 3D 坐标，值是区块的原生数据，用于存储世界的方块数据
@@ -20,13 +23,14 @@ pub struct WorldStorage {
 }
 
 /// 待处理的方块写入队列
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct PendingVoxelWrites {
     /// 该区块内所有待修改的方块列表
     pub writes: HashMap<IVec3, Vec<PendingVoxel>>,
 }
 
 /// 单个待处理的方块
+#[derive(Debug)]
 pub struct PendingVoxel {
     pub local_x: usize,
     pub local_y: usize,

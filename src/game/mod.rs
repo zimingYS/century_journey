@@ -11,3 +11,5 @@ pub mod inventory;
 pub mod player;
 pub mod simulation;
 pub mod world;
+
+pub use world::state::HeadlessWorldPlugin;

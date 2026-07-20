@@ -17,6 +17,7 @@ pub mod particle;
 pub mod performance;
 pub mod player;
 pub mod plugin_group;
+pub mod presentation;
 pub mod renderer;
 pub mod sky;
 pub mod sound;
