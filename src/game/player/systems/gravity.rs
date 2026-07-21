@@ -108,13 +108,5 @@ pub fn fall_damage_from_distance(distance: f32) -> f32 {
 }
 
 #[cfg(test)]
-mod stage_seven_tests {
-    use super::*;
-
-    #[test]
-    fn stage_seven_fall_damage_has_safe_distance_and_scales_after_it() {
-        assert_eq!(fall_damage_from_distance(3.9), 0.0);
-        assert_eq!(fall_damage_from_distance(4.0), 1.0);
-        assert_eq!(fall_damage_from_distance(8.8), 5.0);
-    }
-}
+#[path = "../../../../tests/unit/game/player/systems/gravity.rs"]
+mod stage_seven_tests;
