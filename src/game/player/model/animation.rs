@@ -8,7 +8,7 @@ use crate::game::gameplay::block_action::BlockBreakProgress;
 use crate::game::inventory::state::LocalInventory;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
 use crate::game::player::components::stats::Health;
-use crate::game::player::components::{FoodUseState, LocalPlayer, PlayerGravity};
+use crate::game::player::components::{FoodUseState, LocalPlayer, PlayerGravity, PlayerVelocity};
 use crate::game::player::events::{DamageEvent, DeathEvent, FoodConsumedEvent};
 use crate::shared::components::camera::FpsCamera;
 
@@ -223,11 +223,19 @@ impl AnimationPlayback {
         }
 
         let previous = self.elapsed;
-        let marker_cycle = self.cycle;
         let raw_elapsed = previous + delta_seconds.max(0.0) * speed.max(0.0);
         let marker_time = marker_fraction.map(|fraction| self.duration * fraction.clamp(0.0, 1.0));
-        let marker_crossed = marker_time
-            .is_some_and(|marker| !self.marker_fired && previous < marker && raw_elapsed >= marker);
+        let marker_cycle_offset = marker_time.and_then(|marker| {
+            if raw_elapsed < marker {
+                return None;
+            }
+            let offset = ((raw_elapsed - marker) / self.duration).floor() as u32;
+            (offset > 0 || (!self.marker_fired && previous < marker)).then_some(offset)
+        });
+        let marker_crossed = marker_cycle_offset.is_some();
+        let marker_cycle = self
+            .cycle
+            .saturating_add(marker_cycle_offset.unwrap_or_default());
         if marker_crossed {
             self.marker_fired = true;
         }
@@ -278,7 +286,6 @@ pub struct PlayerAnimationState {
     pub parameters: PlayerAnimationParameters,
     pub playback: AnimationPlayback,
     pub previous_behavior_progress: f32,
-    previous_position: Option<Vec3>,
     pending_marker: Option<PendingMarker>,
 }
 
@@ -290,7 +297,6 @@ impl Default for PlayerAnimationState {
             parameters: PlayerAnimationParameters::default(),
             playback: AnimationPlayback::default(),
             previous_behavior_progress: 0.0,
-            previous_position: None,
             pending_marker: None,
         }
     }
@@ -403,8 +409,8 @@ pub fn player_animation_controller_system(
     mut query: Query<
         (
             Entity,
-            &Transform,
             &PlayerGravity,
+            &PlayerVelocity,
             &Health,
             &FoodUseState,
             &mut PlayerAnimationState,
@@ -440,10 +446,10 @@ pub fn player_animation_controller_system(
     let consumed: HashSet<Entity> = input.food_events.read().map(|event| event.player).collect();
     let holding_item = !input.inventory.hotbar.active_item().is_air();
 
-    for (entity, transform, gravity, health, food_use, mut state) in &mut query {
+    for (entity, gravity, velocity, health, food_use, mut state) in &mut query {
         update_motion_parameters(
             &mut state,
-            transform.translation,
+            velocity.horizontal.length(),
             gravity,
             holding_item,
             delta_seconds,
@@ -496,18 +502,17 @@ pub fn player_animation_controller_system(
 
 fn update_motion_parameters(
     state: &mut PlayerAnimationState,
-    position: Vec3,
+    simulated_horizontal_speed: f32,
     gravity: &PlayerGravity,
     holding_item: bool,
     delta_seconds: f32,
     config: &PlayerAnimationConfig,
     actions: &PlayerActionState,
 ) {
-    let previous = state.previous_position.replace(position);
-    let sampled_speed = previous.map_or(0.0, |last| {
-        Vec2::new(position.x - last.x, position.z - last.z).length() / delta_seconds
-    });
-    // 单帧位移容易受帧时间和台阶抬升影响，指数平滑能让步频与状态切换保持稳定。
+    // The velocity is authored by the fixed-step simulation. Sampling Transform here
+    // would turn each fixed tick into one large render-frame speed spike followed by
+    // several zero-speed frames, which makes locomotion visibly stutter.
+    let sampled_speed = simulated_horizontal_speed.max(0.0);
     let response = 1.0 - (-18.0 * delta_seconds).exp();
     let horizontal_speed = state.parameters.horizontal_speed
         + (sampled_speed.clamp(0.0, 30.0) - state.parameters.horizontal_speed) * response;
@@ -517,9 +522,9 @@ fn update_motion_parameters(
         } else {
             PlayerLocomotionState::Fall
         }
-    } else if horizontal_speed < 0.05 {
+    } else if sampled_speed < 0.05 {
         PlayerLocomotionState::Idle
-    } else if actions.pressed(PlayerAction::Sprint) || horizontal_speed > 11.5 {
+    } else if actions.pressed(PlayerAction::Sprint) || sampled_speed > 11.5 {
         PlayerLocomotionState::Run
     } else {
         PlayerLocomotionState::Walk
@@ -530,10 +535,10 @@ fn update_motion_parameters(
         .transition_to(locomotion, config.locomotion_transition_seconds, 1.0);
     let cycle_speed = match locomotion {
         PlayerLocomotionState::Walk => {
-            config.walk_cycle_speed * (horizontal_speed / 10.0).clamp(0.35, 1.5)
+            config.walk_cycle_speed * (sampled_speed / 10.0).clamp(0.35, 1.5)
         }
         PlayerLocomotionState::Run => {
-            config.run_cycle_speed * (horizontal_speed / 15.0).clamp(0.5, 1.5)
+            config.run_cycle_speed * (sampled_speed / 15.0).clamp(0.5, 1.5)
         }
         PlayerLocomotionState::Idle | PlayerLocomotionState::Jump | PlayerLocomotionState::Fall => {
             1.5
@@ -698,5 +703,61 @@ mod tests {
         assert!(!wrap.marker_crossed);
         assert!(second.marker_crossed);
         assert_eq!(second.marker_cycle, 1);
+    }
+
+    #[test]
+    fn looping_marker_is_not_lost_when_a_frame_crosses_the_cycle_boundary() {
+        let mut playback = AnimationPlayback::default();
+        playback.start(1.0);
+
+        let first = playback.tick(0.75, 1.0, true, Some(0.5));
+        let long_frame = playback.tick(0.90, 1.0, true, Some(0.5));
+
+        assert!(first.marker_crossed);
+        assert_eq!(first.marker_cycle, 0);
+        assert!(long_frame.marker_crossed);
+        assert_eq!(long_frame.marker_cycle, 1);
+    }
+
+    #[test]
+    fn locomotion_phase_is_stable_across_render_rates() {
+        fn simulate(fps: u32) -> PlayerAnimationState {
+            let mut state = PlayerAnimationState::default();
+            let gravity = PlayerGravity {
+                is_grounded: true,
+                ..default()
+            };
+            let config = PlayerAnimationConfig::default();
+            let actions = PlayerActionState::default();
+            let delta = 1.0 / fps as f32;
+
+            for _ in 0..fps {
+                update_motion_parameters(
+                    &mut state, 10.0, &gravity, true, delta, &config, &actions,
+                );
+            }
+            state
+        }
+
+        let at_10 = simulate(10);
+        let at_20 = simulate(20);
+        let at_30 = simulate(30);
+        let at_60 = simulate(60);
+        let at_144 = simulate(144);
+
+        assert_eq!(at_10.lower_body.current, PlayerLocomotionState::Walk);
+        assert_eq!(at_20.lower_body.current, PlayerLocomotionState::Walk);
+        assert!(
+            (at_10.parameters.locomotion_phase - at_20.parameters.locomotion_phase).abs() < 0.001
+        );
+        assert!(
+            (at_20.parameters.locomotion_phase - at_30.parameters.locomotion_phase).abs() < 0.001
+        );
+        assert!(
+            (at_30.parameters.locomotion_phase - at_60.parameters.locomotion_phase).abs() < 0.001
+        );
+        assert!(
+            (at_60.parameters.locomotion_phase - at_144.parameters.locomotion_phase).abs() < 0.001
+        );
     }
 }

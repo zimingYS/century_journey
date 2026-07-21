@@ -14,7 +14,7 @@ use crate::content::block::sound::{BlockSoundEvent, SoundAction, SoundMaterial};
 use crate::game::inventory::events::InventoryFeedbackEvent;
 use crate::game::player::components::{LocalPlayer, PlayerGravity};
 use crate::game::player::model::animation::{
-    AnimationMarkerEvent, AnimationMarkerKind, PlayerAnimationState,
+    AnimationMarkerEvent, AnimationMarkerKind, PlayerAnimationState, PlayerLocomotionState,
 };
 use crate::game::player::systems::raycast::TargetVoxel;
 use crate::game::world::block_ops::get_voxel_at_world;
@@ -375,7 +375,12 @@ fn footstep_sound_system(
             .unwrap_or_default()
     };
 
+    let locomotion_active = matches!(
+        animation.lower_body.current,
+        PlayerLocomotionState::Walk | PlayerLocomotionState::Run
+    );
     if gravity.is_grounded
+        && locomotion_active
         && animation.parameters.horizontal_speed > 0.15
         && phase_bucket != playback.phase_bucket
     {
