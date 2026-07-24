@@ -81,6 +81,10 @@ struct FeedbackParticle {
     spin: f32,
 }
 
+const PARTICLE_GRAVITY: f32 = 7.8;
+const PARTICLE_DRAG: f32 = 1.7;
+const MAX_PARTICLE_STEP_SECONDS: f32 = 1.0 / 120.0;
+
 pub struct ClientParticlePlugin;
 
 impl Plugin for ClientParticlePlugin {
@@ -213,14 +217,30 @@ fn update_feedback_particles_system(
             continue;
         }
 
-        particle.velocity.y -= 7.8 * delta;
-        particle.velocity *= (1.0 - 1.7 * delta).max(0.0);
-        transform.translation += particle.velocity * delta;
+        advance_particle_motion(&mut particle, &mut transform, delta);
         transform.rotate_y(particle.spin * delta);
         transform.rotate_x(particle.spin * 0.63 * delta);
 
         let remaining = 1.0 - particle.age / particle.lifetime;
         transform.scale = Vec3::splat(particle.initial_scale * remaining.max(0.08));
+    }
+}
+
+fn advance_particle_motion(
+    particle: &mut FeedbackParticle,
+    transform: &mut Transform,
+    delta_seconds: f32,
+) {
+    if !delta_seconds.is_finite() || delta_seconds <= 0.0 {
+        return;
+    }
+    let mut remaining = delta_seconds;
+    while remaining > f32::EPSILON {
+        let step = remaining.min(MAX_PARTICLE_STEP_SECONDS);
+        particle.velocity.y -= PARTICLE_GRAVITY * step;
+        particle.velocity *= (-PARTICLE_DRAG * step).exp();
+        transform.translation += particle.velocity * step;
+        remaining -= step;
     }
 }
 
@@ -294,3 +314,7 @@ fn noise01(seed: u64, stream: u64) -> f32 {
 fn signed_noise(seed: u64, stream: u64) -> f32 {
     noise01(seed, stream) * 2.0 - 1.0
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/client/particle/mod.rs"]
+mod tests;

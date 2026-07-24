@@ -301,20 +301,5 @@ fn editable_text_value(editable_text: &EditableText) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn drag_actions_match_mouse_tweaks_gestures() {
-        assert_eq!(drag_action(MouseButton::Left, false), SlotAction::LeftClick);
-        assert_eq!(drag_action(MouseButton::Left, true), SlotAction::ShiftClick);
-        assert_eq!(
-            drag_action(MouseButton::Right, false),
-            SlotAction::RightClick
-        );
-        assert_eq!(
-            drag_action(MouseButton::Right, true),
-            SlotAction::RightClick
-        );
-    }
-}
+#[path = "../../../tests/unit/client/ui/interaction.rs"]
+mod tests;
