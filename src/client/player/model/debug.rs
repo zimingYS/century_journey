@@ -1,4 +1,4 @@
-use crate::game::player::model::components::{PlayerJoint, PlayerMesh};
+use crate::client::player::model::components::{PlayerJoint, PlayerMesh};
 use bevy::prelude::*;
 
 /// F7 切换骨架节点调试显示

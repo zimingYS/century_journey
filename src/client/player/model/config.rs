@@ -1,4 +1,4 @@
-use crate::game::player::model::components::PlayerPart;
+use crate::client::player::model::components::PlayerPart;
 use bevy::prelude::*;
 
 /// 玩家模型设置

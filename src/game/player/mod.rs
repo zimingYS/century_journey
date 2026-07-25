@@ -2,7 +2,6 @@ pub mod action;
 pub mod command;
 pub mod components;
 pub mod events;
-pub mod model;
 pub mod plugin;
 pub mod spawn;
 pub mod systems;

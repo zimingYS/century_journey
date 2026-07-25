@@ -4,13 +4,14 @@ use bevy::prelude::*;
 use crate::client::camera::{CameraPlugin, FpsCamera};
 use crate::client::interpolation::SimulationPresentation;
 use crate::game::player::components::LocalPlayer;
-use crate::game::player::model::PlayerModelPlugin;
-use crate::game::player::model::animation::PlayerAnimationState;
-use crate::game::player::model::components::{PlayerMesh, PlayerPart};
-use crate::game::player::model::config::PlayerModelConfig;
+use model::PlayerModelPlugin;
+use model::animation::PlayerAnimationState;
+use model::components::{PlayerMesh, PlayerPart};
+use model::config::PlayerModelConfig;
 use crate::game::player::spawn::PlayerStartupSet;
 
 pub mod full_body;
+pub mod model;
 
 const WORLD_RENDER_LAYER: usize = 0;
 const PLAYER_SHADOW_ONLY_LAYER: usize = 1;
@@ -45,7 +46,7 @@ fn attach_local_player_presentation_system(
     };
 
     // 创建骨骼
-    let (rig_root, rig_entities) = crate::game::player::model::rig::spawn_player_rig_v2(
+    let (rig_root, rig_entities) = model::rig::spawn_player_rig_v2(
         &mut commands,
         &mut meshes,
         &mut materials,
@@ -92,7 +93,7 @@ fn attach_local_player_presentation_system(
 fn first_person_visibility_system(
     mut commands: Commands,
     camera_query: Query<&FpsCamera, With<Camera3d>>,
-    rig_query: Query<&crate::game::player::model::rig::PlayerRigEntities, With<LocalPlayer>>,
+    rig_query: Query<&model::rig::PlayerRigEntities, With<LocalPlayer>>,
     mut mesh_query: Query<(&PlayerMesh, &mut Visibility, Option<&mut RenderLayers>)>,
 ) {
     let is_first_person = camera_query

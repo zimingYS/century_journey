@@ -13,7 +13,7 @@ use crate::content::block::registry::BlockRegistry;
 use crate::content::block::sound::{BlockSoundEvent, SoundAction, SoundMaterial};
 use crate::game::inventory::events::InventoryFeedbackEvent;
 use crate::game::player::components::{LocalPlayer, PlayerGravity};
-use crate::game::player::model::animation::{
+use crate::client::player::model::animation::{
     AnimationMarkerEvent, AnimationMarkerKind, PlayerAnimationState, PlayerLocomotionState,
 };
 use crate::game::player::systems::raycast::TargetVoxel;

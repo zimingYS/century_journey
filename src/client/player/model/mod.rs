@@ -22,7 +22,7 @@ impl Plugin for PlayerModelPlugin {
                     animation_pose::apply_player_rig_animation_system,
                 )
                     .chain()
-                    .before(bevy::transform::TransformSystems::Propagate)
+                    .before(TransformSystems::Propagate)
                     .run_if(in_state(crate::shared::states::AppState::InGame)),
             )
             .add_systems(

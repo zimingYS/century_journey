@@ -1,8 +1,8 @@
-use crate::game::player::model::components::{
+use crate::client::player::model::components::{
     BackAnchor, ChestAnchor, HeldItemAnchor, HelmetAnchor, OffHandAnchor, PlayerJoint, PlayerMesh,
     PlayerModelMarker, PlayerPart, PlayerRig,
 };
-use crate::game::player::model::config::PlayerModelConfig;
+use crate::client::player::model::config::PlayerModelConfig;
 use bevy::prelude::*;
 
 /// 真实手掌上的主手物品握持姿态。

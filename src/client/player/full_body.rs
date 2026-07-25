@@ -11,7 +11,7 @@ use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::state::LocalInventory;
 use crate::game::player::components::LocalPlayer;
 use crate::game::player::events::FoodConsumedEvent;
-use crate::game::player::model::rig::PlayerRigEntities;
+use crate::client::player::model::rig::PlayerRigEntities;
 use crate::shared::identifier::Identifier;
 use crate::shared::item_id::ItemId;
 
