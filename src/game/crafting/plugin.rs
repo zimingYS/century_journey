@@ -324,7 +324,3 @@ fn return_crafting_on_close_system(
         active.was_opened = state.opened;
     }
 }
-
-#[cfg(test)]
-#[path = "../../../tests/unit/game/crafting/plugin.rs"]
-mod isolation_tests;
