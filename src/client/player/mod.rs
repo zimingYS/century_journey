@@ -14,7 +14,6 @@ use crate::game::player::model::PlayerModelPlugin;
 use crate::game::player::model::animation::PlayerAnimationState;
 use crate::game::player::model::components::{PlayerMesh, PlayerPart};
 use crate::game::player::model::config::PlayerModelConfig;
-use crate::game::player::plugin::GamePlayerPlugin;
 use crate::game::simulation::SimulationTransformHistory;
 
 pub mod full_body;
@@ -26,8 +25,7 @@ pub struct ClientPlayerPlugin;
 
 impl Plugin for ClientPlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(GamePlayerPlugin)
-            .add_plugins(PlayerModelPlugin)
+        app.add_plugins(PlayerModelPlugin)
             .add_plugins(full_body::FullBodyFirstPersonPlugin)
             .add_plugins(CameraPlugin)
             .add_systems(Startup, spawn_player)
