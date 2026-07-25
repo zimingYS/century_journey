@@ -8,6 +8,7 @@ use crate::game::player::command::{
 use crate::game::player::events::{
     AttackEvent, DamageEvent, DeathEvent, FoodConsumedEvent, HealEvent, RespawnRequest,
 };
+use crate::game::player::spawn::{PlayerStartupSet, spawn_authoritative_player_system};
 use crate::game::player::systems::raycast::TargetVoxel;
 use crate::game::simulation::SimulationSet;
 use crate::shared::states::AppState;
@@ -30,6 +31,11 @@ impl Plugin for GamePlayerPlugin {
             .add_message::<FoodConsumedEvent>()
             .add_message::<DeathEvent>()
             .add_message::<RespawnRequest>()
+            .configure_sets(Startup, PlayerStartupSet::Authority)
+            .add_systems(
+                Startup,
+                spawn_authoritative_player_system.in_set(PlayerStartupSet::Authority),
+            )
             .add_systems(
                 OnEnter(AppState::InGame),
                 reset_player_command_pipeline_system,

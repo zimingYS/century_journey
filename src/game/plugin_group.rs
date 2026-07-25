@@ -9,8 +9,9 @@ use crate::game::world::WorldPlugin;
 
 /// Game 层插件聚合入口。
 ///
-/// 当前保持单机客户端既有的 Game 注册顺序。玩家规则暂时仍由
-/// `ClientPlayerPlugin` 兼容注册，待无窗口装配测试补齐后再迁入此处。
+/// GamePluginGroup 直接注册权威玩法插件，
+/// 包括 GamePlayerPlugin；
+/// ClientPlayerPlugin 仅保留本地表现、相机和模型绑定。
 pub struct GamePluginGroup;
 
 impl Plugin for GamePluginGroup {

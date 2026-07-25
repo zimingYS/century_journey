@@ -4,6 +4,7 @@ pub mod components;
 pub mod events;
 pub mod model;
 pub mod plugin;
+pub mod spawn;
 pub mod systems;
 
 /// 向后兼容：PlayerPlugin 等同 GamePlayerPlugin。
