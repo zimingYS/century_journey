@@ -7,9 +7,9 @@ use crate::game::player::control::action::{PlayerAction, PlayerActionState};
 use crate::game::player::control::command::{
     PlayerCommand, PlayerCommandBuffer, apply_player_command_system,
 };
-use crate::game::player::events::DeathEvent;
 use crate::game::player::identity::{LocalPlayer, Player};
 use crate::game::player::lifecycle::PlayerLifecycle;
+use crate::game::player::lifecycle::events::DeathEvent;
 use crate::game::player::movement::components::{PlayerAim, PlayerMovement, PlayerVelocity};
 use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
 use crate::game::player::survival::events::DamageEvent;
