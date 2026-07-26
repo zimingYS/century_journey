@@ -7,6 +7,8 @@ pub mod application;
 pub mod config;
 pub mod flow;
 pub mod plugin;
+pub mod plugin_group;
+pub mod runtime;
 pub mod settings;
 pub mod state;
 

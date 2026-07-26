@@ -5,7 +5,7 @@ use crate::game::inventory::cursor::CursorData;
 use crate::game::inventory::recent::RecentItems;
 use bevy::prelude::*;
 
-use crate::game::player::components::LocalPlayer;
+use crate::game::player::identity::LocalPlayer;
 
 /// 统一的物品栏状态资源
 #[derive(Component, Debug, Default)]

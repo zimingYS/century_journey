@@ -1,6 +1,6 @@
 use crate::client::ui::hud::bottom::bars::LeftBarsHud;
-use crate::game::player::components::Player;
-use crate::game::player::components::stats::Defense;
+use crate::game::player::identity::Player;
+use crate::game::player::survival::protection::Defense;
 use bevy::prelude::*;
 
 #[derive(Component)]

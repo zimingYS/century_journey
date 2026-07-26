@@ -1,3 +1,4 @@
+use crate::game::player::interaction::targeting::{player_interaction_ray, PLAYER_EYE_HEIGHT};
 use super::*;
 
 #[test]

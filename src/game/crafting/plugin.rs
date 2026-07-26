@@ -11,7 +11,7 @@ use crate::game::inventory::events::SlotInteractionEvent;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::slot::SlotAction;
 use crate::game::inventory::state::InventoryState;
-use crate::game::player::components::PlayerId;
+use crate::game::player::identity::PlayerId;
 use crate::shared::ui_types::{ContainerKind, SlotKind};
 
 #[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
@@ -324,7 +324,3 @@ fn return_crafting_on_close_system(
         active.was_opened = state.opened;
     }
 }
-
-#[cfg(test)]
-#[path = "../../../tests/unit/game/crafting/plugin.rs"]
-mod isolation_tests;

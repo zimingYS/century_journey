@@ -1,4 +1,5 @@
-use super::*;
+use crate::game::player::survival::health::Health;
+use crate::game::player::survival::hunger::Hunger;
 
 #[test]
 fn hunger_saturation_absorbs_exhaustion_at_the_exact_boundary() {

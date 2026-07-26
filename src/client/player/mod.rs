@@ -3,21 +3,15 @@ use bevy::prelude::*;
 
 use crate::client::camera::{CameraPlugin, FpsCamera};
 use crate::client::interpolation::SimulationPresentation;
-use crate::game::crafting::grid::{ActiveCrafting, PlayerCrafting};
-use crate::game::inventory::state::InventoryState;
-use crate::game::player::components::stats::{Defense, Health, Hunger};
-use crate::game::player::components::{
-    EnvironmentExposure, FoodUseState, LocalPlayer, Player, PlayerAim, PlayerCollider,
-    PlayerGravity, PlayerId, PlayerLifecycle, PlayerMovement, PlayerVelocity, RespawnPoint,
-};
-use crate::game::player::model::PlayerModelPlugin;
-use crate::game::player::model::animation::PlayerAnimationState;
-use crate::game::player::model::components::{PlayerMesh, PlayerPart};
-use crate::game::player::model::config::PlayerModelConfig;
-use crate::game::player::plugin::GamePlayerPlugin;
-use crate::game::simulation::SimulationTransformHistory;
+use crate::game::player::identity::LocalPlayer;
+use crate::game::player::lifecycle::spawn::PlayerStartupSet;
+use model::PlayerModelPlugin;
+use model::animation::PlayerAnimationState;
+use model::components::{PlayerMesh, PlayerPart};
+use model::config::PlayerModelConfig;
 
 pub mod full_body;
+pub mod model;
 
 const WORLD_RENDER_LAYER: usize = 0;
 const PLAYER_SHADOW_ONLY_LAYER: usize = 1;
@@ -26,28 +20,36 @@ pub struct ClientPlayerPlugin;
 
 impl Plugin for ClientPlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(GamePlayerPlugin)
-            .add_plugins(PlayerModelPlugin)
+        app.add_plugins(PlayerModelPlugin)
             .add_plugins(full_body::FullBodyFirstPersonPlugin)
             .add_plugins(CameraPlugin)
-            .add_systems(Startup, spawn_player)
+            .add_systems(
+                Startup,
+                attach_local_player_presentation_system.after(PlayerStartupSet::Authority),
+            )
             .add_systems(Update, first_person_visibility_system);
     }
 }
 
-fn spawn_player(
+/// 为已创建的本地权威玩家附加客户端表现。
+///
+/// Game 层拥有玩家的模拟状态；本系统只创建相机、骨架、动画和渲染层级。
+fn attach_local_player_presentation_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     config: Res<PlayerModelConfig>,
+    players: Query<Entity, With<LocalPlayer>>,
 ) {
-    let (rig_root, rig_entities) = crate::game::player::model::rig::spawn_player_rig_v2(
-        &mut commands,
-        &mut meshes,
-        &mut materials,
-        &config,
-    );
+    let Ok(player) = players.single() else {
+        return;
+    };
 
+    // 创建骨骼
+    let (rig_root, rig_entities) =
+        model::rig::spawn_player_rig_v2(&mut commands, &mut meshes, &mut materials, &config);
+
+    // 创建玩家相机
     let camera = commands
         .spawn((
             FpsCamera::default(),
@@ -57,6 +59,7 @@ fn spawn_player(
         ))
         .id();
 
+    // 创建玩家表现根实体
     let presentation_root = commands
         .spawn((
             Name::new("PlayerPresentation"),
@@ -66,37 +69,11 @@ fn spawn_player(
         ))
         .id();
 
-    let player_transform = Transform::from_xyz(0.0, 70.0, 0.0);
-
-    let player = commands
-        .spawn((
-            Player,
-            LocalPlayer,
-            PlayerAim::default(),
-            rig_entities.clone(),
-            PlayerAnimationState::default(),
-            PlayerGravity::default(),
-            PlayerCollider::default(),
-            PlayerMovement::default(),
-            PlayerVelocity::default(),
-            FoodUseState::default(),
-            Health::default(),
-            Hunger::default(),
-            Defense::default(),
-            player_transform,
-            Visibility::default(),
-        ))
-        .id();
-
+    // 渲染玩家模型
     commands.entity(player).insert((
-        PlayerLifecycle::default(),
-        RespawnPoint::default(),
-        EnvironmentExposure::default(),
-        SimulationTransformHistory::new(player_transform),
-        PlayerId::LOCAL,
-        InventoryState::default(),
-        PlayerCrafting::default(),
-        ActiveCrafting::default(),
+        rig_entities,
+        PlayerAnimationState::default(),
+        Visibility::default(),
     ));
 
     commands.entity(player).add_child(presentation_root);
@@ -112,7 +89,7 @@ fn spawn_player(
 fn first_person_visibility_system(
     mut commands: Commands,
     camera_query: Query<&FpsCamera, With<Camera3d>>,
-    rig_query: Query<&crate::game::player::model::rig::PlayerRigEntities, With<LocalPlayer>>,
+    rig_query: Query<&model::rig::PlayerRigEntities, With<LocalPlayer>>,
     mut mesh_query: Query<(&PlayerMesh, &mut Visibility, Option<&mut RenderLayers>)>,
 ) {
     let is_first_person = camera_query

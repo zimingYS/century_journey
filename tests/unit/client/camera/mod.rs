@@ -1,6 +1,6 @@
 use super::*;
-use crate::game::player::model::components::PlayerPart;
-use crate::game::player::model::config::PlayerModelConfig;
+use crate::client::player::model::components::PlayerPart;
+use crate::client::player::model::config::PlayerModelConfig;
 use crate::shared::components::camera::{MAX_CAMERA_PITCH, MIN_CAMERA_PITCH};
 
 #[test]

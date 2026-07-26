@@ -19,7 +19,7 @@ use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::container::survival::SurvivalInventory;
 use crate::game::inventory::container::world::WorldContainers;
-use crate::game::player::components::{LocalPlayer, PlayerId};
+use crate::game::player::identity::{LocalPlayer, PlayerId};
 use crate::shared::item_id::ItemId;
 use crate::shared::ui_types::ContainerKind;
 

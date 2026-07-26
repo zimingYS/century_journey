@@ -1,6 +1,6 @@
 use super::*;
-use crate::game::player::action::PlayerActionState;
-use crate::game::player::components::PlayerGravity;
+use crate::game::player::control::action::PlayerActionState;
+use crate::game::player::physics::components::PlayerGravity;
 
 #[test]
 fn feedback_fix_empty_right_click_does_not_start_an_animation() {

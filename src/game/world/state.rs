@@ -53,7 +53,7 @@ impl Plugin for HeadlessWorldPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WorldState>()
             .init_resource::<ChunkRuntime>()
-            .init_resource::<crate::game::world::storage::WorldStorage>()
+            .init_resource::<WorldStorage>()
             .init_resource::<crate::game::block::BlockBehaviorRegistry>()
             .insert_resource(Time::<Fixed>::from_hz(
                 crate::game::world::time::SIMULATION_TICKS_PER_SECOND as f64,

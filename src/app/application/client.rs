@@ -1,6 +1,6 @@
 use super::application::Application;
 use crate::app::config::AppConfig;
-use crate::client::plugin_group::ClientPluginGroup;
+use crate::app::runtime::ClientRuntimePluginGroup;
 use crate::engine::constant::window::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::game::world::systems::WorldStreamingConfig;
 use bevy::asset::AssetPlugin as BevyAssetPlugin;
@@ -84,7 +84,7 @@ impl Application for ClientApplication {
                 }),
         );
         app.insert_resource(world_streaming_config)
-            .add_plugins(ClientPluginGroup);
+            .add_plugins(ClientRuntimePluginGroup);
         crate::client::performance::configure_fixed_performance_scenario(&mut app);
         Ok(app)
     }

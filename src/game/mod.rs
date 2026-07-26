@@ -9,6 +9,7 @@ pub mod crafting;
 pub mod gameplay;
 pub mod inventory;
 pub mod player;
+pub mod plugin_group;
 pub mod simulation;
 pub mod world;
 

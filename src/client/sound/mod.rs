@@ -6,17 +6,18 @@ use bevy::audio::{AudioPlayer, AudioSource, PlaybackSettings, Volume};
 use bevy::prelude::*;
 
 use crate::app::flow::{DialogKind, DialogState};
+use crate::client::player::model::animation::{
+    AnimationMarkerEvent, AnimationMarkerKind, PlayerAnimationState, PlayerLocomotionState,
+};
 use crate::client::ui::navigation::UiNavigation;
 use crate::client::ui::widgets::common::UiControl;
 use crate::client::ui::widgets::slot::InventorySlot;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::block::sound::{BlockSoundEvent, SoundAction, SoundMaterial};
 use crate::game::inventory::events::InventoryFeedbackEvent;
-use crate::game::player::components::{LocalPlayer, PlayerGravity};
-use crate::game::player::model::animation::{
-    AnimationMarkerEvent, AnimationMarkerKind, PlayerAnimationState, PlayerLocomotionState,
-};
-use crate::game::player::systems::raycast::TargetVoxel;
+use crate::game::player::identity::LocalPlayer;
+use crate::game::player::interaction::targeting::TargetVoxel;
+use crate::game::player::physics::components::PlayerGravity;
 use crate::game::world::block_ops::get_voxel_at_world;
 use crate::game::world::storage::WorldStorage;
 use crate::shared::states::AppState;

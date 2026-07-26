@@ -3,6 +3,7 @@ use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::render_resource::TextureFormat;
 
+use crate::client::player::model::config::PlayerModelConfig;
 use crate::client::renderer::item_model::ItemModelRenderAssets;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::components::{
@@ -30,9 +31,10 @@ use crate::game::inventory::container::survival::SurvivalInventory;
 use crate::game::inventory::equipment::{AccessorySlotDefinitions, EquipmentSlot};
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::{InventoryState, LocalInventory, LocalInventoryMut};
-use crate::game::player::components::LocalPlayer;
-use crate::game::player::components::stats::{Defense, Health, Hunger};
-use crate::game::player::model::config::PlayerModelConfig;
+use crate::game::player::identity::LocalPlayer;
+use crate::game::player::survival::health::Health;
+use crate::game::player::survival::hunger::Hunger;
+use crate::game::player::survival::protection::Defense;
 use crate::shared::item_id::ItemId;
 
 const SURVIVAL_PANEL_WIDTH: f32 = 708.0;
@@ -470,7 +472,7 @@ fn spawn_player_preview(
     let target = Vec3::new(0.0, -750.0, 0.0);
     let preview_layer = RenderLayers::layer(PREVIEW_LAYER);
     let (root, rig) =
-        crate::game::player::model::rig::spawn_player_rig_v2(commands, meshes, materials, config);
+        crate::client::player::model::rig::spawn_player_rig_v2(commands, meshes, materials, config);
 
     commands.entity(root).insert((
         Transform {

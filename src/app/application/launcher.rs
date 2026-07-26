@@ -10,8 +10,11 @@ pub fn launch() -> anyhow::Result<()> {
     ensure_asset_working_directory()?;
     let config = AppConfig::default();
     match config.mode {
+        // 客户端
         AppMode::Client => ClientApplication::run(config),
+        // 服务端
         AppMode::Server => ServerApplication::run(config),
+        // 编译器
         AppMode::Editor => EditorApplication::run(config),
     }
 }

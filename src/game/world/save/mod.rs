@@ -7,7 +7,7 @@ pub mod system;
 
 use crate::content::block::registry::BlockRegistry;
 use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
-use crate::game::player::components::Player;
+use crate::game::player::identity::Player;
 use crate::game::world::save::events::SaveDirtyEvent;
 use crate::game::world::save::player::PlayerSaveManager;
 use crate::game::world::save::system::{

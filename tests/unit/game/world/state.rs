@@ -3,9 +3,10 @@ use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::engine::asset::AssetPlugin;
 use crate::game::gameplay::gamemode::PlayerGameMode;
-use crate::game::player::components::{
-    Player, PlayerCollider, PlayerGravity, PlayerLifecycle, PlayerMovement, PlayerVelocity,
-};
+use crate::game::player::identity::Player;
+use crate::game::player::lifecycle::PlayerLifecycle;
+use crate::game::player::movement::components::{PlayerMovement, PlayerVelocity};
+use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
 use crate::game::world::time::WorldSimulationClock;
 
 fn headless_player_step(mut query: Query<(&mut Transform, &PlayerVelocity), With<Player>>) {

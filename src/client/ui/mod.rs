@@ -5,7 +5,7 @@ use crate::client::ui::theme::scale::UiScaleSettings;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{CategoryClickedEvent, SearchInputState};
 use crate::game::inventory::state::InventoryState;
-use crate::game::player::components::LocalPlayer;
+use crate::game::player::identity::LocalPlayer;
 use crate::shared::states::{InputContext, InputContextState};
 use bevy::prelude::*;
 

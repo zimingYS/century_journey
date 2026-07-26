@@ -6,4 +6,5 @@
 pub mod asset;
 pub mod constant;
 pub mod persistence;
+pub mod plugin_group;
 pub mod task;

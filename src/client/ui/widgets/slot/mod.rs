@@ -20,7 +20,7 @@ use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::world::WorldContainers;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
-use crate::game::player::components::LocalPlayer;
+use crate::game::player::identity::LocalPlayer;
 use crate::shared::item_id::ItemId;
 use crate::shared::ui_types::ContainerKind;
 use bevy::prelude::*;

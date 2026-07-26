@@ -2,8 +2,8 @@ use crate::client::ui::hud::bottom::bars::{
     HUD_STATUS_ICON_GAP, HudStatusIconAssets, RightBarsHud, shown_status_units, status_icon_count,
     status_icon_node, status_icon_segment,
 };
-use crate::game::player::components::Player;
-use crate::game::player::components::stats::Hunger;
+use crate::game::player::identity::Player;
+use crate::game::player::survival::hunger::Hunger;
 use bevy::prelude::*;
 
 /// 饥饿值条根节点。

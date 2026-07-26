@@ -5,13 +5,13 @@
 use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 
+use crate::client::player::model::animation::{AnimationMarkerEvent, AnimationMarkerKind};
 use crate::content::block::event::{BlockBreakEvent, BlockPlaceEvent};
 use crate::content::block::registry::BlockRegistry;
 use crate::content::block::sound::SoundMaterial;
-use crate::game::player::components::Player;
-use crate::game::player::events::AttackEvent;
-use crate::game::player::model::animation::{AnimationMarkerEvent, AnimationMarkerKind};
-use crate::game::player::systems::raycast::TargetVoxel;
+use crate::game::player::combat::events::AttackEvent;
+use crate::game::player::identity::Player;
+use crate::game::player::interaction::targeting::TargetVoxel;
 use crate::game::world::block_ops::get_voxel_at_world;
 use crate::game::world::storage::WorldStorage;
 use crate::shared::states::AppState;

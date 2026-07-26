@@ -1,7 +1,7 @@
 use super::*;
 use crate::game::inventory::events::InventoryFeedbackEvent;
 use crate::game::inventory::item::stack::ItemStack;
-use crate::game::player::components::PlayerLifecycle;
+use crate::game::player::lifecycle::PlayerLifecycle;
 use crate::shared::item_id::ItemId;
 
 #[test]
