@@ -2,8 +2,8 @@ use crate::client::ui::hud::bottom::bars::{
     HUD_STATUS_ICON_GAP, HudStatusIconAssets, LeftBarsHud, shown_status_units, status_icon_count,
     status_icon_node, status_icon_segment,
 };
-use crate::game::player::components::Player;
-use crate::game::player::components::stats::Health;
+use crate::game::player::identity::Player;
+use crate::game::player::survival::health::Health;
 use bevy::prelude::*;
 
 /// 生命值条根节点。

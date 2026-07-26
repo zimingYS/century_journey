@@ -3,10 +3,11 @@ use super::player_model::{PlayerSaveData, validate_player_data};
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::{InventoryState, LocalInventory, LocalInventoryMut};
-use crate::game::player::components::stats::{Health, Hunger};
-use crate::game::player::components::{
-    LocalPlayer, Player, PlayerLifecycle, PlayerVelocity, RespawnPoint,
-};
+use crate::game::player::identity::{LocalPlayer, Player};
+use crate::game::player::lifecycle::{PlayerLifecycle, RespawnPoint};
+use crate::game::player::movement::components::PlayerVelocity;
+use crate::game::player::survival::health::Health;
+use crate::game::player::survival::hunger::Hunger;
 use crate::game::world::save::events::SaveDirtySource;
 use crate::game::world::save::system::SaveConfig;
 use crate::shared::components::camera::FpsCamera;
@@ -215,8 +216,8 @@ pub fn load_player_on_enter_system(
     mut player_query: Query<
         (
             &mut Transform,
-            &mut crate::game::player::components::stats::Health,
-            &mut crate::game::player::components::stats::Hunger,
+            &mut crate::game::player::survival::health::Health,
+            &mut crate::game::player::survival::hunger::Hunger,
             &mut RespawnPoint,
             &mut PlayerLifecycle,
             &mut PlayerVelocity,

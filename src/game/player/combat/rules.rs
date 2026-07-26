@@ -2,18 +2,25 @@ use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
-use crate::game::player::components::stats::{Defense, Health, Hunger};
-use crate::game::player::components::{
-    EnvironmentExposure, FoodUseState, LocalPlayer, Player, PlayerGravity, PlayerLifeState,
-    PlayerLifecycle, PlayerVelocity, RespawnPoint,
-};
+use crate::game::player::combat::defense::Defense;
 use crate::game::player::events::{
     AttackEvent, DamageEvent, DamageSource, DeathEvent, HealEvent, RespawnRequest,
 };
+use crate::game::player::identity::{LocalPlayer, Player};
+use crate::game::player::lifecycle::{PlayerLifeState, PlayerLifecycle, RespawnPoint};
+use crate::game::player::movement::components::PlayerVelocity;
+use crate::game::player::physics::components::PlayerGravity;
+use crate::game::player::survival::environment::EnvironmentExposure;
+use crate::game::player::survival::health::Health;
+use crate::game::player::survival::hunger::{FoodUseState, Hunger};
 use crate::game::world::entity::dropped_item::{
     DroppedItemVelocity, spawn_dropped_item_with_velocity,
 };
-use bevy::prelude::*;
+use bevy::math::Vec3;
+use bevy::prelude::{
+    Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, Resource, Time, Transform,
+    With,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum DeathDropRule {
@@ -295,7 +302,3 @@ fn drain_death_inventory(inventory: &mut InventoryState) -> Vec<ItemStack> {
     drops.retain(|stack| !stack.is_empty());
     drops
 }
-
-#[cfg(test)]
-#[path = "../../../../tests/unit/game/player/systems/combat.rs"]
-mod stage_seven_tests;

@@ -6,7 +6,7 @@ use crate::client::ui::widgets::slot::{
 use crate::game::crafting::grid::ActiveCrafting;
 use crate::game::inventory::slot::SlotAction;
 use crate::game::inventory::state::{LocalInventory, LocalInventoryMut};
-use crate::game::player::components::{LocalPlayer, PlayerId};
+use crate::game::player::identity::{LocalPlayer, PlayerId};
 use bevy::input::mouse::MouseWheel;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;

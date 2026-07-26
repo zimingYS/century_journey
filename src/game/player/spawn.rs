@@ -5,11 +5,15 @@
 
 use crate::game::crafting::grid::{ActiveCrafting, PlayerCrafting};
 use crate::game::inventory::state::InventoryState;
-use crate::game::player::components::stats::{Defense, Health, Hunger};
-use crate::game::player::components::{
-    EnvironmentExposure, FoodUseState, LocalPlayer, Player, PlayerAim, PlayerCollider,
-    PlayerGravity, PlayerId, PlayerLifecycle, PlayerMovement, PlayerVelocity, RespawnPoint,
-};
+use crate::game::player::combat::defense::Defense;
+use crate::game::player::identity::{LocalPlayer, Player, PlayerId};
+use crate::game::player::lifecycle::{PlayerLifecycle, RespawnPoint};
+use crate::game::player::movement::components::{PlayerAim, PlayerMovement, PlayerVelocity};
+use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
+use crate::game::player::survival::environment::EnvironmentExposure;
+use crate::game::player::survival::health::Health;
+use crate::game::player::survival::hunger::FoodUseState;
+use crate::game::player::survival::hunger::Hunger;
 use crate::game::simulation::SimulationTransformHistory;
 use bevy::prelude::*;
 

@@ -1,3 +1,4 @@
+use crate::game::player::movement::system::approach_velocity;
 use super::*;
 
 #[test]

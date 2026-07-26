@@ -1,13 +1,16 @@
 use crate::content::block::registry::BlockRegistry;
-use crate::game::constant::player::{GRAVITY, MAX_FALL_SPEED};
+use crate::game::constant::{GRAVITY, MAX_FALL_SPEED};
 use crate::game::gameplay::gamemode::PlayerGameMode;
-use crate::game::player::components::{Player, PlayerCollider, PlayerGravity, PlayerLifecycle};
 use crate::game::player::events::{DamageEvent, DamageSource};
-use crate::game::player::systems::collision::{
+use crate::game::player::identity::Player;
+use crate::game::player::lifecycle::PlayerLifecycle;
+use crate::game::player::physics::collision::{
     check_collision_at, find_safe_position, is_grounded_at,
 };
+use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
 use crate::game::world::storage::WorldStorage;
-use bevy::prelude::*;
+use bevy::math::Vec3;
+use bevy::prelude::{Entity, MessageWriter, Query, Res, Time, Transform, With};
 
 /// 重力系统
 pub fn player_gravity_system(
@@ -106,7 +109,3 @@ pub fn player_gravity_system(
 pub fn fall_damage_from_distance(distance: f32) -> f32 {
     (distance - 3.0).floor().max(0.0)
 }
-
-#[cfg(test)]
-#[path = "../../../../tests/unit/game/player/systems/gravity.rs"]
-mod stage_seven_tests;

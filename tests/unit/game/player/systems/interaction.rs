@@ -1,5 +1,6 @@
 use super::*;
 use crate::game::gameplay::gamemode::GameMode;
+use crate::game::player::interaction::voxel::{break_action_active, voxel_intersects_player};
 
 #[test]
 fn creative_break_fix_held_click_only_breaks_on_first_frame() {

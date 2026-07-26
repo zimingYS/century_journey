@@ -3,12 +3,12 @@ use bevy::prelude::*;
 
 use crate::client::camera::{CameraPlugin, FpsCamera};
 use crate::client::interpolation::SimulationPresentation;
-use crate::game::player::components::LocalPlayer;
+use crate::game::player::identity::LocalPlayer;
+use crate::game::player::spawn::PlayerStartupSet;
 use model::PlayerModelPlugin;
 use model::animation::PlayerAnimationState;
 use model::components::{PlayerMesh, PlayerPart};
 use model::config::PlayerModelConfig;
-use crate::game::player::spawn::PlayerStartupSet;
 
 pub mod full_body;
 pub mod model;
@@ -46,12 +46,8 @@ fn attach_local_player_presentation_system(
     };
 
     // 创建骨骼
-    let (rig_root, rig_entities) = model::rig::spawn_player_rig_v2(
-        &mut commands,
-        &mut meshes,
-        &mut materials,
-        &config,
-    );
+    let (rig_root, rig_entities) =
+        model::rig::spawn_player_rig_v2(&mut commands, &mut meshes, &mut materials, &config);
 
     // 创建玩家相机
     let camera = commands

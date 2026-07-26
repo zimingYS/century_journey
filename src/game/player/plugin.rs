@@ -8,8 +8,8 @@ use crate::game::player::command::{
 use crate::game::player::events::{
     AttackEvent, DamageEvent, DeathEvent, FoodConsumedEvent, HealEvent, RespawnRequest,
 };
+use crate::game::player::interaction::targeting::TargetVoxel;
 use crate::game::player::spawn::{PlayerStartupSet, spawn_authoritative_player_system};
-use crate::game::player::systems::raycast::TargetVoxel;
 use crate::game::simulation::SimulationSet;
 use crate::shared::states::AppState;
 
@@ -23,8 +23,8 @@ impl Plugin for GamePlayerPlugin {
             .init_resource::<PlayerCommandBuffer>()
             .init_resource::<BlockBreakState>()
             .init_resource::<BlockBreakProgress>()
-            .init_resource::<crate::game::player::systems::combat::DeathRules>()
-            .init_resource::<crate::game::player::systems::combat::LastDeathInfo>()
+            .init_resource::<crate::game::player::combat::rules::DeathRules>()
+            .init_resource::<crate::game::player::combat::rules::LastDeathInfo>()
             .add_message::<AttackEvent>()
             .add_message::<DamageEvent>()
             .add_message::<HealEvent>()
@@ -48,43 +48,43 @@ impl Plugin for GamePlayerPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                crate::game::player::systems::movement::player_movement_system
+                crate::game::player::movement::system::player_movement_system
                     .in_set(SimulationSet::Movement)
                     .run_if(in_state(AppState::InGame)),
             )
             .add_systems(
                 FixedUpdate,
-                crate::game::player::systems::gravity::player_gravity_system
+                crate::game::player::physics::gravity::player_gravity_system
                     .in_set(SimulationSet::Physics)
                     .run_if(in_state(AppState::InGame)),
             )
             .add_systems(
                 FixedUpdate,
-                crate::game::player::systems::raycast::update_raycast_system
+                crate::game::player::interaction::targeting::update_raycast_system
                     .in_set(SimulationSet::Targeting)
                     .run_if(in_state(AppState::InGame)),
             )
             .add_systems(
                 FixedUpdate,
                 (
-                    crate::game::player::systems::interaction::voxel_interaction_system,
-                    crate::game::player::systems::interaction::drop_active_hotbar_action_system,
-                    crate::game::player::systems::interaction::drop_item_system,
+                    crate::game::player::interaction::voxel::voxel_interaction_system,
+                    crate::game::player::interaction::voxel::drop_active_hotbar_action_system,
+                    crate::game::player::interaction::voxel::drop_item_system,
                 )
                     .chain()
                     .in_set(SimulationSet::Interaction)
                     .run_if(in_state(AppState::InGame))
-                    .run_if(crate::game::player::systems::combat::player_is_alive),
+                    .run_if(crate::game::player::combat::rules::player_is_alive),
             )
             .add_systems(
                 FixedUpdate,
                 (
-                    crate::game::player::systems::hunger::use_food_system,
-                    crate::game::player::systems::hunger::action_cost_system,
-                    crate::game::player::systems::hunger::natural_regeneration_system,
-                    crate::game::player::systems::hunger::starvation_damage_system,
-                    crate::game::player::systems::armor_calc::armor_calculation_system,
-                    crate::game::player::systems::environment::environment_damage_system,
+                    crate::game::player::survival::hunger::use_food_system,
+                    crate::game::player::survival::hunger::action_cost_system,
+                    crate::game::player::survival::hunger::natural_regeneration_system,
+                    crate::game::player::survival::hunger::starvation_damage_system,
+                    crate::game::player::combat::armor::armor_calculation_system,
+                    crate::game::player::survival::environment::environment_damage_system,
                 )
                     .chain()
                     .in_set(SimulationSet::Survival)
@@ -93,21 +93,16 @@ impl Plugin for GamePlayerPlugin {
             .add_systems(
                 FixedUpdate,
                 (
-                    crate::game::player::systems::combat::melee_attack_input_system,
-                    crate::game::player::systems::combat::attack_damage_system,
-                    crate::game::player::systems::combat::damage_system,
-                    crate::game::player::systems::combat::heal_system,
-                    crate::game::player::systems::combat::death_system,
-                    crate::game::player::systems::combat::respawn_request_system,
-                    crate::game::player::systems::combat::respawn_transition_system,
+                    crate::game::player::combat::rules::melee_attack_input_system,
+                    crate::game::player::combat::rules::attack_damage_system,
+                    crate::game::player::combat::rules::damage_system,
+                    crate::game::player::combat::rules::heal_system,
+                    crate::game::player::combat::rules::death_system,
+                    crate::game::player::combat::rules::respawn_request_system,
+                    crate::game::player::combat::rules::respawn_transition_system,
                 )
                     .chain()
                     .in_set(SimulationSet::Combat)
-                    .run_if(in_state(AppState::InGame)),
-            )
-            .add_systems(
-                Update,
-                crate::game::player::systems::raycast::draw_voxel_highlight_system
                     .run_if(in_state(AppState::InGame)),
             );
     }

@@ -1,6 +1,6 @@
 use crate::content::constant::world::*;
 use crate::engine::task::{TaskManager, TaskResult};
-use crate::game::player::components::Player;
+use crate::game::player::identity::Player;
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::generation::WorldGenerator;
 use crate::game::world::generation::context::ChunkGenContext;

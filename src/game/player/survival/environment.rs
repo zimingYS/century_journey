@@ -1,9 +1,27 @@
 use crate::content::block::registry::BlockRegistry;
-use crate::game::player::components::{EnvironmentExposure, Player, PlayerLifecycle};
 use crate::game::player::events::{DamageEvent, DamageSource};
+use crate::game::player::identity::Player;
+use crate::game::player::lifecycle::PlayerLifecycle;
 use crate::game::world::block_ops::get_voxel_at_world;
 use crate::game::world::storage::WorldStorage;
-use bevy::prelude::*;
+use bevy::math::Vec3;
+use bevy::prelude::{Component, Entity, MessageWriter, Query, Res, Time, Transform, With};
+
+/// 环境暴露计时，集中保存溺水和周期环境伤害的状态。
+#[derive(Component, Debug, Clone, Copy)]
+pub struct EnvironmentExposure {
+    pub remaining_air: f32,
+    pub damage_cooldown: f32,
+}
+
+impl Default for EnvironmentExposure {
+    fn default() -> Self {
+        Self {
+            remaining_air: 10.0,
+            damage_cooldown: 0.0,
+        }
+    }
+}
 
 const MAX_AIR_SECONDS: f32 = 10.0;
 const VOID_Y: f32 = -32.0;

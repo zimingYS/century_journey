@@ -12,9 +12,12 @@ use crate::content::block::event::{BlockInteractEvent, BlockPlaceEvent};
 use crate::game::gameplay::block_action::BlockBreakProgress;
 use crate::game::inventory::state::LocalInventory;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
-use crate::game::player::components::stats::Health;
-use crate::game::player::components::{FoodUseState, LocalPlayer, PlayerGravity, PlayerVelocity};
 use crate::game::player::events::{DamageEvent, DeathEvent, FoodConsumedEvent};
+use crate::game::player::identity::LocalPlayer;
+use crate::game::player::movement::components::PlayerVelocity;
+use crate::game::player::physics::components::PlayerGravity;
+use crate::game::player::survival::health::Health;
+use crate::game::player::survival::hunger::FoodUseState;
 use crate::shared::components::camera::FpsCamera;
 
 use super::*;

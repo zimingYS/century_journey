@@ -1,7 +1,7 @@
 use crate::game::inventory::state::InventoryState;
-use crate::game::player::components::Player;
-use crate::game::player::components::stats::Defense;
-use bevy::prelude::*;
+use crate::game::player::combat::defense::Defense;
+use crate::game::player::identity::Player;
+use bevy::prelude::{Query, With};
 
 /// 每帧从头盔、胸甲、护腿和靴子槽位推导 Defense 值。
 pub fn armor_calculation_system(mut query: Query<(&InventoryState, &mut Defense), With<Player>>) {

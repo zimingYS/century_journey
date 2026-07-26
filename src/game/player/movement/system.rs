@@ -1,12 +1,14 @@
 use crate::content::block::registry::BlockRegistry;
-use crate::game::constant::player::STEP_HEIGHT;
+use crate::game::constant::STEP_HEIGHT;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
-use crate::game::player::components::{
-    Player, PlayerCollider, PlayerGravity, PlayerLifecycle, PlayerMovement, PlayerVelocity,
-};
-use crate::game::player::systems::collision::check_collision_at;
+use crate::game::player::identity::Player;
+use crate::game::player::lifecycle::PlayerLifecycle;
+use crate::game::player::movement::components::{PlayerMovement, PlayerVelocity};
+use crate::game::player::physics::collision::check_collision_at;
+use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
 use crate::game::world::storage::WorldStorage;
-use bevy::prelude::*;
+use bevy::math::Vec3;
+use bevy::prelude::{Query, Res, Time, Transform, With};
 
 pub fn player_movement_system(
     time: Res<Time>,
@@ -137,7 +139,7 @@ pub fn player_movement_system(
     }
 }
 
-fn approach_velocity(current: Vec3, target: Vec3, max_delta: f32) -> Vec3 {
+pub fn approach_velocity(current: Vec3, target: Vec3, max_delta: f32) -> Vec3 {
     let delta = target - current;
     let distance = delta.length();
     if distance <= max_delta || distance <= f32::EPSILON {
@@ -172,7 +174,3 @@ fn try_step_up(
         false
     }
 }
-
-#[cfg(test)]
-#[path = "../../../../tests/unit/game/player/systems/movement.rs"]
-mod stage_seven_tests;

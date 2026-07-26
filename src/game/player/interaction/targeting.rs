@@ -1,9 +1,10 @@
 use crate::content::constant::world::CHUNK_SIZE;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::storage::WorldStorage;
-use bevy::prelude::*;
+use bevy::math::{IVec3, Quat, UVec3, Vec3};
+use bevy::prelude::{Query, Res, ResMut, Resource, Transform, With};
 
-const PLAYER_EYE_HEIGHT: f32 = 0.78;
+pub const PLAYER_EYE_HEIGHT: f32 = 0.78;
 const PLAYER_RAY_FORWARD_OFFSET: f32 = 0.24;
 
 #[derive(Debug)]
@@ -27,8 +28,11 @@ pub struct TargetVoxel {
 pub fn update_raycast_system(
     world_storage: Res<WorldStorage>,
     player_query: Query<
-        (&Transform, &crate::game::player::components::PlayerAim),
-        With<crate::game::player::components::Player>,
+        (
+            &Transform,
+            &crate::game::player::movement::components::PlayerAim,
+        ),
+        With<crate::game::player::identity::Player>,
     >,
     mut target_voxel: ResMut<TargetVoxel>,
 ) {
@@ -42,7 +46,7 @@ pub fn update_raycast_system(
     target_voxel.result = raycast_voxel(&origin, &direction, &world_storage, 0.0);
 }
 
-fn player_interaction_ray(player_transform: &Transform, pitch: f32) -> (Vec3, Vec3) {
+pub fn player_interaction_ray(player_transform: &Transform, pitch: f32) -> (Vec3, Vec3) {
     let player_rotation = player_transform.rotation;
     let horizontal_forward = player_rotation * Vec3::NEG_Z;
     let origin = player_transform.translation
@@ -186,28 +190,3 @@ fn check_voxel(x: i32, y: i32, z: i32, world_storage: &WorldStorage) -> Option<(
 
     None
 }
-/// 绘制方块高亮框系统
-pub fn draw_voxel_highlight_system(
-    time: Res<Time>,
-    target_voxel: Res<TargetVoxel>,
-    mut gizmos: Gizmos,
-) {
-    if let Some(ray_result) = &target_voxel.result {
-        let center = Vec3::new(
-            ray_result.hit_pos.x as f32 + 0.5,
-            ray_result.hit_pos.y as f32 + 0.5,
-            ray_result.hit_pos.z as f32 + 0.5,
-        );
-
-        let pulse = (time.elapsed_secs() * 3.2).sin() * 0.5 + 0.5;
-        let scale = 1.006 + pulse * 0.008;
-        gizmos.cube(
-            Transform::from_translation(center).with_scale(Vec3::splat(scale)),
-            Color::srgba(0.78 + pulse * 0.16, 0.93, 1.0, 0.88),
-        );
-    }
-}
-
-#[cfg(test)]
-#[path = "../../../../tests/unit/game/player/systems/raycast.rs"]
-mod tests;

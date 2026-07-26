@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
-use crate::game::player::components::Player;
 use crate::client::player::model::animation::{
     PlayerAnimationState, PlayerBehaviorState, PlayerLocomotionState,
 };
 use crate::client::player::model::rig::{PlayerRigEntities, held_item_grip_transform};
+use crate::game::player::identity::Player;
 
 /// 将分层动画状态转换成骨架姿态。
 ///

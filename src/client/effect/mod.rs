@@ -1,12 +1,14 @@
 //! 屏幕、镜头与方块交互视觉反馈。
 
+pub mod voxel_highlight;
+
 use bevy::prelude::*;
 
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::game::gameplay::block_action::BlockBreakProgress;
 use crate::game::inventory::events::InventoryFeedbackEvent;
-use crate::game::player::components::LocalPlayer;
 use crate::game::player::events::DamageEvent;
+use crate::game::player::identity::LocalPlayer;
 use crate::shared::components::FpsCamera;
 use crate::shared::states::AppState;
 
@@ -59,8 +61,12 @@ impl Plugin for ClientEffectPlugin {
             .add_systems(
                 PostUpdate,
                 camera_shake_system
-                    .before(bevy::transform::TransformSystems::Propagate)
+                    .before(TransformSystems::Propagate)
                     .run_if(in_state(AppState::InGame)),
+            )
+            .add_systems(
+                Update,
+                (voxel_highlight::draw_voxel_highlight_system).run_if(in_state(AppState::InGame)),
             );
     }
 }

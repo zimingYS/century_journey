@@ -1,7 +1,7 @@
 use crate::game::inventory::container::world::ContainerId;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::slot::SlotAction;
-use crate::game::player::components::PlayerId;
+use crate::game::player::identity::PlayerId;
 use crate::shared::item_id::ItemId;
 use crate::shared::ui_types::SlotKind;
 use bevy::prelude::*;

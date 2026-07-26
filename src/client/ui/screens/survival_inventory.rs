@@ -3,6 +3,7 @@ use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::render_resource::TextureFormat;
 
+use crate::client::player::model::config::PlayerModelConfig;
 use crate::client::renderer::item_model::ItemModelRenderAssets;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::components::{
@@ -30,9 +31,10 @@ use crate::game::inventory::container::survival::SurvivalInventory;
 use crate::game::inventory::equipment::{AccessorySlotDefinitions, EquipmentSlot};
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::{InventoryState, LocalInventory, LocalInventoryMut};
-use crate::game::player::components::LocalPlayer;
-use crate::game::player::components::stats::{Defense, Health, Hunger};
-use crate::client::player::model::config::PlayerModelConfig;
+use crate::game::player::combat::defense::Defense;
+use crate::game::player::identity::LocalPlayer;
+use crate::game::player::survival::health::Health;
+use crate::game::player::survival::hunger::Hunger;
 use crate::shared::item_id::ItemId;
 
 const SURVIVAL_PANEL_WIDTH: f32 = 708.0;

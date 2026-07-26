@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use crate::game::player::action::{PlayerAction, PlayerActionState};
-use crate::game::player::components::{LocalPlayer, PlayerAim};
+use crate::game::player::identity::LocalPlayer;
+use crate::game::player::movement::components::PlayerAim;
 use crate::game::world::time::WorldSimulationClock;
 use bevy::prelude::*;
 

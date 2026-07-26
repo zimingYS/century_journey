@@ -2,7 +2,7 @@ use crate::content::block::event::{BlockBreakEvent, BlockInteractEvent, BlockPla
 use crate::content::block::registry::BlockRegistry;
 use crate::content::block::sound::{BlockSoundEvent, SoundAction};
 use crate::content::constant::world::CHUNK_SIZE;
-use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::item::ItemRegistry;
 use crate::content::loot::block_registry::BlockLootRegistry;
 use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::block::BlockBehaviorRegistry;
@@ -14,8 +14,9 @@ use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::item::stack::ToolDamageResult;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::action::{PlayerAction, PlayerActionState};
-use crate::game::player::components::{LocalPlayer, Player, PlayerCollider, PlayerId};
-use crate::game::player::systems::raycast::TargetVoxel;
+use crate::game::player::identity::{LocalPlayer, Player, PlayerId};
+use crate::game::player::interaction::targeting::TargetVoxel;
+use crate::game::player::physics::components::PlayerCollider;
 use crate::game::simulation::{LOOT_RANDOM_DOMAIN, SimulationRng};
 use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
 use crate::game::world::chunk::{ChunkComponents, ChunkState};
@@ -26,7 +27,11 @@ use crate::game::world::storage::WorldStorage;
 use crate::game::world::systems::break_pipeline::execute_block_break;
 use crate::game::world::time::WorldSimulationClock;
 use bevy::ecs::system::SystemParam;
-use bevy::prelude::*;
+use bevy::math::{IVec3, Vec3};
+use bevy::prelude::{
+    Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, Single, Time, Transform,
+    With,
+};
 
 #[derive(SystemParam)]
 pub struct VoxelEventWriters<'w> {
@@ -290,7 +295,7 @@ pub fn voxel_interaction_system(
 }
 
 /// 创造模式的瞬间破坏只接受按下边沿，避免一次鼠标点击跨帧破坏整列方块。
-fn break_action_active(actions: &PlayerActionState, gamemode: &PlayerGameMode) -> bool {
+pub fn break_action_active(actions: &PlayerActionState, gamemode: &PlayerGameMode) -> bool {
     if gamemode.is_creative() {
         actions.just_pressed(PlayerAction::BreakBlock)
     } else {
@@ -298,7 +303,7 @@ fn break_action_active(actions: &PlayerActionState, gamemode: &PlayerGameMode) -
     }
 }
 
-fn voxel_intersects_player(voxel: IVec3, player_position: Vec3, half_extents: Vec3) -> bool {
+pub fn voxel_intersects_player(voxel: IVec3, player_position: Vec3, half_extents: Vec3) -> bool {
     let block_min = voxel.as_vec3();
     let block_max = block_min + Vec3::ONE;
     let player_min = player_position - half_extents;
@@ -426,7 +431,3 @@ pub fn drop_active_hotbar_action_system(
         });
     }
 }
-
-#[cfg(test)]
-#[path = "../../../../tests/unit/game/player/systems/interaction.rs"]
-mod placement_tests;
