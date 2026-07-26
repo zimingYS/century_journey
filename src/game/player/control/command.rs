@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::game::player::action::{PlayerAction, PlayerActionState};
+use crate::game::player::control::action::{PlayerAction, PlayerActionState};
 use crate::game::player::identity::LocalPlayer;
 use crate::game::player::movement::components::PlayerAim;
 use crate::game::world::time::WorldSimulationClock;
@@ -141,7 +141,3 @@ pub fn reset_player_command_pipeline_system(
     commands.clear();
     actions.clear();
 }
-
-#[cfg(test)]
-#[path = "../../../tests/unit/game/player/command.rs"]
-mod tests;

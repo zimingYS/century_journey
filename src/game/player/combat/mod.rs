@@ -1,3 +1,3 @@
-pub mod armor;
-pub mod defense;
-pub mod rules;
+pub mod attack;
+pub mod events;
+pub mod plugin;

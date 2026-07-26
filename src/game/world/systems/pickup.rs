@@ -2,7 +2,7 @@ use crate::game::inventory::events::InventoryFeedbackEvent;
 use crate::game::inventory::insert;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::identity::Player;
-use crate::game::player::lifecycle::PlayerLifecycle;
+use crate::game::player::lifecycle::components::PlayerLifecycle;
 use crate::game::world::entity::dropped_item::{DroppedItem, despawn_dropped_item};
 use bevy::prelude::*;
 

@@ -1,5 +1,5 @@
 use crate::shared::item_id::ItemId;
-use bevy::prelude::*;
+use bevy::prelude::{Entity, Message};
 
 /// 受伤事件
 #[derive(Message, Debug, Clone)]
@@ -21,27 +21,6 @@ pub struct HealEvent {
 pub struct FoodConsumedEvent {
     pub player: Entity,
     pub item: ItemId,
-}
-
-/// 死亡事件
-#[derive(Message, Debug, Clone)]
-pub struct DeathEvent {
-    pub entity: Entity,
-    pub source: DamageSource,
-}
-
-/// 实体攻击请求，由战斗规则统一转换为伤害。
-#[derive(Message, Debug, Clone, Copy)]
-pub struct AttackEvent {
-    pub attacker: Entity,
-    pub target: Entity,
-    pub amount: f32,
-}
-
-/// 玩家在死亡界面确认重生。
-#[derive(Message, Debug, Clone, Copy)]
-pub struct RespawnRequest {
-    pub entity: Entity,
 }
 
 /// 受到伤害的来源

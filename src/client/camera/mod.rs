@@ -1,5 +1,5 @@
 use crate::client::input::ClientActionState;
-use crate::game::player::action::PlayerAction;
+use crate::game::player::control::action::PlayerAction;
 use crate::game::player::identity::Player;
 use crate::shared::states::{InputContextState, InputSet};
 use bevy::audio::SpatialListener;

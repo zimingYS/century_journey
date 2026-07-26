@@ -8,8 +8,8 @@ use crate::game::inventory::events::{
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::slot::SlotAction;
 use crate::game::inventory::state::InventoryState;
-use crate::game::player::action::{PlayerAction, PlayerActionState};
-use crate::game::player::command::apply_player_command_system;
+use crate::game::player::control::action::{PlayerAction, PlayerActionState};
+use crate::game::player::control::command::apply_player_command_system;
 use crate::game::player::identity::{LocalPlayer, PlayerId};
 use crate::game::simulation::SimulationSet;
 use crate::shared::states::AppState;

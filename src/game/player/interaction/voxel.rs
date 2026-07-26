@@ -13,7 +13,7 @@ use crate::game::gameplay::block_action::{
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::item::stack::ToolDamageResult;
 use crate::game::inventory::state::InventoryState;
-use crate::game::player::action::{PlayerAction, PlayerActionState};
+use crate::game::player::control::action::{PlayerAction, PlayerActionState};
 use crate::game::player::identity::{LocalPlayer, Player, PlayerId};
 use crate::game::player::interaction::targeting::TargetVoxel;
 use crate::game::player::physics::components::PlayerCollider;

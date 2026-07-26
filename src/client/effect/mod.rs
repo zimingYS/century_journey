@@ -7,8 +7,8 @@ use bevy::prelude::*;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::game::gameplay::block_action::BlockBreakProgress;
 use crate::game::inventory::events::InventoryFeedbackEvent;
-use crate::game::player::events::DamageEvent;
 use crate::game::player::identity::LocalPlayer;
+use crate::game::player::survival::events::DamageEvent;
 use crate::shared::components::FpsCamera;
 use crate::shared::states::AppState;
 

@@ -1,7 +1,7 @@
 use crate::content::block::registry::BlockRegistry;
-use crate::game::player::events::{DamageEvent, DamageSource};
 use crate::game::player::identity::Player;
-use crate::game::player::lifecycle::PlayerLifecycle;
+use crate::game::player::lifecycle::components::PlayerLifecycle;
+use crate::game::player::survival::events::{DamageEvent, DamageSource};
 use crate::game::world::block_ops::get_voxel_at_world;
 use crate::game::world::storage::WorldStorage;
 use bevy::math::Vec3;

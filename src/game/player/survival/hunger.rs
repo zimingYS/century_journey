@@ -2,10 +2,12 @@ use crate::content::item::registry::registry::ItemRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::state::InventoryState;
-use crate::game::player::action::{PlayerAction, PlayerActionState};
-use crate::game::player::events::{DamageEvent, DamageSource, FoodConsumedEvent, HealEvent};
+use crate::game::player::control::action::{PlayerAction, PlayerActionState};
 use crate::game::player::identity::Player;
-use crate::game::player::lifecycle::PlayerLifecycle;
+use crate::game::player::lifecycle::components::PlayerLifecycle;
+use crate::game::player::survival::events::{
+    DamageEvent, DamageSource, FoodConsumedEvent, HealEvent,
+};
 use crate::game::player::survival::health::Health;
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;

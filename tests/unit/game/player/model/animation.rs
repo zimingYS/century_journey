@@ -1,5 +1,5 @@
 use super::*;
-use crate::game::player::action::PlayerActionState;
+use crate::game::player::control::action::PlayerActionState;
 use crate::game::player::physics::components::PlayerGravity;
 
 #[test]

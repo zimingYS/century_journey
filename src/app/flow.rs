@@ -18,7 +18,7 @@ use crate::content::validation::ContentCompilation;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::LocalInventory;
 use crate::game::player::identity::Player;
-use crate::game::player::lifecycle::RespawnPoint;
+use crate::game::player::lifecycle::components::RespawnPoint;
 use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::Hunger;
 use crate::game::world::chunk::ChunkComponents;

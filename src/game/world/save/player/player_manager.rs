@@ -4,7 +4,7 @@ use crate::content::item::registry::registry::ItemRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::{InventoryState, LocalInventory, LocalInventoryMut};
 use crate::game::player::identity::{LocalPlayer, Player};
-use crate::game::player::lifecycle::{PlayerLifecycle, RespawnPoint};
+use crate::game::player::lifecycle::components::{PlayerLifecycle, RespawnPoint};
 use crate::game::player::movement::components::PlayerVelocity;
 use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::Hunger;

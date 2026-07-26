@@ -1,13 +1,13 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::game::constant::{GRAVITY, MAX_FALL_SPEED};
 use crate::game::gameplay::gamemode::PlayerGameMode;
-use crate::game::player::events::{DamageEvent, DamageSource};
 use crate::game::player::identity::Player;
-use crate::game::player::lifecycle::PlayerLifecycle;
+use crate::game::player::lifecycle::components::PlayerLifecycle;
 use crate::game::player::physics::collision::{
     check_collision_at, find_safe_position, is_grounded_at,
 };
 use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
+use crate::game::player::survival::events::{DamageEvent, DamageSource};
 use crate::game::world::storage::WorldStorage;
 use bevy::math::Vec3;
 use bevy::prelude::{Entity, MessageWriter, Query, Res, Time, Transform, With};

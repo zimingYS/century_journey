@@ -1,3 +1,4 @@
+use crate::game::player::control::command::PlayerCommand;
 use bevy::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -131,14 +132,10 @@ impl PlayerActionState {
         self.cancelled
     }
 
-    pub(crate) fn apply_command(&mut self, command: &super::command::PlayerCommand) {
+    pub(crate) fn apply_command(&mut self, command: &PlayerCommand) {
         self.active = command.active;
         self.pressed = command.pressed;
         self.released = command.released;
         self.cancelled = command.cancelled;
     }
 }
-
-#[cfg(test)]
-#[path = "../../../tests/unit/game/player/action.rs"]
-mod tests;

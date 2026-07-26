@@ -10,8 +10,8 @@ use crate::content::item::model::ItemModelRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::state::LocalInventory;
-use crate::game::player::events::FoodConsumedEvent;
 use crate::game::player::identity::LocalPlayer;
+use crate::game::player::survival::events::FoodConsumedEvent;
 use crate::shared::identifier::Identifier;
 use crate::shared::item_id::ItemId;
 

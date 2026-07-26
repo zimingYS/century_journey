@@ -1,8 +1,8 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::game::constant::STEP_HEIGHT;
-use crate::game::player::action::{PlayerAction, PlayerActionState};
+use crate::game::player::control::action::{PlayerAction, PlayerActionState};
 use crate::game::player::identity::Player;
-use crate::game::player::lifecycle::PlayerLifecycle;
+use crate::game::player::lifecycle::components::PlayerLifecycle;
 use crate::game::player::movement::components::{PlayerMovement, PlayerVelocity};
 use crate::game::player::physics::collision::check_collision_at;
 use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};

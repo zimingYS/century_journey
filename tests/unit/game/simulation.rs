@@ -2,18 +2,20 @@ use super::*;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::item::stack::ItemStack;
-use crate::game::player::action::{PlayerAction, PlayerActionState};
-use crate::game::player::combat::defense::Defense;
-use crate::game::player::command::{
+use crate::game::player::combat::events::AttackEvent;
+use crate::game::player::control::action::{PlayerAction, PlayerActionState};
+use crate::game::player::control::command::{
     PlayerCommand, PlayerCommandBuffer, apply_player_command_system,
 };
-use crate::game::player::events::{AttackEvent, DamageEvent, DeathEvent};
+use crate::game::player::events::DeathEvent;
 use crate::game::player::identity::{LocalPlayer, Player};
 use crate::game::player::lifecycle::PlayerLifecycle;
 use crate::game::player::movement::components::{PlayerAim, PlayerMovement, PlayerVelocity};
 use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
+use crate::game::player::survival::events::DamageEvent;
 use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::Hunger;
+use crate::game::player::survival::protection::Defense;
 use crate::game::world::entity::dropped_item::{DroppedItem, DroppedItemVelocity};
 use crate::game::world::storage::WorldStorage;
 use crate::game::world::time::{
@@ -132,9 +134,9 @@ fn simulate_at_render_rate(fps: u32) -> u64 {
         .add_systems(
             FixedUpdate,
             (
-                crate::game::player::combat::rules::melee_attack_input_system,
-                crate::game::player::combat::rules::attack_damage_system,
-                crate::game::player::combat::rules::damage_system,
+                crate::game::player::combat::attack::melee_attack_input_system,
+                crate::game::player::combat::attack::attack_damage_system,
+                crate::game::player::survival::health::damage_system,
             )
                 .chain()
                 .in_set(SimulationSet::Combat),

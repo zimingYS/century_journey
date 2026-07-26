@@ -1,8 +1,8 @@
 use crate::client::ui::resources::ui_font::UiFont;
-use crate::game::player::combat::rules::LastDeathInfo;
-use crate::game::player::events::RespawnRequest;
 use crate::game::player::identity::Player;
-use crate::game::player::lifecycle::{PlayerLifeState, PlayerLifecycle};
+use crate::game::player::lifecycle::components::{PlayerLifeState, PlayerLifecycle};
+use crate::game::player::lifecycle::events::RespawnRequest;
+use crate::game::player::lifecycle::rules::LastDeathInfo;
 use bevy::prelude::*;
 
 #[derive(Component)]

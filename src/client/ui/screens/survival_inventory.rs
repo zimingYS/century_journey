@@ -31,10 +31,10 @@ use crate::game::inventory::container::survival::SurvivalInventory;
 use crate::game::inventory::equipment::{AccessorySlotDefinitions, EquipmentSlot};
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::{InventoryState, LocalInventory, LocalInventoryMut};
-use crate::game::player::combat::defense::Defense;
 use crate::game::player::identity::LocalPlayer;
 use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::Hunger;
+use crate::game::player::survival::protection::Defense;
 use crate::shared::item_id::ItemId;
 
 const SURVIVAL_PANEL_WIDTH: f32 = 708.0;

@@ -1,26 +1,20 @@
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
-use crate::game::player::action::{PlayerAction, PlayerActionState};
-use crate::game::player::combat::defense::Defense;
-use crate::game::player::events::{
-    AttackEvent, DamageEvent, DamageSource, DeathEvent, HealEvent, RespawnRequest,
-};
-use crate::game::player::identity::{LocalPlayer, Player};
-use crate::game::player::lifecycle::{PlayerLifeState, PlayerLifecycle, RespawnPoint};
+use crate::game::player::identity::Player;
+use crate::game::player::lifecycle::components::{PlayerLifeState, PlayerLifecycle, RespawnPoint};
+use crate::game::player::lifecycle::events::{DeathEvent, RespawnRequest};
 use crate::game::player::movement::components::PlayerVelocity;
 use crate::game::player::physics::components::PlayerGravity;
 use crate::game::player::survival::environment::EnvironmentExposure;
+use crate::game::player::survival::events::DamageSource;
 use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::{FoodUseState, Hunger};
 use crate::game::world::entity::dropped_item::{
     DroppedItemVelocity, spawn_dropped_item_with_velocity,
 };
 use bevy::math::Vec3;
-use bevy::prelude::{
-    Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, Resource, Time, Transform,
-    With,
-};
+use bevy::prelude::{Commands, MessageReader, Query, Res, ResMut, Resource, Time, Transform, With};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum DeathDropRule {
@@ -39,108 +33,6 @@ pub struct LastDeathInfo {
     pub source: Option<DamageSource>,
     pub position: Vec3,
     pub dropped_stacks: usize,
-}
-
-/// 将本地攻击输入转换为对准范围内玩家实体的攻击请求。
-pub fn melee_attack_input_system(
-    actions: Res<PlayerActionState>,
-    attacker_query: Query<
-        (Entity, &Transform, &PlayerLifecycle),
-        (With<Player>, With<LocalPlayer>),
-    >,
-    target_query: Query<(Entity, &Transform, &PlayerLifecycle), With<Player>>,
-    mut writer: MessageWriter<AttackEvent>,
-) {
-    if !actions.just_pressed(PlayerAction::Attack) {
-        return;
-    }
-    let Ok((attacker, attacker_transform, lifecycle)) = attacker_query.single() else {
-        return;
-    };
-    if !lifecycle.is_alive() {
-        return;
-    }
-
-    let forward = attacker_transform.forward().as_vec3();
-    let mut closest = None;
-    for (target, target_transform, lifecycle) in &target_query {
-        if target == attacker || !lifecycle.is_alive() {
-            continue;
-        }
-        let offset = target_transform.translation - attacker_transform.translation;
-        let distance = offset.length();
-        if distance > 3.0 || distance <= f32::EPSILON {
-            continue;
-        }
-        if forward.dot(offset / distance) < 0.65 {
-            continue;
-        }
-        if closest.is_none_or(|(_, best_distance)| distance < best_distance) {
-            closest = Some((target, distance));
-        }
-    }
-    if let Some((target, _)) = closest {
-        writer.write(AttackEvent {
-            attacker,
-            target,
-            amount: 2.0,
-        });
-    }
-}
-
-pub fn attack_damage_system(
-    mut reader: MessageReader<AttackEvent>,
-    mut writer: MessageWriter<DamageEvent>,
-) {
-    for attack in reader.read() {
-        if attack.attacker == attack.target || attack.amount <= 0.0 {
-            continue;
-        }
-        writer.write(DamageEvent {
-            target: attack.target,
-            amount: attack.amount,
-            source: DamageSource::Entity(attack.attacker),
-        });
-    }
-}
-
-/// 伤害处理；同一次死亡只产生一个死亡事件。
-pub fn damage_system(
-    mut reader: MessageReader<DamageEvent>,
-    mut query: Query<(&mut Health, Option<&Defense>, &mut PlayerLifecycle), With<Player>>,
-    mut death_writer: MessageWriter<DeathEvent>,
-) {
-    for event in reader.read() {
-        let Ok((mut health, defense_opt, mut lifecycle)) = query.get_mut(event.target) else {
-            continue;
-        };
-        if !lifecycle.is_alive() || !event.amount.is_finite() || event.amount <= 0.0 {
-            continue;
-        }
-        let reduction = defense_opt.map_or(0.0, Defense::damage_reduction);
-        health.apply_damage(event.amount * (1.0 - reduction));
-        if health.is_dead() {
-            lifecycle.state = PlayerLifeState::Dead;
-            death_writer.write(DeathEvent {
-                entity: event.target,
-                source: event.source,
-            });
-        }
-    }
-}
-
-/// 治疗处理
-pub fn heal_system(
-    mut reader: MessageReader<HealEvent>,
-    mut query: Query<(&mut Health, &PlayerLifecycle), With<Player>>,
-) {
-    for event in reader.read() {
-        if let Ok((mut health, lifecycle)) = query.get_mut(event.target)
-            && lifecycle.is_alive()
-        {
-            health.apply_heal(event.amount);
-        }
-    }
 }
 
 /// 进入 Dead 状态，按规则生成死亡掉落并等待玩家确认重生。
