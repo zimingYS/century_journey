@@ -1,10 +1,36 @@
 use crate::content::biome::registry::BiomeRegistry;
 use crate::content::constant::world::CHUNK_SIZE;
+use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::context::ChunkGenContext;
 use crate::game::world::generation::noise::GenerationBlockIds;
-use crate::game::world::storage::{PendingVoxel, WorldStorage};
+use crate::game::world::pending_writes::{PendingVoxel, PendingVoxelWrites};
 use bevy::prelude::*;
+use std::collections::HashMap;
 use std::sync::Arc;
+
+/// 结构生成任务的局部输入与延迟写入结果。
+pub struct StructureGenerationWorkspace {
+    loaded_chunks: HashMap<IVec3, Arc<ChunkData>>,
+    pending_writes: PendingVoxelWrites,
+}
+
+impl StructureGenerationWorkspace {
+    pub fn new(loaded_chunks: HashMap<IVec3, Arc<ChunkData>>) -> Self {
+        Self {
+            loaded_chunks,
+            pending_writes: PendingVoxelWrites::default(),
+        }
+    }
+
+    pub fn into_parts(
+        self,
+    ) -> (
+        HashMap<IVec3, Arc<ChunkData>>,
+        HashMap<IVec3, Vec<PendingVoxel>>,
+    ) {
+        (self.loaded_chunks, self.pending_writes.writes)
+    }
+}
 
 /// 结构生成器 — 在地形生成后放置树木、矿脉等
 pub struct StructureGenerator;
@@ -17,7 +43,7 @@ impl StructureGenerator {
         block_ids: &GenerationBlockIds,
         biome_registry: &BiomeRegistry,
         seed: u32,
-        world_storage: &mut WorldStorage,
+        workspace: &mut StructureGenerationWorkspace,
     ) {
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
@@ -40,7 +66,7 @@ impl StructureGenerator {
 
                 // 必须已经存在区块数据
                 let Some(surface_id) =
-                    Self::get_world_voxel(base_world_x, base_world_y, base_world_z, world_storage)
+                    Self::get_world_voxel(base_world_x, base_world_y, base_world_z, workspace)
                 else {
                     continue;
                 };
@@ -56,7 +82,7 @@ impl StructureGenerator {
                     base_world_y,
                     base_world_z,
                     block_ids,
-                    world_storage,
+                    workspace,
                 );
             }
         }
@@ -69,7 +95,7 @@ impl StructureGenerator {
         base_world_y: i32,
         base_world_z: i32,
         block_ids: &GenerationBlockIds,
-        world_storage: &mut WorldStorage,
+        workspace: &mut StructureGenerationWorkspace,
     ) {
         let hash = simple_hash(base_world_x, base_world_z, 114514);
         let trunk_height = 4 + (hash % 3) as i32;
@@ -85,7 +111,7 @@ impl StructureGenerator {
                 wy,
                 base_world_z,
                 block_ids.wood,
-                world_storage,
+                workspace,
             );
         }
 
@@ -99,7 +125,7 @@ impl StructureGenerator {
                     let wx = base_world_x + dx;
                     let wy = crown_center_y + dy;
                     let wz = base_world_z + dz;
-                    set_voxel_world_aware(chunk_pos, wx, wy, wz, block_ids.leaves, world_storage);
+                    set_voxel_world_aware(chunk_pos, wx, wy, wz, block_ids.leaves, workspace);
                 }
             }
         }
@@ -109,7 +135,7 @@ impl StructureGenerator {
         world_x: i32,
         world_y: i32,
         world_z: i32,
-        world_storage: &WorldStorage,
+        workspace: &StructureGenerationWorkspace,
     ) -> Option<u16> {
         let chunk_pos = IVec3::new(
             world_x.div_euclid(CHUNK_SIZE as i32),
@@ -121,7 +147,7 @@ impl StructureGenerator {
         let local_y = world_y.rem_euclid(CHUNK_SIZE as i32) as usize;
         let local_z = world_z.rem_euclid(CHUNK_SIZE as i32) as usize;
 
-        world_storage
+        workspace
             .loaded_chunks
             .get(&chunk_pos)
             .map(|chunk| chunk.get_voxel(local_x, local_y, local_z))
@@ -145,7 +171,7 @@ pub fn set_voxel_world_aware(
     world_y: i32,
     world_z: i32,
     block_id: u16,
-    world_storage: &mut WorldStorage,
+    workspace: &mut StructureGenerationWorkspace,
 ) {
     // 计算目标区块坐标
     let target_chunk = IVec3::new(
@@ -160,7 +186,7 @@ pub fn set_voxel_world_aware(
 
     if target_chunk == base_chunk_pos {
         // 当前区块直接写入
-        if let Some(arc) = world_storage.loaded_chunks.get_mut(&target_chunk) {
+        if let Some(arc) = workspace.loaded_chunks.get_mut(&target_chunk) {
             let chunk_data = Arc::make_mut(arc);
             if chunk_data.get_voxel(local_x, local_y, local_z) == 0 {
                 chunk_data.set_voxel(local_x, local_y, local_z, block_id);
@@ -168,14 +194,14 @@ pub fn set_voxel_world_aware(
         }
     } else {
         // 跨区块写入
-        if let Some(arc) = world_storage.loaded_chunks.get_mut(&target_chunk) {
+        if let Some(arc) = workspace.loaded_chunks.get_mut(&target_chunk) {
             let neighbor = Arc::make_mut(arc);
             if neighbor.get_voxel(local_x, local_y, local_z) == 0 {
                 neighbor.set_voxel(local_x, local_y, local_z, block_id);
             }
         } else {
             // 目标区块未加载，加入延迟写入队列
-            world_storage
+            workspace
                 .pending_writes
                 .writes
                 .entry(target_chunk)

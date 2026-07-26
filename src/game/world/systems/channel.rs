@@ -1,7 +1,7 @@
 use super::streaming::WorldStreamingConfig;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::context::ChunkGenContext;
-use crate::game::world::storage::PendingVoxel;
+use crate::game::world::pending_writes::PendingVoxel;
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicUsize;

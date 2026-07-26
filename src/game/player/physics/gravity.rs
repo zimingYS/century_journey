@@ -8,7 +8,7 @@ use crate::game::player::physics::collision::{
 };
 use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
 use crate::game::player::survival::events::{DamageEvent, DamageSource};
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::WorldState;
 use bevy::math::Vec3;
 use bevy::prelude::{Entity, MessageWriter, Query, Res, Time, Transform, With};
 
@@ -17,7 +17,7 @@ pub fn player_gravity_system(
     time: Res<Time>,
     registry: Option<Res<BlockRegistry>>,
     gamemode: Res<PlayerGameMode>,
-    world_storage: Res<WorldStorage>,
+    world_state: Res<WorldState>,
     mut query: Query<
         (
             Entity,
@@ -43,8 +43,8 @@ pub fn player_gravity_system(
         let pos = transform.translation;
 
         // 卡在方块时自动寻找安全位置
-        if check_collision_at(pos, half, &world_storage, &reg) {
-            if let Some(safe_pos) = find_safe_position(pos, half, &world_storage, &reg) {
+        if check_collision_at(pos, half, &world_state, &reg) {
+            if let Some(safe_pos) = find_safe_position(pos, half, &world_state, &reg) {
                 transform.translation = safe_pos;
                 gravity.velocity_y = 0.0;
                 gravity.is_grounded = true;
@@ -56,7 +56,7 @@ pub fn player_gravity_system(
         // 着地且没跳则只检查是否还在地面
         if gravity.is_grounded && gravity.velocity_y <= 0.0 {
             gravity.velocity_y = 0.0;
-            if is_grounded_at(pos, half, &world_storage, &reg) {
+            if is_grounded_at(pos, half, &world_state, &reg) {
                 // 还在地面，保持状态
                 gravity.fall_distance = 0.0;
                 continue;
@@ -79,7 +79,7 @@ pub fn player_gravity_system(
         let new_pos = Vec3::new(pos.x, pos.y + move_y, pos.z);
 
         // 先检测再移动
-        if !check_collision_at(new_pos, half, &world_storage, &reg) {
+        if !check_collision_at(new_pos, half, &world_state, &reg) {
             transform.translation.y = new_pos.y;
             gravity.is_grounded = false;
         } else {

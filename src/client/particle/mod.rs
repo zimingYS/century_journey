@@ -13,7 +13,7 @@ use crate::game::player::combat::events::AttackEvent;
 use crate::game::player::identity::Player;
 use crate::game::player::interaction::targeting::TargetVoxel;
 use crate::game::world::block_ops::get_voxel_at_world;
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::WorldState;
 use crate::shared::states::AppState;
 
 #[derive(Debug, Clone, Copy)]
@@ -149,7 +149,7 @@ fn spawn_action_particles_system(
     mut reader: MessageReader<AnimationMarkerEvent>,
     mut attack_reader: MessageReader<AttackEvent>,
     target: Res<TargetVoxel>,
-    world: Res<WorldStorage>,
+    mut world_state: ResMut<WorldState>,
     registry: Option<Res<BlockRegistry>>,
     player_query: Query<&GlobalTransform, With<Player>>,
     visuals: Res<ParticleVisuals>,
@@ -180,7 +180,7 @@ fn spawn_action_particles_system(
                 let Some(hit) = target.result.as_ref() else {
                     continue;
                 };
-                let block_id = get_voxel_at_world(hit.hit_pos, &world);
+                let block_id = get_voxel_at_world(hit.hit_pos, &mut world_state);
                 let kind = registry
                     .as_deref()
                     .and_then(|registry| registry.get(block_id))

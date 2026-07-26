@@ -1,19 +1,18 @@
+use super::{
+    BlockInfoSnapshot, CachedBlockInfo, DIRECTIONS, MeshBuildChannel, MeshBuildInput,
+    build_greedy_mesh,
+};
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::constant::world::*;
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::{ChunkRuntime, WorldState};
 use crate::game::world::systems::{PlayerChunkCache, WorldStreamingConfig};
 use bevy::prelude::*;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
-
-use super::{
-    BlockInfoSnapshot, CachedBlockInfo, DIRECTIONS, MeshBuildChannel, MeshBuildInput,
-    build_greedy_mesh,
-};
 
 pub fn rebuild_block_info_snapshot(
     registry: Res<BlockRegistry>,
@@ -27,12 +26,13 @@ pub fn rebuild_block_info_snapshot(
 pub fn spawn_mesh_build_tasks(
     channel: Res<MeshBuildChannel>,
     registry: Option<Res<BlockRegistry>>,
-    world_storage: Res<WorldStorage>,
+    world_state: Res<WorldState>,
     cached_block_info: Res<CachedBlockInfo>,
     task: Res<TaskManager>,
     player_cache: Res<PlayerChunkCache>,
     streaming_config: Res<WorldStreamingConfig>,
     mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
+    chunk_runtime: Res<ChunkRuntime>,
 ) {
     if registry.is_none() {
         return;
@@ -54,7 +54,7 @@ pub fn spawn_mesh_build_tasks(
         if !streaming_config.should_mesh_chunk(player_chunk_pos, current_chunk_pos) {
             continue;
         }
-        let Some(&chunk_entity) = world_storage.chunk_entities.get(&current_chunk_pos) else {
+        let Some(&chunk_entity) = chunk_runtime.chunk_entities.get(&current_chunk_pos) else {
             continue;
         };
         let Ok((chunk_components, mut state)) = chunk_query.get_mut(chunk_entity) else {
@@ -65,7 +65,7 @@ pub fn spawn_mesh_build_tasks(
         }
 
         let neighbors_ready = DIRECTIONS.iter().all(|(dir, _)| {
-            world_storage
+            world_state
                 .loaded_chunks
                 .contains_key(&(current_chunk_pos + *dir))
         });
@@ -73,13 +73,13 @@ pub fn spawn_mesh_build_tasks(
             continue;
         }
 
-        let Some(current_chunk_data) = world_storage.loaded_chunks.get(&current_chunk_pos) else {
+        let Some(current_chunk_data) = world_state.loaded_chunks.get(&current_chunk_pos) else {
             continue;
         };
 
         let current_data = Arc::clone(current_chunk_data);
         let neighbors: [Option<Arc<ChunkData>>; 6] = DIRECTIONS.map(|(dir, _)| {
-            world_storage
+            world_state
                 .loaded_chunks
                 .get(&(current_chunk_pos + dir))
                 .map(Arc::clone)
@@ -113,8 +113,8 @@ pub fn receive_mesh_results(
     mut meshes: ResMut<Assets<Mesh>>,
     channel: Res<MeshBuildChannel>,
     render_assets: Option<Res<BlockRenderAssets>>,
-    world_storage: Res<WorldStorage>,
     mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
+    chunk_runtime: Res<ChunkRuntime>,
 ) {
     let Some(render_assets) = render_assets else {
         return;
@@ -138,7 +138,7 @@ pub fn receive_mesh_results(
         channel.in_flight.fetch_sub(1, Ordering::Relaxed);
         received += 1;
 
-        let Some(&chunk_entity) = world_storage.chunk_entities.get(&result.chunk_pos) else {
+        let Some(&chunk_entity) = chunk_runtime.chunk_entities.get(&result.chunk_pos) else {
             continue;
         };
         let Ok((_components, mut state)) = chunk_query.get_mut(chunk_entity) else {

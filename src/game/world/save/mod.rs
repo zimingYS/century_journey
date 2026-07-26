@@ -13,7 +13,7 @@ use crate::game::world::save::player::PlayerSaveManager;
 use crate::game::world::save::system::{
     AutoSaveTimer, CachedBlockIdRemap, LoadQueue, SaveConfig, SaveQueue, SaveWorker,
 };
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::WorldState;
 use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 
@@ -72,7 +72,7 @@ impl Plugin for SaveLoadPlugin {
 pub fn save_load_keybind_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     context: Res<crate::shared::states::InputContextState>,
-    world_storage: Res<WorldStorage>,
+    world_state: Res<WorldState>,
     block_registry: Res<BlockRegistry>,
     save_config: Res<SaveConfig>,
     simulation_clock: Res<crate::game::world::time::WorldSimulationClock>,
@@ -98,7 +98,7 @@ pub fn save_load_keybind_system(
             .unwrap_or(Vec3::ZERO);
         if let Err(e) = system::save_entire_world(
             &save_config.world_name,
-            &world_storage,
+            &world_state,
             &block_registry,
             world_generator.seed as u64,
             world_generator.generation_version,

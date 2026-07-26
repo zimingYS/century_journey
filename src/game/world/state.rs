@@ -5,7 +5,7 @@
 
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::context::ChunkGenContext;
-use crate::game::world::storage::{PendingVoxelWrites, WorldStorage};
+use crate::game::world::pending_writes::PendingVoxelWrites;
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -16,24 +16,6 @@ pub struct WorldState {
     pub chunk_modified_times: HashMap<IVec3, f64>,
     pub pending_writes: PendingVoxelWrites,
     pub block_entities: HashMap<IVec3, Entity>,
-}
-
-impl WorldState {
-    pub fn from_legacy(storage: WorldStorage) -> (Self, ChunkRuntime) {
-        (
-            Self {
-                loaded_chunks: storage.loaded_chunks,
-                chunk_modified_times: storage.chunk_modified_times,
-                pending_writes: storage.pending_writes,
-                block_entities: HashMap::new(),
-            },
-            ChunkRuntime {
-                chunk_entities: storage.chunk_entities,
-                gen_contexts: storage.gen_contexts,
-                ..default()
-            },
-        )
-    }
 }
 
 #[derive(Resource, Debug, Default)]
@@ -53,7 +35,6 @@ impl Plugin for HeadlessWorldPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WorldState>()
             .init_resource::<ChunkRuntime>()
-            .init_resource::<WorldStorage>()
             .init_resource::<crate::game::block::BlockBehaviorRegistry>()
             .insert_resource(Time::<Fixed>::from_hz(
                 crate::game::world::time::SIMULATION_TICKS_PER_SECOND as f64,

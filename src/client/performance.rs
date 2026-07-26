@@ -15,7 +15,7 @@ use crate::content::block::registry::BlockRegistry;
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
 use crate::game::world::chunk::ChunkState;
 use crate::game::world::save::level;
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::WorldState;
 use crate::game::world::systems::{
     PlayerChunkCache, StructureGenChannel, TerrainGenChannel, WorldStreamingConfig,
 };
@@ -138,7 +138,7 @@ struct PerformanceRuntimeParams<'w, 's> {
     mesh_channel: Res<'w, MeshBuildChannel>,
     diagnostics: Res<'w, DiagnosticsStore>,
     player_cache: Res<'w, PlayerChunkCache>,
-    world_storage: Res<'w, WorldStorage>,
+    world_state: Res<'w, WorldState>,
     chunk_states: Query<'w, 's, &'static ChunkState>,
     window_query: Query<'w, 's, &'static mut Window, With<PrimaryWindow>>,
     app_exit: MessageWriter<'w, AppExit>,
@@ -244,7 +244,7 @@ fn fixed_performance_scenario_system(
         },
         chunks: ChunkSummary {
             expected: params.player_cache.expected_chunks.len(),
-            loaded: params.world_storage.loaded_chunks.len(),
+            loaded: params.world_state.loaded_chunks.len(),
             rendered: params
                 .chunk_states
                 .iter()

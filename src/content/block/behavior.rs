@@ -4,7 +4,7 @@ use bevy::prelude::*;
 /// 定义方块对各种事件的响应。
 ///
 /// 泛型参数 `W` 是 World 访问器类型，
-/// 由 Game 层在实现时提供具体类型（如 `WorldStorage`），
+/// 由 Game 层在实现时提供具体类型（如 `WorldState`），
 /// 从而避免 Content 层直接依赖 Game 层类型。
 pub trait BlockBehavior<W>: Send + Sync + 'static {
     /// 方块被破坏

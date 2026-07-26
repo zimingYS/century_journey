@@ -1,6 +1,6 @@
 use crate::content::constant::world::CHUNK_SIZE;
 use crate::game::world::chunk::ChunkData;
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::WorldState;
 use bevy::math::{IVec3, Quat, UVec3, Vec3};
 use bevy::prelude::{Query, Res, ResMut, Resource, Transform, With};
 
@@ -26,7 +26,7 @@ pub struct TargetVoxel {
 }
 
 pub fn update_raycast_system(
-    world_storage: Res<WorldStorage>,
+    world_state: Res<WorldState>,
     player_query: Query<
         (
             &Transform,
@@ -43,7 +43,7 @@ pub fn update_raycast_system(
 
     let (origin, direction) = player_interaction_ray(player_transform, aim.pitch);
 
-    target_voxel.result = raycast_voxel(&origin, &direction, &world_storage, 0.0);
+    target_voxel.result = raycast_voxel(&origin, &direction, &world_state, 0.0);
 }
 
 pub fn player_interaction_ray(player_transform: &Transform, pitch: f32) -> (Vec3, Vec3) {
@@ -59,7 +59,7 @@ pub fn player_interaction_ray(player_transform: &Transform, pitch: f32) -> (Vec3
 pub fn raycast_voxel(
     origin: &Vec3,    // 射线起点
     direction: &Vec3, // 射线方向
-    world_storage: &WorldStorage,
+    world_state: &WorldState,
     start_offset: f32, // 起点偏移量
 ) -> Option<RaycastResult> {
     // 最大射线距离
@@ -107,7 +107,7 @@ pub fn raycast_voxel(
     let mut last_normal = IVec3::ZERO;
 
     while distance < max_distance {
-        if let Some((chunk_pos, local_pos)) = check_voxel(x, y, z, world_storage) {
+        if let Some((chunk_pos, local_pos)) = check_voxel(x, y, z, world_state) {
             return Some(RaycastResult {
                 hit_pos: IVec3::new(x, y, z),
                 normal: last_normal,
@@ -163,7 +163,7 @@ fn is_valid_height(y: i32) -> bool {
 }
 
 // 检查方块
-fn check_voxel(x: i32, y: i32, z: i32, world_storage: &WorldStorage) -> Option<(IVec3, UVec3)> {
+fn check_voxel(x: i32, y: i32, z: i32, world_storage: &WorldState) -> Option<(IVec3, UVec3)> {
     // 换算出该绝对坐标所对应的区块世界坐标
     let chunk_pos = IVec3::new(
         x.div_euclid(CHUNK_SIZE as i32),
