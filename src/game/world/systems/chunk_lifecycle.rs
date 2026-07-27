@@ -238,7 +238,7 @@ pub fn receive_terrain_results(
         apply_pending_writes(chunk_pos, &mut chunk_data, &mut world_state);
         world_state.insert_chunk(chunk_pos, Arc::from(chunk_data));
         if !gen_ctx.columns.is_empty() {
-            chunk_runtime.gen_contexts.insert(chunk_pos, gen_ctx);
+            chunk_runtime.cache_generation_context(chunk_pos, gen_ctx);
         }
 
         *chunk_state = ChunkState::TerrainReady;
@@ -278,8 +278,7 @@ pub fn generate_structures_system(
         };
 
         let ctx = chunk_runtime
-            .gen_contexts
-            .get(&chunk_pos)
+            .generation_context(chunk_pos)
             .cloned()
             .unwrap_or_else(|| world_generator.pipeline.sample_context(chunk_pos));
 
@@ -385,7 +384,7 @@ pub fn receive_structure_results(
             world_state.queue_pending_writes(pos, writes);
         }
 
-        chunk_runtime.gen_contexts.remove(&result.chunk_pos);
+        chunk_runtime.remove_chunk_entity(result.chunk_pos);
 
         if let Some(entity) = chunk_runtime.chunk_entity(result.chunk_pos)
             && let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity)
