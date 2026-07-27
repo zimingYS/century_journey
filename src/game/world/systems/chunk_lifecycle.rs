@@ -108,16 +108,12 @@ pub fn manage_chunks_system(
             save_queue.enqueue(SavedChunk {
                 position: pos,
                 data: chunk_data.as_ref().clone(),
-                modified_time: world_state
-                    .chunk_modified_times
-                    .get(&pos)
-                    .copied()
-                    .unwrap_or(now),
+                modified_time: world_state.chunk_modified_time(pos).unwrap_or(now),
             });
         }
 
         chunk_runtime.chunk_entities.remove(&pos);
-        world_state.chunk_modified_times.remove(&pos);
+        world_state.clear_chunk_modified(pos);
         commands
             .entity(entity)
             .queue_silenced(|entity: EntityWorldMut| {
@@ -386,12 +382,7 @@ pub fn receive_structure_results(
             }
         }
         for (pos, writes) in result.pending_writes {
-            world_state
-                .pending_writes
-                .writes
-                .entry(pos)
-                .or_default()
-                .extend(writes);
+            world_state.queue_pending_writes(pos, writes);
         }
 
         chunk_runtime.gen_contexts.remove(&result.chunk_pos);
@@ -407,7 +398,7 @@ pub fn receive_structure_results(
 }
 
 fn apply_pending_writes(chunk_pos: IVec3, chunk: &mut ChunkData, world_state: &mut WorldState) {
-    if let Some(writes) = world_state.pending_writes.writes.remove(&chunk_pos) {
+    if let Some(writes) = world_state.take_pending_writes(chunk_pos) {
         for write in writes {
             if chunk.get_voxel(write.local_x, write.local_y, write.local_z) == 0 {
                 chunk.set_voxel(write.local_x, write.local_y, write.local_z, write.block_id);

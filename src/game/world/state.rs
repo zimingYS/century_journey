@@ -5,7 +5,7 @@
 
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::context::ChunkGenContext;
-use crate::game::world::pending_writes::PendingVoxelWrites;
+use crate::game::world::pending_writes::{PendingVoxel, PendingVoxelWrites};
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -13,12 +13,12 @@ use std::sync::Arc;
 #[derive(Resource, Debug, Default)]
 pub struct WorldState {
     loaded_chunks: HashMap<IVec3, Arc<ChunkData>>,
-    pub chunk_modified_times: HashMap<IVec3, f64>,
-    pub pending_writes: PendingVoxelWrites,
-    pub block_entities: HashMap<IVec3, Entity>,
+    chunk_modified_times: HashMap<IVec3, f64>,
+    pending_writes: PendingVoxelWrites,
 }
 
 impl WorldState {
+    //# ---loaded_chunks
     /// 读取指定坐标已加载区块的不可变快照
     pub fn chunk(&self, position: IVec3) -> Option<&Arc<ChunkData>> {
         self.loaded_chunks.get(&position)
@@ -55,6 +55,51 @@ impl WorldState {
             .iter()
             .map(|(position, data)| (*position, data))
     }
+    //# ---
+
+    //# ---chunk_modified_times
+    /// 标记区块发生修改，并记录该修改对应的时间
+    pub fn mark_chunk_modified(&mut self, position: IVec3, modified_time: f64) {
+        self.chunk_modified_times.insert(position, modified_time);
+    }
+
+    /// 查询区块最近一次修改时间
+    pub fn chunk_modified_time(&self, position: IVec3) -> Option<f64> {
+        self.chunk_modified_times.get(&position).copied()
+    }
+
+    /// 清理指定区块的脏区块标记
+    pub fn clear_chunk_modified(&mut self, position: IVec3) {
+        self.chunk_modified_times.remove(&position);
+    }
+
+    /// 取走全部脏区块标记
+    pub fn take_modified_chunks(&mut self) -> Vec<(IVec3, f64)> {
+        std::mem::take(&mut self.chunk_modified_times)
+            .into_iter()
+            .collect()
+    }
+    //# ---
+
+    //# ---pending_writes
+    /// 合并结构生成任务产生的跨区块延迟写入。
+    pub fn queue_pending_writes(&mut self, position: IVec3, writes: Vec<PendingVoxel>) {
+        if writes.is_empty() {
+            return;
+        }
+
+        self.pending_writes
+            .writes
+            .entry(position)
+            .or_default()
+            .extend(writes);
+    }
+
+    /// 取走指定区块等待应用的全部写入
+    pub fn take_pending_writes(&mut self, position: IVec3) -> Option<Vec<PendingVoxel>> {
+        self.pending_writes.writes.remove(&position)
+    }
+    //# ---
 }
 
 #[derive(Resource, Debug, Default)]

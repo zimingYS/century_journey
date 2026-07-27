@@ -333,7 +333,7 @@ fn mark_dirty_chunks(
         .unwrap_or_default()
         .as_secs_f64();
 
-    world_state.chunk_modified_times.insert(chunk_pos, now);
+    world_state.mark_chunk_modified(chunk_pos, now);
 
     let local_x = target_pos.x.rem_euclid(CHUNK_SIZE as i32) as usize;
     let local_y = target_pos.y.rem_euclid(CHUNK_SIZE as i32) as usize;
@@ -362,7 +362,7 @@ fn mark_dirty_chunks(
     }
 
     for &dirty_pos in &dirty_chunks {
-        world_state.chunk_modified_times.insert(dirty_pos, now);
+        world_state.mark_chunk_modified(dirty_pos, now);
     }
 
     for (_, chunk_comp, mut state) in chunk_query.iter_mut() {

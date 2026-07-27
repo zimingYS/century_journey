@@ -43,15 +43,13 @@ fn minimal_plugins_can_create_world_and_simulate_player_without_a_window() {
 
     app.world_mut()
         .resource_mut::<WorldState>()
-        .loaded_chunks
-        .insert(IVec3::ZERO, Arc::new(ChunkData::default()));
+        .insert_chunk(IVec3::ZERO, Arc::new(ChunkData::default()));
     app.world_mut().run_schedule(FixedUpdate);
 
     assert!(
         app.world()
             .resource::<WorldState>()
-            .loaded_chunks
-            .contains_key(&IVec3::ZERO)
+            .contains_chunk(IVec3::ZERO)
     );
     assert!(app.world().get_entity(player).is_ok());
 }

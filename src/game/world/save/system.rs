@@ -160,22 +160,14 @@ pub fn auto_save_on_unload_system(
         return;
     }
 
-    let modified: Vec<_> = world_state.chunk_modified_times.keys().copied().collect();
-    for position in modified {
-        let Some(data) = world_state
-            .chunk(position)
-            .map(|data| data.as_ref().clone())
-        else {
-            world_state.chunk_modified_times.remove(&position);
+    for (position, modified_time) in world_state.take_modified_chunks() {
+        let Some(data) = world_state.chunk(position) else {
             continue;
         };
-        let modified_time = world_state
-            .chunk_modified_times
-            .remove(&position)
-            .unwrap_or_default();
+
         save_queue.enqueue(SavedChunk {
             position,
-            data,
+            data: data.as_ref().clone(),
             modified_time,
         });
     }
@@ -402,11 +394,7 @@ pub fn save_entire_world(
         .map(|(position, data)| SavedChunk {
             position,
             data: data.as_ref().clone(),
-            modified_time: world_state
-                .chunk_modified_times
-                .get(&position)
-                .copied()
-                .unwrap_or(now),
+            modified_time: world_state.chunk_modified_time(position).unwrap_or(now),
         })
         .collect();
 
