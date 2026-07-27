@@ -46,20 +46,13 @@ pub fn manage_chunks_system(
 
     let player_chunk_pos = WorldStreamingConfig::chunk_from_world(player_transform.translation);
     let view_forward_xz = view_forward_xz(player_transform, &camera_query);
-    let needs_rebuild = player_cache.last_chunk_pos != Some(player_chunk_pos)
-        || player_cache.last_streaming_config.as_ref() != Some(&*streaming_config);
 
-    if needs_rebuild {
-        player_cache.last_chunk_pos = Some(player_chunk_pos);
-        player_cache.last_streaming_config = Some(streaming_config.clone());
-        let (ordered_chunks, expected_chunks) =
-            streaming_config.rebuild_expected_chunks(player_chunk_pos, view_forward_xz);
-        player_cache.ordered_chunks = ordered_chunks;
-        player_cache.expected_chunks = expected_chunks;
+    if player_cache.needs_rebuild(player_chunk_pos, &streaming_config) {
+        player_cache.rebuild(&streaming_config, player_chunk_pos, view_forward_xz);
     }
 
     let mut spawned = 0u32;
-    for &chunk_pos in &player_cache.ordered_chunks {
+    for &chunk_pos in player_cache.ordered_chunks() {
         if spawned >= MAX_SPAWN_PER_FRAME {
             break;
         }
@@ -91,7 +84,7 @@ pub fn manage_chunks_system(
             break;
         }
         let pos = chunk_components.position;
-        if player_cache.expected_chunks.contains(&pos) {
+        if player_cache.expects_chunk(pos) {
             continue;
         }
 
@@ -137,7 +130,7 @@ pub fn spawn_terrain_gen_tasks(
     let mut spawned = 0u32;
     let max_in_flight = task.worker_count().max(1);
 
-    for &chunk_pos in &player_cache.ordered_chunks {
+    for &chunk_pos in player_cache.ordered_chunks() {
         if spawned >= MAX_TERRAIN_TASKS_PER_FRAME
             || channel.in_flight.load(Ordering::Relaxed) >= max_in_flight
         {
@@ -256,7 +249,7 @@ pub fn generate_structures_system(
 ) {
     let mut spawned = 0u32;
 
-    for &chunk_pos in &player_cache.ordered_chunks {
+    for &chunk_pos in player_cache.ordered_chunks() {
         if spawned >= MAX_STRUCTURE_TASKS_PER_FRAME
             || channel.in_flight.load(Ordering::Relaxed) >= 1
         {

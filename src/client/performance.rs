@@ -242,7 +242,7 @@ fn fixed_performance_scenario_system(
             max: config.memory_samples_gib.iter().copied().reduce(f64::max),
         },
         chunks: ChunkSummary {
-            expected: params.player_cache.expected_chunks.len(),
+            expected: params.player_cache.expected_chunk_count(),
             loaded: params.world_state.loaded_chunk_count(),
             rendered: params
                 .chunk_states
