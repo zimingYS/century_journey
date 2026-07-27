@@ -149,7 +149,7 @@ fn spawn_action_particles_system(
     mut reader: MessageReader<AnimationMarkerEvent>,
     mut attack_reader: MessageReader<AttackEvent>,
     target: Res<TargetVoxel>,
-    mut world_state: ResMut<WorldState>,
+    world_state: Res<WorldState>,
     registry: Option<Res<BlockRegistry>>,
     player_query: Query<&GlobalTransform, With<Player>>,
     visuals: Res<ParticleVisuals>,
@@ -180,7 +180,7 @@ fn spawn_action_particles_system(
                 let Some(hit) = target.result.as_ref() else {
                     continue;
                 };
-                let block_id = get_voxel_at_world(hit.hit_pos, &mut world_state);
+                let block_id = get_voxel_at_world(hit.hit_pos, &world_state);
                 let kind = registry
                     .as_deref()
                     .and_then(|registry| registry.get(block_id))

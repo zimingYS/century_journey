@@ -12,10 +12,49 @@ use std::sync::Arc;
 
 #[derive(Resource, Debug, Default)]
 pub struct WorldState {
-    pub loaded_chunks: HashMap<IVec3, Arc<ChunkData>>,
+    loaded_chunks: HashMap<IVec3, Arc<ChunkData>>,
     pub chunk_modified_times: HashMap<IVec3, f64>,
     pub pending_writes: PendingVoxelWrites,
     pub block_entities: HashMap<IVec3, Entity>,
+}
+
+impl WorldState {
+    /// 读取指定坐标已加载区块的不可变快照
+    pub fn chunk(&self, position: IVec3) -> Option<&Arc<ChunkData>> {
+        self.loaded_chunks.get(&position)
+    }
+
+    /// 取得可替换的区块快照
+    pub fn chunk_mut(&mut self, position: IVec3) -> Option<&mut Arc<ChunkData>> {
+        self.loaded_chunks.get_mut(&position)
+    }
+
+    /// 判断指定区块是否已加载
+    pub fn contains_chunk(&self, position: IVec3) -> bool {
+        self.loaded_chunks.contains_key(&position)
+    }
+
+    /// 写入或替换一个已加载区块的权威快照
+    pub fn insert_chunk(&mut self, position: IVec3, data: Arc<ChunkData>) {
+        self.loaded_chunks.insert(position, data);
+    }
+
+    /// 移除区块并返回其最后快照，供卸载保存流程使用
+    pub fn remove_chunk(&mut self, position: IVec3) -> Option<Arc<ChunkData>> {
+        self.loaded_chunks.remove(&position)
+    }
+
+    /// 返回当前已加载区块数量，供客户端统计使用
+    pub fn loaded_chunk_count(&self) -> usize {
+        self.loaded_chunks.len()
+    }
+
+    /// 遍历所有已加载区块的权威快照，供全量存档等批处理流程读取
+    pub fn chunks(&self) -> impl Iterator<Item = (IVec3, &Arc<ChunkData>)> {
+        self.loaded_chunks
+            .iter()
+            .map(|(position, data)| (*position, data))
+    }
 }
 
 #[derive(Resource, Debug, Default)]

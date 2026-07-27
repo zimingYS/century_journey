@@ -30,7 +30,7 @@ const VOID_Y: f32 = -32.0;
 pub fn environment_damage_system(
     time: Res<Time>,
     registry: Option<Res<BlockRegistry>>,
-    mut world_state: ResMut<WorldState>,
+    world_state: Res<WorldState>,
     mut query: Query<
         (
             Entity,
@@ -55,7 +55,7 @@ pub fn environment_damage_system(
 
         let head = transform.translation + Vec3::Y * 0.8;
         let block_pos = head.floor().as_ivec3();
-        let block_id = get_voxel_at_world(block_pos, &mut world_state);
+        let block_id = get_voxel_at_world(block_pos, &world_state);
         let block_path = registry
             .get_identifier_by_id(block_id)
             .map(|identifier| identifier.path());

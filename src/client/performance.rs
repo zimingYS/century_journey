@@ -244,7 +244,7 @@ fn fixed_performance_scenario_system(
         },
         chunks: ChunkSummary {
             expected: params.player_cache.expected_chunks.len(),
-            loaded: params.world_state.loaded_chunks.len(),
+            loaded: params.world_state.loaded_chunk_count(),
             rendered: params
                 .chunk_states
                 .iter()

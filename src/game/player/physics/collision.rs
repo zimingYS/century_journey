@@ -23,7 +23,7 @@ fn is_voxel_solid(
         vz.rem_euclid(CHUNK_SIZE as i32),
     );
 
-    let Some(chunk_data) = world_state.loaded_chunks.get(&chunk_pos) else {
+    let Some(chunk_data) = world_state.chunk(chunk_pos) else {
         return true;
     };
 

@@ -295,7 +295,7 @@ fn step_clips(assets: &FeedbackAudioAssets, material: SoundMaterial) -> &[Handle
 fn animation_marker_sound_system(
     mut reader: MessageReader<AnimationMarkerEvent>,
     target: Res<TargetVoxel>,
-    mut world_state: ResMut<WorldState>,
+    world_state: Res<WorldState>,
     registry: Option<Res<BlockRegistry>>,
     player_query: Query<&GlobalTransform, With<LocalPlayer>>,
     assets: Res<FeedbackAudioAssets>,
@@ -319,7 +319,7 @@ fn animation_marker_sound_system(
                 let Some(hit) = target.result.as_ref() else {
                     continue;
                 };
-                let block_id = get_voxel_at_world(hit.hit_pos, &mut world_state);
+                let block_id = get_voxel_at_world(hit.hit_pos, &world_state);
                 let material = registry
                     .as_deref()
                     .and_then(|registry| registry.get(block_id))
@@ -346,7 +346,7 @@ fn animation_marker_sound_system(
 
 fn footstep_sound_system(
     time: Res<Time>,
-    mut world_state: ResMut<WorldState>,
+    world_state: Res<WorldState>,
     registry: Option<Res<BlockRegistry>>,
     query: Query<(&Transform, &PlayerGravity, &PlayerAnimationState), With<LocalPlayer>>,
     mut playback: Local<FootstepPlayback>,
@@ -362,13 +362,13 @@ fn footstep_sound_system(
         playback.phase_bucket = phase_bucket;
     }
 
-    let mut material = || {
+    let material = || {
         let foot_pos = IVec3::new(
             transform.translation.x.floor() as i32,
             (transform.translation.y - 1.0).floor() as i32,
             transform.translation.z.floor() as i32,
         );
-        let block_id = get_voxel_at_world(foot_pos, &mut world_state);
+        let block_id = get_voxel_at_world(foot_pos, &world_state);
         registry
             .as_deref()
             .and_then(|registry| registry.get(block_id))

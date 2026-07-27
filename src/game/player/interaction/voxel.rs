@@ -99,7 +99,7 @@ pub fn voxel_interaction_system(
 
     if break_active {
         let hit_pos = ray_result.hit_pos;
-        let hit_id = get_voxel_at_world(hit_pos, &mut world_state);
+        let hit_id = get_voxel_at_world(hit_pos, &world_state);
 
         if !can_break_block(hit_id, &gamemode, tag_registry.as_deref()) {
             break_runtime.state.clear();
@@ -196,7 +196,7 @@ pub fn voxel_interaction_system(
     }
 
     let hit_pos = ray_result.hit_pos;
-    let hit_id = get_voxel_at_world(hit_pos, &mut world_state);
+    let hit_id = get_voxel_at_world(hit_pos, &world_state);
 
     if let Some(prop) = reg.get(hit_id)
         && prop.is_interactable
@@ -228,7 +228,7 @@ pub fn voxel_interaction_system(
     }
 
     let place_pos = hit_pos + ray_result.normal;
-    let existing_id = get_voxel_at_world(place_pos, &mut world_state);
+    let existing_id = get_voxel_at_world(place_pos, &world_state);
     if !is_replaceable_block(existing_id, tag_registry.as_deref()) {
         return;
     }

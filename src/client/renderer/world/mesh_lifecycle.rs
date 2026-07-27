@@ -64,26 +64,20 @@ pub fn spawn_mesh_build_tasks(
             continue;
         }
 
-        let neighbors_ready = DIRECTIONS.iter().all(|(dir, _)| {
-            world_state
-                .loaded_chunks
-                .contains_key(&(current_chunk_pos + *dir))
-        });
+        let neighbors_ready = DIRECTIONS
+            .iter()
+            .all(|(dir, _)| world_state.contains_chunk(current_chunk_pos + *dir));
         if !neighbors_ready {
             continue;
         }
 
-        let Some(current_chunk_data) = world_state.loaded_chunks.get(&current_chunk_pos) else {
+        let Some(current_chunk_data) = world_state.chunk(current_chunk_pos) else {
             continue;
         };
 
         let current_data = Arc::clone(current_chunk_data);
-        let neighbors: [Option<Arc<ChunkData>>; 6] = DIRECTIONS.map(|(dir, _)| {
-            world_state
-                .loaded_chunks
-                .get(&(current_chunk_pos + dir))
-                .map(Arc::clone)
-        });
+        let neighbors: [Option<Arc<ChunkData>>; 6] =
+            DIRECTIONS.map(|(dir, _)| world_state.chunk(current_chunk_pos + dir).map(Arc::clone));
 
         let sender = channel.sender.clone();
         let in_flight = Arc::clone(&channel.in_flight);

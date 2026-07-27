@@ -96,8 +96,10 @@ pub fn manage_chunks_system(
             continue;
         }
 
+        let unloaded_chunk = world_state.remove_chunk(pos);
+
         if save_config.save_on_unload
-            && let Some(chunk_data) = world_state.loaded_chunks.get(&pos)
+            && let Some(chunk_data) = unloaded_chunk
         {
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -115,7 +117,6 @@ pub fn manage_chunks_system(
         }
 
         chunk_runtime.chunk_entities.remove(&pos);
-        world_state.loaded_chunks.remove(&pos);
         world_state.chunk_modified_times.remove(&pos);
         commands
             .entity(entity)
@@ -157,7 +158,7 @@ pub fn spawn_terrain_gen_tasks(
             continue;
         }
 
-        if world_state.loaded_chunks.contains_key(&chunk_pos) {
+        if world_state.contains_chunk(chunk_pos) {
             *chunk_state = ChunkState::TerrainReady;
             continue;
         }
@@ -239,9 +240,7 @@ pub fn receive_terrain_results(
         }
 
         apply_pending_writes(chunk_pos, &mut chunk_data, &mut world_state);
-        world_state
-            .loaded_chunks
-            .insert(chunk_pos, Arc::from(chunk_data));
+        world_state.insert_chunk(chunk_pos, Arc::from(chunk_data));
         if !gen_ctx.columns.is_empty() {
             chunk_runtime.gen_contexts.insert(chunk_pos, gen_ctx);
         }
@@ -278,7 +277,7 @@ pub fn generate_structures_system(
             continue;
         }
 
-        let Some(chunk_data) = world_state.loaded_chunks.get(&chunk_pos).cloned() else {
+        let Some(chunk_data) = world_state.chunk(chunk_pos).cloned() else {
             continue;
         };
 
@@ -292,7 +291,7 @@ pub fn generate_structures_system(
         input_chunks.insert(chunk_pos, chunk_data);
         for direction in CHUNK_NEIGHBOR_OFFSETS {
             let nbr_pos = chunk_pos + direction;
-            if let Some(data) = world_state.loaded_chunks.get(&nbr_pos).cloned() {
+            if let Some(data) = world_state.chunk(nbr_pos).cloned() {
                 input_chunks.insert(nbr_pos, data);
             }
         }
@@ -374,10 +373,10 @@ pub fn receive_structure_results(
         }
 
         for (pos, data) in result.modified_chunks {
-            if let Some(existing) = world_state.loaded_chunks.get_mut(&pos) {
+            if let Some(existing) = world_state.chunk_mut(pos) {
                 *existing = Arc::from(data);
             } else if chunk_runtime.chunk_entities.contains_key(&pos) {
-                world_state.loaded_chunks.insert(pos, Arc::from(data));
+                world_state.insert_chunk(pos, Arc::from(data));
             }
             if let Some(&entity) = chunk_runtime.chunk_entities.get(&pos)
                 && let Ok((_, mut state)) = chunk_query.get_mut(entity)

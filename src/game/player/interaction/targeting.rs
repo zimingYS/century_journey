@@ -163,7 +163,7 @@ fn is_valid_height(y: i32) -> bool {
 }
 
 // 检查方块
-fn check_voxel(x: i32, y: i32, z: i32, world_storage: &WorldState) -> Option<(IVec3, UVec3)> {
+fn check_voxel(x: i32, y: i32, z: i32, world_state: &WorldState) -> Option<(IVec3, UVec3)> {
     // 换算出该绝对坐标所对应的区块世界坐标
     let chunk_pos = IVec3::new(
         x.div_euclid(CHUNK_SIZE as i32),
@@ -176,7 +176,7 @@ fn check_voxel(x: i32, y: i32, z: i32, world_storage: &WorldState) -> Option<(IV
     let local_y = y.rem_euclid(CHUNK_SIZE as i32) as usize;
     let local_z = z.rem_euclid(CHUNK_SIZE as i32) as usize;
 
-    if let Some(chunk_data) = world_storage.loaded_chunks.get(&chunk_pos) {
+    if let Some(chunk_data) = world_state.chunk(chunk_pos) {
         let voxel_id = chunk_data.voxels[ChunkData::xyz_to_index(local_x, local_y, local_z)];
 
         // 只要不是空气，一律视为“被撞击的实体”

@@ -344,17 +344,14 @@ fn solid_block_at(block_pos: IVec3, world_state: &WorldState, reg: &BlockRegistr
         block_pos.z.rem_euclid(CHUNK_SIZE as i32),
     );
 
-    world_state
-        .loaded_chunks
-        .get(&chunk_pos)
-        .is_none_or(|chunk| {
-            let id = chunk.get_voxel(
-                local_pos.x as usize,
-                local_pos.y as usize,
-                local_pos.z as usize,
-            );
-            id != 0 && reg.get(id).is_some_and(|property| property.is_solid)
-        })
+    world_state.chunk(chunk_pos).is_none_or(|chunk| {
+        let id = chunk.get_voxel(
+            local_pos.x as usize,
+            local_pos.y as usize,
+            local_pos.z as usize,
+        );
+        id != 0 && reg.get(id).is_some_and(|property| property.is_solid)
+    })
 }
 
 /// 把任意姿态压平为只绕 Y 轴旋转的姿态。

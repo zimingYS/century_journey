@@ -163,8 +163,7 @@ pub fn auto_save_on_unload_system(
     let modified: Vec<_> = world_state.chunk_modified_times.keys().copied().collect();
     for position in modified {
         let Some(data) = world_state
-            .loaded_chunks
-            .get(&position)
+            .chunk(position)
             .map(|data| data.as_ref().clone())
         else {
             world_state.chunk_modified_times.remove(&position);
@@ -344,9 +343,7 @@ pub fn process_load_queue_system(
             level::remap_chunk_block_ids(&mut chunk_data, &saved_id_map, &block_registry);
         }
 
-        world_state
-            .loaded_chunks
-            .insert(saved.position, Arc::from(chunk_data));
+        world_state.insert_chunk(saved.position, Arc::from(chunk_data));
 
         loaded += 1;
     }
@@ -401,14 +398,13 @@ pub fn save_entire_world(
 
     // 批量保存所有区块
     let chunks: Vec<SavedChunk> = world_state
-        .loaded_chunks
-        .iter()
-        .map(|(pos, data)| SavedChunk {
-            position: *pos,
+        .chunks()
+        .map(|(position, data)| SavedChunk {
+            position,
             data: data.as_ref().clone(),
             modified_time: world_state
                 .chunk_modified_times
-                .get(pos)
+                .get(&position)
                 .copied()
                 .unwrap_or(now),
         })
@@ -462,9 +458,7 @@ pub fn load_entire_world(
                                     &level.block_id_map,
                                     block_registry,
                                 );
-                                storage
-                                    .loaded_chunks
-                                    .insert(saved.position, Arc::from(saved.data));
+                                storage.insert_chunk(saved.position, Arc::from(saved.data));
                             }
                         }
                     }
