@@ -64,7 +64,7 @@ pub fn manage_chunks_system(
         if spawned >= MAX_SPAWN_PER_FRAME {
             break;
         }
-        if chunk_runtime.chunk_entities.contains_key(&chunk_pos) {
+        if chunk_runtime.contains_chunk_entity(chunk_pos) {
             continue;
         }
 
@@ -82,7 +82,7 @@ pub fn manage_chunks_system(
                 Visibility::default(),
             ))
             .id();
-        chunk_runtime.chunk_entities.insert(chunk_pos, entity);
+        chunk_runtime.register_chunk_entity(chunk_pos, entity);
         spawned += 1;
     }
 
@@ -112,7 +112,7 @@ pub fn manage_chunks_system(
             });
         }
 
-        chunk_runtime.chunk_entities.remove(&pos);
+        chunk_runtime.remove_chunk_entity(pos);
         world_state.clear_chunk_modified(pos);
         commands
             .entity(entity)
@@ -144,7 +144,7 @@ pub fn spawn_terrain_gen_tasks(
         {
             break;
         }
-        let Some(&entity) = chunk_runtime.chunk_entities.get(&chunk_pos) else {
+        let Some(entity) = chunk_runtime.chunk_entity(chunk_pos) else {
             continue;
         };
         let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity) else {
@@ -225,7 +225,7 @@ pub fn receive_terrain_results(
         let mut chunk_data = result.chunk_data;
         let gen_ctx = result.gen_context;
 
-        let Some(&entity) = chunk_runtime.chunk_entities.get(&chunk_pos) else {
+        let Some(entity) = chunk_runtime.chunk_entity(chunk_pos) else {
             continue;
         };
         let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity) else {
@@ -238,7 +238,7 @@ pub fn receive_terrain_results(
         apply_pending_writes(chunk_pos, &mut chunk_data, &mut world_state);
         world_state.insert_chunk(chunk_pos, Arc::from(chunk_data));
         if !gen_ctx.columns.is_empty() {
-            chunk_runtime.gen_contexts.insert(chunk_pos, gen_ctx);
+            chunk_runtime.cache_generation_context(chunk_pos, gen_ctx);
         }
 
         *chunk_state = ChunkState::TerrainReady;
@@ -263,7 +263,7 @@ pub fn generate_structures_system(
         {
             break;
         }
-        let Some(&entity) = chunk_runtime.chunk_entities.get(&chunk_pos) else {
+        let Some(entity) = chunk_runtime.chunk_entity(chunk_pos) else {
             continue;
         };
         let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity) else {
@@ -278,8 +278,7 @@ pub fn generate_structures_system(
         };
 
         let ctx = chunk_runtime
-            .gen_contexts
-            .get(&chunk_pos)
+            .generation_context(chunk_pos)
             .cloned()
             .unwrap_or_else(|| world_generator.pipeline.sample_context(chunk_pos));
 
@@ -356,7 +355,7 @@ pub fn receive_structure_results(
         channel.in_flight.fetch_sub(1, Ordering::Relaxed);
         received += 1;
 
-        let Some(&result_entity) = chunk_runtime.chunk_entities.get(&result.chunk_pos) else {
+        let Some(result_entity) = chunk_runtime.chunk_entity(result.chunk_pos) else {
             continue;
         };
         let Ok((result_components, result_state)) = chunk_query.get(result_entity) else {
@@ -371,10 +370,10 @@ pub fn receive_structure_results(
         for (pos, data) in result.modified_chunks {
             if let Some(existing) = world_state.chunk_mut(pos) {
                 *existing = Arc::from(data);
-            } else if chunk_runtime.chunk_entities.contains_key(&pos) {
+            } else if chunk_runtime.contains_chunk_entity(pos) {
                 world_state.insert_chunk(pos, Arc::from(data));
             }
-            if let Some(&entity) = chunk_runtime.chunk_entities.get(&pos)
+            if let Some(entity) = chunk_runtime.chunk_entity(pos)
                 && let Ok((_, mut state)) = chunk_query.get_mut(entity)
                 && matches!(*state, ChunkState::Rendered | ChunkState::GeneratingMesh)
             {
@@ -385,9 +384,9 @@ pub fn receive_structure_results(
             world_state.queue_pending_writes(pos, writes);
         }
 
-        chunk_runtime.gen_contexts.remove(&result.chunk_pos);
+        chunk_runtime.remove_chunk_entity(result.chunk_pos);
 
-        if let Some(&entity) = chunk_runtime.chunk_entities.get(&result.chunk_pos)
+        if let Some(entity) = chunk_runtime.chunk_entity(result.chunk_pos)
             && let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity)
             && chunk_components.position == result.chunk_pos
             && *chunk_state == ChunkState::GeneratingStructure
