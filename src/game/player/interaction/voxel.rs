@@ -23,7 +23,7 @@ use crate::game::world::chunk::{ChunkComponents, ChunkState};
 use crate::game::world::entity::dropped_item::{
     DroppedItemVelocity, spawn_dropped_item_with_velocity,
 };
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::WorldState;
 use crate::game::world::systems::break_pipeline::execute_block_break;
 use crate::game::world::time::WorldSimulationClock;
 use bevy::ecs::system::SystemParam;
@@ -61,11 +61,11 @@ pub fn voxel_interaction_system(
     mut inventory_query: Query<&mut InventoryState, With<Player>>,
     gamemode: Res<PlayerGameMode>,
     loot_registry: Option<Res<BlockLootRegistry>>,
-    mut world_storage: ResMut<WorldStorage>,
     mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
     mut events: VoxelEventWriters,
     mut break_runtime: BlockBreakRuntime,
     mut commands: Commands,
+    mut world_state: ResMut<WorldState>,
 ) {
     let Some(reg) = registry else {
         break_runtime.state.clear();
@@ -99,7 +99,7 @@ pub fn voxel_interaction_system(
 
     if break_active {
         let hit_pos = ray_result.hit_pos;
-        let hit_id = get_voxel_at_world(hit_pos, &world_storage);
+        let hit_id = get_voxel_at_world(hit_pos, &world_state);
 
         if !can_break_block(hit_id, &gamemode, tag_registry.as_deref()) {
             break_runtime.state.clear();
@@ -155,7 +155,7 @@ pub fn voxel_interaction_system(
             &behavior_registry,
             loot_registry.as_deref(),
             &mut loot_rng,
-            &mut world_storage,
+            &mut world_state,
             &mut commands,
         );
 
@@ -191,12 +191,12 @@ pub fn voxel_interaction_system(
             volume: prop.sound.break_volume,
         });
 
-        mark_dirty_chunks(hit_pos, &mut chunk_query, &mut world_storage);
+        mark_dirty_chunks(hit_pos, &mut chunk_query, &mut world_state);
         return;
     }
 
     let hit_pos = ray_result.hit_pos;
-    let hit_id = get_voxel_at_world(hit_pos, &world_storage);
+    let hit_id = get_voxel_at_world(hit_pos, &world_state);
 
     if let Some(prop) = reg.get(hit_id)
         && prop.is_interactable
@@ -214,7 +214,7 @@ pub fn voxel_interaction_system(
             hit_id,
             ray_result.normal,
             None,
-            &mut world_storage,
+            &mut world_state,
             &mut commands,
         );
 
@@ -228,7 +228,7 @@ pub fn voxel_interaction_system(
     }
 
     let place_pos = hit_pos + ray_result.normal;
-    let existing_id = get_voxel_at_world(place_pos, &world_storage);
+    let existing_id = get_voxel_at_world(place_pos, &world_state);
     if !is_replaceable_block(existing_id, tag_registry.as_deref()) {
         return;
     }
@@ -263,7 +263,7 @@ pub fn voxel_interaction_system(
         place_pos,
         block_id,
         ray_result.normal,
-        &mut world_storage,
+        &mut world_state,
         &mut commands,
     );
     if !allowed {
@@ -274,7 +274,7 @@ pub fn voxel_interaction_system(
         return;
     }
 
-    set_voxel_at_world(place_pos, block_id, &mut world_storage);
+    set_voxel_at_world(place_pos, block_id, &mut world_state);
 
     events.place_events.write(BlockPlaceEvent {
         world_pos: place_pos,
@@ -291,7 +291,7 @@ pub fn voxel_interaction_system(
         volume: prop.map(|p| p.sound.place_volume).unwrap_or(1.0),
     });
 
-    mark_dirty_chunks(place_pos, &mut chunk_query, &mut world_storage);
+    mark_dirty_chunks(place_pos, &mut chunk_query, &mut world_state);
 }
 
 /// 创造模式的瞬间破坏只接受按下边沿，避免一次鼠标点击跨帧破坏整列方块。
@@ -320,7 +320,7 @@ pub fn voxel_intersects_player(voxel: IVec3, player_position: Vec3, half_extents
 fn mark_dirty_chunks(
     target_pos: IVec3,
     chunk_query: &mut Query<(Entity, &ChunkComponents, &mut ChunkState)>,
-    world_storage: &mut WorldStorage,
+    world_state: &mut WorldState,
 ) {
     let chunk_pos = IVec3::new(
         target_pos.x.div_euclid(CHUNK_SIZE as i32),
@@ -333,7 +333,7 @@ fn mark_dirty_chunks(
         .unwrap_or_default()
         .as_secs_f64();
 
-    world_storage.chunk_modified_times.insert(chunk_pos, now);
+    world_state.mark_chunk_modified(chunk_pos, now);
 
     let local_x = target_pos.x.rem_euclid(CHUNK_SIZE as i32) as usize;
     let local_y = target_pos.y.rem_euclid(CHUNK_SIZE as i32) as usize;
@@ -362,7 +362,7 @@ fn mark_dirty_chunks(
     }
 
     for &dirty_pos in &dirty_chunks {
-        world_storage.chunk_modified_times.insert(dirty_pos, now);
+        world_state.mark_chunk_modified(dirty_pos, now);
     }
 
     for (_, chunk_comp, mut state) in chunk_query.iter_mut() {

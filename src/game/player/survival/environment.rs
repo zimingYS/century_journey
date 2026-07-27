@@ -3,9 +3,9 @@ use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::components::PlayerLifecycle;
 use crate::game::player::survival::events::{DamageEvent, DamageSource};
 use crate::game::world::block_ops::get_voxel_at_world;
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::WorldState;
 use bevy::math::Vec3;
-use bevy::prelude::{Component, Entity, MessageWriter, Query, Res, Time, Transform, With};
+use bevy::prelude::*;
 
 /// 环境暴露计时，集中保存溺水和周期环境伤害的状态。
 #[derive(Component, Debug, Clone, Copy)]
@@ -30,7 +30,7 @@ const VOID_Y: f32 = -32.0;
 pub fn environment_damage_system(
     time: Res<Time>,
     registry: Option<Res<BlockRegistry>>,
-    storage: Res<WorldStorage>,
+    world_state: Res<WorldState>,
     mut query: Query<
         (
             Entity,
@@ -55,7 +55,7 @@ pub fn environment_damage_system(
 
         let head = transform.translation + Vec3::Y * 0.8;
         let block_pos = head.floor().as_ivec3();
-        let block_id = get_voxel_at_world(block_pos, &storage);
+        let block_id = get_voxel_at_world(block_pos, &world_state);
         let block_path = registry
             .get_identifier_by_id(block_id)
             .map(|identifier| identifier.path());

@@ -19,7 +19,7 @@ use crate::game::player::identity::LocalPlayer;
 use crate::game::player::interaction::targeting::TargetVoxel;
 use crate::game::player::physics::components::PlayerGravity;
 use crate::game::world::block_ops::get_voxel_at_world;
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::WorldState;
 use crate::shared::states::AppState;
 
 #[derive(Resource)]
@@ -295,7 +295,7 @@ fn step_clips(assets: &FeedbackAudioAssets, material: SoundMaterial) -> &[Handle
 fn animation_marker_sound_system(
     mut reader: MessageReader<AnimationMarkerEvent>,
     target: Res<TargetVoxel>,
-    world: Res<WorldStorage>,
+    world_state: Res<WorldState>,
     registry: Option<Res<BlockRegistry>>,
     player_query: Query<&GlobalTransform, With<LocalPlayer>>,
     assets: Res<FeedbackAudioAssets>,
@@ -319,7 +319,7 @@ fn animation_marker_sound_system(
                 let Some(hit) = target.result.as_ref() else {
                     continue;
                 };
-                let block_id = get_voxel_at_world(hit.hit_pos, &world);
+                let block_id = get_voxel_at_world(hit.hit_pos, &world_state);
                 let material = registry
                     .as_deref()
                     .and_then(|registry| registry.get(block_id))
@@ -346,7 +346,7 @@ fn animation_marker_sound_system(
 
 fn footstep_sound_system(
     time: Res<Time>,
-    world: Res<WorldStorage>,
+    world_state: Res<WorldState>,
     registry: Option<Res<BlockRegistry>>,
     query: Query<(&Transform, &PlayerGravity, &PlayerAnimationState), With<LocalPlayer>>,
     mut playback: Local<FootstepPlayback>,
@@ -368,7 +368,7 @@ fn footstep_sound_system(
             (transform.translation.y - 1.0).floor() as i32,
             transform.translation.z.floor() as i32,
         );
-        let block_id = get_voxel_at_world(foot_pos, &world);
+        let block_id = get_voxel_at_world(foot_pos, &world_state);
         registry
             .as_deref()
             .and_then(|registry| registry.get(block_id))

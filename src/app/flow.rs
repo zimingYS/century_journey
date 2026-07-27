@@ -33,7 +33,7 @@ use crate::game::world::save::region::RegionManager;
 use crate::game::world::save::system::{
     LoadQueue, SaveConfig, SaveQueue, SaveWorker, flush_save_queue, save_entire_world,
 };
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::{ChunkRuntime, WorldState};
 use crate::game::world::systems::{
     PlayerChunkCache, StructureGenChannel, TerrainGenChannel, WorldStreamingConfig,
 };
@@ -466,7 +466,8 @@ struct PrepareWorldParams<'w, 's> {
     world_generator: ResMut<'w, WorldGenerator>,
     time_of_day: ResMut<'w, TimeOfDay>,
     simulation_clock: ResMut<'w, WorldSimulationClock>,
-    world_storage: ResMut<'w, WorldStorage>,
+    world_state: ResMut<'w, WorldState>,
+    chunk_runtime: ResMut<'w, ChunkRuntime>,
     player_cache: ResMut<'w, PlayerChunkCache>,
     terrain_channel: ResMut<'w, TerrainGenChannel>,
     structure_channel: ResMut<'w, StructureGenChannel>,
@@ -520,7 +521,8 @@ fn prepare_world_system(pending: Res<PendingWorld>, mut params: PrepareWorldPara
             for entity in &params.chunk_query {
                 params.commands.entity(entity).despawn();
             }
-            *params.world_storage = WorldStorage::default();
+            *params.world_state = WorldState::default();
+            *params.chunk_runtime = ChunkRuntime::default();
             *params.player_cache = PlayerChunkCache::default();
             *params.terrain_channel = TerrainGenChannel::default();
             *params.structure_channel = StructureGenChannel::default();
@@ -573,7 +575,7 @@ fn prepare_world_system(pending: Res<PendingWorld>, mut params: PrepareWorldPara
 struct SaveQuitParams<'w, 's> {
     commands: Commands<'w, 's>,
     save_config: Res<'w, SaveConfig>,
-    world_storage: Res<'w, WorldStorage>,
+    world_state: Res<'w, WorldState>,
     block_registry: Option<Res<'w, BlockRegistry>>,
     world_generator: Res<'w, WorldGenerator>,
     simulation_clock: Res<'w, WorldSimulationClock>,
@@ -628,7 +630,7 @@ fn save_and_quit_system(mut request: ResMut<SaveAndQuitRequest>, mut params: Sav
     }
     if let Err(error) = save_entire_world(
         &params.save_config.world_name,
-        &params.world_storage,
+        &params.world_state,
         registry,
         params.world_generator.seed as u64,
         params.world_generator.generation_version,

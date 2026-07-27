@@ -3,7 +3,7 @@ use crate::content::constant::world::CHUNK_SIZE;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::simulation::SimulationSet;
 use crate::game::simulation::SimulationTransformHistory;
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::WorldState;
 use crate::shared::states::AppState;
 use bevy::prelude::*;
 
@@ -157,7 +157,7 @@ pub fn despawn_dropped_item(commands: &mut Commands, entity: Entity) {
 pub fn dropped_item_physics_system(
     time: Res<Time>,
     reg: Option<Res<BlockRegistry>>,
-    storage: Res<WorldStorage>,
+    world_state: Res<WorldState>,
     mut query: Query<(&mut Transform, &mut DroppedItemVelocity, &mut DroppedItem)>,
 ) {
     let Some(reg) = reg.as_ref() else { return };
@@ -175,7 +175,7 @@ pub fn dropped_item_physics_system(
         let mut next_position = transform.translation + velocity.linear * dt;
         let mut should_be_grounded = false;
 
-        if let Some(ground_y) = ground_height_at(next_position, &storage, reg)
+        if let Some(ground_y) = ground_height_at(next_position, &world_state, reg)
             && crossed_ground_surface(transform.translation.y, next_position.y, ground_y)
         {
             next_position.y = ground_y;
@@ -313,13 +313,13 @@ impl Plugin for DroppedItemPlugin {
 }
 
 /// 根据当前位置计算可站立地面的高度。
-fn ground_height_at(pos: Vec3, storage: &WorldStorage, reg: &BlockRegistry) -> Option<f32> {
+fn ground_height_at(pos: Vec3, world_state: &WorldState, reg: &BlockRegistry) -> Option<f32> {
     let block_pos = IVec3::new(
         pos.x.floor() as i32,
         (pos.y - DROPPED_ITEM_GROUND_OFFSET).floor() as i32,
         pos.z.floor() as i32,
     );
-    if solid_block_at(block_pos, storage, reg) {
+    if solid_block_at(block_pos, world_state, reg) {
         Some(block_pos.y as f32 + 1.0 + DROPPED_ITEM_GROUND_OFFSET)
     } else {
         None
@@ -332,7 +332,7 @@ fn crossed_ground_surface(previous_y: f32, next_y: f32, ground_y: f32) -> bool {
 }
 
 /// 判断指定世界方块坐标是否是实体方块。
-fn solid_block_at(block_pos: IVec3, storage: &WorldStorage, reg: &BlockRegistry) -> bool {
+fn solid_block_at(block_pos: IVec3, world_state: &WorldState, reg: &BlockRegistry) -> bool {
     let chunk_pos = IVec3::new(
         block_pos.x.div_euclid(CHUNK_SIZE as i32),
         block_pos.y.div_euclid(CHUNK_SIZE as i32),
@@ -344,7 +344,7 @@ fn solid_block_at(block_pos: IVec3, storage: &WorldStorage, reg: &BlockRegistry)
         block_pos.z.rem_euclid(CHUNK_SIZE as i32),
     );
 
-    storage.loaded_chunks.get(&chunk_pos).is_none_or(|chunk| {
+    world_state.chunk(chunk_pos).is_none_or(|chunk| {
         let id = chunk.get_voxel(
             local_pos.x as usize,
             local_pos.y as usize,

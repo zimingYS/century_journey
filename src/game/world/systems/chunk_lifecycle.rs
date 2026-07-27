@@ -5,11 +5,11 @@ use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::generation::WorldGenerator;
 use crate::game::world::generation::context::ChunkGenContext;
 use crate::game::world::generation::noise::CachedBlockIds;
-use crate::game::world::generation::structure::StructureGenerator;
+use crate::game::world::generation::structure::{StructureGenerationWorkspace, StructureGenerator};
 use crate::game::world::save::format::SavedChunk;
 use crate::game::world::save::region::RegionManager;
 use crate::game::world::save::system::{CachedBlockIdRemap, SaveConfig, SaveQueue};
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::{ChunkRuntime, WorldState};
 use crate::game::world::systems::channel::{StructureGenChannel, StructureGenResult};
 use crate::game::world::systems::{
     PlayerChunkCache, TerrainGenChannel, TerrainGenResult, WorldStreamingConfig,
@@ -32,8 +32,9 @@ const MAX_UNLOAD_PER_FRAME: usize = 8;
 pub fn manage_chunks_system(
     mut commands: Commands,
     mut save_queue: ResMut<SaveQueue>,
-    mut world_storage: ResMut<WorldStorage>,
     mut player_cache: ResMut<PlayerChunkCache>,
+    mut chunk_runtime: ResMut<ChunkRuntime>,
+    mut world_state: ResMut<WorldState>,
     chunk_query: Query<(Entity, &ChunkComponents)>,
     player_query: Query<&Transform, With<Player>>,
     camera_query: Query<&GlobalTransform, With<crate::shared::components::FpsCamera>>,
@@ -63,7 +64,7 @@ pub fn manage_chunks_system(
         if spawned >= MAX_SPAWN_PER_FRAME {
             break;
         }
-        if world_storage.chunk_entities.contains_key(&chunk_pos) {
+        if chunk_runtime.chunk_entities.contains_key(&chunk_pos) {
             continue;
         }
 
@@ -81,7 +82,7 @@ pub fn manage_chunks_system(
                 Visibility::default(),
             ))
             .id();
-        world_storage.chunk_entities.insert(chunk_pos, entity);
+        chunk_runtime.chunk_entities.insert(chunk_pos, entity);
         spawned += 1;
     }
 
@@ -95,8 +96,10 @@ pub fn manage_chunks_system(
             continue;
         }
 
+        let unloaded_chunk = world_state.remove_chunk(pos);
+
         if save_config.save_on_unload
-            && let Some(chunk_data) = world_storage.loaded_chunks.get(&pos)
+            && let Some(chunk_data) = unloaded_chunk
         {
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -105,17 +108,12 @@ pub fn manage_chunks_system(
             save_queue.enqueue(SavedChunk {
                 position: pos,
                 data: chunk_data.as_ref().clone(),
-                modified_time: world_storage
-                    .chunk_modified_times
-                    .get(&pos)
-                    .copied()
-                    .unwrap_or(now),
+                modified_time: world_state.chunk_modified_time(pos).unwrap_or(now),
             });
         }
 
-        world_storage.chunk_entities.remove(&pos);
-        world_storage.loaded_chunks.remove(&pos);
-        world_storage.chunk_modified_times.remove(&pos);
+        chunk_runtime.chunk_entities.remove(&pos);
+        world_state.clear_chunk_modified(pos);
         commands
             .entity(entity)
             .queue_silenced(|entity: EntityWorldMut| {
@@ -132,9 +130,10 @@ pub fn spawn_terrain_gen_tasks(
     save_config: Res<SaveConfig>,
     cached_remap: Res<CachedBlockIdRemap>,
     task: Res<TaskManager>,
-    world_storage: Res<WorldStorage>,
+    world_state: Res<WorldState>,
     player_cache: Res<PlayerChunkCache>,
     mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
+    chunk_runtime: Res<ChunkRuntime>,
 ) {
     let mut spawned = 0u32;
     let max_in_flight = task.worker_count().max(1);
@@ -145,7 +144,7 @@ pub fn spawn_terrain_gen_tasks(
         {
             break;
         }
-        let Some(&entity) = world_storage.chunk_entities.get(&chunk_pos) else {
+        let Some(&entity) = chunk_runtime.chunk_entities.get(&chunk_pos) else {
             continue;
         };
         let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity) else {
@@ -155,7 +154,7 @@ pub fn spawn_terrain_gen_tasks(
             continue;
         }
 
-        if world_storage.loaded_chunks.contains_key(&chunk_pos) {
+        if world_state.contains_chunk(chunk_pos) {
             *chunk_state = ChunkState::TerrainReady;
             continue;
         }
@@ -207,8 +206,9 @@ pub fn spawn_terrain_gen_tasks(
 }
 
 pub fn receive_terrain_results(
-    mut world_storage: ResMut<WorldStorage>,
+    mut world_state: ResMut<WorldState>,
     channel: Res<TerrainGenChannel>,
+    mut chunk_runtime: ResMut<ChunkRuntime>,
     mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
 ) {
     let receiver = channel.receiver.lock().unwrap();
@@ -225,7 +225,7 @@ pub fn receive_terrain_results(
         let mut chunk_data = result.chunk_data;
         let gen_ctx = result.gen_context;
 
-        let Some(&entity) = world_storage.chunk_entities.get(&chunk_pos) else {
+        let Some(&entity) = chunk_runtime.chunk_entities.get(&chunk_pos) else {
             continue;
         };
         let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity) else {
@@ -235,12 +235,10 @@ pub fn receive_terrain_results(
             continue;
         }
 
-        apply_pending_writes(chunk_pos, &mut chunk_data, &mut world_storage);
-        world_storage
-            .loaded_chunks
-            .insert(chunk_pos, Arc::from(chunk_data));
+        apply_pending_writes(chunk_pos, &mut chunk_data, &mut world_state);
+        world_state.insert_chunk(chunk_pos, Arc::from(chunk_data));
         if !gen_ctx.columns.is_empty() {
-            world_storage.gen_contexts.insert(chunk_pos, gen_ctx);
+            chunk_runtime.gen_contexts.insert(chunk_pos, gen_ctx);
         }
 
         *chunk_state = ChunkState::TerrainReady;
@@ -248,13 +246,14 @@ pub fn receive_terrain_results(
 }
 
 pub fn generate_structures_system(
-    world_storage: Res<WorldStorage>,
+    world_state: Res<WorldState>,
     channel: Res<StructureGenChannel>,
     world_generator: Res<WorldGenerator>,
     cached_ids: Res<CachedBlockIds>,
     task: Res<TaskManager>,
     player_cache: Res<PlayerChunkCache>,
     mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
+    chunk_runtime: Res<ChunkRuntime>,
 ) {
     let mut spawned = 0u32;
 
@@ -264,7 +263,7 @@ pub fn generate_structures_system(
         {
             break;
         }
-        let Some(&entity) = world_storage.chunk_entities.get(&chunk_pos) else {
+        let Some(&entity) = chunk_runtime.chunk_entities.get(&chunk_pos) else {
             continue;
         };
         let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity) else {
@@ -274,11 +273,11 @@ pub fn generate_structures_system(
             continue;
         }
 
-        let Some(chunk_data) = world_storage.loaded_chunks.get(&chunk_pos).cloned() else {
+        let Some(chunk_data) = world_state.chunk(chunk_pos).cloned() else {
             continue;
         };
 
-        let ctx = world_storage
+        let ctx = chunk_runtime
             .gen_contexts
             .get(&chunk_pos)
             .cloned()
@@ -288,7 +287,7 @@ pub fn generate_structures_system(
         input_chunks.insert(chunk_pos, chunk_data);
         for direction in CHUNK_NEIGHBOR_OFFSETS {
             let nbr_pos = chunk_pos + direction;
-            if let Some(data) = world_storage.loaded_chunks.get(&nbr_pos).cloned() {
+            if let Some(data) = world_state.chunk(nbr_pos).cloned() {
                 input_chunks.insert(nbr_pos, data);
             }
         }
@@ -302,10 +301,7 @@ pub fn generate_structures_system(
 
         channel.in_flight.fetch_add(1, Ordering::Relaxed);
         task.spawn_cpu(move || {
-            let mut temp_storage = crate::game::world::storage::WorldStorage {
-                loaded_chunks: input_chunks,
-                ..default()
-            };
+            let mut workspace = StructureGenerationWorkspace::new(input_chunks);
 
             StructureGenerator::generate_structures_world_aware(
                 chunk_pos,
@@ -313,11 +309,12 @@ pub fn generate_structures_system(
                 &block_ids,
                 &biome_registry,
                 seed,
-                &mut temp_storage,
+                &mut workspace,
             );
 
-            let modified_chunks: Vec<(IVec3, ChunkData)> = temp_storage
-                .loaded_chunks
+            let (generated_chunks, pending_writes) = workspace.into_parts();
+
+            let modified_chunks = generated_chunks
                 .into_iter()
                 .filter_map(|(pos, arc)| {
                     let changed = original_chunks
@@ -330,7 +327,7 @@ pub fn generate_structures_system(
             let result = sender.send(StructureGenResult {
                 chunk_pos,
                 modified_chunks,
-                pending_writes: temp_storage.pending_writes.writes,
+                pending_writes,
             });
             if result.is_err() {
                 in_flight.fetch_sub(1, Ordering::Relaxed);
@@ -344,9 +341,10 @@ pub fn generate_structures_system(
 }
 
 pub fn receive_structure_results(
-    mut world_storage: ResMut<WorldStorage>,
+    mut world_state: ResMut<WorldState>,
     channel: Res<StructureGenChannel>,
     mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
+    mut chunk_runtime: ResMut<ChunkRuntime>,
 ) {
     let receiver = channel.receiver.lock().unwrap();
     let mut received = 0usize;
@@ -358,7 +356,7 @@ pub fn receive_structure_results(
         channel.in_flight.fetch_sub(1, Ordering::Relaxed);
         received += 1;
 
-        let Some(&result_entity) = world_storage.chunk_entities.get(&result.chunk_pos) else {
+        let Some(&result_entity) = chunk_runtime.chunk_entities.get(&result.chunk_pos) else {
             continue;
         };
         let Ok((result_components, result_state)) = chunk_query.get(result_entity) else {
@@ -371,12 +369,12 @@ pub fn receive_structure_results(
         }
 
         for (pos, data) in result.modified_chunks {
-            if let Some(existing) = world_storage.loaded_chunks.get_mut(&pos) {
+            if let Some(existing) = world_state.chunk_mut(pos) {
                 *existing = Arc::from(data);
-            } else if world_storage.chunk_entities.contains_key(&pos) {
-                world_storage.loaded_chunks.insert(pos, Arc::from(data));
+            } else if chunk_runtime.chunk_entities.contains_key(&pos) {
+                world_state.insert_chunk(pos, Arc::from(data));
             }
-            if let Some(&entity) = world_storage.chunk_entities.get(&pos)
+            if let Some(&entity) = chunk_runtime.chunk_entities.get(&pos)
                 && let Ok((_, mut state)) = chunk_query.get_mut(entity)
                 && matches!(*state, ChunkState::Rendered | ChunkState::GeneratingMesh)
             {
@@ -384,17 +382,12 @@ pub fn receive_structure_results(
             }
         }
         for (pos, writes) in result.pending_writes {
-            world_storage
-                .pending_writes
-                .writes
-                .entry(pos)
-                .or_default()
-                .extend(writes);
+            world_state.queue_pending_writes(pos, writes);
         }
 
-        world_storage.gen_contexts.remove(&result.chunk_pos);
+        chunk_runtime.gen_contexts.remove(&result.chunk_pos);
 
-        if let Some(&entity) = world_storage.chunk_entities.get(&result.chunk_pos)
+        if let Some(&entity) = chunk_runtime.chunk_entities.get(&result.chunk_pos)
             && let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity)
             && chunk_components.position == result.chunk_pos
             && *chunk_state == ChunkState::GeneratingStructure
@@ -404,8 +397,8 @@ pub fn receive_structure_results(
     }
 }
 
-fn apply_pending_writes(chunk_pos: IVec3, chunk: &mut ChunkData, storage: &mut WorldStorage) {
-    if let Some(writes) = storage.pending_writes.writes.remove(&chunk_pos) {
+fn apply_pending_writes(chunk_pos: IVec3, chunk: &mut ChunkData, world_state: &mut WorldState) {
+    if let Some(writes) = world_state.take_pending_writes(chunk_pos) {
         for write in writes {
             if chunk.get_voxel(write.local_x, write.local_y, write.local_z) == 0 {
                 chunk.set_voxel(write.local_x, write.local_y, write.local_z, write.block_id);

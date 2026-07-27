@@ -11,7 +11,7 @@ use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::world::block_ops::set_voxel_at_world;
 use crate::game::world::entity::dropped_item::spawn_dropped_item;
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::WorldState;
 use crate::shared::random::RandomSource;
 use bevy::prelude::*;
 
@@ -25,7 +25,7 @@ pub fn execute_block_break(
     behavior_registry: &BlockBehaviorRegistry,
     loot_registry: Option<&BlockLootRegistry>,
     loot_rng: &mut dyn RandomSource,
-    world_storage: &mut WorldStorage,
+    world_state: &mut WorldState,
     commands: &mut Commands,
 ) -> bool {
     if !can_break_block(block_id, gamemode, tag_registry) {
@@ -40,8 +40,8 @@ pub fn execute_block_break(
     }
 
     let behavior = behavior_registry.get_behavior_by_id(block_id, block_registry);
-    behavior.on_break(world_pos, block_id, world_storage, commands);
-    set_voxel_at_world(world_pos, 0, world_storage);
+    behavior.on_break(world_pos, block_id, world_state, commands);
+    set_voxel_at_world(world_pos, 0, world_state);
 
     if should_drop_block_loot(gamemode, block, active_tool)
         && let Some(loot_registry) = loot_registry

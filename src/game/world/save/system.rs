@@ -6,7 +6,7 @@ use crate::game::world::generation::WorldGenerator;
 use crate::game::world::save::format::{LevelData, SavedChunk};
 use crate::game::world::save::level;
 use crate::game::world::save::region::RegionManager;
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::WorldState;
 use crate::game::world::time::WorldSimulationClock;
 use bevy::prelude::*;
 use bincode::Options;
@@ -111,12 +111,12 @@ pub fn auto_save_on_unload_system(
     time: Res<Time>,
     mut auto_save_timer: ResMut<AutoSaveTimer>,
     save_config: Res<SaveConfig>,
-    mut world_storage: ResMut<WorldStorage>,
     mut save_queue: ResMut<SaveQueue>,
     block_registry: Res<BlockRegistry>,
     world_generator: Res<WorldGenerator>,
     simulation_clock: Res<WorldSimulationClock>,
     player_query: Query<&Transform, With<Player>>,
+    mut world_state: ResMut<WorldState>,
 ) {
     // 禁用自动保存则跳过
     if save_config.auto_save_interval <= 0.0 {
@@ -160,23 +160,14 @@ pub fn auto_save_on_unload_system(
         return;
     }
 
-    let modified: Vec<_> = world_storage.chunk_modified_times.keys().copied().collect();
-    for position in modified {
-        let Some(data) = world_storage
-            .loaded_chunks
-            .get(&position)
-            .map(|data| data.as_ref().clone())
-        else {
-            world_storage.chunk_modified_times.remove(&position);
+    for (position, modified_time) in world_state.take_modified_chunks() {
+        let Some(data) = world_state.chunk(position) else {
             continue;
         };
-        let modified_time = world_storage
-            .chunk_modified_times
-            .remove(&position)
-            .unwrap_or_default();
+
         save_queue.enqueue(SavedChunk {
             position,
-            data,
+            data: data.as_ref().clone(),
             modified_time,
         });
     }
@@ -315,10 +306,10 @@ fn wait_for_save_worker(
     Ok(saved)
 }
 
-/// 从存档文件加载区块，加载到世界数据WorldStorage
+/// 从存档文件加载区块，加载到世界数据WorldState
 pub fn process_load_queue_system(
     mut load_queue: ResMut<LoadQueue>,
-    mut world_storage: ResMut<WorldStorage>,
+    mut world_state: ResMut<WorldState>,
     save_config: Res<SaveConfig>,
     block_registry: Res<BlockRegistry>,
 ) {
@@ -344,9 +335,7 @@ pub fn process_load_queue_system(
             level::remap_chunk_block_ids(&mut chunk_data, &saved_id_map, &block_registry);
         }
 
-        world_storage
-            .loaded_chunks
-            .insert(saved.position, Arc::from(chunk_data));
+        world_state.insert_chunk(saved.position, Arc::from(chunk_data));
 
         loaded += 1;
     }
@@ -376,7 +365,7 @@ pub fn load_world_metadata(world_name: &str) -> Result<LevelData, super::region:
 /// 保存整个世界
 pub fn save_entire_world(
     world_name: &str,
-    world_storage: &WorldStorage,
+    world_state: &WorldState,
     block_registry: &BlockRegistry,
     seed: u64,
     generation_version: u32,
@@ -400,17 +389,12 @@ pub fn save_entire_world(
         .as_secs_f64();
 
     // 批量保存所有区块
-    let chunks: Vec<SavedChunk> = world_storage
-        .loaded_chunks
-        .iter()
-        .map(|(pos, data)| SavedChunk {
-            position: *pos,
+    let chunks: Vec<SavedChunk> = world_state
+        .chunks()
+        .map(|(position, data)| SavedChunk {
+            position,
             data: data.as_ref().clone(),
-            modified_time: world_storage
-                .chunk_modified_times
-                .get(pos)
-                .copied()
-                .unwrap_or(now),
+            modified_time: world_state.chunk_modified_time(position).unwrap_or(now),
         })
         .collect();
 
@@ -420,13 +404,13 @@ pub fn save_entire_world(
     Ok(())
 }
 
-/// 从存档创建初始 WorldStorage
+/// 从存档创建初始 WorldState
 pub fn load_entire_world(
     world_name: &str,
     block_registry: &BlockRegistry,
-) -> Result<(WorldStorage, LevelData), super::region::SaveError> {
+) -> Result<(WorldState, LevelData), super::region::SaveError> {
     let level = level::load_level(world_name)?;
-    let mut storage = WorldStorage::default();
+    let mut storage = WorldState::default();
 
     // 遍历所有 region 文件
     let regions_dir = RegionManager::save_root(world_name).join(REGION_DIR_NAME);
@@ -462,9 +446,7 @@ pub fn load_entire_world(
                                     &level.block_id_map,
                                     block_registry,
                                 );
-                                storage
-                                    .loaded_chunks
-                                    .insert(saved.position, Arc::from(saved.data));
+                                storage.insert_chunk(saved.position, Arc::from(saved.data));
                             }
                         }
                     }

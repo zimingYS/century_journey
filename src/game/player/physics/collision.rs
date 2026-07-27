@@ -1,7 +1,7 @@
 use crate::content::block::definition::RenderMode;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::constant::world::CHUNK_SIZE;
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::WorldState;
 use bevy::math::{IVec3, Vec3};
 
 /// 判断指定世界坐标的方块是否为固体
@@ -9,7 +9,7 @@ fn is_voxel_solid(
     vx: i32,
     vy: i32,
     vz: i32,
-    world_storage: &WorldStorage,
+    world_state: &WorldState,
     registry: &BlockRegistry,
 ) -> bool {
     let chunk_pos = IVec3::new(
@@ -23,7 +23,7 @@ fn is_voxel_solid(
         vz.rem_euclid(CHUNK_SIZE as i32),
     );
 
-    let Some(chunk_data) = world_storage.loaded_chunks.get(&chunk_pos) else {
+    let Some(chunk_data) = world_state.chunk(chunk_pos) else {
         return true;
     };
 
@@ -51,7 +51,7 @@ fn is_voxel_solid(
 pub fn check_collision_at(
     position: Vec3,
     half_extents: Vec3,
-    world_storage: &WorldStorage,
+    world_state: &WorldState,
     registry: &BlockRegistry,
 ) -> bool {
     let min_x = (position.x - half_extents.x).floor() as i32;
@@ -64,7 +64,7 @@ pub fn check_collision_at(
     for vx in min_x..=max_x {
         for vy in min_y..=max_y {
             for vz in min_z..=max_z {
-                if is_voxel_solid(vx, vy, vz, world_storage, registry) {
+                if is_voxel_solid(vx, vy, vz, world_state, registry) {
                     // 确认AABB确实与方块重叠
                     if position.x - half_extents.x < (vx + 1) as f32
                         && position.x + half_extents.x > vx as f32
@@ -87,18 +87,18 @@ pub fn check_collision_at(
 pub fn is_grounded_at(
     position: Vec3,
     half_extents: Vec3,
-    world_storage: &WorldStorage,
+    world_state: &WorldState,
     registry: &BlockRegistry,
 ) -> bool {
     let feet_pos = position - Vec3::new(0.0, 0.05, 0.0);
-    check_collision_at(feet_pos, half_extents, world_storage, registry)
+    check_collision_at(feet_pos, half_extents, world_state, registry)
 }
 
 /// 寻找安全位置
 pub fn find_safe_position(
     start_pos: Vec3,
     half_extents: Vec3,
-    world_storage: &WorldStorage,
+    world_state: &WorldState,
     registry: &BlockRegistry,
 ) -> Option<Vec3> {
     // 优先使用最短水平位移脱离碰撞，避免沿树干或方块柱一路传送到顶部。
@@ -116,7 +116,7 @@ pub fn find_safe_position(
         let distance = step as f32 * 0.1;
         for direction in directions {
             let test_pos = start_pos + direction * distance;
-            if !check_collision_at(test_pos, half_extents, world_storage, registry) {
+            if !check_collision_at(test_pos, half_extents, world_state, registry) {
                 return Some(test_pos);
             }
         }
@@ -125,7 +125,7 @@ pub fn find_safe_position(
     // 水平空间完全被堵住时才有限度向上恢复，禁止扫描整根方块柱。
     for step in 1..=24 {
         let test_pos = start_pos + Vec3::Y * (step as f32 * 0.1);
-        if !check_collision_at(test_pos, half_extents, world_storage, registry) {
+        if !check_collision_at(test_pos, half_extents, world_state, registry) {
             return Some(test_pos);
         }
     }

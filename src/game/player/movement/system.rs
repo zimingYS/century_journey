@@ -6,7 +6,7 @@ use crate::game::player::lifecycle::components::PlayerLifecycle;
 use crate::game::player::movement::components::{PlayerMovement, PlayerVelocity};
 use crate::game::player::physics::collision::check_collision_at;
 use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
-use crate::game::world::storage::WorldStorage;
+use crate::game::world::state::WorldState;
 use bevy::math::Vec3;
 use bevy::prelude::{Query, Res, Time, Transform, With};
 
@@ -14,7 +14,7 @@ pub fn player_movement_system(
     time: Res<Time>,
     actions: Res<PlayerActionState>,
     registry: Option<Res<BlockRegistry>>,
-    world_storage: Res<WorldStorage>,
+    world_state: Res<WorldState>,
     mut query: Query<
         (
             &mut Transform,
@@ -98,7 +98,7 @@ pub fn player_movement_system(
         // 处理X轴移动
         let pos = transform.translation;
         let new_pos_x = Vec3::new(pos.x + move_delta.x, pos.y, pos.z);
-        if !check_collision_at(new_pos_x, half, &world_storage, &reg) {
+        if !check_collision_at(new_pos_x, half, &world_state, &reg) {
             transform.translation.x = new_pos_x.x;
         } else if gravity.is_grounded {
             // X 轴发生碰撞时，尝试沿 X 轴跨上台阶。
@@ -107,7 +107,7 @@ pub fn player_movement_system(
                 half,
                 move_delta.x,
                 0,
-                &world_storage,
+                &world_state,
                 &reg,
             ) {
                 velocity.horizontal.x = 0.0;
@@ -119,7 +119,7 @@ pub fn player_movement_system(
         // 处理Z轴移动
         let pos = transform.translation;
         let new_pos_z = Vec3::new(pos.x, pos.y, pos.z + move_delta.z);
-        if !check_collision_at(new_pos_z, half, &world_storage, &reg) {
+        if !check_collision_at(new_pos_z, half, &world_state, &reg) {
             transform.translation.z = new_pos_z.z;
         } else if gravity.is_grounded {
             // Z 轴发生碰撞时，尝试沿 Z 轴跨上台阶。
@@ -128,7 +128,7 @@ pub fn player_movement_system(
                 half,
                 move_delta.z,
                 2,
-                &world_storage,
+                &world_state,
                 &reg,
             ) {
                 velocity.horizontal.z = 0.0;
@@ -154,7 +154,7 @@ fn try_step_up(
     half: Vec3,
     delta: f32,
     axis: usize,
-    world_storage: &WorldStorage,
+    world_storage: &WorldState,
     registry: &BlockRegistry,
 ) -> bool {
     // 在碰撞轴上移动，同时向上抬升
