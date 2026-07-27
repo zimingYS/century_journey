@@ -33,7 +33,7 @@ use crate::game::world::save::region::RegionManager;
 use crate::game::world::save::system::{
     LoadQueue, SaveConfig, SaveQueue, SaveWorker, flush_save_queue, save_entire_world,
 };
-use crate::game::world::state::WorldState;
+use crate::game::world::state::{ChunkRuntime, WorldState};
 use crate::game::world::systems::{
     PlayerChunkCache, StructureGenChannel, TerrainGenChannel, WorldStreamingConfig,
 };
@@ -467,6 +467,7 @@ struct PrepareWorldParams<'w, 's> {
     time_of_day: ResMut<'w, TimeOfDay>,
     simulation_clock: ResMut<'w, WorldSimulationClock>,
     world_state: ResMut<'w, WorldState>,
+    chunk_runtime: ResMut<'w, ChunkRuntime>,
     player_cache: ResMut<'w, PlayerChunkCache>,
     terrain_channel: ResMut<'w, TerrainGenChannel>,
     structure_channel: ResMut<'w, StructureGenChannel>,
@@ -521,6 +522,7 @@ fn prepare_world_system(pending: Res<PendingWorld>, mut params: PrepareWorldPara
                 params.commands.entity(entity).despawn();
             }
             *params.world_state = WorldState::default();
+            *params.chunk_runtime = ChunkRuntime::default();
             *params.player_cache = PlayerChunkCache::default();
             *params.terrain_channel = TerrainGenChannel::default();
             *params.structure_channel = StructureGenChannel::default();
