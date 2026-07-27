@@ -54,7 +54,7 @@ pub fn spawn_mesh_build_tasks(
         if !streaming_config.should_mesh_chunk(player_chunk_pos, current_chunk_pos) {
             continue;
         }
-        let Some(&chunk_entity) = chunk_runtime.chunk_entities.get(&current_chunk_pos) else {
+        let Some(chunk_entity) = chunk_runtime.chunk_entity(current_chunk_pos) else {
             continue;
         };
         let Ok((chunk_components, mut state)) = chunk_query.get_mut(chunk_entity) else {
@@ -132,7 +132,7 @@ pub fn receive_mesh_results(
         channel.in_flight.fetch_sub(1, Ordering::Relaxed);
         received += 1;
 
-        let Some(&chunk_entity) = chunk_runtime.chunk_entities.get(&result.chunk_pos) else {
+        let Some(chunk_entity) = chunk_runtime.chunk_entity(result.chunk_pos) else {
             continue;
         };
         let Ok((_components, mut state)) = chunk_query.get_mut(chunk_entity) else {
