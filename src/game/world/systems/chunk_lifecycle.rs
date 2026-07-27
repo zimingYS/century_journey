@@ -11,9 +11,8 @@ use crate::game::world::save::region::RegionManager;
 use crate::game::world::save::system::{CachedBlockIdRemap, SaveConfig, SaveQueue};
 use crate::game::world::state::{ChunkRuntime, WorldState};
 use crate::game::world::systems::channel::{StructureGenChannel, StructureGenResult};
-use crate::game::world::systems::{
-    PlayerChunkCache, TerrainGenChannel, TerrainGenResult, WorldStreamingConfig,
-};
+use crate::game::world::systems::streaming::PlayerChunkCache;
+use crate::game::world::systems::{TerrainGenChannel, TerrainGenResult, WorldStreamingConfig};
 use bevy::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;

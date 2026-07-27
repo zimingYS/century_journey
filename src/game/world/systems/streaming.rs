@@ -127,6 +127,15 @@ impl WorldStreamingConfig {
     }
 }
 
+/// 缓存玩家当前位置对应的区块流式规划结果
+#[derive(Resource, Default)]
+pub struct PlayerChunkCache {
+    pub last_chunk_pos: Option<IVec3>,
+    pub last_streaming_config: Option<WorldStreamingConfig>,
+    pub expected_chunks: HashSet<IVec3>,
+    pub ordered_chunks: Vec<IVec3>,
+}
+
 fn as_i32(value: u32) -> i32 {
     value.min(i32::MAX as u32) as i32
 }

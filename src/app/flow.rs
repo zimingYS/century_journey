@@ -34,9 +34,8 @@ use crate::game::world::save::system::{
     LoadQueue, SaveConfig, SaveQueue, SaveWorker, flush_save_queue, save_entire_world,
 };
 use crate::game::world::state::{ChunkRuntime, WorldState};
-use crate::game::world::systems::{
-    PlayerChunkCache, StructureGenChannel, TerrainGenChannel, WorldStreamingConfig,
-};
+use crate::game::world::systems::streaming::PlayerChunkCache;
+use crate::game::world::systems::{StructureGenChannel, TerrainGenChannel, WorldStreamingConfig};
 use crate::game::world::time::{TimeOfDay, WorldSimulationClock};
 use crate::shared::components::camera::FpsCamera;
 use crate::shared::states::{AppState, InputContextState};
