@@ -376,7 +376,7 @@ pub fn receive_structure_results(
             world_state.queue_pending_writes(pos, writes);
         }
 
-        chunk_runtime.remove_chunk_entity(result.chunk_pos);
+        chunk_runtime.remove_generation_context(result.chunk_pos);
 
         if let Some(entity) = chunk_runtime.chunk_entity(result.chunk_pos)
             && let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity)
