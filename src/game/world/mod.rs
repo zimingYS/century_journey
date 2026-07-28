@@ -3,7 +3,6 @@ pub mod chunk;
 pub mod entity;
 pub mod generation;
 pub mod pending_writes;
-pub mod save;
 pub mod state;
 pub mod systems;
 pub mod time;
@@ -43,7 +42,6 @@ impl Plugin for WorldPlugin {
             .init_resource::<systems::StructureGenChannel>()
             .init_resource::<systems::PlayerChunkCache>()
             .init_resource::<systems::WorldStreamingConfig>()
-            .add_plugins(save::SaveLoadPlugin)
             .add_plugins(entity::EntityPlugin)
             .add_systems(
                 Update,

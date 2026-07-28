@@ -1,6 +1,6 @@
 use crate::content::constant::world::*;
 use crate::engine::persistence;
-use crate::game::world::save::format::{
+use crate::game::save::world::format::{
     RegionFile, RegionHeader, SavedChunk, chunk_local_index, chunk_to_region_pos,
     local_index_to_flat,
 };
@@ -369,5 +369,5 @@ impl RegionManager {
 }
 
 #[cfg(test)]
-#[path = "../../../../tests/unit/game/world/save/region.rs"]
+#[path = "../../../../tests/unit/game/save/world/region.rs"]
 mod tests;

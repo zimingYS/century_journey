@@ -1,10 +1,10 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::engine::persistence;
+use crate::game::save::world::format::LevelData;
+use crate::game::save::world::region::{RegionManager, SaveError};
 use crate::game::world::generation::pipeline::{
     CURRENT_GENERATION_VERSION, LEGACY_GENERATION_VERSION,
 };
-use crate::game::world::save::format::LevelData;
-use crate::game::world::save::region::{RegionManager, SaveError};
 use crate::game::world::time::WorldSimulationClock;
 use bevy::prelude::*;
 use bincode::Options;
@@ -308,5 +308,5 @@ pub fn remap_chunk_block_ids(
 }
 
 #[cfg(test)]
-#[path = "../../../../tests/unit/game/world/save/level.rs"]
+#[path = "../../../../tests/unit/game/save/world/level.rs"]
 mod tests;

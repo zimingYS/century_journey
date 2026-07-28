@@ -16,7 +16,7 @@ use crate::game::inventory::state::InventoryState;
 use crate::game::player::identity::LocalPlayer;
 use crate::game::player::movement::components::PlayerVelocity;
 use crate::game::player::physics::components::PlayerGravity;
-use crate::game::world::save::level;
+use crate::game::save::world::level;
 use crate::shared::components::camera::{CameraPerspective, FpsCamera};
 use crate::shared::item_id::ItemId;
 use crate::shared::states::AppState;
