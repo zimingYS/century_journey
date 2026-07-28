@@ -1,8 +1,8 @@
 use crate::content::constant::world::{MAX_TERRAIN_RECEIVE_PER_FRAME, MAX_TERRAIN_TASKS_PER_FRAME};
 use crate::engine::task::{TaskManager, TaskResult};
-use crate::game::save::CachedBlockIdRemap;
 use crate::game::save::SaveConfig;
-use crate::game::save::world::region::RegionManager;
+use crate::game::save::world::chunk::region::RegionManager;
+use crate::game::save::world::runtime::world_load::CachedBlockIdRemap;
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::generation::WorldGenerator;
 use crate::game::world::generation::context::ChunkGenContext;

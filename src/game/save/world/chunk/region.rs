@@ -1,6 +1,6 @@
 use crate::content::constant::world::*;
 use crate::engine::persistence;
-use crate::game::save::world::format::{
+use crate::game::save::world::chunk::model::{
     RegionFile, RegionHeader, SavedChunk, chunk_local_index, chunk_to_region_pos,
     local_index_to_flat,
 };
@@ -45,6 +45,10 @@ impl std::fmt::Display for SaveError {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../../tests/unit/game/save/world/chunk/region.rs"]
+mod tests;
 
 /// 将文件相关错误转换为存档错误
 impl From<std::io::Error> for SaveError {
@@ -367,7 +371,3 @@ impl RegionManager {
         Ok(decompressed)
     }
 }
-
-#[cfg(test)]
-#[path = "../../../../tests/unit/game/save/world/region.rs"]
-mod tests;

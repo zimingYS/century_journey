@@ -1,11 +1,11 @@
-use super::player_model::PlayerSaveData;
 use crate::engine::persistence;
-use crate::game::save::player::migration;
-use crate::game::save::player::migration::{
+use crate::game::save::player::data::migration;
+use crate::game::save::player::data::migration::{
     LegacyPlayerSaveDataV3, LegacyPlayerSaveDataV4, LegacyPlayerSaveDataV5, LegacyPlayerSaveDataV6,
 };
 #[cfg(test)]
-use crate::game::save::player::migration::{LegacySaveItemStack, LegacySaveItemStackV6};
+use crate::game::save::player::data::migration::{LegacySaveItemStack, LegacySaveItemStackV6};
+use crate::game::save::player::data::model::PlayerSaveData;
 use bincode::Options;
 use flate2::Compression;
 use flate2::read::GzDecoder;
@@ -119,5 +119,5 @@ pub fn player_save_path(world_name: &str) -> std::path::PathBuf {
 }
 
 #[cfg(test)]
-#[path = "../../../../tests/unit/game/save/player/player_io.rs"]
+#[path = "../../../../tests/unit/game/save/player/io.rs"]
 mod tests;

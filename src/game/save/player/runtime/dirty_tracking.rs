@@ -1,8 +1,8 @@
-use super::PlayerSaveManager;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::identity::{LocalPlayer, Player};
 use crate::game::save::events::SaveDirtySource;
+use crate::game::save::player::PlayerSaveManager;
 use bevy::prelude::{Changed, DetectChanges, Query, Res, ResMut, Transform, With};
 
 /// 玩家位置变化超过此距离才标记Dirty

@@ -1,22 +1,23 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::engine::persistence;
-use crate::game::save::world::format::LevelData;
-use crate::game::save::world::region::{RegionManager, SaveError};
+use crate::game::save::world::chunk::region::{RegionManager, SaveError};
+use crate::game::save::world::metadata::model::LevelData;
 use crate::game::world::generation::pipeline::{
     CURRENT_GENERATION_VERSION, LEGACY_GENERATION_VERSION,
 };
 use crate::game::world::time::WorldSimulationClock;
-use bevy::prelude::*;
+use bevy::math::Vec3;
+use bevy::prelude;
 use bincode::Options;
 use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use std::io::{Read, Write};
 
-const LEVEL_MAGIC: &[u8; 4] = b"CJLV";
+pub const LEVEL_MAGIC: &[u8; 4] = b"CJLV";
 
 #[derive(serde::Serialize, serde::Deserialize)]
-struct LegacyLevelDataV0 {
+pub struct LegacyLevelDataV0 {
     seed: u64,
     spawn_position: [f32; 3],
     time_of_day: f32,
@@ -25,7 +26,7 @@ struct LegacyLevelDataV0 {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
-struct LegacyLevelDataV1 {
+pub struct LegacyLevelDataV1 {
     version: u32,
     game_version: String,
     seed: u64,
@@ -35,7 +36,7 @@ struct LegacyLevelDataV1 {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
-struct LegacyLevelDataV2 {
+pub struct LegacyLevelDataV2 {
     version: u32,
     game_version: String,
     seed: u64,
@@ -59,7 +60,7 @@ pub fn save_level(
     clock: &WorldSimulationClock,
     spawn_pos: Vec3,
     block_registry: &BlockRegistry,
-) -> Result<(), SaveError> {
+) -> prelude::Result<(), SaveError> {
     // 确保当前世界文件存在
     RegionManager::ensure_dirs(world_name)?;
 
@@ -86,14 +87,14 @@ pub fn save_level(
 }
 
 /// 从level.dat加载世界元数据
-pub fn load_level(world_name: &str) -> Result<LevelData, SaveError> {
+pub fn load_level(world_name: &str) -> prelude::Result<LevelData, SaveError> {
     let path = RegionManager::level_path(world_name);
     let bytes = persistence::read_verified(&path, validate_level_bytes)?;
     decode_level(&bytes)
 }
 
 /// 从最近有效备份读取世界元数据，但不修改主文件。
-pub fn load_level_backup(world_name: &str) -> Result<LevelData, SaveError> {
+pub fn load_level_backup(world_name: &str) -> prelude::Result<LevelData, SaveError> {
     let path = RegionManager::level_path(world_name);
     let bytes = persistence::read_backup_verified(&path, validate_level_bytes)?;
     decode_level(&bytes)
@@ -106,13 +107,13 @@ pub fn level_backup_available(world_name: &str) -> bool {
 }
 
 /// 用最近有效备份恢复世界元数据。
-pub fn restore_level_backup(world_name: &str) -> Result<(), SaveError> {
+pub fn restore_level_backup(world_name: &str) -> prelude::Result<(), SaveError> {
     let path = RegionManager::level_path(world_name);
     persistence::restore_backup(&path, validate_level_bytes)?;
     Ok(())
 }
 
-fn encode_level(level: &LevelData) -> Result<Vec<u8>, SaveError> {
+pub fn encode_level(level: &LevelData) -> prelude::Result<Vec<u8>, SaveError> {
     let serialized = bincode::DefaultOptions::new()
         .with_varint_encoding()
         .serialize(level)?;
@@ -123,7 +124,7 @@ fn encode_level(level: &LevelData) -> Result<Vec<u8>, SaveError> {
     Ok(encoded)
 }
 
-fn decode_level(bytes: &[u8]) -> Result<LevelData, SaveError> {
+pub fn decode_level(bytes: &[u8]) -> prelude::Result<LevelData, SaveError> {
     if let Some(compressed) = bytes.strip_prefix(LEVEL_MAGIC) {
         let decompressed = decompress(compressed)?;
         if let Ok(current) = bincode::DefaultOptions::new()
@@ -155,7 +156,7 @@ fn decode_level(bytes: &[u8]) -> Result<LevelData, SaveError> {
     migrate_legacy_level_data(legacy)
 }
 
-fn migrate_level_data(mut level: LevelData) -> Result<LevelData, SaveError> {
+fn migrate_level_data(mut level: LevelData) -> prelude::Result<LevelData, SaveError> {
     match level.version {
         0..=1 => {
             level.version = LevelData::CURRENT_VERSION;
@@ -202,7 +203,7 @@ fn migrate_level_data(mut level: LevelData) -> Result<LevelData, SaveError> {
     Ok(level)
 }
 
-fn migrate_legacy_level_data(legacy: LegacyLevelDataV0) -> Result<LevelData, SaveError> {
+fn migrate_legacy_level_data(legacy: LegacyLevelDataV0) -> prelude::Result<LevelData, SaveError> {
     if !legacy.version.is_finite() || legacy.version > 0.1 {
         return Err(SaveError::Serialize(format!(
             "无法迁移旧世界格式版本 {}",
@@ -223,7 +224,9 @@ fn migrate_legacy_level_data(legacy: LegacyLevelDataV0) -> Result<LevelData, Sav
     })
 }
 
-fn migrate_legacy_level_data_v2(legacy: LegacyLevelDataV2) -> Result<LevelData, SaveError> {
+fn migrate_legacy_level_data_v2(
+    legacy: LegacyLevelDataV2,
+) -> prelude::Result<LevelData, SaveError> {
     let level = LevelData {
         version: 2,
         game_version: legacy.game_version,
@@ -246,7 +249,9 @@ fn apply_legacy_clock(level: &mut LevelData) {
     level.subminute_tick = clock.subminute_tick();
 }
 
-fn migrate_legacy_level_data_v1(legacy: LegacyLevelDataV1) -> Result<LevelData, SaveError> {
+fn migrate_legacy_level_data_v1(
+    legacy: LegacyLevelDataV1,
+) -> prelude::Result<LevelData, SaveError> {
     if legacy.version > 1 {
         return Err(SaveError::UnsupportedVersion {
             found: legacy.version,
@@ -267,19 +272,19 @@ fn migrate_legacy_level_data_v1(legacy: LegacyLevelDataV1) -> Result<LevelData, 
     })
 }
 
-fn validate_level_bytes(bytes: &[u8]) -> Result<(), String> {
+fn validate_level_bytes(bytes: &[u8]) -> prelude::Result<(), String> {
     decode_level(bytes)
         .map(|_| ())
         .map_err(|error| error.to_string())
 }
 
-fn compress(data: &[u8]) -> Result<Vec<u8>, SaveError> {
+pub fn compress(data: &[u8]) -> prelude::Result<Vec<u8>, SaveError> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
     encoder.write_all(data)?;
     encoder.finish().map_err(SaveError::Io)
 }
 
-fn decompress(data: &[u8]) -> Result<Vec<u8>, SaveError> {
+fn decompress(data: &[u8]) -> prelude::Result<Vec<u8>, SaveError> {
     let mut decoder = GzDecoder::new(data);
     let mut decompressed = Vec::new();
     decoder.read_to_end(&mut decompressed)?;
@@ -308,5 +313,5 @@ pub fn remap_chunk_block_ids(
 }
 
 #[cfg(test)]
-#[path = "../../../../tests/unit/game/save/world/level.rs"]
+#[path = "../../../../../tests/unit/game/save/world/metadata/io.rs"]
 mod tests;

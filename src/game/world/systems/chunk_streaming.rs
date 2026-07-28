@@ -2,7 +2,7 @@ use crate::content::constant::world::*;
 use crate::game::player::identity::Player;
 use crate::game::save::SaveConfig;
 use crate::game::save::SaveQueue;
-use crate::game::save::world::format::SavedChunk;
+use crate::game::save::world::chunk::model::SavedChunk;
 use crate::game::world::chunk::{ChunkComponents, ChunkState};
 use crate::game::world::state::{ChunkRuntime, WorldState};
 use crate::game::world::systems::WorldStreamingConfig;

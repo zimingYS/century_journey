@@ -4,15 +4,15 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct LegacySaveItemStack {
-    pub(super) item: String,
-    pub(super) count: u32,
+    pub(in crate::game::save::player) item: String,
+    pub(in crate::game::save::player) count: u32,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct LegacySaveItemStackV6 {
-    pub(super) item: String,
-    pub(super) count: u32,
-    pub(super) durability: Option<u32>,
+    pub(in crate::game::save::player) item: String,
+    pub(in crate::game::save::player) count: u32,
+    pub(in crate::game::save::player) durability: Option<u32>,
 }
 
 impl From<LegacySaveItemStack> for SaveItemStack {
@@ -39,86 +39,89 @@ impl From<LegacySaveItemStackV6> for SaveItemStack {
 
 #[derive(Serialize, Deserialize)]
 pub struct LegacyPlayerSaveDataV6 {
-    pub(super) version: u32,
-    pub(super) game_version: String,
-    pub(super) position: [f32; 3],
-    pub(super) rotation: [f32; 4],
-    pub(super) camera_pitch: f32,
-    pub(super) gamemode: String,
-    pub(super) health: f32,
-    pub(super) hunger: f32,
-    pub(super) saturation: f32,
-    pub(super) respawn_point: [f32; 3],
-    pub(super) hotbar_active: usize,
+    pub(in crate::game::save::player) version: u32,
+    pub(in crate::game::save::player) game_version: String,
+    pub(in crate::game::save::player) position: [f32; 3],
+    pub(in crate::game::save::player) rotation: [f32; 4],
+    pub(in crate::game::save::player) camera_pitch: f32,
+    pub(in crate::game::save::player) gamemode: String,
+    pub(in crate::game::save::player) health: f32,
+    pub(in crate::game::save::player) hunger: f32,
+    pub(in crate::game::save::player) saturation: f32,
+    pub(in crate::game::save::player) respawn_point: [f32; 3],
+    pub(in crate::game::save::player) hotbar_active: usize,
     #[serde(with = "serde_arrays")]
-    pub(super) hotbar: [LegacySaveItemStackV6; 9],
+    pub(in crate::game::save::player) hotbar: [LegacySaveItemStackV6; 9],
     #[serde(with = "serde_arrays")]
-    pub(super) backpack: [LegacySaveItemStackV6; 27],
+    pub(in crate::game::save::player) backpack: [LegacySaveItemStackV6; 27],
     #[serde(with = "serde_arrays")]
-    pub(super) equipment: [LegacySaveItemStackV6; SurvivalInventory::EQUIPMENT_SIZE],
-    pub(super) accessories: Vec<LegacySaveItemStackV6>,
+    pub(in crate::game::save::player) equipment:
+        [LegacySaveItemStackV6; SurvivalInventory::EQUIPMENT_SIZE],
+    pub(in crate::game::save::player) accessories: Vec<LegacySaveItemStackV6>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct LegacyPlayerSaveDataV5 {
-    pub(super) version: u32,
-    pub(super) game_version: String,
-    pub(super) position: [f32; 3],
-    pub(super) rotation: [f32; 4],
-    pub(super) camera_pitch: f32,
-    pub(super) gamemode: String,
-    pub(super) health: f32,
-    pub(super) hunger: f32,
-    pub(super) hotbar_active: usize,
+    pub(in crate::game::save::player) version: u32,
+    pub(in crate::game::save::player) game_version: String,
+    pub(in crate::game::save::player) position: [f32; 3],
+    pub(in crate::game::save::player) rotation: [f32; 4],
+    pub(in crate::game::save::player) camera_pitch: f32,
+    pub(in crate::game::save::player) gamemode: String,
+    pub(in crate::game::save::player) health: f32,
+    pub(in crate::game::save::player) hunger: f32,
+    pub(in crate::game::save::player) hotbar_active: usize,
     #[serde(with = "serde_arrays")]
-    pub(super) hotbar: [LegacySaveItemStack; 9],
+    pub(in crate::game::save::player) hotbar: [LegacySaveItemStack; 9],
     #[serde(with = "serde_arrays")]
-    pub(super) backpack: [LegacySaveItemStack; 27],
+    pub(in crate::game::save::player) backpack: [LegacySaveItemStack; 27],
     #[serde(with = "serde_arrays")]
-    pub(super) equipment: [LegacySaveItemStack; SurvivalInventory::EQUIPMENT_SIZE],
-    pub(super) accessories: Vec<LegacySaveItemStack>,
+    pub(in crate::game::save::player) equipment:
+        [LegacySaveItemStack; SurvivalInventory::EQUIPMENT_SIZE],
+    pub(in crate::game::save::player) accessories: Vec<LegacySaveItemStack>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct LegacyPlayerSaveDataV4 {
-    pub(super) version: u32,
-    pub(super) position: [f32; 3],
-    pub(super) rotation: [f32; 4],
-    pub(super) camera_pitch: f32,
-    pub(super) gamemode: String,
-    pub(super) health: f32,
-    pub(super) hunger: f32,
-    pub(super) hotbar_active: usize,
+    pub(in crate::game::save::player) version: u32,
+    pub(in crate::game::save::player) position: [f32; 3],
+    pub(in crate::game::save::player) rotation: [f32; 4],
+    pub(in crate::game::save::player) camera_pitch: f32,
+    pub(in crate::game::save::player) gamemode: String,
+    pub(in crate::game::save::player) health: f32,
+    pub(in crate::game::save::player) hunger: f32,
+    pub(in crate::game::save::player) hotbar_active: usize,
     #[serde(with = "serde_arrays")]
-    pub(super) hotbar: [LegacySaveItemStack; 9],
+    pub(in crate::game::save::player) hotbar: [LegacySaveItemStack; 9],
     #[serde(with = "serde_arrays")]
-    pub(super) backpack: [LegacySaveItemStack; 27],
+    pub(in crate::game::save::player) backpack: [LegacySaveItemStack; 27],
     #[serde(with = "serde_arrays")]
-    pub(super) equipment: [LegacySaveItemStack; SurvivalInventory::EQUIPMENT_SIZE],
-    pub(super) accessories: Vec<LegacySaveItemStack>,
+    pub(in crate::game::save::player) equipment:
+        [LegacySaveItemStack; SurvivalInventory::EQUIPMENT_SIZE],
+    pub(in crate::game::save::player) accessories: Vec<LegacySaveItemStack>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct LegacyPlayerSaveDataV3 {
-    pub(super) version: u32,
-    pub(super) position: [f32; 3],
-    pub(super) rotation: [f32; 4],
+    pub(in crate::game::save::player) version: u32,
+    pub(in crate::game::save::player) position: [f32; 3],
+    pub(in crate::game::save::player) rotation: [f32; 4],
     #[serde(default)]
-    pub(super) camera_pitch: f32,
-    pub(super) gamemode: String,
+    pub(in crate::game::save::player) camera_pitch: f32,
+    pub(in crate::game::save::player) gamemode: String,
     #[serde(default)]
-    pub(super) health: f32,
+    pub(in crate::game::save::player) health: f32,
     #[serde(default)]
-    pub(super) hunger: f32,
-    pub(super) hotbar_active: usize,
+    pub(in crate::game::save::player) hunger: f32,
+    pub(in crate::game::save::player) hotbar_active: usize,
     #[serde(with = "serde_arrays")]
-    pub(super) hotbar: [LegacySaveItemStack; 9],
+    pub(in crate::game::save::player) hotbar: [LegacySaveItemStack; 9],
     #[serde(with = "serde_arrays")]
-    pub(super) backpack: [LegacySaveItemStack; 36],
+    pub(in crate::game::save::player) backpack: [LegacySaveItemStack; 36],
     #[serde(with = "serde_arrays")]
-    pub(super) armor: [LegacySaveItemStack; 4],
+    pub(in crate::game::save::player) armor: [LegacySaveItemStack; 4],
     #[serde(with = "serde_arrays")]
-    pub(super) accessories: [LegacySaveItemStack; 6],
+    pub(in crate::game::save::player) accessories: [LegacySaveItemStack; 6],
 }
 
 impl From<LegacyPlayerSaveDataV3> for PlayerSaveData {

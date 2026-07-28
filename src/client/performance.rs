@@ -13,7 +13,7 @@ use crate::app::flow::PendingWorld;
 use crate::client::renderer::world::MeshBuildChannel;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
-use crate::game::save::world::level;
+use crate::game::save::world::metadata::io;
 use crate::game::world::chunk::ChunkState;
 use crate::game::world::state::WorldState;
 use crate::game::world::systems::streaming::PlayerChunkCache;
@@ -161,8 +161,8 @@ fn fixed_performance_scenario_system(
         let Some(block_registry) = block_registry else {
             return;
         };
-        if !level::world_exists(WORLD_NAME)
-            && let Err(error) = level::save_level(
+        if !io::world_exists(WORLD_NAME)
+            && let Err(error) = io::save_level(
                 WORLD_NAME,
                 WORLD_SEED,
                 crate::game::world::generation::pipeline::CURRENT_GENERATION_VERSION,

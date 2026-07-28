@@ -5,7 +5,7 @@ use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::container::survival::SurvivalInventory;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
-use crate::game::save::player::item_codec;
+use crate::game::save::player::data::item_codec;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -291,5 +291,5 @@ fn restore_legacy_stack(state: &mut InventoryState, mut stack: ItemStack) {
 }
 
 #[cfg(test)]
-#[path = "../../../../tests/unit/game/save/player/player_model.rs"]
+#[path = "../../../../../tests/unit/game/save/player/data/model.rs"]
 mod tests;

@@ -16,7 +16,7 @@ use crate::game::inventory::state::InventoryState;
 use crate::game::player::identity::LocalPlayer;
 use crate::game::player::movement::components::PlayerVelocity;
 use crate::game::player::physics::components::PlayerGravity;
-use crate::game::save::world::level;
+use crate::game::save::world::metadata::io;
 use crate::shared::components::camera::{CameraPerspective, FpsCamera};
 use crate::shared::item_id::ItemId;
 use crate::shared::states::AppState;
@@ -168,7 +168,7 @@ fn ui_screenshot_check_system(
         }
     } else if state == &AppState::MainMenu && !config.world_requested {
         let screenshot_world = config.world_id.clone();
-        if !level::world_exists(&screenshot_world) {
+        if !io::world_exists(&screenshot_world) {
             if !config.anchor_player {
                 error!("requested screenshot world does not exist: {screenshot_world}");
                 config.requested = true;
@@ -177,7 +177,7 @@ fn ui_screenshot_check_system(
             let Some(block_registry) = block_registry else {
                 return;
             };
-            if let Err(error) = level::save_level(
+            if let Err(error) = io::save_level(
                 &screenshot_world,
                 12_345,
                 crate::game::world::generation::pipeline::CURRENT_GENERATION_VERSION,

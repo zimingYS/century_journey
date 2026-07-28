@@ -1,14 +1,13 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::game::player::identity::Player;
-use crate::game::save::config::{AutoSaveTimer, SaveConfig};
-use crate::game::save::world::format::SavedChunk;
-use crate::game::save::world::level;
-use crate::game::save::world::queue::SaveQueue;
-use crate::game::save::world::region::RegionManager;
+use crate::game::save::world::chunk::model::SavedChunk;
+use crate::game::save::world::metadata::io;
+use crate::game::save::{AutoSaveTimer, SaveConfig, SaveQueue};
 use crate::game::world::generation::WorldGenerator;
 use crate::game::world::state::WorldState;
 use crate::game::world::time::WorldSimulationClock;
-use bevy::prelude::*;
+use bevy::math::Vec3;
+use bevy::prelude::{Query, Res, ResMut, Time, Timer, TimerMode, Transform, With};
 
 /// 区块卸载时自动保存系统
 pub fn auto_save_on_unload_system(
@@ -52,7 +51,7 @@ pub fn auto_save_on_unload_system(
         .unwrap_or(Vec3::ZERO);
 
     // 元数据很小，直接原子保存；真正修改过的区块交给后台保存队列。
-    if let Err(error) = level::save_level(
+    if let Err(error) = io::save_level(
         &save_config.world_name,
         world_generator.seed as u64,
         world_generator.generation_version,
@@ -80,49 +79,3 @@ pub fn auto_save_on_unload_system(
         save_queue.queue.len()
     );
 }
-
-/// 保存整个世界
-pub fn save_entire_world(
-    world_name: &str,
-    world_state: &WorldState,
-    block_registry: &BlockRegistry,
-    seed: u64,
-    generation_version: u32,
-    simulation_clock: &WorldSimulationClock,
-    spawn_pos: Vec3,
-) -> Result<(), super::region::SaveError> {
-    // 保存世界数据到 level.dat
-    level::save_level(
-        world_name,
-        seed,
-        generation_version,
-        simulation_clock,
-        spawn_pos,
-        block_registry,
-    )?;
-
-    // 获取当前时间戳
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs_f64();
-
-    // 批量保存所有区块
-    let chunks: Vec<SavedChunk> = world_state
-        .chunks()
-        .map(|(position, data)| SavedChunk {
-            position,
-            data: data.as_ref().clone(),
-            modified_time: world_state.chunk_modified_time(position).unwrap_or(now),
-        })
-        .collect();
-
-    RegionManager::write_chunks_batch(world_name, &chunks)?;
-
-    log::info!("[存档系统] 世界已保存: {} 个区块", chunks.len());
-    Ok(())
-}
-
-#[cfg(test)]
-#[path = "../../../../tests/unit/game/save/world/write.rs"]
-mod tests;

@@ -3,7 +3,7 @@
 use crate::content::block::registry::BlockRegistry;
 use crate::game::player::identity::Player;
 use crate::game::save;
-use crate::game::save::world::level;
+use crate::game::save::world::metadata::io;
 use crate::game::save::{SaveConfig, SaveQueue, SaveWorker};
 use crate::game::world::state::WorldState;
 use bevy::input::ButtonInput;
@@ -57,7 +57,7 @@ pub(super) fn save_load_keybind_system(
 
     // F9 — 加载（注意：加载需要重启世界状态，此处仅加载元数据做演示）
     if keyboard.just_pressed(KeyCode::F9) {
-        match level::load_level(&save_config.world_name) {
+        match io::load_level(&save_config.world_name) {
             Ok(level) => {
                 log::info!(
                     "[世界] 世界元数据已加载: seed={}, spawn={:?}",

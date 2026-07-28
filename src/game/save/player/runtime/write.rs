@@ -1,4 +1,3 @@
-use super::player_manager::PlayerSaveManager;
 use crate::content::item::ItemRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::{InventoryState, LocalInventory};
@@ -7,7 +6,8 @@ use crate::game::player::lifecycle::RespawnPoint;
 use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::Hunger;
 use crate::game::save::SaveConfig;
-use crate::game::save::player::player_io::write_player_data;
+use crate::game::save::player::io::write_player_data;
+use crate::game::save::player::runtime::manager::PlayerSaveManager;
 use crate::game::save::player::{PlayerSaveData, player_save_path};
 use crate::shared::components::FpsCamera;
 use bevy::app::AppExit;

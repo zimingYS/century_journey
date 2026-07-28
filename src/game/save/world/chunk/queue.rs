@@ -1,8 +1,8 @@
 use crate::content::constant::world::MAX_SAVE_PER_FRAME;
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::save::config::SaveConfig;
-use crate::game::save::world::format::SavedChunk;
-use crate::game::save::world::region::RegionManager;
+use crate::game::save::world::chunk::model::SavedChunk;
+use crate::game::save::world::chunk::region::RegionManager;
 use bevy::math::IVec3;
 use bevy::prelude;
 use bevy::prelude::{Res, ResMut, Resource};
@@ -140,6 +140,10 @@ pub fn flush_save_queue(
     saved += batch.len();
     Ok(saved)
 }
+
+#[cfg(test)]
+#[path = "../../../../../tests/unit/game/save/world/chunk/queue.rs"]
+mod tests;
 
 fn collect_save_completions(save_queue: &mut SaveQueue, worker: &mut SaveWorker) {
     let completions: Vec<_> = {

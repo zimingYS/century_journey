@@ -27,9 +27,9 @@ use crate::game::save::player::{PlayerSaveManager, save_player_now};
 use crate::game::save::player::{
     player_backup_available, player_save_path, read_player_data, restore_player_backup,
 };
-use crate::game::save::save_entire_world;
-use crate::game::save::world::level;
-use crate::game::save::world::region::RegionManager;
+use crate::game::save::world::chunk::region::RegionManager;
+use crate::game::save::world::metadata::io;
+use crate::game::save::world::runtime::world_save::save_entire_world;
 use crate::game::save::{SaveQueue, SaveWorker, flush_save_queue};
 use crate::game::world::chunk::ChunkComponents;
 use crate::game::world::generation::WorldGenerator;
@@ -285,9 +285,9 @@ fn refresh_world_catalog(catalog: &mut WorldCatalog) {
         let Some(id) = entry.file_name().to_str().map(str::to_owned) else {
             continue;
         };
-        let data = match level::load_level(&id) {
+        let data = match io::load_level(&id) {
             Ok(data) => data,
-            Err(_) => match level::load_level_backup(&id) {
+            Err(_) => match io::load_level_backup(&id) {
                 Ok(data) => data,
                 Err(_) => continue,
             },
@@ -342,7 +342,7 @@ fn handle_flow_commands_system(
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_nanos() as u64;
-                match level::save_level(
+                match io::save_level(
                     &id,
                     seed,
                     CURRENT_GENERATION_VERSION,
@@ -386,7 +386,7 @@ fn handle_flow_commands_system(
             }
             FlowCommand::ConfirmDialog => {
                 if let Some(DialogKind::ConfirmRecoverWorld { world_id }) = dialog.kind.clone() {
-                    if let Err(error) = level::restore_level_backup(&world_id) {
+                    if let Err(error) = io::restore_level_backup(&world_id) {
                         dialog.error("世界恢复失败", error.to_string());
                         continue;
                     }
@@ -489,7 +489,7 @@ fn prepare_world_system(pending: Res<PendingWorld>, mut params: PrepareWorldPara
     };
     params.loading.title = "正在加载世界".into();
     params.loading.detail = format!("正在读取 {world_id}...");
-    match level::load_level(world_id) {
+    match io::load_level(world_id) {
         Ok(level_data) => {
             let player_path = player_save_path(world_id);
             if player_path.exists() {
@@ -553,7 +553,7 @@ fn prepare_world_system(pending: Res<PendingWorld>, mut params: PrepareWorldPara
             params.next_state.set(AppState::InGame);
         }
         Err(error) => {
-            if level::level_backup_available(world_id) {
+            if io::level_backup_available(world_id) {
                 params.dialog.kind = Some(DialogKind::ConfirmRecoverWorld {
                     world_id: world_id.to_string(),
                 });

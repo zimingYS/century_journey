@@ -1,6 +1,7 @@
-use super::player_model::PlayerSaveData;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
-use crate::game::save::player::{SaveItemStack, player_model};
+use crate::game::save::player::PlayerSaveData;
+use crate::game::save::player::SaveItemStack;
+use crate::game::save::player::data::model;
 use crate::shared::item_id::ItemId;
 
 /// 存档数据健康检查与自动修复
@@ -57,13 +58,13 @@ pub(in crate::game) fn validate_player_data(data: &PlayerSaveData) -> PlayerSave
         data.hunger = data.hunger.clamp(0.0, 20.0);
     }
     if !data.saturation.is_finite() {
-        data.saturation = player_model::default_saturation();
+        data.saturation = model::default_saturation();
         repaired = true;
     } else {
         data.saturation = data.saturation.clamp(0.0, data.hunger);
     }
     if data.respawn_point.iter().any(|value| !value.is_finite()) {
-        data.respawn_point = player_model::default_respawn_point();
+        data.respawn_point = model::default_respawn_point();
         repaired = true;
     }
     if !matches!(data.gamemode.as_str(), "survival" | "creative") {

@@ -1,12 +1,12 @@
 //! 组装玩家数据加载、脏状态跟踪和自动保存流程。
 
 use super::PlayerSaveManager;
-use super::dirty_tracking::{
+use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
+use crate::game::save::player::runtime::dirty_tracking::{
     gamemode_dirty_tracking_system, inventory_dirty_tracking_system, player_position_dirty_system,
 };
-use super::load_player::load_player_on_enter_system;
-use super::save_player::{auto_save_player_system, save_on_exit_system};
-use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
+use crate::game::save::player::runtime::load::load_player_on_enter_system;
+use crate::game::save::player::runtime::write::{auto_save_player_system, save_on_exit_system};
 use crate::shared::states::AppState;
 use bevy::app::{App, Last, Plugin, Update};
 use bevy::prelude::{IntoScheduleConfigs, OnEnter, in_state};

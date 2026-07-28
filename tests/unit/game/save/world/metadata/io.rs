@@ -1,4 +1,8 @@
 use super::*;
+use crate::game::save::world::metadata::io::{
+    LEVEL_MAGIC, LegacyLevelDataV0, LegacyLevelDataV1, LegacyLevelDataV2, compress, decode_level,
+    encode_level,
+};
 
 fn sample_level() -> LevelData {
     LevelData {

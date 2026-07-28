@@ -1,4 +1,3 @@
-use super::PlayerSaveManager;
 use crate::content::item::ItemRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::LocalInventoryMut;
@@ -6,6 +5,7 @@ use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::{PlayerLifecycle, RespawnPoint};
 use crate::game::player::movement::components::PlayerVelocity;
 use crate::game::save::SaveConfig;
+use crate::game::save::player::PlayerSaveManager;
 use crate::shared::components::FpsCamera;
 use bevy::camera::Camera3d;
 use bevy::prelude::{Query, Res, ResMut, Time, Transform, With};
@@ -32,7 +32,7 @@ pub fn load_player_on_enter_system(
     _time: Res<Time>,
 ) {
     use crate::game::save::events::SaveDirtySource;
-    use crate::game::save::player::validation::validate_player_data;
+    use crate::game::save::player::data::validation::validate_player_data;
     use crate::game::save::player::{PlayerSaveData, player_save_path, read_player_data};
     use bevy::prelude::DetectChangesMut;
 

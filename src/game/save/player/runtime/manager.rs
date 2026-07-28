@@ -1,5 +1,5 @@
 use crate::game::save::events::SaveDirtySource;
-use crate::game::save::player::dirty_tracking::POSITION_DIRTY_THRESHOLD_SQ;
+use crate::game::save::player::runtime::dirty_tracking::POSITION_DIRTY_THRESHOLD_SQ;
 use bevy::prelude::*;
 
 /// 管理玩家存档的脏状态、自动保存计时和保存统计信息
