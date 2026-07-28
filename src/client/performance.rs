@@ -13,12 +13,11 @@ use crate::app::flow::PendingWorld;
 use crate::client::renderer::world::MeshBuildChannel;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
+use crate::game::save::world::metadata::io;
 use crate::game::world::chunk::ChunkState;
-use crate::game::world::save::level;
 use crate::game::world::state::WorldState;
-use crate::game::world::systems::{
-    PlayerChunkCache, StructureGenChannel, TerrainGenChannel, WorldStreamingConfig,
-};
+use crate::game::world::systems::streaming::PlayerChunkCache;
+use crate::game::world::systems::{StructureGenChannel, TerrainGenChannel, WorldStreamingConfig};
 use crate::shared::states::AppState;
 
 const SCENARIO_NAME: &str = "survival_spawn_v1";
@@ -162,8 +161,8 @@ fn fixed_performance_scenario_system(
         let Some(block_registry) = block_registry else {
             return;
         };
-        if !level::world_exists(WORLD_NAME)
-            && let Err(error) = level::save_level(
+        if !io::world_exists(WORLD_NAME)
+            && let Err(error) = io::save_level(
                 WORLD_NAME,
                 WORLD_SEED,
                 crate::game::world::generation::pipeline::CURRENT_GENERATION_VERSION,
@@ -243,7 +242,7 @@ fn fixed_performance_scenario_system(
             max: config.memory_samples_gib.iter().copied().reduce(f64::max),
         },
         chunks: ChunkSummary {
-            expected: params.player_cache.expected_chunks.len(),
+            expected: params.player_cache.expected_chunk_count(),
             loaded: params.world_state.loaded_chunk_count(),
             rendered: params
                 .chunk_states

@@ -4,6 +4,7 @@ use crate::game::crafting::plugin::CraftingPlugin;
 use crate::game::gameplay::GameplayPlugin;
 use crate::game::inventory::plugin::InventoryPlugin;
 use crate::game::player::plugin::GamePlayerPlugin;
+use crate::game::save::GameSavePlugin;
 use crate::game::simulation::SimulationPlugin;
 use crate::game::world::WorldPlugin;
 
@@ -23,6 +24,7 @@ impl Plugin for GamePluginGroup {
             WorldPlugin,
             InventoryPlugin,
             GamePlayerPlugin,
+            GameSavePlugin,
         ));
     }
 }

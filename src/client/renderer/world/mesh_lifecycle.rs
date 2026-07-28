@@ -8,7 +8,8 @@ use crate::content::constant::world::*;
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::state::{ChunkRuntime, WorldState};
-use crate::game::world::systems::{PlayerChunkCache, WorldStreamingConfig};
+use crate::game::world::systems::WorldStreamingConfig;
+use crate::game::world::systems::streaming::PlayerChunkCache;
 use bevy::prelude::*;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -37,7 +38,7 @@ pub fn spawn_mesh_build_tasks(
     if registry.is_none() {
         return;
     }
-    let Some(player_chunk_pos) = player_cache.last_chunk_pos else {
+    let Some(player_chunk_pos) = player_cache.player_chunk_pos() else {
         return;
     };
 
@@ -45,7 +46,7 @@ pub fn spawn_mesh_build_tasks(
     let mut spawned = 0u32;
     let max_in_flight = (task.worker_count().max(1) * 2).clamp(2, 8);
 
-    for &current_chunk_pos in &player_cache.ordered_chunks {
+    for &current_chunk_pos in player_cache.ordered_chunks() {
         if spawned >= MAX_MESH_TASKS_PER_FRAME
             || channel.in_flight.load(Ordering::Relaxed) >= max_in_flight
         {

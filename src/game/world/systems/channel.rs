@@ -1,9 +1,8 @@
-use super::streaming::WorldStreamingConfig;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::context::ChunkGenContext;
 use crate::game::world::pending_writes::PendingVoxel;
 use bevy::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex, mpsc};
 
@@ -53,12 +52,4 @@ impl Default for StructureGenChannel {
             in_flight: Arc::new(AtomicUsize::new(0)),
         }
     }
-}
-
-#[derive(Resource, Default)]
-pub struct PlayerChunkCache {
-    pub last_chunk_pos: Option<IVec3>,
-    pub last_streaming_config: Option<WorldStreamingConfig>,
-    pub expected_chunks: HashSet<IVec3>,
-    pub ordered_chunks: Vec<IVec3>,
 }

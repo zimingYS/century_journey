@@ -1,5 +1,6 @@
 use super::*;
 use crate::game::inventory::container::InventoryContainer;
+use crate::game::save::player::{SAVE_VERSION, SaveItemStack};
 
 impl LegacySaveItemStack {
     fn air() -> Self {

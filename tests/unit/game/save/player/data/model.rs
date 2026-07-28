@@ -1,4 +1,5 @@
 use super::*;
+use crate::shared::item_id::ItemId;
 
 #[test]
 fn stage_seven_reload_keeps_inventory_durability_stats_and_respawn_point() {

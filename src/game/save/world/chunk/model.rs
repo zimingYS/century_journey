@@ -1,36 +1,6 @@
 use crate::game::world::chunk::ChunkData;
-use bevy::prelude::IVec3;
+use bevy::math::IVec3;
 use serde::{Deserialize, Serialize};
-
-/// 世界数据
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct LevelData {
-    /// 整数存档格式版本，用于选择迁移步骤。
-    pub version: u32,
-    /// 创建或最近保存该文件的游戏版本，来自 Cargo.toml。
-    pub game_version: String,
-    /// 世界种子
-    pub seed: u64,
-    /// 基础地形算法版本；旧世界必须保留原版本，不能随游戏升级自动改变。
-    pub generation_version: u32,
-    /// 单调递增的服务端模拟 Tick。
-    pub simulation_tick: u64,
-    /// 绝对游戏分钟，日历字段均由此推导。
-    pub game_minute: u64,
-    /// 当前游戏分钟内已经经过的固定 Tick。
-    pub subminute_tick: u32,
-    /// 出生地坐标
-    pub spawn_position: [f32; 3],
-    /// 游戏时间
-    pub time_of_day: f32,
-    /// 区块方块 ID
-    pub block_id_map: Vec<(u16, String)>,
-}
-
-impl LevelData {
-    pub const CURRENT_VERSION: u32 = 3;
-    pub const GAME_VERSION: &'static str = env!("CARGO_PKG_VERSION");
-}
 
 /// Region 文件整体结构
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -63,10 +33,13 @@ pub struct SavedChunk {
     pub modified_time: f64,
 }
 
-/// 计算区块坐标对应的 Region 坐标
+/// 将区块世界坐标转换为所属 Region 坐标。
+///
+/// 使用欧几里得除法，确保负坐标区块与正坐标遵循相同的 Region 划分规则。
 #[inline]
 pub fn chunk_to_region_pos(chunk_pos: IVec3) -> IVec3 {
     use crate::content::constant::world::REGION_SIZE;
+
     IVec3::new(
         chunk_pos.x.div_euclid(REGION_SIZE),
         chunk_pos.y.div_euclid(REGION_SIZE),
@@ -74,18 +47,22 @@ pub fn chunk_to_region_pos(chunk_pos: IVec3) -> IVec3 {
     )
 }
 
-/// 计算区块在 Region 内的局部索引
+/// 计算区块在所属 Region 内的三维局部索引。
+///
+/// 使用欧几里得余数，保证负坐标不会产生越界的局部位置。
 #[inline]
 pub fn chunk_local_index(chunk_pos: IVec3) -> (usize, usize, usize) {
     use crate::content::constant::world::REGION_SIZE;
-    let local = |v: i32| v.rem_euclid(REGION_SIZE) as usize;
+
+    let local = |value: i32| value.rem_euclid(REGION_SIZE) as usize;
     (local(chunk_pos.x), local(chunk_pos.y), local(chunk_pos.z))
 }
 
-/// 三维局部索引转一维索引
+/// 按 Region 文件的 Y-Z-X 顺序将三维局部索引展平为位图索引。
 #[inline]
-pub fn local_index_to_flat(lx: usize, ly: usize, lz: usize) -> usize {
+pub fn local_index_to_flat(local_x: usize, local_y: usize, local_z: usize) -> usize {
     use crate::content::constant::world::REGION_SIZE;
-    let rs = REGION_SIZE as usize;
-    ly * rs * rs + lz * rs + lx
+
+    let region_size = REGION_SIZE as usize;
+    local_y * region_size * region_size + local_z * region_size + local_x
 }
