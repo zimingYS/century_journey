@@ -6,7 +6,7 @@ use crate::game::inventory::plugin::InventoryPlugin;
 use crate::game::player::plugin::GamePlayerPlugin;
 use crate::game::save::GameSavePlugin;
 use crate::game::simulation::SimulationPlugin;
-use crate::game::world::WorldPlugin;
+use crate::game::world::GameWorldPlugin;
 
 /// Game 层插件聚合入口。
 ///
@@ -21,7 +21,7 @@ impl Plugin for GamePluginGroup {
             GameplayPlugin,
             SimulationPlugin,
             CraftingPlugin,
-            WorldPlugin,
+            GameWorldPlugin,
             InventoryPlugin,
             GamePlayerPlugin,
             GameSavePlugin,

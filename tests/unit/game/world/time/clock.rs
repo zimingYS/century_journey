@@ -1,4 +1,5 @@
 use super::*;
+use crate::game::world::time::{SEASONS_PER_YEAR, SOLAR_TERMS_PER_YEAR, Season, SolarTerm};
 
 #[test]
 fn calendar_boundaries_follow_the_24_solar_terms() {
