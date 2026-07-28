@@ -1,5 +1,6 @@
 use crate::content::constant::world::{CHUNK_SIZE, SEA_LEVEL};
-use bevy::prelude::*;
+use bevy::math::{IVec3, Vec2, Vec3};
+use bevy::prelude::Resource;
 use std::collections::HashSet;
 
 #[derive(Resource, Debug, Clone, PartialEq, Eq)]
@@ -208,5 +209,5 @@ fn forward_priority_bonus(delta: IVec3, view_forward_xz: Vec2) -> i64 {
 }
 
 #[cfg(test)]
-#[path = "../../../../tests/unit/game/world/systems/streaming.rs"]
+#[path = "../../../../tests/unit/game/world/streaming/config.rs"]
 mod tests;

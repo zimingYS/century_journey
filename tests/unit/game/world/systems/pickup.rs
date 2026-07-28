@@ -2,6 +2,7 @@ use super::*;
 use crate::game::inventory::events::InventoryFeedbackEvent;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::player::lifecycle::PlayerLifecycle;
+use crate::game::world::interaction::pickup::pickup_system;
 use crate::shared::item_id::ItemId;
 
 #[test]

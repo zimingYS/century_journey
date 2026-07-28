@@ -3,6 +3,8 @@ pub mod climate;
 pub mod context;
 pub mod noise;
 pub mod pipeline;
+mod plugin;
+mod runtime;
 pub mod structure;
 pub mod terrain;
 
@@ -11,6 +13,11 @@ use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::noise::GenerationBlockIds;
 use crate::game::world::generation::pipeline::{CURRENT_GENERATION_VERSION, GenerationPipeline};
 use bevy::prelude::*;
+pub(in crate::game::world) use plugin::WorldGenerationPlugin;
+pub(crate) use runtime::{
+    StructureGenChannel, TerrainGenChannel, generate_structures_system, receive_structure_results,
+    receive_terrain_results, spawn_terrain_gen_tasks,
+};
 
 #[derive(Resource)]
 pub struct WorldGenerator {

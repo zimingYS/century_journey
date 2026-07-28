@@ -1,5 +1,6 @@
 use super::*;
 use crate::content::item::definition::tool::{ToolTier, ToolType};
+use crate::game::world::interaction::breaking::{block_drop_spawn_position, should_drop_block_loot};
 
 #[test]
 fn requested_fix_block_drop_starts_inside_broken_voxel() {

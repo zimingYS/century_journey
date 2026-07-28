@@ -2,9 +2,10 @@ use crate::game::inventory::events::InventoryFeedbackEvent;
 use crate::game::inventory::insert;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::identity::Player;
-use crate::game::player::lifecycle::components::PlayerLifecycle;
+use crate::game::player::lifecycle::PlayerLifecycle;
 use crate::game::world::entity::dropped_item::{DroppedItem, despawn_dropped_item};
-use bevy::prelude::*;
+use bevy::log::info;
+use bevy::prelude::{Commands, Entity, Local, MessageWriter, Query, Res, Time, Transform, With};
 
 /// 拾取范围半径
 const PICKUP_RANGE: f32 = 2.0;
@@ -77,7 +78,3 @@ pub fn pickup_system(
         }
     }
 }
-
-#[cfg(test)]
-#[path = "../../../../tests/unit/game/world/systems/pickup.rs"]
-mod stage_seven_tests;
