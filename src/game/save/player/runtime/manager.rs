@@ -1,4 +1,4 @@
-use crate::game::save::events::SaveDirtySource;
+use crate::game::save::dirty::SaveDirtySource;
 use crate::game::save::player::runtime::dirty_tracking::POSITION_DIRTY_THRESHOLD_SQ;
 use bevy::prelude::*;
 

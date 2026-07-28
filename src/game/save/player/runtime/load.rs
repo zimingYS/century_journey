@@ -31,7 +31,7 @@ pub fn load_player_on_enter_system(
     mut save_manager: ResMut<PlayerSaveManager>,
     _time: Res<Time>,
 ) {
-    use crate::game::save::events::SaveDirtySource;
+    use crate::game::save::dirty::SaveDirtySource;
     use crate::game::save::player::data::validation::validate_player_data;
     use crate::game::save::player::{PlayerSaveData, player_save_path, read_player_data};
     use bevy::prelude::DetectChangesMut;
