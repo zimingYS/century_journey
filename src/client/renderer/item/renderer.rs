@@ -313,7 +313,6 @@ impl ItemRenderer {
 /// 预热方块物品的 GUI 3D 图标。
 ///
 /// 普通物品不在这里创建离屏相机，GUI 会直接使用原始贴图，避免额外渲染开销。
-
 pub fn prepare_item_model_render_assets_system(
     mut commands: Commands,
     block_registry: Option<Res<BlockRegistry>>,

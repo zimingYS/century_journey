@@ -1,7 +1,9 @@
-use crate::content::block::event::{BlockBreakEvent, BlockInteractEvent, BlockPlaceEvent};
+use crate::content::block::event::{
+    BlockBreakEvent, BlockChangedEvent, BlockInteractEvent, BlockPlaceEvent,
+};
 use crate::content::block::registry::BlockRegistry;
 use crate::content::block::sound::{BlockSoundEvent, SoundAction};
-use crate::content::constant::world::CHUNK_SIZE;
+
 use crate::content::item::ItemRegistry;
 use crate::content::loot::block_registry::BlockLootRegistry;
 use crate::content::tag::runtime::RuntimeTagRegistry;
@@ -20,7 +22,7 @@ use crate::game::player::interaction::targeting::TargetVoxel;
 use crate::game::player::physics::components::PlayerCollider;
 use crate::game::simulation::{LOOT_RANDOM_DOMAIN, SimulationRng};
 use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
-use crate::game::world::chunk::{ChunkComponents, ChunkState};
+
 use crate::game::world::entity::dropped_item::{
     DroppedItemVelocity, spawn_dropped_item_with_velocity,
 };
@@ -39,6 +41,8 @@ pub struct VoxelEventWriters<'w> {
     pub break_events: MessageWriter<'w, BlockBreakEvent>,
     pub place_events: MessageWriter<'w, BlockPlaceEvent>,
     pub interact_events: MessageWriter<'w, BlockInteractEvent>,
+    /// 运行时方块写入统一经过此消息，以驱动区块刷新和邻居规则。
+    pub changed_blocks: MessageWriter<'w, BlockChangedEvent>,
     pub sound_events: MessageWriter<'w, BlockSoundEvent>,
 }
 
@@ -62,7 +66,7 @@ pub fn voxel_interaction_system(
     mut inventory_query: Query<&mut InventoryState, With<Player>>,
     gamemode: Res<PlayerGameMode>,
     loot_registry: Option<Res<BlockLootRegistry>>,
-    mut chunk_query: Query<(Entity, &ChunkComponents, &mut ChunkState)>,
+
     mut events: VoxelEventWriters,
     mut break_runtime: BlockBreakRuntime,
     mut commands: Commands,
@@ -157,6 +161,7 @@ pub fn voxel_interaction_system(
             loot_registry.as_deref(),
             &mut loot_rng,
             &mut world_state,
+            &mut events.changed_blocks,
             &mut commands,
         );
 
@@ -192,7 +197,6 @@ pub fn voxel_interaction_system(
             volume: prop.sound.break_volume,
         });
 
-        mark_dirty_chunks(hit_pos, &mut chunk_query, &mut world_state);
         return;
     }
 
@@ -279,7 +283,10 @@ pub fn voxel_interaction_system(
         return;
     }
 
-    set_voxel_at_world(place_pos, block_id, &mut world_state);
+    let Some(change) = set_voxel_at_world(place_pos, block_id, &mut world_state) else {
+        return;
+    };
+    events.changed_blocks.write(change);
 
     events.place_events.write(BlockPlaceEvent {
         world_pos: place_pos,
@@ -295,8 +302,6 @@ pub fn voxel_interaction_system(
         action: SoundAction::Place,
         volume: prop.map(|p| p.sound.place_volume).unwrap_or(1.0),
     });
-
-    mark_dirty_chunks(place_pos, &mut chunk_query, &mut world_state);
 }
 
 /// 创造模式的瞬间破坏只接受按下边沿，避免一次鼠标点击跨帧破坏整列方块。
@@ -320,61 +325,6 @@ pub fn voxel_intersects_player(voxel: IVec3, player_position: Vec3, half_extents
         && player_max.y > block_min.y
         && player_min.z < block_max.z
         && player_max.z > block_min.z
-}
-
-fn mark_dirty_chunks(
-    target_pos: IVec3,
-    chunk_query: &mut Query<(Entity, &ChunkComponents, &mut ChunkState)>,
-    world_state: &mut WorldState,
-) {
-    let chunk_pos = IVec3::new(
-        target_pos.x.div_euclid(CHUNK_SIZE as i32),
-        target_pos.y.div_euclid(CHUNK_SIZE as i32),
-        target_pos.z.div_euclid(CHUNK_SIZE as i32),
-    );
-
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs_f64();
-
-    world_state.mark_chunk_modified(chunk_pos, now);
-
-    let local_x = target_pos.x.rem_euclid(CHUNK_SIZE as i32) as usize;
-    let local_y = target_pos.y.rem_euclid(CHUNK_SIZE as i32) as usize;
-    let local_z = target_pos.z.rem_euclid(CHUNK_SIZE as i32) as usize;
-
-    let mut dirty_chunks = vec![chunk_pos];
-    let max_idx = CHUNK_SIZE - 1;
-
-    if local_y == 0 {
-        dirty_chunks.push(chunk_pos + IVec3::new(0, -1, 0));
-    }
-    if local_y == max_idx {
-        dirty_chunks.push(chunk_pos + IVec3::new(0, 1, 0));
-    }
-    if local_x == 0 {
-        dirty_chunks.push(chunk_pos + IVec3::new(-1, 0, 0));
-    }
-    if local_x == max_idx {
-        dirty_chunks.push(chunk_pos + IVec3::new(1, 0, 0));
-    }
-    if local_z == 0 {
-        dirty_chunks.push(chunk_pos + IVec3::new(0, 0, -1));
-    }
-    if local_z == max_idx {
-        dirty_chunks.push(chunk_pos + IVec3::new(0, 0, 1));
-    }
-
-    for &dirty_pos in &dirty_chunks {
-        world_state.mark_chunk_modified(dirty_pos, now);
-    }
-
-    for (_, chunk_comp, mut state) in chunk_query.iter_mut() {
-        if dirty_chunks.contains(&chunk_comp.position) {
-            *state = ChunkState::StructureReady;
-        }
-    }
 }
 
 pub fn drop_item_system(
