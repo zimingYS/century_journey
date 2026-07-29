@@ -7,7 +7,7 @@ use crate::content::loot::table::LootTable;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::shared::item_id::ItemId;
 use crate::shared::random::DeterministicRng;
-use bevy::prelude::{IVec3, default};
+use bevy::prelude::*;
 
 fn pickaxe(tier: ToolTier, efficiency: f32) -> ToolData {
     ToolData::new(ToolType::Pickaxe, tier, 100, efficiency)
