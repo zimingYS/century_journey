@@ -3,7 +3,7 @@ use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::components::PlayerLifecycle;
 use crate::game::player::survival::events::{DamageEvent, DamageSource};
 use crate::game::world::block_ops::get_voxel_at_world;
-use crate::game::world::state::WorldState;
+use crate::game::world::state::authoritative::WorldState;
 use bevy::math::Vec3;
 use bevy::prelude::*;
 

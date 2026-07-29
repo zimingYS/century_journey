@@ -5,7 +5,7 @@ use crate::game::save::world::chunk::model::SavedChunk;
 use crate::game::save::world::chunk::region::{RegionManager, SaveError};
 use crate::game::save::world::metadata::io;
 use crate::game::save::world::metadata::model::LevelData;
-use crate::game::world::state::WorldState;
+use crate::game::world::state::authoritative::WorldState;
 use bevy::math::IVec3;
 use bevy::prelude;
 use bevy::prelude::{Res, ResMut, Resource};

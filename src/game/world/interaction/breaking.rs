@@ -11,7 +11,7 @@ use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::world::block_ops::set_voxel_at_world;
 use crate::game::world::entity::dropped_item::spawn_dropped_item;
-use crate::game::world::state::WorldState;
+use crate::game::world::state::authoritative::WorldState;
 use crate::shared::random::RandomSource;
 use bevy::math::{IVec3, Vec3};
 use bevy::prelude::Commands;

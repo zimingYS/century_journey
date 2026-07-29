@@ -8,7 +8,7 @@ use crate::game::player::physics::collision::{
 };
 use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
 use crate::game::player::survival::events::{DamageEvent, DamageSource};
-use crate::game::world::state::WorldState;
+use crate::game::world::state::authoritative::WorldState;
 use bevy::math::Vec3;
 use bevy::prelude::{Entity, MessageWriter, Query, Res, Time, Transform, With};
 

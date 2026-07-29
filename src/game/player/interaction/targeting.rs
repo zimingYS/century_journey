@@ -1,6 +1,6 @@
 use crate::content::constant::world::CHUNK_SIZE;
 use crate::game::world::chunk::ChunkData;
-use crate::game::world::state::WorldState;
+use crate::game::world::state::authoritative::WorldState;
 use bevy::math::{IVec3, Quat, UVec3, Vec3};
 use bevy::prelude::{Query, Res, ResMut, Resource, Transform, With};
 

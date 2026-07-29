@@ -1,5 +1,5 @@
 use crate::content::constant::world::CHUNK_SIZE;
-use crate::game::world::state::WorldState;
+use crate::game::world::state::authoritative::WorldState;
 use bevy::prelude::*;
 use std::sync::Arc;
 

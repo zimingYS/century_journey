@@ -4,7 +4,8 @@ use crate::game::player::identity::Player;
 use crate::game::save::world::chunk::model::SavedChunk;
 use crate::game::save::{SaveConfig, SaveQueue};
 use crate::game::world::chunk::{ChunkComponents, ChunkState};
-use crate::game::world::state::{ChunkRuntime, WorldState};
+use crate::game::world::state::authoritative::WorldState;
+use crate::game::world::state::chunk_runtime::ChunkRuntime;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::{
     Commands, Entity, EntityWorldMut, GlobalTransform, Query, Res, ResMut, Transform, Visibility,

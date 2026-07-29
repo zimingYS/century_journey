@@ -19,7 +19,7 @@ use crate::game::player::identity::LocalPlayer;
 use crate::game::player::interaction::targeting::TargetVoxel;
 use crate::game::player::physics::components::PlayerGravity;
 use crate::game::world::block_ops::get_voxel_at_world;
-use crate::game::world::state::WorldState;
+use crate::game::world::state::authoritative::WorldState;
 use crate::shared::states::AppState;
 
 #[derive(Resource)]

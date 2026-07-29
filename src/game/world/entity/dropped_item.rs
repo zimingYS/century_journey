@@ -3,7 +3,7 @@ use crate::content::constant::world::CHUNK_SIZE;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::simulation::SimulationSet;
 use crate::game::simulation::SimulationTransformHistory;
-use crate::game::world::state::WorldState;
+use crate::game::world::state::authoritative::WorldState;
 use crate::shared::states::AppState;
 use bevy::prelude::*;
 

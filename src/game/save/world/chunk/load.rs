@@ -3,7 +3,7 @@ use crate::game::save::config::SaveConfig;
 use crate::game::save::world::chunk::model::SavedChunk;
 use crate::game::save::world::chunk::region::RegionManager;
 use crate::game::save::world::metadata::io;
-use crate::game::world::state::WorldState;
+use crate::game::world::state::authoritative::WorldState;
 use bevy::math::IVec3;
 use bevy::prelude::{Res, ResMut, Resource};
 use std::collections::VecDeque;

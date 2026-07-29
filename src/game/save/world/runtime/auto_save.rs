@@ -4,7 +4,7 @@ use crate::game::save::world::chunk::model::SavedChunk;
 use crate::game::save::world::metadata::io;
 use crate::game::save::{AutoSaveTimer, SaveConfig, SaveQueue};
 use crate::game::world::generation::generator::WorldGenerator;
-use crate::game::world::state::WorldState;
+use crate::game::world::state::authoritative::WorldState;
 use crate::game::world::time::WorldSimulationClock;
 use bevy::math::Vec3;
 use bevy::prelude::{Query, Res, ResMut, Time, Timer, TimerMode, Transform, With};
