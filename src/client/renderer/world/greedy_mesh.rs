@@ -106,7 +106,7 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
         }
     }
 
-    append_cross_models(&current_data, &block_info, &mut cutout_buf);
+    append_cross_models(chunk_pos, &current_data, &block_info, &mut cutout_buf);
 
     super::channel::MeshBuildResult {
         chunk_pos,
@@ -385,6 +385,7 @@ fn is_face_visible_snapshot(
 
 /// 为区块内的十字模型方块生存独立的双面交叉平面
 fn append_cross_models(
+    chunk_pos: IVec3,
     current_data: &ChunkData,
     block_info: &BlockInfoSnapshot,
     cutout_buf: &mut MeshBufferData,
@@ -400,8 +401,19 @@ fn append_cross_models(
 
                 let texture_layer = block_info.get_texture_layer(voxel_id, 0);
                 let uvs = get_single_block_uvs(texture_layer, block_info.total_layers);
+                let world_position =
+                    chunk_pos * CHUNK_SIZE as i32 + IVec3::new(x as i32, y as i32, z as i32);
+                let rotation = block_info
+                    .uses_random_model_rotation(voxel_id)
+                    .then(|| cross_rotation_from_world_position(world_position));
 
-                for vertices in generate_cross_vertices(x as f32, y as f32, z as f32) {
+                for mut vertices in generate_cross_vertices(x as f32, y as f32, z as f32) {
+                    if let Some(rotation) = rotation {
+                        let block_center =
+                            Vec3::new(x as f32 + 0.5, y as f32 + 0.5, z as f32 + 0.5);
+                        rotate_vertices_around_block_center(&mut vertices, block_center, rotation);
+                    }
+
                     let normal = calculate_face_normal(&vertices);
                     cutout_buf.append_face(&vertices, normal, &uvs);
                 }
@@ -430,6 +442,24 @@ fn get_single_block_uvs(texture_layer: u32, total_layers: u32) -> [[f32; 2]; 4] 
     let v1 = (texture_layer as f32 + 1.0 / chunk_size) / layer_count;
 
     [[u0, v1], [u1, v1], [u1, v0], [u0, v0]]
+}
+
+/// 根据世界坐标生成稳定的十字模型旋转。
+fn cross_rotation_from_world_position(position: IVec3) -> Quat {
+    let hash = position.x.wrapping_mul(73_856_093)
+        ^ position.y.wrapping_mul(19_349_663)
+        ^ position.z.wrapping_mul(83_492_791);
+    let step = hash.rem_euclid(4) as f32;
+
+    Quat::from_rotation_y(step * std::f32::consts::FRAC_PI_8)
+}
+
+/// 围绕当前方块的局部中心旋转模型顶点。
+fn rotate_vertices_around_block_center(vertices: &mut [[f32; 3]; 4], center: Vec3, rotation: Quat) {
+    for vertex in vertices {
+        let position = Vec3::from(*vertex);
+        *vertex = (rotation * (position - center) + center).into();
+    }
 }
 
 #[cfg(test)]

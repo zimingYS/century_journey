@@ -5,7 +5,7 @@
   "render_mode": "Cutout",
   "model": {
     "model": "Cross",
-    "random_rotation": false,
+    "random_rotation": true,
     "centered": true
   },
   "is_solid": false,

@@ -48,6 +48,7 @@ pub struct BlockInfoSnapshot {
     pub is_solid: Vec<bool>,
     pub render_modes: Vec<RenderMode>,
     pub mesh_kinds: Vec<BlockMeshKind>,
+    pub model_random_rotations: Vec<bool>,
     pub texture_layers: Box<[u32]>,
     pub water_id: u16,
     pub total_layers: u32,
@@ -68,6 +69,7 @@ impl BlockInfoSnapshot {
         let mut is_solid = vec![false; (max_id + 1) as usize];
         let mut render_modes = vec![RenderMode::Opaque; (max_id + 1) as usize];
         let mut mesh_kinds = vec![BlockMeshKind::Cube; (max_id + 1) as usize];
+        let mut model_random_rotations = vec![false; (max_id + 1) as usize];
 
         for (&id, property) in registry.iter_properties() {
             is_solid[id as usize] = property.is_solid;
@@ -76,6 +78,7 @@ impl BlockInfoSnapshot {
                 BlockModel::Cross => BlockMeshKind::Cross,
                 _ => BlockMeshKind::Cube,
             };
+            model_random_rotations[id as usize] = property.model.random_rotation;
         }
 
         let layer_count = (max_id as usize + 1) * 6;
@@ -91,6 +94,7 @@ impl BlockInfoSnapshot {
             is_solid,
             render_modes,
             mesh_kinds,
+            model_random_rotations,
             texture_layers,
             water_id,
             total_layers,
@@ -110,6 +114,15 @@ impl BlockInfoSnapshot {
         self.mesh_kinds
             .get(voxel_id as usize)
             .is_some_and(|kind| *kind == BlockMeshKind::Cross)
+    }
+
+    /// 判断方块模型是否应使用基于世界坐标的确定性旋转。
+    #[inline]
+    pub fn uses_random_model_rotation(&self, voxel_id: u16) -> bool {
+        self.model_random_rotations
+            .get(voxel_id as usize)
+            .copied()
+            .unwrap_or(false)
     }
 }
 
