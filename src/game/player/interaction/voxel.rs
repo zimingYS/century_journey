@@ -6,10 +6,11 @@ use crate::content::item::ItemRegistry;
 use crate::content::loot::block_registry::BlockLootRegistry;
 use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::block::BlockBehaviorRegistry;
+use crate::game::gameplay::block_action::{BlockBreakProgress, BlockBreakState};
 use crate::game::gameplay::block_action::{
-    BlockBreakProgress, BlockBreakState, active_tool_data, block_break_seconds, can_break_block,
-    can_place_block, consume_placed_block_item, is_replaceable_block,
+    active_tool_data, block_break_seconds, can_break_block, is_replaceable_block,
 };
+use crate::game::gameplay::block_action::{can_place_block, consume_placed_block_item};
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::item::stack::ToolDamageResult;
 use crate::game::inventory::state::InventoryState;

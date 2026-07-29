@@ -1,14 +1,9 @@
 use crate::content::block::definition::BlockProperty;
-use crate::content::item::definition::tool::ToolData;
-use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::item::{ItemRegistry, ToolData};
 use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
-use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::item::stack::ItemStack;
-use crate::game::inventory::state::InventoryState;
-use crate::shared::item_id::ItemId;
 use crate::shared::tag::identifier::TagId;
-use bevy::prelude::*;
 
 const BLOCK_TAG_NAMESPACE: &str = "century_journey";
 const UNBREAKABLE_TAG: &str = "unbreakable";
@@ -17,108 +12,6 @@ const BASE_BREAK_SECONDS_PER_HARDNESS: f32 = 1.0;
 const MIN_SURVIVAL_BREAK_SECONDS: f32 = 0.08;
 const MIN_TOOL_EFFICIENCY: f32 = 0.1;
 const INCORRECT_TOOL_BREAK_TIME_MULTIPLIER: f32 = 5.0;
-
-#[derive(Resource, Debug, Clone)]
-pub struct BlockBreakProgress {
-    pub visible: bool,
-    pub world_pos: IVec3,
-    pub block_id: u16,
-    pub progress: f32,
-}
-
-impl Default for BlockBreakProgress {
-    fn default() -> Self {
-        Self {
-            visible: false,
-            world_pos: IVec3::ZERO,
-            block_id: 0,
-            progress: 0.0,
-        }
-    }
-}
-
-impl BlockBreakProgress {
-    pub fn clear(&mut self) {
-        *self = Self::default();
-    }
-
-    pub fn set(&mut self, world_pos: IVec3, block_id: u16, progress: f32) {
-        self.visible = true;
-        self.world_pos = world_pos;
-        self.block_id = block_id;
-        self.progress = progress.clamp(0.0, 1.0);
-    }
-}
-
-#[derive(Resource, Debug, Default, Clone)]
-pub struct BlockBreakState {
-    target: Option<BlockBreakTarget>,
-    elapsed_seconds: f32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct BlockBreakTarget {
-    world_pos: IVec3,
-    block_id: u16,
-    tool_item: ItemId,
-}
-
-impl BlockBreakState {
-    pub fn clear(&mut self) {
-        self.target = None;
-        self.elapsed_seconds = 0.0;
-    }
-
-    pub fn tick(&mut self, world_pos: IVec3, block_id: u16, tool_item: &ItemId, delta: f32) -> f32 {
-        let next_target = BlockBreakTarget {
-            world_pos,
-            block_id,
-            tool_item: tool_item.clone(),
-        };
-
-        if self.target.as_ref() != Some(&next_target) {
-            self.target = Some(next_target);
-            self.elapsed_seconds = 0.0;
-        }
-
-        self.elapsed_seconds += delta.max(0.0);
-        self.elapsed_seconds
-    }
-}
-
-pub fn can_place_block(
-    block_id: u16,
-    gamemode: &PlayerGameMode,
-    active_stack: Option<&ItemStack>,
-) -> bool {
-    if block_id == 0 {
-        return false;
-    }
-    if gamemode.is_creative() {
-        return true;
-    }
-    active_stack.is_some_and(|stack| !stack.is_empty())
-}
-
-pub fn consume_placed_block_item(
-    inventory: &mut InventoryState,
-    gamemode: &PlayerGameMode,
-) -> bool {
-    if gamemode.is_creative() {
-        return true;
-    }
-
-    let index = inventory.hotbar.active_index;
-    let Some(stack) = inventory.hotbar.get_stack_mut(index) else {
-        return false;
-    };
-
-    let _ = stack.take(1);
-    if stack.is_empty() {
-        inventory.hotbar.set_stack(index, ItemStack::empty());
-    }
-    true
-}
 
 pub fn can_break_block(
     block_id: u16,
@@ -203,7 +96,3 @@ pub fn is_replaceable_block(block_id: u16, tags: Option<&RuntimeTagRegistry>) ->
 fn block_tag(path: &str) -> TagId {
     TagId::new(BLOCK_TAG_NAMESPACE, path)
 }
-
-#[cfg(test)]
-#[path = "../../../tests/unit/game/gameplay/block_action.rs"]
-mod tests;
