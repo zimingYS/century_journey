@@ -23,7 +23,7 @@ pub fn can_place_block(
     }
 
     // 创造模式不消耗物品，但仍必须遵守方块本身的放置条件。
-    if !gamemode.is_creative() && !active_stack.is_some_and(|stack| !stack.is_empty()) {
+    if !gamemode.is_creative() && active_stack.is_none_or(|stack| stack.is_empty()) {
         return false;
     }
 

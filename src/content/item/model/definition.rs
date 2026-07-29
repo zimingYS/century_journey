@@ -103,6 +103,40 @@ impl ItemModelDefinition {
         self
     }
 
+    /// 为 JSON 中未声明的展示场景补齐与模型类型匹配的默认变换。
+    ///
+    /// 显式模型只需声明其几何来源；未覆盖的场景仍保持与同类 fallback 模型一致，
+    /// 避免可放置植物等物品在手持或掉落时退化为单位变换。
+    pub(super) fn fill_missing_display_transforms(&mut self) {
+        let defaults = match self.kind {
+            ItemModelKind::Empty => ItemModelDisplay::default(),
+            ItemModelKind::Block { .. } => ItemModelDisplay::block_defaults(),
+            ItemModelKind::Generated { .. } | ItemModelKind::Custom { .. } => {
+                ItemModelDisplay::generated_defaults(false)
+            }
+        };
+
+        self.display.gui = self.display.gui.or(defaults.gui);
+        self.display.first_person_right_hand = self
+            .display
+            .first_person_right_hand
+            .or(defaults.first_person_right_hand);
+        self.display.first_person_left_hand = self
+            .display
+            .first_person_left_hand
+            .or(defaults.first_person_left_hand);
+        self.display.third_person_right_hand = self
+            .display
+            .third_person_right_hand
+            .or(defaults.third_person_right_hand);
+        self.display.third_person_left_hand = self
+            .display
+            .third_person_left_hand
+            .or(defaults.third_person_left_hand);
+        self.display.ground = self.display.ground.or(defaults.ground);
+        self.display.fixed = self.display.fixed.or(defaults.fixed);
+    }
+
     /// 根据旧 ItemDefinition 自动推导 fallback 模型定义。
     ///
     /// 这是过渡期兼容层：外部没有显式模型 JSON 时，仍能从 category / icon / held_renderer 得到可渲染结果。
@@ -163,3 +197,7 @@ fn texture_identifier_for(definition: &ItemDefinition) -> Identifier {
         IconDefinition::Block(id) => id.clone(),
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/content/item/model/definition.rs"]
+mod tests;

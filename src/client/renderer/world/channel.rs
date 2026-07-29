@@ -47,7 +47,7 @@ enum BlockMeshKind {
 pub struct BlockInfoSnapshot {
     pub is_solid: Vec<bool>,
     pub render_modes: Vec<RenderMode>,
-    pub mesh_kinds: Vec<BlockMeshKind>,
+    mesh_kinds: Vec<BlockMeshKind>,
     pub model_random_rotations: Vec<bool>,
     pub texture_layers: Box<[u32]>,
     pub water_id: u16,

@@ -14,6 +14,7 @@ pub fn load_item_models_system(mut registry: ResMut<ItemModelRegistry>, asset: R
     let mut count = 0usize;
 
     for (path, mut model) in files.read_json_dir::<ItemModelDefinition>("models/items") {
+        model.fill_missing_display_transforms();
         let identifier = model
             .identifier
             .clone()

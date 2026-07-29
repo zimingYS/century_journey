@@ -6,12 +6,12 @@ use crate::client::renderer::item::baker::{ItemModelBakeContext, ItemModelBaker}
 use crate::client::renderer::item::cache::ItemModelCache;
 use crate::client::renderer::item::display::ItemDisplayContext;
 use crate::client::renderer::item::gui_icon_baker::GuiItemIconBaker;
-use crate::client::renderer::item::gui_icon_cache::GuiItemIconCache;
+use crate::client::renderer::item::gui_icon_cache::{GuiItemIcon, GuiItemIconCache};
 use crate::client::renderer::item::resolver::ItemModelResolver;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::definition::ItemCategory;
-use crate::content::item::model::ItemModelRegistry;
+use crate::content::item::model::{ItemModelDefinition, ItemModelKind, ItemModelRegistry};
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::icon::IconDefinition;
 use crate::content::item::texture::registry::ItemTextureRegistry;
@@ -62,6 +62,14 @@ impl SpawnedItemEntity {
 /// 外部只传 ItemId 和显示场景；这里负责解析模型、烘焙模型、生成实体或返回 GUI 图标。
 pub struct ItemRenderer;
 
+/// 返回 Generated 物品模型在 GUI 中应直接显示的独立贴图。
+fn generated_gui_texture(definition: &ItemModelDefinition) -> Option<&Identifier> {
+    match &definition.kind {
+        ItemModelKind::Generated { texture, .. } => Some(texture),
+        _ => None,
+    }
+}
+
 impl ItemRenderer {
     /// 在 3D 场景中生成一个物品实体。
     pub fn spawn_item_entity(
@@ -93,6 +101,25 @@ impl ItemRenderer {
             render_context.item_textures,
             icon_cache,
         ) {
+            return Some(image);
+        }
+
+        if let Some(texture) = Self::resolved_generated_gui_texture(
+            item,
+            render_context.item_registry,
+            render_context.item_model_registry,
+        ) {
+            let image = render_context
+                .item_textures
+                .get_handle(&texture.to_string())?
+                .clone();
+            icon_cache.insert_icon(
+                item.identifier().clone(),
+                GuiItemIcon {
+                    image: image.clone(),
+                    ready: true,
+                },
+            );
             return Some(image);
         }
 
@@ -213,6 +240,16 @@ impl ItemRenderer {
                 })
         })
     }
+    /// 显式 Generated 模型在 GUI 中直接使用其物品贴图，避免被方块分类强制烘焙为 Cube 图标。
+    fn resolved_generated_gui_texture(
+        item: &ItemId,
+        item_registry: Option<&ItemRegistry>,
+        item_model_registry: Option<&ItemModelRegistry>,
+    ) -> Option<Identifier> {
+        let resolved = ItemModelResolver::resolve(item, item_registry, item_model_registry)?;
+        generated_gui_texture(&resolved.definition).cloned()
+    }
+
     fn texture_icon_image(
         item: &ItemId,
         item_registry: Option<&ItemRegistry>,
@@ -276,6 +313,7 @@ impl ItemRenderer {
 /// 预热方块物品的 GUI 3D 图标。
 ///
 /// 普通物品不在这里创建离屏相机，GUI 会直接使用原始贴图，避免额外渲染开销。
+
 pub fn prepare_item_model_render_assets_system(
     mut commands: Commands,
     block_registry: Option<Res<BlockRegistry>>,
@@ -351,3 +389,7 @@ pub fn prepare_item_model_render_assets_system(
 
     previews.set_prepared(all_icons_ready);
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/client/renderer/item/renderer.rs"]
+mod tests;
