@@ -45,7 +45,7 @@ impl Plugin for ClientRenderingPlugin {
                 Update,
                 (
                     world::spawn_mesh_build_tasks
-                        .after(crate::game::world::systems::receive_structure_results),
+                        .after(crate::game::world::generation::receive_structure_results),
                     world::receive_mesh_results,
                 )
                     .chain()

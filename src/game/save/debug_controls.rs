@@ -21,7 +21,7 @@ pub(super) fn save_load_keybind_system(
     save_config: Res<SaveConfig>,
     simulation_clock: Res<crate::game::world::time::WorldSimulationClock>,
     player_query: Query<&Transform, With<Player>>,
-    world_generator: Res<crate::game::world::generation::WorldGenerator>,
+    world_generator: Res<crate::game::world::generation::generator::WorldGenerator>,
     mut save_queue: ResMut<SaveQueue>,
     mut save_worker: ResMut<SaveWorker>,
 ) {

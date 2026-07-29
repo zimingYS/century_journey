@@ -1,13 +1,17 @@
-use crate::content::constant::world::*;
+use super::WorldStreamingConfig;
+use crate::content::constant::world::{CHUNK_SIZE, MAX_SPAWN_PER_FRAME};
 use crate::game::player::identity::Player;
-use crate::game::save::SaveConfig;
-use crate::game::save::SaveQueue;
 use crate::game::save::world::chunk::model::SavedChunk;
+use crate::game::save::{SaveConfig, SaveQueue};
 use crate::game::world::chunk::{ChunkComponents, ChunkState};
-use crate::game::world::state::{ChunkRuntime, WorldState};
-use crate::game::world::systems::WorldStreamingConfig;
-use crate::game::world::systems::streaming::PlayerChunkCache;
-use bevy::prelude::*;
+use crate::game::world::state::WorldState;
+use crate::game::world::state::ChunkRuntime;
+use crate::game::world::streaming::cache::PlayerChunkCache;
+use bevy::math::{Vec2, Vec3};
+use bevy::prelude::{
+    Commands, Entity, EntityWorldMut, GlobalTransform, Query, Res, ResMut, Transform, Visibility,
+    With,
+};
 
 const MAX_UNLOAD_PER_FRAME: usize = 8;
 

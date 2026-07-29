@@ -1,14 +1,18 @@
-use crate::content::biome::registry::BiomeRegistry;
-use crate::content::constant::world::*;
+use super::climate::ClimateSampler;
+use super::context::{ChunkGenContext, ColumnContext};
+use super::noise::NoiseSampler;
+use crate::content::biome::BiomeRegistry;
+use crate::content::constant::world::{
+    CHUNK_SIZE, CHUNK_VOLUME, GLOBAL_DETAIL_SCALE, GLOBAL_ROUGHNESS_SCALE, GLOBAL_TERRAIN_SCALE,
+    SEA_LEVEL,
+};
 use crate::game::world::chunk::ChunkData;
-use crate::game::world::generation::biome_selector::{blend_terrain_params, select_biome};
-use crate::game::world::generation::climate::ClimateSampler;
-use crate::game::world::generation::context::ChunkGenContext;
-use crate::game::world::generation::noise::{GenerationBlockIds, NoiseSampler};
+use crate::game::world::generation::biome::classifier::{blend_terrain_params, select_biome};
+use crate::game::world::generation::block_ids::GenerationBlockIds;
 use crate::game::world::generation::pipeline::BaseGenerationKey;
 use noise::NoiseFn;
 
-/// 地形生成器 — 根据群系参数生成地形
+/// 地形生成器 - 根据群系参数生成地形
 pub struct TerrainGenerator;
 
 impl TerrainGenerator {
@@ -110,16 +114,15 @@ impl TerrainGenerator {
                 // 平滑核现在已包含真实的跨区块邻居数据，无需 edge_factor 补偿
                 let final_height: f64 = smoothed;
 
-                ctx.columns
-                    .push(crate::game::world::generation::context::ColumnContext {
-                        world_x,
-                        world_z,
-                        temperature,
-                        humidity,
-                        biome_index,
-                        base_height: final_height.round() as i32,
-                        roughness: 0.0,
-                    });
+                ctx.columns.push(ColumnContext {
+                    world_x,
+                    world_z,
+                    temperature,
+                    humidity,
+                    biome_index,
+                    base_height: final_height.round() as i32,
+                    roughness: 0.0,
+                });
             }
         }
 

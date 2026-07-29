@@ -1,7 +1,8 @@
 use crate::game::world::chunk::ChunkData;
-use crate::game::world::generation::context::ChunkGenContext;
-use crate::game::world::pending_writes::PendingVoxel;
-use bevy::prelude::*;
+use crate::game::world::generation::structure::pending_writes::PendingVoxel;
+use crate::game::world::generation::terrain::context::ChunkGenContext;
+use bevy::math::IVec3;
+use bevy::prelude::Resource;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex, mpsc};

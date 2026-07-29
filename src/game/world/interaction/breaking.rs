@@ -1,6 +1,6 @@
 use crate::content::block::definition::BlockProperty;
 use crate::content::block::registry::BlockRegistry;
-use crate::content::item::definition::tool::ToolData;
+use crate::content::item::ToolData;
 use crate::content::loot::block_registry::BlockLootRegistry;
 use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::block::BlockBehaviorRegistry;
@@ -13,7 +13,8 @@ use crate::game::world::block_ops::set_voxel_at_world;
 use crate::game::world::entity::dropped_item::spawn_dropped_item;
 use crate::game::world::state::WorldState;
 use crate::shared::random::RandomSource;
-use bevy::prelude::*;
+use bevy::math::{IVec3, Vec3};
+use bevy::prelude::Commands;
 
 pub fn execute_block_break(
     world_pos: IVec3,
@@ -56,7 +57,7 @@ pub fn execute_block_break(
     true
 }
 
-fn should_drop_block_loot(
+pub fn should_drop_block_loot(
     gamemode: &PlayerGameMode,
     block: &BlockProperty,
     active_tool: Option<&ToolData>,
@@ -65,7 +66,7 @@ fn should_drop_block_loot(
 }
 
 /// 掉落物生成在刚被清空的体素内部，避免与上方仍存在的树干重叠。
-fn block_drop_spawn_position(world_pos: IVec3, drop_index: usize) -> Vec3 {
+pub fn block_drop_spawn_position(world_pos: IVec3, drop_index: usize) -> Vec3 {
     let offset = Vec3::new(
         ((drop_index as f32 * 0.37) % 1.0 - 0.5) * 0.3,
         0.0,
@@ -73,7 +74,3 @@ fn block_drop_spawn_position(world_pos: IVec3, drop_index: usize) -> Vec3 {
     );
     world_pos.as_vec3() + Vec3::splat(0.5) + offset
 }
-
-#[cfg(test)]
-#[path = "../../../../tests/unit/game/world/systems/break_pipeline.rs"]
-mod tests;

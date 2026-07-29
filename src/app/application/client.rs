@@ -2,7 +2,7 @@ use super::application::Application;
 use crate::app::config::AppConfig;
 use crate::app::runtime::ClientRuntimePluginGroup;
 use crate::engine::constant::window::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
-use crate::game::world::systems::WorldStreamingConfig;
+use crate::game::world::streaming::WorldStreamingConfig;
 use bevy::asset::AssetPlugin as BevyAssetPlugin;
 use bevy::log::LogPlugin;
 use bevy::prelude::*;

@@ -3,12 +3,15 @@ use crate::content::constant::world::{
 };
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
-use crate::game::world::generation::WorldGenerator;
-use crate::game::world::generation::noise::CachedBlockIds;
-use crate::game::world::generation::structure::{StructureGenerationWorkspace, StructureGenerator};
-use crate::game::world::state::{ChunkRuntime, WorldState};
-use crate::game::world::systems::channel::StructureGenResult;
-use crate::game::world::systems::{PlayerChunkCache, StructureGenChannel};
+use crate::game::world::generation::block_ids::CachedBlockIds;
+use crate::game::world::generation::generator::WorldGenerator;
+use crate::game::world::generation::runtime::{StructureGenChannel, StructureGenResult};
+use crate::game::world::generation::structure::placement::{
+    StructureGenerationWorkspace, StructureGenerator,
+};
+use crate::game::world::state::WorldState;
+use crate::game::world::state::ChunkRuntime;
+use crate::game::world::streaming::PlayerChunkCache;
 use bevy::math::IVec3;
 use bevy::prelude::{Query, Res, ResMut};
 use std::collections::HashMap;

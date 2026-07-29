@@ -3,7 +3,7 @@ use crate::game::player::identity::Player;
 use crate::game::save::world::chunk::model::SavedChunk;
 use crate::game::save::world::metadata::io;
 use crate::game::save::{AutoSaveTimer, SaveConfig, SaveQueue};
-use crate::game::world::generation::WorldGenerator;
+use crate::game::world::generation::generator::WorldGenerator;
 use crate::game::world::state::WorldState;
 use crate::game::world::time::WorldSimulationClock;
 use bevy::math::Vec3;

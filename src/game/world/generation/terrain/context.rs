@@ -1,6 +1,6 @@
-use crate::content::biome::registry::BiomeRegistry;
-use crate::content::constant::world::{CHUNK_SIZE, SEA_LEVEL};
-use bevy::prelude::*;
+use crate::content::biome::BiomeRegistry;
+use crate::game::constant::world::{CHUNK_SIZE, SEA_LEVEL};
+use bevy::prelude::IVec3;
 
 /// 区块内单个坐标(每列)共享的上下文
 #[derive(Debug, Clone)]
