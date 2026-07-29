@@ -1,4 +1,5 @@
 use crate::content::block::model::BlockModelConfig;
+use crate::content::block::placement::BlockPlacementConfig;
 use crate::content::block::sound::BlockSoundConfig;
 use crate::content::block::state::BlockStateDefinition;
 use crate::content::item::definition::tool::ToolType;
@@ -74,6 +75,10 @@ pub struct BlockProperty {
     /// 示例: ["mineable/pickaxe", "stone_like"]
     #[serde(default)]
     pub tags: Vec<String>,
+
+    /// 方块放置规则。
+    #[serde(default)]
+    pub placement: BlockPlacementConfig,
 }
 
 impl Default for BlockProperty {
@@ -98,6 +103,7 @@ impl Default for BlockProperty {
             light_transmission: 0.0,
             behavior_type: String::new(),
             tags: Vec::new(),
+            placement: BlockPlacementConfig::default(),
         }
     }
 }

@@ -8,6 +8,7 @@ pub mod behavior;
 pub mod definition;
 pub mod event;
 pub mod model;
+pub mod placement;
 pub mod registry;
 pub mod sound;
 pub mod state;

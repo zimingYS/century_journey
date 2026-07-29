@@ -246,8 +246,12 @@ pub fn voxel_interaction_system(
     };
     if !can_place_block(
         block_id,
+        place_pos,
         &gamemode,
         Some(inventory_state.hotbar.active_stack()),
+        &reg,
+        tag_registry.as_deref(),
+        &world_state,
     ) {
         return;
     }

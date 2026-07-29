@@ -22,5 +22,8 @@
   },
   "textures": {
     "top": "textures/blocks/sapling.png"
+  },
+  "placement": {
+    "required_support_tag": "century_journey:sapling_supports"
   }
 }
