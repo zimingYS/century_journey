@@ -1,6 +1,8 @@
 //! 组装世界交互相关的固定步系统。
 
+use super::changes::propagate_block_changes_system;
 use super::pickup::pickup_system;
+use super::support::remove_unsupported_blocks_system;
 use crate::game::simulation::SimulationSet;
 use crate::game::world::entity::dropped_item::dropped_item_tick_system;
 use crate::shared::states::AppState;
@@ -15,6 +17,17 @@ pub(in crate::game::world) struct WorldInteractionPlugin;
 impl Plugin for WorldInteractionPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
+            FixedUpdate,
+            (
+                propagate_block_changes_system,
+                remove_unsupported_blocks_system,
+            )
+                .chain()
+                .after(SimulationSet::Interaction)
+                .before(SimulationSet::Survival)
+                .run_if(in_state(AppState::InGame)),
+        )
+        .add_systems(
             FixedUpdate,
             pickup_system
                 .after(dropped_item_tick_system)

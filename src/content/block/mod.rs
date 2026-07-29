@@ -8,6 +8,7 @@ pub mod behavior;
 pub mod definition;
 pub mod event;
 pub mod model;
+pub mod placement;
 pub mod registry;
 pub mod sound;
 pub mod state;
@@ -20,6 +21,8 @@ impl Plugin for VoxelPlugin {
             .add_message::<BlockPlaceEvent>()
             .add_message::<BlockInteractEvent>()
             .add_message::<BlockStateChangeEvent>()
+            .add_message::<BlockChangedEvent>()
+            .add_message::<BlockNeighborChangedEvent>()
             .add_message::<BlockSoundEvent>()
             .add_systems(
                 OnEnter(AppState::Loading),

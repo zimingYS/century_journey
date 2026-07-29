@@ -4,15 +4,16 @@ use bevy::prelude::*;
 
 use crate::shared::identifier::Identifier;
 
-/// 旧 UI 代码使用的资源别名，实际保存的是 GUI 3D 方块图标缓存。
+/// 旧 UI 代码使用的资源别名，保存需要异步准备的 GUI 图标。
 pub type ItemModelRenderAssets = GuiItemIconCache;
 
-/// GUI 3D 图标缓存。
+/// GUI 图标缓存。
 ///
-/// 这里只缓存方块物品的 3D 渲染结果；工具、材料和普通物品在 GUI 中直接使用原始 2D 贴图。
+/// Cube 方块保存离屏渲染结果；显式 Generated 模型保存其直接使用的 2D 贴图。
+/// 工具、材料等普通物品仍由 UI 直接查询独立贴图，无需进入缓存。
 #[derive(Resource, Default)]
 pub struct GuiItemIconCache {
-    /// ItemId -> 3D 图标渲染目标。
+    /// ItemId -> 已准备或待准备的 GUI 图标。
     icons: HashMap<Identifier, GuiItemIcon>,
     /// 是否已经完成当前资源版本的方块图标预热。
     prepared: bool,

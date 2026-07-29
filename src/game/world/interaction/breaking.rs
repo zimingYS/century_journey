@@ -1,4 +1,5 @@
 use crate::content::block::definition::BlockProperty;
+use crate::content::block::event::BlockChangedEvent;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::ToolData;
 use crate::content::loot::block_registry::BlockLootRegistry;
@@ -14,7 +15,7 @@ use crate::game::world::entity::dropped_item::spawn_dropped_item;
 use crate::game::world::state::WorldState;
 use crate::shared::random::RandomSource;
 use bevy::math::{IVec3, Vec3};
-use bevy::prelude::Commands;
+use bevy::prelude::{Commands, MessageWriter};
 
 pub fn execute_block_break(
     world_pos: IVec3,
@@ -27,6 +28,7 @@ pub fn execute_block_break(
     loot_registry: Option<&BlockLootRegistry>,
     loot_rng: &mut dyn RandomSource,
     world_state: &mut WorldState,
+    changed_blocks: &mut MessageWriter<BlockChangedEvent>,
     commands: &mut Commands,
 ) -> bool {
     if !can_break_block(block_id, gamemode, tag_registry) {
@@ -42,7 +44,9 @@ pub fn execute_block_break(
 
     let behavior = behavior_registry.get_behavior_by_id(block_id, block_registry);
     behavior.on_break(world_pos, block_id, world_state, commands);
-    set_voxel_at_world(world_pos, 0, world_state);
+    if let Some(change) = set_voxel_at_world(world_pos, 0, world_state) {
+        changed_blocks.write(change);
+    }
 
     if should_drop_block_loot(gamemode, block, active_tool)
         && let Some(loot_registry) = loot_registry
