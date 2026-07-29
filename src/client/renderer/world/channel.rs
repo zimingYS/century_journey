@@ -1,11 +1,11 @@
+use super::mesh_buffer::MeshBufferData;
 use crate::content::block::definition::RenderMode;
+use crate::content::block::model::BlockModel;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::world::chunk::ChunkData;
 use bevy::prelude::*;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex, mpsc};
-
-use super::mesh_buffer::MeshBufferData;
 
 /// 后台网格任务返回的三种渲染通道。
 pub struct MeshBuildResult {
@@ -34,11 +34,20 @@ impl Default for MeshBuildChannel {
     }
 }
 
+/// 后台区块网格任务需要识别的方块几何类型。
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum BlockMeshKind {
+    #[default]
+    Cube,
+    Cross,
+}
+
 /// 网格任务使用的方块渲染属性快照，避免后台线程访问 ECS 资源。
 #[derive(Clone, Default)]
 pub struct BlockInfoSnapshot {
     pub is_solid: Vec<bool>,
     pub render_modes: Vec<RenderMode>,
+    pub mesh_kinds: Vec<BlockMeshKind>,
     pub texture_layers: Box<[u32]>,
     pub water_id: u16,
     pub total_layers: u32,
@@ -58,10 +67,15 @@ impl BlockInfoSnapshot {
             .unwrap_or(0);
         let mut is_solid = vec![false; (max_id + 1) as usize];
         let mut render_modes = vec![RenderMode::Opaque; (max_id + 1) as usize];
+        let mut mesh_kinds = vec![BlockMeshKind::Cube; (max_id + 1) as usize];
 
         for (&id, property) in registry.iter_properties() {
             is_solid[id as usize] = property.is_solid;
             render_modes[id as usize] = property.render_mode;
+            mesh_kinds[id as usize] = match property.model.model {
+                BlockModel::Cross => BlockMeshKind::Cross,
+                _ => BlockMeshKind::Cube,
+            };
         }
 
         let layer_count = (max_id as usize + 1) * 6;
@@ -76,6 +90,7 @@ impl BlockInfoSnapshot {
         Self {
             is_solid,
             render_modes,
+            mesh_kinds,
             texture_layers,
             water_id,
             total_layers,
@@ -87,6 +102,14 @@ impl BlockInfoSnapshot {
     pub fn get_texture_layer(&self, voxel_id: u16, face_index: usize) -> u32 {
         let index = voxel_id as usize * 6 + face_index;
         self.texture_layers.get(index).copied().unwrap_or(0)
+    }
+
+    /// 判断方块是否应由独立的十字平面网格处理。
+    #[inline]
+    pub fn is_cross_model(&self, voxel_id: u16) -> bool {
+        self.mesh_kinds
+            .get(voxel_id as usize)
+            .is_some_and(|kind| *kind == BlockMeshKind::Cross)
     }
 }
 

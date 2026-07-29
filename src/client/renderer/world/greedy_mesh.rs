@@ -1,4 +1,5 @@
 use crate::content::block::definition::RenderMode;
+use crate::content::block::model::generate_cross_vertices;
 use crate::content::constant::world::*;
 use crate::game::world::chunk::ChunkData;
 use bevy::prelude::*;
@@ -42,6 +43,11 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
 
                     let voxel_id = current_data.get_voxel(x, y, z);
                     if voxel_id == 0 {
+                        mask[my][mx] = FACE_NONE;
+                        continue;
+                    }
+
+                    if block_info.is_cross_model(voxel_id) {
                         mask[my][mx] = FACE_NONE;
                         continue;
                     }
@@ -99,6 +105,8 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
             );
         }
     }
+
+    append_cross_models(&current_data, &block_info, &mut cutout_buf);
 
     super::channel::MeshBuildResult {
         chunk_pos,
@@ -373,6 +381,55 @@ fn is_face_visible_snapshot(
         .copied()
         .unwrap_or(true);
     !nbr_is_solid || neighbor_voxel_id == block_info.water_id
+}
+
+/// 为区块内的十字模型方块生存独立的双面交叉平面
+fn append_cross_models(
+    current_data: &ChunkData,
+    block_info: &BlockInfoSnapshot,
+    cutout_buf: &mut MeshBufferData,
+) {
+    for y in 0..CHUNK_SIZE {
+        for z in 0..CHUNK_SIZE {
+            for x in 0..CHUNK_SIZE {
+                // 不是十字模型直接返回
+                let voxel_id = current_data.get_voxel(x, y, z);
+                if voxel_id == 0 || !block_info.is_cross_model(voxel_id) {
+                    continue;
+                }
+
+                let texture_layer = block_info.get_texture_layer(voxel_id, 0);
+                let uvs = get_single_block_uvs(texture_layer, block_info.total_layers);
+
+                for vertices in generate_cross_vertices(x as f32, y as f32, z as f32) {
+                    let normal = calculate_face_normal(&vertices);
+                    cutout_buf.append_face(&vertices, normal, &uvs);
+                }
+            }
+        }
+    }
+}
+
+/// 计算四边形正面的法线，保证十字模型接受正确光照。
+fn calculate_face_normal(vertices: &[[f32; 3]; 4]) -> Vec3 {
+    let first = Vec3::from(vertices[0]);
+    let second = Vec3::from(vertices[1]);
+    let third = Vec3::from(vertices[2]);
+
+    (second - first).cross(third - first).normalize()
+}
+
+/// 返回一个方块纹理在纵向图集中的 UV 坐标。
+fn get_single_block_uvs(texture_layer: u32, total_layers: u32) -> [[f32; 2]; 4] {
+    let chunk_size = CHUNK_SIZE as f32;
+    let layer_count = total_layers.max(1) as f32;
+
+    let u0 = 0.0;
+    let u1 = 1.0 / chunk_size;
+    let v0 = texture_layer as f32 / layer_count;
+    let v1 = (texture_layer as f32 + 1.0 / chunk_size) / layer_count;
+
+    [[u0, v1], [u1, v1], [u1, v0], [u0, v0]]
 }
 
 #[cfg(test)]

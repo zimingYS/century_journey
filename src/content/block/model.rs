@@ -55,7 +55,7 @@ impl Default for BlockModelConfig {
     }
 }
 
-/// 生成十字形模型的6个面顶点
+/// 生成十字模型的两张交叉平面的双面四边形顶点
 pub fn generate_cross_vertices(x: f32, y: f32, z: f32) -> Vec<[[f32; 3]; 4]> {
     let offset = 0.15;
     vec![
