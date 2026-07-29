@@ -14,4 +14,4 @@ pub mod save;
 pub mod simulation;
 pub mod world;
 
-pub use world::state::headless::HeadlessWorldPlugin;
+pub use world::state::HeadlessWorldPlugin;

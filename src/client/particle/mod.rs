@@ -13,7 +13,7 @@ use crate::game::player::combat::events::AttackEvent;
 use crate::game::player::identity::Player;
 use crate::game::player::interaction::targeting::TargetVoxel;
 use crate::game::world::block_ops::get_voxel_at_world;
-use crate::game::world::state::authoritative::WorldState;
+use crate::game::world::state::WorldState;
 use crate::shared::states::AppState;
 
 #[derive(Debug, Clone, Copy)]

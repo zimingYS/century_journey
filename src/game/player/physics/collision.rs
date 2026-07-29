@@ -1,7 +1,7 @@
 use crate::content::block::definition::RenderMode;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::constant::world::CHUNK_SIZE;
-use crate::game::world::state::authoritative::WorldState;
+use crate::game::world::state::WorldState;
 use bevy::math::{IVec3, Vec3};
 
 /// 判断指定世界坐标的方块是否为固体

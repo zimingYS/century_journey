@@ -17,7 +17,7 @@ use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::Hunger;
 use crate::game::player::survival::protection::Defense;
 use crate::game::world::entity::dropped_item::{DroppedItem, DroppedItemVelocity};
-use crate::game::world::state::authoritative::WorldState;
+use crate::game::world::state::WorldState;
 use crate::game::world::time::{
     GameDayElapsed, GameHourElapsed, GameMinuteElapsed, GameYearElapsed, SeasonChanged,
     SolarTermChanged, WorldSimulationClock, advance_world_simulation_clock,

@@ -6,7 +6,7 @@ use crate::game::player::lifecycle::components::PlayerLifecycle;
 use crate::game::player::movement::components::{PlayerMovement, PlayerVelocity};
 use crate::game::player::physics::collision::check_collision_at;
 use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
-use crate::game::world::state::authoritative::WorldState;
+use crate::game::world::state::WorldState;
 use bevy::math::Vec3;
 use bevy::prelude::{Query, Res, Time, Transform, With};
 

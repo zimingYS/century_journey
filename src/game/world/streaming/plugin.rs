@@ -1,6 +1,7 @@
 //! 组装区块流送资源和区块生命周期系统。
 
-use super::{PlayerChunkCache, WorldStreamingConfig, manage_chunks_system};
+use super::{WorldStreamingConfig, manage_chunks_system};
+use crate::game::world::streaming::cache::PlayerChunkCache;
 use crate::shared::states::AppState;
 use bevy::app::{App, Plugin, Update};
 use bevy::prelude::{IntoScheduleConfigs, in_state};

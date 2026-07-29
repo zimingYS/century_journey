@@ -24,7 +24,7 @@ use crate::game::world::entity::dropped_item::{
     DroppedItemVelocity, spawn_dropped_item_with_velocity,
 };
 use crate::game::world::interaction::execute_block_break;
-use crate::game::world::state::authoritative::WorldState;
+use crate::game::world::state::WorldState;
 use crate::game::world::time::WorldSimulationClock;
 use bevy::ecs::system::SystemParam;
 use bevy::math::{IVec3, Vec3};

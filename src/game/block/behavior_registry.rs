@@ -12,7 +12,7 @@ use std::collections::HashMap;
 pub struct BlockBehaviorRegistry {
     pub behaviors: HashMap<
         String,
-        Box<dyn BlockBehavior<crate::game::world::state::authoritative::WorldState>>,
+        Box<dyn BlockBehavior<crate::game::world::state::WorldState>>,
     >,
 }
 
@@ -21,7 +21,7 @@ impl BlockBehaviorRegistry {
     pub fn get_behavior(
         &self,
         behavior_type: &str,
-    ) -> Option<&dyn BlockBehavior<crate::game::world::state::authoritative::WorldState>> {
+    ) -> Option<&dyn BlockBehavior<crate::game::world::state::WorldState>> {
         self.behaviors.get(behavior_type).map(|b| b.as_ref())
     }
 
@@ -30,7 +30,7 @@ impl BlockBehaviorRegistry {
         &self,
         id: u16,
         block_registry: &BlockRegistry,
-    ) -> &dyn BlockBehavior<crate::game::world::state::authoritative::WorldState> {
+    ) -> &dyn BlockBehavior<crate::game::world::state::WorldState> {
         let prop = block_registry.get(id);
         match prop {
             Some(p) if !p.behavior_type.is_empty() => self

@@ -1,4 +1,4 @@
-use crate::game::world::state::{authoritative, chunk_runtime};
+use crate::game::world::state;
 use crate::game::world::{entity, generation, interaction, streaming, time};
 use bevy::app::{App, Plugin, Startup};
 
@@ -9,8 +9,8 @@ pub struct GameWorldPlugin;
 
 impl Plugin for GameWorldPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<authoritative::WorldState>()
-            .init_resource::<chunk_runtime::ChunkRuntime>()
+        app.init_resource::<state::WorldState>()
+            .init_resource::<state::ChunkRuntime>()
             .init_resource::<crate::game::block::BlockBehaviorRegistry>()
             .add_systems(Startup, crate::game::block::init_behavior_registry_system)
             .add_plugins((

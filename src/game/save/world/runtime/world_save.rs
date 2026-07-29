@@ -2,7 +2,7 @@ use crate::content::block::registry::BlockRegistry;
 use crate::game::save::world::chunk::model::SavedChunk;
 use crate::game::save::world::chunk::region::{RegionManager, SaveError};
 use crate::game::save::world::metadata::io;
-use crate::game::world::state::authoritative::WorldState;
+use crate::game::world::state::WorldState;
 use crate::game::world::time::WorldSimulationClock;
 use bevy::math::Vec3;
 use bevy::prelude;
