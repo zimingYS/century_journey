@@ -1,5 +1,4 @@
-use crate::content::biome::definition::BiomeTerrainParams;
-use crate::content::biome::registry::BiomeRegistry;
+use crate::content::biome::{BiomeRegistry, BiomeTerrainParams};
 
 /// 根据温度/湿度选择最佳匹配的生物群系索引。
 pub fn select_biome(biome_registry: &BiomeRegistry, temperature: f64, humidity: f64) -> u8 {

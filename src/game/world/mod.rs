@@ -3,7 +3,6 @@ pub mod chunk;
 pub mod entity;
 pub mod generation;
 pub mod interaction;
-pub mod pending_writes;
 mod plugin;
 pub mod state;
 pub mod streaming;

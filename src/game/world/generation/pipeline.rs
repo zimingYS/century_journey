@@ -1,9 +1,10 @@
 use crate::content::biome::registry::BiomeRegistry;
 use crate::game::world::chunk::ChunkData;
-use crate::game::world::generation::climate::{ClimateConfig, ClimateSampler};
-use crate::game::world::generation::context::ChunkGenContext;
-use crate::game::world::generation::noise::{GenerationBlockIds, NoiseSampler};
-use crate::game::world::generation::terrain::TerrainGenerator;
+use crate::game::world::generation::block_ids::GenerationBlockIds;
+use crate::game::world::generation::terrain::climate::{ClimateConfig, ClimateSampler};
+use crate::game::world::generation::terrain::context::ChunkGenContext;
+use crate::game::world::generation::terrain::generator::TerrainGenerator;
+use crate::game::world::generation::terrain::noise::NoiseSampler;
 use bevy::prelude::IVec3;
 use std::sync::Arc;
 

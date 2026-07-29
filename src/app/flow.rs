@@ -32,7 +32,7 @@ use crate::game::save::world::metadata::io;
 use crate::game::save::world::runtime::world_save::save_entire_world;
 use crate::game::save::{SaveQueue, SaveWorker, flush_save_queue};
 use crate::game::world::chunk::ChunkComponents;
-use crate::game::world::generation::WorldGenerator;
+use crate::game::world::generation::generator::WorldGenerator;
 use crate::game::world::generation::pipeline::CURRENT_GENERATION_VERSION;
 use crate::game::world::generation::{StructureGenChannel, TerrainGenChannel};
 use crate::game::world::state::{ChunkRuntime, WorldState};

@@ -4,8 +4,8 @@
 //! streaming/task state. Client mesh entities live in the client module.
 
 use crate::game::world::chunk::ChunkData;
-use crate::game::world::generation::context::ChunkGenContext;
-use crate::game::world::pending_writes::{PendingVoxel, PendingVoxelWrites};
+use crate::game::world::generation::structure::pending_writes::{PendingVoxel, PendingVoxelWrites};
+use crate::game::world::generation::terrain::context::ChunkGenContext;
 use bevy::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;

@@ -1,10 +1,3 @@
-use crate::content::biome::registry::BiomeRegistry;
-use crate::content::constant::world::CHUNK_SIZE;
-use crate::game::world::chunk::ChunkData;
-use crate::game::world::generation::context::ChunkGenContext;
-use crate::game::world::generation::noise::GenerationBlockIds;
-use crate::game::world::pending_writes::{PendingVoxel, PendingVoxelWrites};
-use bevy::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -215,3 +208,10 @@ pub fn set_voxel_world_aware(
         }
     }
 }
+use crate::content::biome::BiomeRegistry;
+use crate::content::constant::world::CHUNK_SIZE;
+use crate::game::world::chunk::ChunkData;
+use crate::game::world::generation::block_ids::GenerationBlockIds;
+use crate::game::world::generation::structure::pending_writes::{PendingVoxel, PendingVoxelWrites};
+use crate::game::world::generation::terrain::context::ChunkGenContext;
+use bevy::prelude::IVec3;

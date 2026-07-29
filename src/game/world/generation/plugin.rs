@@ -1,13 +1,14 @@
 use super::{
-    StructureGenChannel, TerrainGenChannel, WorldGenerator, generate_structures_system,
-    receive_structure_results, receive_terrain_results, spawn_terrain_gen_tasks,
+    StructureGenChannel, TerrainGenChannel, generate_structures_system, receive_structure_results,
+    receive_terrain_results, spawn_terrain_gen_tasks,
 };
 use crate::content::biome::BiomeRegistry;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::simulation::SimulationRng;
-use crate::game::world::generation::noise::{CachedBlockIds, GenerationBlockIds};
+use crate::game::world::generation::block_ids::{CachedBlockIds, GenerationBlockIds};
+use crate::game::world::generation::generator::WorldGenerator;
 use crate::game::world::streaming::manage_chunks_system;
 use crate::shared::states::AppState;
 use bevy::prelude::*;
