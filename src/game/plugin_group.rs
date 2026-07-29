@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game::crafting::plugin::CraftingPlugin;
+use crate::game::crafting::CraftingPlugin;
 use crate::game::gameplay::GameplayPlugin;
 use crate::game::inventory::InventoryPlugin;
 use crate::game::player::plugin::GamePlayerPlugin;
