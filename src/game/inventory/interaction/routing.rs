@@ -1,21 +1,18 @@
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::container::survival::SurvivalInventory;
-use crate::game::inventory::cursor::{CursorData, CursorSource};
-use crate::game::inventory::interaction::{
+use crate::game::inventory::interaction::click::{
     left_click_slot, move_one_into_range, pull_one_matching, right_click_slot, shift_click,
     shift_click_into_range,
 };
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::slot::SlotAction;
-use crate::game::inventory::state::InventoryState;
+use crate::game::inventory::state::{CursorData, CursorSource, InventoryState};
 use crate::shared::item_id::ItemId;
 use crate::shared::ui_types::SlotKind;
 
-/// 统一的槽位交互路由
-///
-/// UI 层只需调用此函数，无需关心具体容器类型。
-/// 未来添加 Chest/Furnace 时只需扩展此 match。
+/// 缁熶竴鐨勬Ы浣嶄氦浜掕矾鐢?///
+/// UI 灞傚彧闇€璋冪敤姝ゅ嚱鏁帮紝鏃犻渶鍏冲績鍏蜂綋瀹瑰櫒绫诲瀷銆?/// 鏈潵娣诲姞 Chest/Furnace 鏃跺彧闇€鎵╁睍姝?match銆?
 pub fn handle_slot_interaction(
     state: &mut InventoryState,
     kind: SlotKind,
@@ -171,12 +168,12 @@ pub fn handle_slot_interaction(
         }
 
         SlotKind::Container(_) => {
-            // 容器界面尚未接入世界实体；收到该类槽位事件时保持状态不变。
+            // 瀹瑰櫒鐣岄潰灏氭湭鎺ュ叆涓栫晫瀹炰綋锛涙敹鍒拌绫绘Ы浣嶄簨浠舵椂淇濇寔鐘舵€佷笉鍙樸€?
         }
     }
 }
 
-/// 把各生存 UI 分区的局部索引转换成 SurvivalInventory 的统一索引。
+/// 鎶婂悇鐢熷瓨 UI 鍒嗗尯鐨勫眬閮ㄧ储寮曡浆鎹㈡垚 SurvivalInventory 鐨勭粺涓€绱㈠紩銆?
 pub fn survival_index(kind: SlotKind, index: usize) -> Option<usize> {
     use crate::game::inventory::container::survival::SurvivalInventory;
 

@@ -1,6 +1,6 @@
 use crate::game::inventory::container::InventoryContainer;
-use crate::game::inventory::equipment::EquipmentSlot;
 use crate::game::inventory::item::stack::ItemStack;
+use crate::game::inventory::state::EquipmentSlot;
 
 /// 生存模式完整背包
 /// 包含 36 格主背包 + 4 格盔甲 + 6 格饰品。

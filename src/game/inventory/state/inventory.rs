@@ -1,8 +1,8 @@
 use crate::game::inventory::container::creative::CreativeData;
 use crate::game::inventory::container::hotbar::HotbarData;
 use crate::game::inventory::container::survival::SurvivalInventory;
-use crate::game::inventory::cursor::CursorData;
-use crate::game::inventory::recent::RecentItems;
+use crate::game::inventory::state::cursor::CursorData;
+use crate::game::inventory::state::recent::RecentItems;
 use bevy::prelude::*;
 
 use crate::game::player::identity::LocalPlayer;

@@ -1,19 +1,16 @@
 use crate::game::inventory::container::InventoryContainer;
-use crate::game::inventory::cursor::CursorData;
 use crate::game::inventory::item::stack::ItemStack;
+use crate::game::inventory::state::CursorData;
 use std::ops::Range;
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// 核心交互函数 — 纯数据操作，无 UI 依赖
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/// 左键点击槽位
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?// 鏍稿績浜や簰鍑芥暟 鈥?绾暟鎹搷浣滐紝鏃?UI 渚濊禆
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+/// 宸﹂敭鐐瑰嚮妲戒綅
 ///
-/// 实现 Minecraft 标准行为：
-/// - 光标空 + 槽有物 → 拿起全部
-/// - 光标有物 + 槽空 → 放下全部
-/// - 光标有物 + 槽有同种 → 合并（超出留在光标）
-/// - 光标有物 + 槽有不同 → 交换
+/// 瀹炵幇 Minecraft 鏍囧噯琛屼负锛?/// - 鍏夋爣绌?+ 妲芥湁鐗?鈫?鎷胯捣鍏ㄩ儴
+/// - 鍏夋爣鏈夌墿 + 妲界┖ 鈫?鏀句笅鍏ㄩ儴
+/// - 鍏夋爣鏈夌墿 + 妲芥湁鍚岀 鈫?鍚堝苟锛堣秴鍑虹暀鍦ㄥ厜鏍囷級
+/// - 鍏夋爣鏈夌墿 + 妲芥湁涓嶅悓 鈫?浜ゆ崲
 pub fn left_click_slot<C: InventoryContainer>(
     container: &mut C,
     index: usize,
@@ -49,7 +46,7 @@ pub fn left_click_slot<C: InventoryContainer>(
                     slot_stack.merge_from(cursor_stack);
                 }
 
-                // 如果光标空，清除光标
+                // 濡傛灉鍏夋爣绌猴紝娓呴櫎鍏夋爣
                 if cursor.stack().is_none_or(|s| s.is_empty()) {
                     cursor.clear();
                 }
@@ -65,13 +62,9 @@ pub fn left_click_slot<C: InventoryContainer>(
     }
 }
 
-/// 右键点击槽位
+/// 鍙抽敭鐐瑰嚮妲戒綅
 ///
-/// 实现 Minecraft 标准行为：
-/// - 光标空 + 槽有物 → 拿走一半（奇数向上取整）
-/// - 光标有物 + 槽空 → 放入 1 个
-/// - 光标有物 + 槽有同种且未满 → 放入 1 个
-/// - 不同物品 → 无操作
+/// 瀹炵幇 Minecraft 鏍囧噯琛屼负锛?/// - 鍏夋爣绌?+ 妲芥湁鐗?鈫?鎷胯蛋涓€鍗婏紙濂囨暟鍚戜笂鍙栨暣锛?/// - 鍏夋爣鏈夌墿 + 妲界┖ 鈫?鏀惧叆 1 涓?/// - 鍏夋爣鏈夌墿 + 妲芥湁鍚岀涓旀湭婊?鈫?鏀惧叆 1 涓?/// - 涓嶅悓鐗╁搧 鈫?鏃犳搷浣?
 pub fn right_click_slot<C: InventoryContainer>(
     container: &mut C,
     index: usize,
@@ -150,11 +143,11 @@ pub fn right_click_slot<C: InventoryContainer>(
     }
 }
 
-/// Shift + 点击槽位（快速转移）
+/// Shift + 鐐瑰嚮妲戒綅锛堝揩閫熻浆绉伙級
 ///
-/// 在 source 和 dest 容器间转移物品：
-/// 1. 优先合并到 dest 中已有的同种堆叠
-/// 2. 再寻找 dest 中第一个空槽位放入
+/// 鍦?source 鍜?dest 瀹瑰櫒闂磋浆绉荤墿鍝侊細
+/// 1. 浼樺厛鍚堝苟鍒?dest 涓凡鏈夌殑鍚岀鍫嗗彔
+/// 2. 鍐嶅鎵?dest 涓涓€涓┖妲戒綅鏀惧叆
 pub fn shift_click<C1: InventoryContainer, C2: InventoryContainer>(
     source: &mut C1,
     dest: &mut C2,
@@ -164,7 +157,7 @@ pub fn shift_click<C1: InventoryContainer, C2: InventoryContainer>(
     shift_click_into_range(source, dest, index, 0..slot_count)
 }
 
-/// Shift 点击并把物品限制在目标容器的指定槽位范围内。
+/// Shift 鐐瑰嚮骞舵妸鐗╁搧闄愬埗鍦ㄧ洰鏍囧鍣ㄧ殑鎸囧畾妲戒綅鑼冨洿鍐呫€?
 pub fn shift_click_into_range<C1: InventoryContainer, C2: InventoryContainer>(
     source: &mut C1,
     dest: &mut C2,
@@ -180,7 +173,7 @@ pub fn shift_click_into_range<C1: InventoryContainer, C2: InventoryContainer>(
 
     let mut remaining = source_stack.clone();
 
-    // 第一步：优先合并到已有同类堆叠。
+    // 绗竴姝ワ細浼樺厛鍚堝苟鍒板凡鏈夊悓绫诲爢鍙犮€?
     for i in range.clone() {
         if remaining.is_empty() {
             break;
@@ -192,7 +185,7 @@ pub fn shift_click_into_range<C1: InventoryContainer, C2: InventoryContainer>(
         }
     }
 
-    // 第二步：将剩余物品放入第一个空槽位。
+    // 绗簩姝ワ細灏嗗墿浣欑墿鍝佹斁鍏ョ涓€涓┖妲戒綅銆?
     if !remaining.is_empty() {
         for i in range {
             if dest.get_stack(i).is_none_or(|s| s.is_empty()) {
@@ -219,7 +212,7 @@ pub fn shift_click_into_range<C1: InventoryContainer, C2: InventoryContainer>(
     }
 }
 
-/// 将来源槽位中的一个物品移动到目标范围，供滚轮快速转移使用。
+/// 灏嗘潵婧愭Ы浣嶄腑鐨勪竴涓墿鍝佺Щ鍔ㄥ埌鐩爣鑼冨洿锛屼緵婊氳疆蹇€熻浆绉讳娇鐢ㄣ€?
 pub fn move_one_into_range<C1: InventoryContainer, C2: InventoryContainer>(
     source: &mut C1,
     dest: &mut C2,
@@ -248,7 +241,7 @@ pub fn move_one_into_range<C1: InventoryContainer, C2: InventoryContainer>(
     true
 }
 
-/// 从来源范围寻找与目标槽位相同的物品，并补入一个。
+/// 浠庢潵婧愯寖鍥村鎵句笌鐩爣妲戒綅鐩稿悓鐨勭墿鍝侊紝骞惰ˉ鍏ヤ竴涓€?
 pub fn pull_one_matching<C1: InventoryContainer, C2: InventoryContainer>(
     dest: &mut C1,
     source: &mut C2,
@@ -300,5 +293,5 @@ fn insert_one_into_range<C: InventoryContainer>(
 }
 
 #[cfg(test)]
-#[path = "../../../tests/unit/game/inventory/interaction.rs"]
+#[path = "../../../../tests/unit/game/inventory/click.rs"]
 mod tests;

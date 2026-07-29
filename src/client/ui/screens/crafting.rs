@@ -11,10 +11,10 @@ use crate::client::ui::widgets::slot::{
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
+use crate::game::crafting::events::CraftingStationOpened;
 use crate::game::crafting::grid::{
     ActiveCrafting, CraftingGrid, PlayerCrafting, WorkbenchCrafting,
 };
-use crate::game::crafting::plugin::CraftingStationOpened;
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::container::survival::SurvivalInventory;

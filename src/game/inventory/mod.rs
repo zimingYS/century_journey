@@ -1,12 +1,12 @@
+mod plugin;
+mod runtime;
+
 pub mod container;
-pub mod cursor;
-pub mod equipment;
 pub mod events;
-pub mod insert;
 pub mod interaction;
 pub mod item;
-pub mod plugin;
-pub mod recent;
-pub mod routing;
 pub mod slot;
 pub mod state;
+
+pub use plugin::InventoryPlugin;
+pub use state::{InventoryState, LocalInventory, LocalInventoryMut};

@@ -2,18 +2,18 @@ use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::item::stack::ItemStack;
 use std::ops::Range;
 
-/// 库存插入结果
+/// 搴撳瓨鎻掑叆缁撴灉
 #[derive(Debug, Clone)]
 pub enum InventoryInsertResult {
-    /// 全部插入成功，无剩余
+    /// 鍏ㄩ儴鎻掑叆鎴愬姛锛屾棤鍓╀綑
     AllInserted,
-    /// 部分插入，返回未能放入的剩余堆叠
+    /// 閮ㄥ垎鎻掑叆锛岃繑鍥炴湭鑳芥斁鍏ョ殑鍓╀綑鍫嗗彔
     Partial(ItemStack),
-    /// 库存已满，完全未能插入，返回原堆叠
+    /// 搴撳瓨宸叉弧锛屽畬鍏ㄦ湭鑳芥彃鍏ワ紝杩斿洖鍘熷爢鍙?
     Full(ItemStack),
 }
 
-/// 尝试将物品堆叠插入容器
+/// 灏濊瘯灏嗙墿鍝佸爢鍙犳彃鍏ュ鍣?
 pub fn insert_into_container<C: InventoryContainer + ?Sized>(
     container: &mut C,
     stack: ItemStack,
@@ -22,7 +22,7 @@ pub fn insert_into_container<C: InventoryContainer + ?Sized>(
     insert_into_range(container, stack, 0..slot_count)
 }
 
-/// 仅向容器的指定槽位范围插入物品。
+/// 浠呭悜瀹瑰櫒鐨勬寚瀹氭Ы浣嶈寖鍥存彃鍏ョ墿鍝併€?
 pub fn insert_into_range<C: InventoryContainer + ?Sized>(
     container: &mut C,
     mut stack: ItemStack,
@@ -32,7 +32,7 @@ pub fn insert_into_range<C: InventoryContainer + ?Sized>(
         return InventoryInsertResult::AllInserted;
     }
 
-    // 尝试合并到已有同种堆叠
+    // 灏濊瘯鍚堝苟鍒板凡鏈夊悓绉嶅爢鍙?
     for i in range.clone() {
         if stack.is_empty() {
             return InventoryInsertResult::AllInserted;
@@ -48,7 +48,7 @@ pub fn insert_into_range<C: InventoryContainer + ?Sized>(
         return InventoryInsertResult::AllInserted;
     }
 
-    // 放入第一个空槽位
+    // 鏀惧叆绗竴涓┖妲戒綅
     for i in range {
         let is_empty = container.get_stack(i).is_none_or(|s| s.is_empty());
         if is_empty {
@@ -57,11 +57,11 @@ pub fn insert_into_range<C: InventoryContainer + ?Sized>(
         }
     }
 
-    // 容器已满
+    // 瀹瑰櫒宸叉弧
     InventoryInsertResult::Full(stack)
 }
 
-/// 尝试将物品插入玩家背包
+/// 灏濊瘯灏嗙墿鍝佹彃鍏ョ帺瀹惰儗鍖?
 pub fn insert_into_player(
     hotbar: &mut dyn InventoryContainer,
     backpack: &mut dyn InventoryContainer,
@@ -71,7 +71,7 @@ pub fn insert_into_player(
         result @ InventoryInsertResult::AllInserted => result,
         InventoryInsertResult::Partial(remaining) => insert_into_container(backpack, remaining),
         full @ InventoryInsertResult::Full(_) => {
-            // 快捷栏已满，尝试背包
+            // 蹇嵎鏍忓凡婊★紝灏濊瘯鑳屽寘
             let InventoryInsertResult::Full(stack) = full else {
                 unreachable!()
             };
@@ -81,5 +81,5 @@ pub fn insert_into_player(
 }
 
 #[cfg(test)]
-#[path = "../../../tests/unit/game/inventory/insert.rs"]
+#[path = "../../../../tests/unit/game/inventory/transfer.rs"]
 mod tests;

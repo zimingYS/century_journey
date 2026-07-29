@@ -15,7 +15,7 @@ impl Plugin for HeadlessWorldPlugin {
             ))
             .add_plugins(crate::game::simulation::SimulationPlugin)
             .add_plugins(crate::game::gameplay::GameplayPlugin)
-            .add_plugins(crate::game::inventory::plugin::InventoryPlugin)
+            .add_plugins(crate::game::inventory::InventoryPlugin)
             .add_plugins(crate::game::player::plugin::GamePlayerPlugin);
     }
 }
