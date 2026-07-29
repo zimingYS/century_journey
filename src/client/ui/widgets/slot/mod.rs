@@ -25,7 +25,7 @@ use crate::shared::item_id::ItemId;
 use crate::shared::ui_types::ContainerKind;
 use bevy::prelude::*;
 
-/// 生成空槽位。
+/// 鐢熸垚绌烘Ы浣嶃€?
 pub fn spawn_empty_slot(
     parent: &mut ChildSpawnerCommands,
     kind: SlotKind,
@@ -84,7 +84,7 @@ pub fn spawn_empty_slot(
         });
 }
 
-/// 生成带短占位标记的空槽位，用于装备栏和饰品栏。
+/// 鐢熸垚甯︾煭鍗犱綅鏍囪鐨勭┖妲戒綅锛岀敤浜庤澶囨爮鍜岄グ鍝佹爮銆?
 pub fn spawn_empty_slot_with_placeholder(
     parent: &mut ChildSpawnerCommands,
     kind: SlotKind,
@@ -155,7 +155,7 @@ pub fn spawn_empty_slot_with_placeholder(
         });
 }
 
-/// 生成带物品图标的槽位。
+/// 鐢熸垚甯︾墿鍝佸浘鏍囩殑妲戒綅銆?
 pub fn spawn_slot_with_item(
     parent: &mut ChildSpawnerCommands,
     kind: SlotKind,
@@ -220,10 +220,10 @@ pub fn spawn_slot_with_item(
         });
 }
 
-/// 生成槽位图标子节点。
+/// 鐢熸垚妲戒綅鍥炬爣瀛愯妭鐐广€?
 ///
-/// UI 层不判断方块或贴图类型，只向 ItemRenderer 查询当前物品在 GUI 中应该显示的图片；
-/// 当 3D 方块图标仍在离屏烘焙时，临时回退到方块 atlas 图标，避免出现空槽。
+/// UI 灞備笉鍒ゆ柇鏂瑰潡鎴栬创鍥剧被鍨嬶紝鍙悜 ItemRenderer 鏌ヨ褰撳墠鐗╁搧鍦?GUI 涓簲璇ユ樉绀虹殑鍥剧墖锛?
+/// 褰?3D 鏂瑰潡鍥炬爣浠嶅湪绂诲睆鐑樼剻鏃讹紝涓存椂鍥為€€鍒版柟鍧?atlas 鍥炬爣锛岄伩鍏嶅嚭鐜扮┖妲姐€?
 pub fn spawn_icon_child(
     parent: &mut ChildSpawnerCommands,
     item: &ItemId,
@@ -249,7 +249,7 @@ pub fn spawn_icon_child(
     }
 }
 
-/// 原地同步槽位图标和数量文本。
+/// 鍘熷湴鍚屾妲戒綅鍥炬爣鍜屾暟閲忔枃鏈€?
 pub fn sync_slot_icon(
     commands: &mut Commands,
     slot_entity: Entity,
@@ -310,7 +310,7 @@ pub fn sync_slot_icon(
     }
 }
 
-/// 创建统一尺寸的槽位图标节点。
+/// 鍒涘缓缁熶竴灏哄鐨勬Ы浣嶅浘鏍囪妭鐐广€?
 fn icon_node() -> Node {
     Node {
         width: Val::Percent(80.0),
@@ -319,7 +319,7 @@ fn icon_node() -> Node {
     }
 }
 
-/// 创建普通图片节点。
+/// 鍒涘缓鏅€氬浘鐗囪妭鐐广€?
 fn plain_image_node(image: Handle<Image>) -> ImageNode {
     ImageNode {
         image,
@@ -416,7 +416,8 @@ fn stack_for_slot<'a>(
     match bar.kind {
         SlotKind::Hotbar => inventory.hotbar.get_stack(bar.index),
         SlotKind::SurvivalBackpack | SlotKind::SurvivalEquipment | SlotKind::SurvivalAccessory => {
-            let index = crate::game::inventory::routing::survival_index(bar.kind, bar.index)?;
+            let index =
+                crate::game::inventory::interaction::routing::survival_index(bar.kind, bar.index)?;
             inventory.survival.get_stack(index)
         }
         SlotKind::Container(ContainerKind::PlayerCrafting) => {
@@ -441,7 +442,7 @@ fn crafting_stack(grid: &CraftingGrid, index: usize) -> Option<&ItemStack> {
     }
 }
 
-/// 在 3D 方块图标尚未 ready 时，回退到方块 atlas 里的 2D 图标。
+/// 鍦?3D 鏂瑰潡鍥炬爣灏氭湭 ready 鏃讹紝鍥為€€鍒版柟鍧?atlas 閲岀殑 2D 鍥炬爣銆?
 fn block_atlas_fallback_image(
     item: &ItemId,
     block_registry: &BlockRegistry,
@@ -470,7 +471,7 @@ fn block_atlas_fallback_image(
     })
 }
 
-/// 同步快捷栏面板的槽位图标、数量和选中边框。
+/// 鍚屾蹇嵎鏍忛潰鏉跨殑妲戒綅鍥炬爣銆佹暟閲忓拰閫変腑杈规銆?
 pub fn sync_hotbar_panel_visuals(
     state: &crate::game::inventory::state::InventoryState,
     reg: &BlockRegistry,
@@ -562,7 +563,7 @@ pub fn sync_hotbar_panel_visuals(
     }
 }
 
-/// 生成仅展示用槽位。
+/// 鐢熸垚浠呭睍绀虹敤妲戒綅銆?
 pub fn spawn_display_only_slot(
     parent: &mut ChildSpawnerCommands,
     kind: SlotKind,

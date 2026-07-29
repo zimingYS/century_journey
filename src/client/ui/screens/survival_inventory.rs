@@ -28,9 +28,10 @@ use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::container::survival::SurvivalInventory;
-use crate::game::inventory::equipment::{AccessorySlotDefinitions, EquipmentSlot};
 use crate::game::inventory::item::stack::ItemStack;
-use crate::game::inventory::state::{InventoryState, LocalInventory, LocalInventoryMut};
+use crate::game::inventory::state::{
+    AccessorySlotDefinitions, EquipmentSlot, InventoryState, LocalInventory, LocalInventoryMut,
+};
 use crate::game::player::identity::LocalPlayer;
 use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::Hunger;
@@ -140,7 +141,7 @@ fn build_equipment_panel(parent: &mut ChildSpawnerCommands, theme: &UiTheme, ui_
             BorderColor::all(Color::srgba(0.1, 0.76, 0.7, 0.8)),
         ))
         .with_children(|panel| {
-            spawn_heading(panel, "装备", theme, ui_font);
+            spawn_heading(panel, "瑁呭", theme, ui_font);
             for (index, equipment_slot) in EquipmentSlot::ALL.into_iter().enumerate() {
                 panel
                     .spawn(Node {
@@ -188,7 +189,7 @@ fn build_accessory_panel(
             BorderColor::all(Color::srgba(0.92, 0.7, 0.08, 0.9)),
         ))
         .with_children(|panel| {
-            spawn_heading(panel, "饰品", theme, ui_font);
+            spawn_heading(panel, "楗板搧", theme, ui_font);
             for (index, definition) in definitions.slots.iter().enumerate() {
                 panel
                     .spawn(Node {
@@ -275,19 +276,19 @@ fn build_preview_panel(
                 .with_children(|stats| {
                     spawn_stat_text::<SurvivalHealthText>(
                         stats,
-                        "生命 --",
+                        "鐢熷懡 --",
                         Color::srgb(0.96, 0.25, 0.24),
                         ui_font,
                     );
                     spawn_stat_text::<SurvivalDefenseText>(
                         stats,
-                        "防御 --",
+                        "闃插尽 --",
                         Color::srgb(0.55, 0.7, 0.82),
                         ui_font,
                     );
                     spawn_stat_text::<SurvivalHungerText>(
                         stats,
-                        "饥饿 --",
+                        "楗ラタ --",
                         Color::srgb(0.88, 0.55, 0.25),
                         ui_font,
                     );
@@ -309,8 +310,8 @@ fn build_preview_panel(
                     BorderColor::all(theme.border_default),
                 ))
                 .with_children(|actions| {
-                    spawn_action_button::<CompactBackpackButton>(actions, "收拢", theme, ui_font);
-                    spawn_action_button::<SortBackpackButton>(actions, "整理", theme, ui_font);
+                    spawn_action_button::<CompactBackpackButton>(actions, "鏀舵嫝", theme, ui_font);
+                    spawn_action_button::<SortBackpackButton>(actions, "鏁寸悊", theme, ui_font);
                 });
         });
 }
@@ -336,7 +337,7 @@ fn build_backpack_panel(root: &mut ChildSpawnerCommands, theme: &UiTheme, ui_fon
                 align_items: AlignItems::Center,
                 ..default()
             })
-            .with_children(|title| spawn_label(title, "背包", theme, ui_font));
+            .with_children(|title| spawn_label(title, "鑳屽寘", theme, ui_font));
         section.spawn((
             SurvivalItemGrid,
             Name::new("SurvivalGrid"),
@@ -633,7 +634,8 @@ pub fn survival_grid_visual_sync_system(
     *last_snapshot = Some((current.clone(), revision));
 
     for (entity, slot, mut visual) in &mut slot_query {
-        let Some(index) = crate::game::inventory::routing::survival_index(slot.kind, slot.index)
+        let Some(index) =
+            crate::game::inventory::interaction::routing::survival_index(slot.kind, slot.index)
         else {
             continue;
         };
@@ -815,11 +817,14 @@ pub fn survival_stats_visual_sync_system(
     };
     for (mut text, health_marker, defense_marker, hunger_marker) in &mut text_query {
         if health_marker.is_some() {
-            *text = Text::new(format!("生命 {:.0}/{:.0}", health.current, health.max));
+            *text = Text::new(format!("鐢熷懡 {:.0}/{:.0}", health.current, health.max));
         } else if defense_marker.is_some() {
-            *text = Text::new(format!("防御 {:.0}", defense.map_or(0.0, |value| value.0)));
+            *text = Text::new(format!(
+                "闃插尽 {:.0}",
+                defense.map_or(0.0, |value| value.0)
+            ));
         } else if hunger_marker.is_some() {
-            *text = Text::new(format!("饥饿 {:.0}/{:.0}", hunger.current, hunger.max));
+            *text = Text::new(format!("楗ラタ {:.0}/{:.0}", hunger.current, hunger.max));
         }
     }
 }
@@ -852,7 +857,7 @@ pub fn backpack_management_button_system(
 }
 
 pub fn handle_inventory_close(state: &mut InventoryState) {
-    use crate::game::inventory::cursor::CursorSource;
+    use crate::game::inventory::state::CursorSource;
     if !state.cursor.has_item() {
         return;
     }

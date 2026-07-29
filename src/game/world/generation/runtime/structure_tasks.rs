@@ -9,8 +9,8 @@ use crate::game::world::generation::runtime::{StructureGenChannel, StructureGenR
 use crate::game::world::generation::structure::placement::{
     StructureGenerationWorkspace, StructureGenerator,
 };
-use crate::game::world::state::WorldState;
 use crate::game::world::state::ChunkRuntime;
+use crate::game::world::state::WorldState;
 use crate::game::world::streaming::PlayerChunkCache;
 use bevy::math::IVec3;
 use bevy::prelude::{Query, Res, ResMut};

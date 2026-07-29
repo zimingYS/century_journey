@@ -129,25 +129,25 @@ fn handle_crafting_event(
 ) {
     if event.index < crafting.slot_count() {
         match event.action {
-            SlotAction::LeftClick => crate::game::inventory::interaction::left_click_slot(
+            SlotAction::LeftClick => crate::game::inventory::interaction::click::left_click_slot(
                 crafting,
                 event.index,
                 &mut state.cursor,
             ),
-            SlotAction::RightClick => crate::game::inventory::interaction::right_click_slot(
+            SlotAction::RightClick => crate::game::inventory::interaction::click::right_click_slot(
                 crafting,
                 event.index,
                 &mut state.cursor,
             ),
             SlotAction::ScrollDown => {
                 let hotbar_slots = state.hotbar.slot_count();
-                if !crate::game::inventory::interaction::move_one_into_range(
+                if !crate::game::inventory::interaction::click::move_one_into_range(
                     crafting,
                     &mut state.hotbar,
                     event.index,
                     0..hotbar_slots,
                 ) {
-                    crate::game::inventory::interaction::move_one_into_range(
+                    crate::game::inventory::interaction::click::move_one_into_range(
                         crafting,
                         &mut state.survival,
                         event.index,
@@ -157,13 +157,13 @@ fn handle_crafting_event(
             }
             SlotAction::ScrollUp => {
                 let hotbar_slots = state.hotbar.slot_count();
-                if !crate::game::inventory::interaction::pull_one_matching(
+                if !crate::game::inventory::interaction::click::pull_one_matching(
                     crafting,
                     &mut state.hotbar,
                     event.index,
                     0..hotbar_slots,
                 ) {
-                    crate::game::inventory::interaction::pull_one_matching(
+                    crate::game::inventory::interaction::click::pull_one_matching(
                         crafting,
                         &mut state.survival,
                         event.index,

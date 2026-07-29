@@ -17,8 +17,8 @@ use crate::game::save::world::metadata::io;
 use crate::game::world::chunk::ChunkState;
 use crate::game::world::generation::{StructureGenChannel, TerrainGenChannel};
 use crate::game::world::state::WorldState;
-use crate::game::world::streaming::WorldStreamingConfig;
 use crate::game::world::streaming::PlayerChunkCache;
+use crate::game::world::streaming::WorldStreamingConfig;
 use crate::shared::states::AppState;
 
 const SCENARIO_NAME: &str = "survival_spawn_v1";

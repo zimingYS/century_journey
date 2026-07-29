@@ -301,5 +301,5 @@ fn editable_text_value(editable_text: &EditableText) -> String {
 }
 
 #[cfg(test)]
-#[path = "../../../tests/unit/client/ui/interaction.rs"]
+#[path = "../../../tests/unit/client/ui/click.rs"]
 mod tests;

@@ -10,10 +10,7 @@ use std::collections::HashMap;
 /// 具体行为实现和执行由 Game 层负责。
 #[derive(Resource, Default)]
 pub struct BlockBehaviorRegistry {
-    pub behaviors: HashMap<
-        String,
-        Box<dyn BlockBehavior<crate::game::world::state::WorldState>>,
-    >,
+    pub behaviors: HashMap<String, Box<dyn BlockBehavior<crate::game::world::state::WorldState>>>,
 }
 
 impl BlockBehaviorRegistry {
