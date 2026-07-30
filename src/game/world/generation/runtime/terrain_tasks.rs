@@ -1,4 +1,5 @@
-use crate::content::constant::world::{MAX_TERRAIN_RECEIVE_PER_FRAME, MAX_TERRAIN_TASKS_PER_FRAME};
+//! 在任务池生成基础地形，并在主线程提交权威区块结果。
+
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::save::world::chunk::region::RegionManager;
 use crate::game::save::{CachedBlockIdRemap, SaveConfig};
@@ -15,6 +16,14 @@ use bevy::prelude::{Query, Res, ResMut};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
+/// 单帧最多派发的地形生成任务数。
+const MAX_TERRAIN_TASKS_PER_FRAME: u32 = 4;
+/// 单帧最多接收的地形生成结果数。
+const MAX_TERRAIN_RECEIVE_PER_FRAME: usize = 4;
+
+/// 按流送优先级和帧预算派发地形加载或生成任务。
+/// 地形任务需协调存档加载、内容映射和流送状态，显式参数用于审查每个事实源。
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_terrain_gen_tasks(
     channel: Res<TerrainGenChannel>,
     world_generator: Res<WorldGenerator>,
@@ -97,6 +106,7 @@ pub fn spawn_terrain_gen_tasks(
     }
 }
 
+/// 在主线程接收地形结果，提交权威区块并推进生命周期状态。
 pub fn receive_terrain_results(
     mut world_state: ResMut<WorldState>,
     channel: Res<TerrainGenChannel>,

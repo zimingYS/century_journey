@@ -1,7 +1,9 @@
-use super::application::Application;
+//! 构建带窗口、渲染与本地输入的客户端应用。
+
+use super::constants::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
+use super::contract::Application;
 use crate::app::config::AppConfig;
 use crate::app::runtime::ClientRuntimePluginGroup;
-use crate::engine::constant::window::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::game::world::streaming::WorldStreamingConfig;
 use bevy::asset::AssetPlugin as BevyAssetPlugin;
 use bevy::log::LogPlugin;
@@ -31,6 +33,7 @@ fn asset_root_path() -> String {
     "assets".into()
 }
 
+/// 带本地窗口、渲染器、音频和输入的游戏客户端应用。
 pub struct ClientApplication;
 
 impl Application for ClientApplication {

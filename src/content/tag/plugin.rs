@@ -1,7 +1,9 @@
+//! 组装标签加载、编译和注册表发布流程。
+
 use bevy::prelude::*;
 
 use crate::content::block::registry::BlockRegistry;
-use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::item::ItemRegistry;
 use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::content::tag::compiler::TagRegistryCompiler;
 use crate::content::validation::ContentCompilation;
@@ -27,6 +29,7 @@ impl Plugin for TagContentPlugin {
     }
 }
 
+/// 按内容覆盖顺序编译并发布运行时标签索引。
 pub(crate) fn init_tag_registry_system(
     mut commands: Commands,
     compilation: Res<ContentCompilation>,

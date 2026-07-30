@@ -1,3 +1,5 @@
+//! 聚合与界面无关的点击、路由和库存转移算法。
+
 pub mod click;
 pub mod routing;
 pub mod transfer;

@@ -1,3 +1,5 @@
+//! 把解析后的内容模型转换为可复用网格、材质和显示变换。
+
 use bevy::prelude::*;
 
 use crate::client::renderer::item::baked_model::BakedItemModel;

@@ -1,3 +1,5 @@
+//! 按权威模拟阶段组装玩家各子领域插件和共享消息。
+
 use crate::game::player;
 use bevy::prelude::*;
 

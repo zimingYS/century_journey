@@ -1,7 +1,9 @@
+//! 定义并应用权威方块变更，使存档、网格和邻居更新共享同一事实源。
+
 use crate::content::block::event::{BlockChangedEvent, BlockNeighborChangedEvent};
-use crate::content::constant::world::CHUNK_SIZE;
 use crate::game::world::chunk::{ChunkComponents, ChunkState};
 use crate::game::world::state::WorldState;
+use crate::shared::voxel::CHUNK_SIZE;
 use bevy::prelude::{Entity, IVec3, MessageReader, MessageWriter, Query, ResMut};
 
 const NEIGHBOR_OFFSETS: [IVec3; 6] = [

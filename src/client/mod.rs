@@ -21,5 +21,4 @@ pub mod presentation;
 pub mod renderer;
 pub mod sky;
 pub mod sound;
-pub mod startup;
 pub mod ui;

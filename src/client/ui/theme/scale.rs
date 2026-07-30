@@ -1,6 +1,9 @@
+//! 根据窗口尺寸计算离散像素界面缩放比例。
+
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
+/// 用户缩放和参考分辨率共同决定的界面缩放配置。
 #[derive(Resource, Debug, Clone)]
 pub struct UiScaleSettings {
     pub user_scale: f32,
@@ -21,6 +24,7 @@ impl Default for UiScaleSettings {
 }
 
 impl UiScaleSettings {
+    /// 计算指定视口下受上下限约束的最终界面缩放。
     pub fn resolved_scale(&self, viewport: Vec2) -> f32 {
         let fit = (viewport.x / self.reference_size.x)
             .min(viewport.y / self.reference_size.y)
@@ -29,6 +33,7 @@ impl UiScaleSettings {
     }
 }
 
+/// 窗口尺寸或用户配置变化时同步 Bevy 全局界面缩放。
 pub fn sync_ui_scale_system(
     settings: Res<UiScaleSettings>,
     window_query: Query<&Window, With<PrimaryWindow>>,

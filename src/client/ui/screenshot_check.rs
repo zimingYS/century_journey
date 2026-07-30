@@ -1,9 +1,12 @@
+//! 驱动固定尺寸界面截图场景，供开发期视觉回归检查使用。
+
 use std::path::PathBuf;
 
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 
 use crate::app::flow::{MenuPage, PendingWorld};
+use crate::client::camera::{CameraPerspective, FpsCamera};
 use crate::client::ui::components::SurvivalInventoryRoot;
 use crate::client::ui::navigation::{UiNavigation, UiScreen};
 use crate::client::ui::screens::menu::{PauseSettingsButton, ResumeButton, SaveQuitButton};
@@ -17,7 +20,6 @@ use crate::game::player::identity::LocalPlayer;
 use crate::game::player::movement::components::PlayerVelocity;
 use crate::game::player::physics::components::PlayerGravity;
 use crate::game::save::world::metadata::io;
-use crate::shared::components::camera::{CameraPerspective, FpsCamera};
 use crate::shared::item_id::ItemId;
 use crate::shared::states::AppState;
 
@@ -51,6 +53,7 @@ struct UiScreenshotCheck {
     requested: bool,
 }
 
+/// 根据截图环境变量配置固定界面状态、相机和自动退出流程。
 pub fn configure_ui_screenshot_check(app: &mut App) {
     let Ok(output) = std::env::var("CJ_UI_SCREENSHOT") else {
         return;
@@ -102,6 +105,8 @@ pub fn configure_ui_screenshot_check(app: &mut App) {
     .add_systems(Update, ui_screenshot_check_system);
 }
 
+// 截图工具在同一帧检查多个界面锚点和状态，参数只存在于开发期验证路径。
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn ui_screenshot_check_system(
     real_time: Res<Time<Real>>,
     app_state: Res<State<AppState>>,
@@ -225,7 +230,7 @@ fn ui_screenshot_check_system(
             ScreenshotTarget::Workbench => {
                 let Some(container_id) = containers.ensure_at(
                     IVec3::ZERO,
-                    crate::shared::ui_types::ContainerKind::Workbench,
+                    crate::game::inventory::container::ContainerKind::Workbench,
                 ) else {
                     return;
                 };

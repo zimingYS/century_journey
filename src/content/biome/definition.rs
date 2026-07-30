@@ -1,3 +1,5 @@
+//! 定义生物群系及其地形参数的数据格式。
+
 use crate::shared::identifier::Identifier;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};

@@ -1,3 +1,5 @@
+//! 聚合单个玩家的快捷栏、生存背包、创造目录和交互会话状态。
+
 use crate::game::inventory::container::creative::CreativeData;
 use crate::game::inventory::container::hotbar::HotbarData;
 use crate::game::inventory::container::survival::SurvivalInventory;
@@ -16,7 +18,7 @@ pub struct InventoryState {
     pub creative: CreativeData,
     /// 生存模式背包
     pub survival: SurvivalInventory,
-    /// 鼠标悬浮物品
+    /// 拖拽期间由光标持有的物品
     pub cursor: CursorData,
     /// 最近使用
     pub recent: RecentItems,
@@ -24,7 +26,9 @@ pub struct InventoryState {
     pub opened: bool,
 }
 
+/// 查询本地玩家只读库存的单实体系统参数。
 pub type LocalInventory<'w, 's> = Single<'w, 's, &'static InventoryState, With<LocalPlayer>>;
+/// 查询本地玩家可变库存的单实体系统参数。
 pub type LocalInventoryMut<'w, 's> = Single<'w, 's, &'static mut InventoryState, With<LocalPlayer>>;
 
 impl InventoryState {

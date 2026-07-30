@@ -1,3 +1,5 @@
+//! 从内容资产加载配方定义。
+
 use crate::content::format::load_versioned_json_dir;
 use crate::content::recipe::definition::recipe_definition::RecipeDefinition;
 use crate::engine::asset::AssetFiles;

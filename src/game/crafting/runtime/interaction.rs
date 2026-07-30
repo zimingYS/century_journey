@@ -1,17 +1,21 @@
+//! 处理合成槽位交互，并仅在输出领取成功后消费配方输入。
+
 use super::transfer::{capacity_range, insert_range};
 use crate::content::recipe::registry::RecipeRegistry;
 use crate::content::tag::runtime::ItemTagIndex;
 use crate::game::crafting::grid::{ActiveCrafting, CraftingGrid, PlayerCrafting};
 use crate::game::inventory::InventoryState;
+use crate::game::inventory::container::ContainerKind;
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::world::WorldContainers;
 use crate::game::inventory::events::SlotInteractionEvent;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::slot::SlotAction;
+use crate::game::inventory::slot::SlotKind;
 use crate::game::player::identity::PlayerId;
-use crate::shared::ui_types::{ContainerKind, SlotKind};
 use bevy::prelude::*;
 
+/// 消费当前合成会话的槽位操作，并在成功领取输出后消耗配方。
 pub fn crafting_interaction_system(
     mut reader: MessageReader<SlotInteractionEvent>,
     mut players: Query<(
@@ -194,3 +198,7 @@ fn take_output_to_inventory(
     crafting.refresh(recipes, tags);
     true
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/game/crafting/runtime/interaction.rs"]
+mod tests;

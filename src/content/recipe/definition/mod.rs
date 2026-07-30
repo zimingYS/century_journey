@@ -1,3 +1,5 @@
+//! 汇总各类配方的数据定义。
+
 pub mod ingredient;
 pub mod recipe_definition;
 pub mod recipe_result;

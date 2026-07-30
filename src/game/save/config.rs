@@ -1,5 +1,11 @@
-use crate::content::constant::world::{AUTO_SAVE_INTERVAL_SECS, DEFAULT_WORLD_NAME};
+//! 定义自动保存间隔及当前存档会话使用的路径配置。
+
 use bevy::prelude::{Resource, Timer};
+
+/// 未显式选择存档时使用的世界名称。
+const DEFAULT_WORLD_NAME: &str = "NEW WORLD";
+/// 自动保存的默认现实时间间隔。
+const DEFAULT_AUTO_SAVE_INTERVAL_SECONDS: f64 = 60.0;
 
 /// 保存配置
 #[derive(Resource, Clone, Debug)]
@@ -17,7 +23,7 @@ impl Default for SaveConfig {
         Self {
             world_name: DEFAULT_WORLD_NAME.to_string(),
             save_on_unload: true,
-            auto_save_interval: AUTO_SAVE_INTERVAL_SECS,
+            auto_save_interval: DEFAULT_AUTO_SAVE_INTERVAL_SECONDS,
         }
     }
 }

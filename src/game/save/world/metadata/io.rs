@@ -1,3 +1,5 @@
+//! 编解码带版本和校验信息的世界元数据，并迁移旧格式。
+
 use crate::content::block::registry::BlockRegistry;
 use crate::engine::persistence;
 use crate::game::save::world::chunk::region::{RegionManager, SaveError};
@@ -14,8 +16,10 @@ use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use std::io::{Read, Write};
 
+/// 当前世界元数据二进制封装的格式标识。
 pub const LEVEL_MAGIC: &[u8; 4] = b"CJLV";
 
+/// 使用浮点版本号且没有格式标识的最早世界元数据模型。
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct LegacyLevelDataV0 {
     seed: u64,
@@ -25,6 +29,7 @@ pub struct LegacyLevelDataV0 {
     version: f32,
 }
 
+/// 世界元数据版本 1 的兼容读取模型。
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct LegacyLevelDataV1 {
     version: u32,
@@ -35,6 +40,7 @@ pub struct LegacyLevelDataV1 {
     block_id_map: Vec<(u16, String)>,
 }
 
+/// 世界元数据版本 2 的兼容读取模型。
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct LegacyLevelDataV2 {
     version: u32,
@@ -46,13 +52,13 @@ pub struct LegacyLevelDataV2 {
     block_id_map: Vec<(u16, String)>,
 }
 
-/// 检测存档是否存在
+/// 检测世界主元数据或其备份是否存在。
 pub fn world_exists(world_name: &str) -> bool {
     let path = RegionManager::level_path(world_name);
     path.exists() || persistence::backup_path(&path).exists()
 }
 
-/// 保存世界配置数据到level.dat
+/// 将世界元数据原子写入 `level.dat`，并保留可恢复备份。
 pub fn save_level(
     world_name: &str,
     seed: u64,
@@ -61,10 +67,10 @@ pub fn save_level(
     spawn_pos: Vec3,
     block_registry: &BlockRegistry,
 ) -> prelude::Result<(), SaveError> {
-    // 确保当前世界文件存在
+    // 元数据与区块区域文件共用世界目录。
     RegionManager::ensure_dirs(world_name)?;
 
-    // 构建ID映射表(将动态ID转换为方块标识符)
+    // 保存稳定标识映射，避免内容注册顺序变化破坏旧世界。
     let block_id_map = block_registry.build_save_id_map();
 
     let level = LevelData {
@@ -86,7 +92,7 @@ pub fn save_level(
     Ok(())
 }
 
-/// 从level.dat加载世界元数据
+/// 从 `level.dat` 加载并迁移世界元数据。
 pub fn load_level(world_name: &str) -> prelude::Result<LevelData, SaveError> {
     let path = RegionManager::level_path(world_name);
     let bytes = persistence::read_verified(&path, validate_level_bytes)?;
@@ -113,6 +119,7 @@ pub fn restore_level_backup(world_name: &str) -> prelude::Result<(), SaveError> 
     Ok(())
 }
 
+/// 将当前世界元数据编码为带格式标识的压缩字节。
 pub fn encode_level(level: &LevelData) -> prelude::Result<Vec<u8>, SaveError> {
     let serialized = bincode::DefaultOptions::new()
         .with_varint_encoding()
@@ -124,6 +131,7 @@ pub fn encode_level(level: &LevelData) -> prelude::Result<Vec<u8>, SaveError> {
     Ok(encoded)
 }
 
+/// 识别当前或旧版封装并解码为当前世界元数据模型。
 pub fn decode_level(bytes: &[u8]) -> prelude::Result<LevelData, SaveError> {
     if let Some(compressed) = bytes.strip_prefix(LEVEL_MAGIC) {
         let decompressed = decompress(compressed)?;
@@ -196,7 +204,7 @@ fn migrate_level_data(mut level: LevelData) -> prelude::Result<LevelData, SaveEr
     level.time_of_day = clock.visual_hour(0.0);
 
     if !level.time_of_day.is_finite() {
-        level.time_of_day = crate::shared::time::NEW_WORLD_START_TIME;
+        level.time_of_day = WorldSimulationClock::default().visual_hour(0.0);
     } else {
         level.time_of_day = level.time_of_day.rem_euclid(24.0);
     }
@@ -278,6 +286,7 @@ fn validate_level_bytes(bytes: &[u8]) -> prelude::Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
+/// 使用存档约定的快速 Gzip 配置压缩字节。
 pub fn compress(data: &[u8]) -> prelude::Result<Vec<u8>, SaveError> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
     encoder.write_all(data)?;
@@ -291,16 +300,16 @@ fn decompress(data: &[u8]) -> prelude::Result<Vec<u8>, SaveError> {
     Ok(decompressed)
 }
 
-// 根据存档中的ID映射表，将区块数据中的方块ID重映射到当前运行时ID
+/// 根据存档标识映射把区块方块编号重映射到当前运行时编号。
 pub fn remap_chunk_block_ids(
     chunk_data: &mut crate::game::world::chunk::ChunkData,
     saved_id_map: &[(u16, String)],
     current_registry: &BlockRegistry,
 ) {
-    // 构建映射：保存时的 runtime_id -> 当前的 runtime_id
+    // 先构建旧运行时编号到当前运行时编号的稳定映射。
     let remap = current_registry.build_id_remap_table(saved_id_map);
 
-    // 重映射每个方块
+    // 未知内容必须回退为空气，不能把旧编号误认成另一种方块。
     for voxel in chunk_data.voxels.iter_mut() {
         if let Some(&new_id) = remap.get(voxel) {
             *voxel = new_id;

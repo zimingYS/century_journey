@@ -1,3 +1,5 @@
+//! 组装 HUD 各区域，并注册只负责表现同步的渲染帧系统。
+
 use crate::client::ui::hud::bottom::bars::left_bars::armor_bar::{
     armor_bar_sync_system, spawn_armor_bar,
 };
@@ -28,6 +30,7 @@ use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::shared::states::AppState;
 use bevy::prelude::*;
 
+/// HUD 启动阶段的根布局与子控件创建顺序。
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum HudSetupSet {
     Root,
@@ -36,6 +39,7 @@ pub enum HudSetupSet {
     Widget,
 }
 
+/// 组装 HUD 布局、状态条、快捷栏及其视觉同步系统。
 pub struct HudPlugin;
 
 impl Plugin for HudPlugin {

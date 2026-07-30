@@ -1,3 +1,5 @@
+//! 保存编译后的方块与物品标签运行时索引。
+
 use crate::shared::item_id::ItemId;
 use crate::shared::tag::identifier::TagId;
 use bevy::prelude::*;
@@ -86,6 +88,7 @@ pub struct ItemTagIndex {
 }
 
 impl ItemTagIndex {
+    /// 把指定值写入对应索引或缓存。
     pub(crate) fn insert(&mut self, tag: TagId, items: HashSet<ItemId>) {
         self.tags.insert(tag, items);
     }
@@ -100,6 +103,7 @@ impl ItemTagIndex {
         self.tags.get(tag)
     }
 
+    /// 返回运行时索引中的标签总数。
     pub fn total_tags(&self) -> usize {
         self.tags.len()
     }

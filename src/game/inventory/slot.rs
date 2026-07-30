@@ -1,6 +1,29 @@
+//! 定义物品栏槽位的数据结构、逻辑分类和可执行动作。
+
+use crate::game::inventory::container::ContainerKind;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::shared::item_id::ItemId;
 
+/// 可被物品栏规则路由的槽位分类。
+///
+/// 类型由 Game 层拥有；Client 只把玩家在具体界面槽位上的意图转换成该分类。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SlotKind {
+    /// 玩家快捷栏。
+    Hotbar,
+    /// 创造模式物品目录中的候选项。
+    CreativeGrid,
+    /// 创造模式最近使用列表。
+    Recent,
+    /// 生存模式背包区域。
+    SurvivalBackpack,
+    /// 生存模式装备区域。
+    SurvivalEquipment,
+    /// 生存模式饰品区域。
+    SurvivalAccessory,
+    /// 具有独立容器身份的槽位。
+    Container(ContainerKind),
+}
 /// 单个槽位对应的数据 （纯数据，非UI组件）
 #[derive(Debug, Clone)]
 pub struct SlotData {

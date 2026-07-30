@@ -1,6 +1,8 @@
+//! 提供世界方块读写的领域操作，统一处理跨区块坐标和脏标记。
+
 use crate::content::block::event::BlockChangedEvent;
-use crate::content::constant::world::CHUNK_SIZE;
 use crate::game::world::state::WorldState;
+use crate::shared::voxel::CHUNK_SIZE;
 use bevy::prelude::*;
 use std::sync::Arc;
 

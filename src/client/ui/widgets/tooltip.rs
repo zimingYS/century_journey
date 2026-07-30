@@ -1,24 +1,30 @@
+//! 根据悬停槽位构建、定位并隐藏物品提示框。
+
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::SlotVisual;
+use crate::content::item::ItemRegistry;
 use crate::content::item::definition::{ItemCategory, ItemDefinition};
-use crate::content::item::registry::registry::ItemRegistry;
 
 const TOOLTIP_WIDTH: f32 = 292.0;
 const CURSOR_OFFSET: f32 = 16.0;
 
+/// 全局物品提示框根节点。
 #[derive(Component)]
 pub struct ItemTooltip;
 
+/// 物品提示框标题文本。
 #[derive(Component)]
 pub(crate) struct ItemTooltipTitle;
 
+/// 物品提示框属性正文文本。
 #[derive(Component)]
 pub(crate) struct ItemTooltipBody;
 
+/// 创建默认隐藏的全局物品提示框。
 pub fn spawn_item_tooltip_system(
     mut commands: Commands,
     ui_font: Res<UiFont>,
@@ -69,6 +75,9 @@ pub fn spawn_item_tooltip_system(
         });
 }
 
+/// 根据悬停槽位和指针位置更新提示框内容与屏幕内布局。
+///
+/// 查询保持分离以避免可变文本和节点访问冲突，因此保留显式系统参数。
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn item_tooltip_system(
     mut cursor_events: MessageReader<CursorMoved>,

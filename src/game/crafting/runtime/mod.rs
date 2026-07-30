@@ -1,3 +1,5 @@
+//! 组织合成会话、交互和物品转移等运行时规则。
+
 pub mod interaction;
 pub mod lifecycle;
 mod station;

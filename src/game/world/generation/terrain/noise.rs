@@ -1,3 +1,5 @@
+//! 封装由世界种子派生的噪声场，隔离具体噪声库实现。
+
 use noise::Perlin;
 
 /// 多层噪声采样器
@@ -15,6 +17,7 @@ pub struct NoiseSampler {
 }
 
 impl NoiseSampler {
+    /// 从同一世界种子派生互不重叠的地形噪声层。
     pub fn new(seed: u32) -> Self {
         Self {
             seed,

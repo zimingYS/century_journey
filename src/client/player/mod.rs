@@ -1,3 +1,5 @@
+//! 组织本地玩家模型、第一人称全身表现和手持物品视图。
+
 use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 
@@ -16,6 +18,7 @@ pub mod model;
 const WORLD_RENDER_LAYER: usize = 0;
 const PLAYER_SHADOW_ONLY_LAYER: usize = 1;
 
+/// 组装本地玩家模型、相机可见层和手持物表现。
 pub struct ClientPlayerPlugin;
 
 impl Plugin for ClientPlayerPlugin {

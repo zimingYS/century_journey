@@ -1,3 +1,5 @@
+//! 实现玩家快捷栏容器及活动槽位选择规则。
+
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::shared::item_id::ItemId;

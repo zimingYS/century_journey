@@ -43,10 +43,12 @@ impl PlayerBehaviorState {
         }
     }
 
+    /// 判断该上半身行为是否需要循环播放。
     pub const fn loops(self) -> bool {
         matches!(self, Self::Mining | Self::Using)
     }
 
+    /// 返回该行为可产生的表现标记类型。
     pub const fn marker(self) -> Option<AnimationMarkerKind> {
         match self {
             Self::Mining => Some(AnimationMarkerKind::MiningSwing),
@@ -91,6 +93,7 @@ pub struct AnimationLayer<S> {
 }
 
 impl<S: Copy + PartialEq> AnimationLayer<S> {
+    /// 以给定状态和初始权重创建动画层。
     pub fn new(state: S, weight: f32) -> Self {
         Self {
             current: state,
@@ -117,6 +120,7 @@ impl<S: Copy + PartialEq> AnimationLayer<S> {
         }
     }
 
+    /// 按渲染帧时间推进过渡并逼近目标权重。
     pub fn tick(&mut self, delta_seconds: f32) {
         let delta_seconds = delta_seconds.max(0.0);
         self.transition_elapsed =
@@ -196,6 +200,7 @@ impl AnimationPlayback {
         self.marker_fired = false;
     }
 
+    /// 返回当前行为动画的规范化播放进度。
     pub fn normalized_time(&self) -> f32 {
         if !self.active || self.duration <= f32::EPSILON {
             return 0.0;
@@ -374,5 +379,5 @@ pub(crate) use animation_controller::{
 };
 pub use animation_controller::{emit_animation_marker_system, player_animation_controller_system};
 #[cfg(test)]
-#[path = "../../../../tests/unit/game/player/model/animation.rs"]
+#[path = "../../../../tests/unit/client/player/model/animation.rs"]
 mod tests;

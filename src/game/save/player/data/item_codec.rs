@@ -1,3 +1,5 @@
+//! 在运行时物品堆与稳定字符串标识的存档表示之间转换。
+
 use crate::content::item::ItemRegistry;
 use crate::game::inventory::item::stack::{ItemInstanceData, ItemStack};
 use crate::game::save::player::SaveItemStack;
@@ -17,6 +19,7 @@ fn string_to_item_id(s: &str) -> ItemId {
     }
 }
 
+/// 将可选运行时物品堆编码为始终存在的存档槽位记录。
 pub(in crate::game) fn optional_stack_to_save(
     opt: Option<&ItemStack>,
     item_registry: &ItemRegistry,
@@ -32,6 +35,7 @@ pub(in crate::game) fn optional_stack_to_save(
     }
 }
 
+/// 直接按稳定标识恢复物品堆，不执行当前内容版本校验。
 pub(in crate::game) fn save_to_optional_stack(slot: &SaveItemStack) -> Option<ItemStack> {
     if slot.is_air() {
         None
@@ -46,6 +50,7 @@ pub(in crate::game) fn save_to_optional_stack(slot: &SaveItemStack) -> Option<It
     }
 }
 
+/// 结合当前物品注册表和动态编号映射安全恢复物品堆。
 pub(in crate::game) fn save_to_optional_stack_with_registry(
     slot: &SaveItemStack,
     item_registry: &ItemRegistry,

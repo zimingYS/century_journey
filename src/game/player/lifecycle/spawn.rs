@@ -22,6 +22,7 @@ use bevy::prelude::*;
 /// Client 表现系统必须在 `Authority` 阶段后运行，避免依赖插件注册的偶然顺序。
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PlayerStartupSet {
+    /// 权威玩家实体及其全部 Game 层组件已经创建。
     Authority,
 }
 

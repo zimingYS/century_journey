@@ -1,5 +1,8 @@
+//! 在固定步中处理玩家水平移动、跳跃和台阶跨越。
+
+/// 玩家可自动跨越的最大台阶高度，单位为方块。
+const STEP_HEIGHT: f32 = 0.6;
 use crate::content::block::registry::BlockRegistry;
-use crate::game::constant::STEP_HEIGHT;
 use crate::game::player::control::action::{PlayerAction, PlayerActionState};
 use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::components::PlayerLifecycle;
@@ -10,6 +13,8 @@ use crate::game::world::state::WorldState;
 use bevy::math::Vec3;
 use bevy::prelude::{Query, Res, Time, Transform, With};
 
+/// 移动系统在同一固定步读取碰撞体并写入变换、速度和重力状态。
+#[allow(clippy::type_complexity)]
 pub fn player_movement_system(
     time: Res<Time>,
     actions: Res<PlayerActionState>,
@@ -139,6 +144,7 @@ pub fn player_movement_system(
     }
 }
 
+/// 以不超过 `max_delta` 的变化量把当前水平速度逼近目标速度。
 pub fn approach_velocity(current: Vec3, target: Vec3, max_delta: f32) -> Vec3 {
     let delta = target - current;
     let distance = delta.length();
@@ -157,15 +163,13 @@ fn try_step_up(
     world_storage: &WorldState,
     registry: &BlockRegistry,
 ) -> bool {
-    // 在碰撞轴上移动，同时向上抬升
+    // 台阶通过性必须同时验证水平目标和抬升后的完整碰撞箱。
     let stepped = match axis {
         0 => Vec3::new(pos.x + delta, pos.y + STEP_HEIGHT, pos.z),
         _ => Vec3::new(pos.x, pos.y + STEP_HEIGHT, pos.z + delta),
     };
 
-    // 检测抬升后的位置是否有碰撞
     if !check_collision_at(stepped, half, world_storage, registry) {
-        // 无碰撞，直接移动到台阶上
         pos.x = stepped.x;
         pos.y = stepped.y;
         pos.z = stepped.z;
@@ -174,3 +178,7 @@ fn try_step_up(
         false
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/game/player/movement/system.rs"]
+mod tests;

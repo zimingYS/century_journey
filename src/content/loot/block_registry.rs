@@ -1,3 +1,5 @@
+//! 索引方块标识与对应掉落表。
+
 use crate::content::block::registry::BlockRegistry;
 use crate::content::loot::table::{LootDrop, LootTable};
 use crate::content::validation::ContentCompilation;

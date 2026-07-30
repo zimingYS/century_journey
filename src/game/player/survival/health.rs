@@ -1,3 +1,5 @@
+//! 处理生命值约束、伤害、治疗和死亡消息转换。
+
 use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::components::{PlayerLifeState, PlayerLifecycle};
 use crate::game::player::lifecycle::events::DeathEvent;
@@ -8,7 +10,9 @@ use bevy::prelude::{Component, MessageReader, MessageWriter, Query, With};
 /// 生命值
 #[derive(Component, Debug, Clone)]
 pub struct Health {
+    /// 当前生命值。
     pub current: f32,
+    /// 允许恢复到的生命值上限。
     pub max: f32,
 }
 
@@ -22,20 +26,24 @@ impl Default for Health {
 }
 
 impl Health {
+    /// 返回供 HUD 使用且约束在零到一之间的生命比例。
     pub fn fraction(&self) -> f32 {
         if !self.current.is_finite() || !self.max.is_finite() || self.max <= 0.0 {
             return 0.0;
         }
         (self.current / self.max).clamp(0.0, 1.0)
     }
+    /// 判断当前生命值是否已经耗尽。
     pub fn is_dead(&self) -> bool {
         self.current <= 0.0
     }
+    /// 应用有限正数伤害，并把生命值下限约束为零。
     pub fn apply_damage(&mut self, amount: f32) {
         if amount.is_finite() && amount > 0.0 {
             self.current = (self.current - amount).max(0.0);
         }
     }
+    /// 应用有限正数治疗，并把生命值上限约束为 `max`。
     pub fn apply_heal(&mut self, amount: f32) {
         if amount.is_finite() && amount > 0.0 {
             self.current = (self.current + amount).min(self.max);
@@ -81,3 +89,7 @@ pub fn heal_system(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/game/player/survival/health.rs"]
+mod tests;

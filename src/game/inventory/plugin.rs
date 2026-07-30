@@ -1,3 +1,5 @@
+//! 组装库存资源、领域消息和固定步命令处理系统。
+
 use bevy::prelude::*;
 
 use crate::game::inventory::container::world::WorldContainers;
@@ -24,16 +26,12 @@ impl Plugin for InventoryPlugin {
             .add_message::<InventoryCommand>()
             .add_message::<InventoryFeedbackEvent>()
             .add_systems(
-                Update,
-                (
-                    runtime::handle_slot_interaction_system,
-                    runtime::handle_inventory_command_system,
-                ),
-            )
-            .add_systems(
                 FixedUpdate,
-                runtime::handle_hotbar_command_system
-                    .after(apply_player_command_system)
+                (
+                    runtime::handle_inventory_command_system,
+                    runtime::handle_slot_interaction_system,
+                    runtime::handle_hotbar_command_system.after(apply_player_command_system),
+                )
                     .in_set(SimulationSet::Commands)
                     .run_if(in_state(AppState::InGame)),
             );

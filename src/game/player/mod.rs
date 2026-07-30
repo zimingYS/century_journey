@@ -1,3 +1,5 @@
+//! 聚合玩家身份、控制、移动、物理、交互、战斗、生存和生命周期领域。
+
 pub mod combat;
 pub mod control;
 pub mod identity;

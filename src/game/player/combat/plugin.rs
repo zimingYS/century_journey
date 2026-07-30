@@ -1,9 +1,12 @@
+//! 组装玩家战斗消息和固定步攻击系统。
+
 use crate::game::player;
 use crate::game::player::combat::events::AttackEvent;
 use crate::game::simulation::SimulationSet;
 use crate::shared::states::AppState;
 use bevy::prelude::*;
 
+/// 注册攻击消息并按输入解析、伤害结算顺序组装固定步战斗系统。
 pub struct PlayerCombatPlugin;
 
 impl Plugin for PlayerCombatPlugin {

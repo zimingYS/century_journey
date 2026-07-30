@@ -1,4 +1,12 @@
 use super::*;
+use bevy::input_focus::InputFocus;
+use bevy::prelude::Interaction;
+
+use crate::client::ui::state::SearchInputState;
+use crate::game::inventory::events::InventoryCommand;
+use crate::game::inventory::state::InventoryState;
+use crate::game::player::control::action::{PlayerAction, PlayerActionState};
+use crate::shared::states::{InputContext, InputContextState};
 
 #[test]
 fn ui_interaction_translates_press_hold_release_and_cancel() {
@@ -66,7 +74,6 @@ fn inventory_context_cancels_gameplay_and_close_restores_it() {
 
 #[test]
 fn back_respects_text_inventory_menu_priority() {
-    let gamemode = PlayerGameMode::default();
     let mut inventory = InventoryState::default();
     let mut context = InputContextState::default();
     let mut focus = InputFocus::default();
@@ -74,44 +81,64 @@ fn back_respects_text_inventory_menu_priority() {
 
     inventory.opened = true;
     search.active = true;
-    apply_interface_command(
+    let command = apply_interface_command(
         InterfaceCommand::Back,
-        &gamemode,
-        &mut inventory,
+        &inventory,
         &mut context,
         &mut focus,
         &mut search,
     );
+    assert_eq!(command, None);
     assert!(inventory.opened);
     assert!(!search.active);
 
-    apply_interface_command(
+    let command = apply_interface_command(
         InterfaceCommand::Back,
-        &gamemode,
-        &mut inventory,
+        &inventory,
         &mut context,
         &mut focus,
         &mut search,
     );
-    assert!(!inventory.opened);
+    assert_eq!(command, Some(InventoryCommand::Close));
 
-    apply_interface_command(
+    // Game 会在后续固定步应用关闭命令；测试在此模拟已同步的权威状态。
+    inventory.opened = false;
+    let command = apply_interface_command(
         InterfaceCommand::Back,
-        &gamemode,
-        &mut inventory,
+        &inventory,
         &mut context,
         &mut focus,
         &mut search,
     );
+    assert_eq!(command, None);
     assert!(context.menu_open());
 
-    apply_interface_command(
+    let command = apply_interface_command(
         InterfaceCommand::Back,
-        &gamemode,
-        &mut inventory,
+        &inventory,
         &mut context,
         &mut focus,
         &mut search,
     );
+    assert_eq!(command, None);
     assert!(!context.menu_open());
+}
+
+#[test]
+fn inventory_toggle_is_forwarded_without_client_side_mutation() {
+    let inventory = InventoryState::default();
+    let mut context = InputContextState::default();
+    let mut focus = InputFocus::default();
+    let mut search = SearchInputState::default();
+
+    let command = apply_interface_command(
+        InterfaceCommand::ToggleInventory,
+        &inventory,
+        &mut context,
+        &mut focus,
+        &mut search,
+    );
+
+    assert_eq!(command, Some(InventoryCommand::Toggle));
+    assert!(!inventory.opened);
 }

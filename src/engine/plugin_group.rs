@@ -1,3 +1,5 @@
+//! 组装 Engine 层资产与任务基础设施插件。
+
 use bevy::prelude::*;
 
 use crate::engine::asset::AssetPlugin;

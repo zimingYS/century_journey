@@ -1,3 +1,5 @@
+//! 注册世界生成通道与任务系统，并声明生成阶段的调度顺序。
+
 use super::{
     StructureGenChannel, TerrainGenChannel, generate_structures_system, receive_structure_results,
     receive_terrain_results, spawn_terrain_gen_tasks,

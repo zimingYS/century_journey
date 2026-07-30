@@ -1,3 +1,5 @@
+//! 为玩家骨架关节和网格提供仅调试构建启用的可视化辅助。
+
 use crate::client::player::model::components::{PlayerJoint, PlayerMesh};
 use bevy::prelude::*;
 

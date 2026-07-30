@@ -1,3 +1,5 @@
+//! 组织玩家模型骨架、部件配置、动画姿态和调试表现。
+
 pub mod animation;
 pub mod animation_pose;
 pub mod components;
@@ -7,6 +9,7 @@ pub mod rig;
 
 use bevy::prelude::*;
 
+/// 注册玩家骨架生成、动画驱动和调试表现系统。
 pub struct PlayerModelPlugin;
 
 impl Plugin for PlayerModelPlugin {

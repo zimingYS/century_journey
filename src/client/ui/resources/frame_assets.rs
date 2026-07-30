@@ -1,3 +1,5 @@
+//! 生成像素风界面框架和槽位背景所需的纹理资产。
+
 use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
@@ -6,6 +8,7 @@ use bevy::sprite::{BorderRect, SliceScaleMode, TextureSlicer};
 const FRAME_TEXTURE_SIZE: u32 = 24;
 const FRAME_SLICE: f32 = 8.0;
 
+/// 程序生成界面框架的视觉类别。
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UiFrameKind {
     Creative,
@@ -14,6 +17,7 @@ pub enum UiFrameKind {
     Modal,
 }
 
+/// 各类九宫格界面框架的图像句柄集合。
 #[derive(Resource, Debug, Clone)]
 pub struct UiFrameAssets {
     creative: Handle<Image>,
@@ -33,6 +37,7 @@ impl UiFrameAssets {
     }
 }
 
+/// 创建界面框架程序纹理并插入共享资源。
 pub fn create_ui_frame_assets_system(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let creative = images.add(frame_image(
         [30, 32, 35, 255],
@@ -62,6 +67,7 @@ pub fn create_ui_frame_assets_system(mut commands: Commands, mut images: ResMut<
     });
 }
 
+/// 为新增的框架类别组件附加对应九宫格图像节点。
 pub fn apply_ui_frame_system(
     assets: Res<UiFrameAssets>,
     mut commands: Commands,

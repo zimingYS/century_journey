@@ -1,20 +1,19 @@
-use super::application::Application;
+//! 解析应用模式并把进程启动交给对应的应用实现。
+
 use super::client::ClientApplication;
+use super::contract::Application;
 use super::editor::EditorApplication;
 use super::mode::AppMode;
 use super::server::ServerApplication;
 use crate::app::config::AppConfig;
 
-/// 程序入口。根据 AppConfig.mode 启动对应的 Application。
+/// 根据 `AppConfig::mode` 构建并运行对应应用。
 pub fn launch() -> anyhow::Result<()> {
     ensure_asset_working_directory()?;
     let config = AppConfig::default();
     match config.mode {
-        // 客户端
         AppMode::Client => ClientApplication::run(config),
-        // 服务端
         AppMode::Server => ServerApplication::run(config),
-        // 编译器
         AppMode::Editor => EditorApplication::run(config),
     }
 }

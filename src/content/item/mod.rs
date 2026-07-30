@@ -14,7 +14,7 @@ pub mod texture;
 pub use definition::ItemCategory;
 pub use definition::ItemDefinition;
 pub use definition::tool::{ToolData, ToolTier, ToolType};
-pub use registry::registry::ItemRegistry;
+pub use registry::ItemRegistry;
 pub use texture::icon::IconDefinition;
 pub use texture::registry::ItemTextureRegistry;
 pub use texture::registry::load_item_textures_system;

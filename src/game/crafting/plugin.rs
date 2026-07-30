@@ -1,3 +1,5 @@
+//! 组装合成网格、工作台会话和顺序受控的运行时交互系统。
+
 use bevy::prelude::*;
 
 use crate::game::crafting::events::CraftingStationOpened;
@@ -12,6 +14,7 @@ enum CraftingUpdateSet {
     ReturnInputs,
 }
 
+/// 组装合成资源、消息和运行时系统的领域插件。
 pub struct CraftingPlugin;
 
 impl Plugin for CraftingPlugin {

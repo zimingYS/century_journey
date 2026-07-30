@@ -1,4 +1,6 @@
-/// 日月纹理尺寸
+//! 保存天空表现专用的尺寸、颜色和光照常量。
+
+/// 日月纹理尺寸。
 pub const CELESTIAL_MESH_SIZE: f32 = 38.0;
 
 /// 太阳/月亮到原点的距离（用于billboard定位）
@@ -22,8 +24,7 @@ pub const STAR_SPHERE_RADIUS: f32 = 480.0;
 /// 星星Mesh面片大小
 pub const STAR_QUAD_SIZE: f32 = 2.0;
 
-/// Direct sunlight is intentionally softer than raw physical sunlight so the
-/// voxel albedo and the shaded side of the player remain readable together.
+/// 阳光强度有意低于真实物理值，使体素反照率和玩家背光面能够同时保持清晰。
 pub const DAY_SUN_ILLUMINANCE: f32 = 72_000.0;
 
 /// 月光最大照度。为保证体素地形可读性，使用高于物理满月的玩法标定值。
@@ -37,6 +38,7 @@ pub const NIGHT_EXPOSURE_EV100: f32 = 5.5;
 
 /// 白天和深夜的全局环境光亮度。
 pub const DAY_AMBIENT_BRIGHTNESS: f32 = 180.0;
+/// 夜间环境光的最低亮度，避免无光源区域完全不可见。
 pub const NIGHT_AMBIENT_BRIGHTNESS: f32 = 30.0;
 
 /// 夜间VolumetricFog环境光强度

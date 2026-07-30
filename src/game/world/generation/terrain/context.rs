@@ -1,5 +1,8 @@
+//! 汇总单次区块生成所需的坐标、气候与方块解析结果。
+
+use super::SEA_LEVEL;
 use crate::content::biome::BiomeRegistry;
-use crate::game::constant::world::{CHUNK_SIZE, SEA_LEVEL};
+use crate::shared::voxel::CHUNK_SIZE;
 use bevy::prelude::IVec3;
 
 /// 区块内单个坐标(每列)共享的上下文
@@ -21,9 +24,8 @@ pub struct ColumnContext {
     pub roughness: f64,
 }
 
-/// 是否允许生成树
-/// 用于树木生成检测
 impl ColumnContext {
+    /// 根据地表高度和生物群系树木密度判断该列能否尝试生成树。
     pub fn can_spawn_tree(&self, biome_registry: &BiomeRegistry) -> bool {
         let biome = biome_registry.get(self.biome_index).unwrap();
 
@@ -41,6 +43,7 @@ pub struct ChunkGenContext {
 }
 
 impl ChunkGenContext {
+    /// 为指定区块创建预分配好地表列容量的生成上下文。
     pub fn new(chunk_pos: IVec3) -> Self {
         Self {
             chunk_pos,

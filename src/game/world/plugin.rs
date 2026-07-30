@@ -1,3 +1,5 @@
+//! 组装世界状态、生成、流送、交互、时间与实体等子插件。
+
 use crate::game::world::state;
 use crate::game::world::{entity, generation, interaction, streaming, time};
 use bevy::app::{App, Plugin, Startup};

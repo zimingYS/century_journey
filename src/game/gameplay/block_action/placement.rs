@@ -1,3 +1,5 @@
+//! 校验方块放置条件，并在成功后消费对应背包物品。
+
 use crate::content::block::registry::BlockRegistry;
 use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
@@ -8,7 +10,7 @@ use crate::game::world::block_ops::get_voxel_at_world;
 use crate::game::world::state::WorldState;
 use bevy::prelude::*;
 
-/// 检查玩家是否满足方块的背包和支撑方块放置条件
+/// 检查当前模式、手持物品和支撑方块是否满足放置条件。
 pub fn can_place_block(
     block_id: u16,
     place_pos: IVec3,
@@ -43,6 +45,7 @@ pub fn can_place_block(
     tag_registry.contains(required_tag, support_block_id)
 }
 
+/// 在生存模式消费一个已成功放置的手持方块；创造模式不消费。
 pub fn consume_placed_block_item(
     inventory: &mut InventoryState,
     gamemode: &PlayerGameMode,

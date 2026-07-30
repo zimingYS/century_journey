@@ -1,3 +1,5 @@
+//! 管理玩家保存请求、写入结果和待保存版本状态。
+
 use crate::game::save::dirty::SaveDirtySource;
 use crate::game::save::player::runtime::dirty_tracking::POSITION_DIRTY_THRESHOLD_SQ;
 use bevy::prelude::*;

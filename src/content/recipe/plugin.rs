@@ -1,3 +1,5 @@
+//! 组装配方加载和注册表刷新流程。
+
 use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::content::recipe::registry::RecipeRegistry;
 use crate::content::validation::ContentCompilation;

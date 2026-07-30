@@ -1,3 +1,5 @@
+//! 推进固定步世界时钟，并把累计刻转换为游戏内分钟。
+
 use super::calendar::{
     CalendarSnapshot, DAYS_PER_GAME_YEAR, DAYS_PER_SOLAR_TERM, MINUTES_PER_GAME_DAY,
     MINUTES_PER_GAME_HOUR, SOLAR_TERMS_PER_SEASON, snapshot_at,
@@ -13,8 +15,11 @@ use bevy::prelude::{MessageWriter, ResMut, Resource};
 /// 时间只允许在固定步中推进；存档使用三个字段恢复，避免浮点时间累积误差。
 #[derive(Resource, Debug, Clone, PartialEq, Eq)]
 pub struct WorldSimulationClock {
+    /// 自会话时钟起点累计的固定步数。
     simulation_tick: u64,
+    /// 自日历起点累计的完整游戏分钟。
     game_minute: u64,
+    /// 当前游戏分钟内尚未进位的固定步余数。
     subminute_tick: u32,
 }
 
@@ -97,22 +102,34 @@ impl WorldSimulationClock {
     }
 }
 
+/// 权威游戏规则每秒执行的固定步数。
 pub const SIMULATION_TICKS_PER_SECOND: u32 = 20;
+/// 每经过多少固定步推进一个游戏分钟。
 pub const TICKS_PER_GAME_MINUTE: u64 = 20;
+/// 一个完整游戏日对应的固定步数。
 pub const TICKS_PER_GAME_DAY: u64 = TICKS_PER_GAME_MINUTE * MINUTES_PER_GAME_DAY;
+/// 新世界从上午八点开始，避免玩家初次进入时立即面对黑夜。
 pub(crate) const NEW_WORLD_START_MINUTE: u64 = 8 * MINUTES_PER_GAME_HOUR;
 
+/// 一次时钟推进跨越的各级日历边界数量。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ClockAdvance {
+    /// 本次推进跨越的完整游戏分钟数。
     pub game_minutes: u64,
+    /// 本次推进跨越的完整游戏小时边界数。
     pub game_hours: u64,
+    /// 本次推进跨越的游戏日边界数。
     pub game_days: u64,
+    /// 本次推进跨越的节气边界数。
     pub solar_terms: u64,
+    /// 本次推进跨越的季节边界数。
     pub seasons: u64,
+    /// 本次推进跨越的游戏年边界数。
     pub years: u64,
 }
 
 impl ClockAdvance {
+    /// 合并另一段连续推进产生的边界计数。
     pub fn accumulate(&mut self, other: Self) {
         self.game_minutes += other.game_minutes;
         self.game_hours += other.game_hours;

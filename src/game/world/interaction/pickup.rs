@@ -1,17 +1,21 @@
+//! 处理玩家附近掉落物的自动拾取。
+
+use bevy::log::info;
+use bevy::prelude::{Commands, Entity, Local, MessageWriter, Query, Res, Time, Transform, With};
+
 use crate::game::inventory::events::InventoryFeedbackEvent;
 use crate::game::inventory::interaction::transfer;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::PlayerLifecycle;
 use crate::game::world::entity::dropped_item::{DroppedItem, despawn_dropped_item};
-use bevy::log::info;
-use bevy::prelude::{Commands, Entity, Local, MessageWriter, Query, Res, Time, Transform, With};
 
-/// 鎷惧彇鑼冨洿鍗婂緞
+/// 玩家可自动拾取掉落物的半径。
 const PICKUP_RANGE: f32 = 2.0;
 
-/// 鑷姩鎷惧彇绯荤粺
-/// 姣忓抚妫€娴嬬帺瀹惰寖鍥村唴鎵€鏈夋帀钀界墿锛屽皾璇曟彃鍏ョ帺瀹惰儗鍖呫€?/// 鎴愬姛鍒欏垹闄ゆ帀钀界墿瀹炰綋锛屽け璐ュ垯淇濈暀鍓╀綑鐗╁搧
+/// 在固定步中为最近的存活玩家处理范围内掉落物。
+///
+/// 成功插入后删除实体；容量不足时保留剩余堆叠，并对“背包已满”反馈做节流。
 pub fn pickup_system(
     time: Res<Time>,
     mut player_query: Query<(&Transform, &PlayerLifecycle, &mut InventoryState), With<Player>>,
@@ -22,7 +26,7 @@ pub fn pickup_system(
 ) {
     *full_feedback_cooldown = (*full_feedback_cooldown - time.delta_secs()).max(0.0);
     for (entity, item_transform, mut dropped) in &mut item_query {
-        // 鍒氱敓鎴愮殑鎺夎惤鐗╁厛绛夊緟涓€灏忔鏃堕棿锛岄伩鍏嶇帺瀹舵寜 Q 鍚庨┈涓婂張鎹″洖鏉ャ€?
+        // 新生成的掉落物先等待拾取冷却，避免玩家主动丢弃后立即捡回。
         if !dropped.can_pickup() {
             continue;
         }
@@ -46,7 +50,7 @@ pub fn pickup_system(
             continue;
         };
 
-        // 灏濊瘯鎻掑叆鑳屽寘锛堜紭鍏堝揩鎹锋爮锛屽啀鑳屽寘锛?        // 涓ゆ鎻掑叆閬垮厤鍚屾椂 borrow hotbar 鍜?survival
+        // 分两次借用库存，按“快捷栏、主背包”的稳定顺序插入。
         let result = transfer::insert_into_container(&mut inventory.hotbar, dropped.stack.clone());
         let result = match result {
             transfer::InventoryInsertResult::AllInserted => result,
@@ -67,7 +71,7 @@ pub fn pickup_system(
                 dropped.stack = remaining;
             }
             transfer::InventoryInsertResult::Full(_) => {
-                // 婊¤浇鎻愮ず鍋氳妭娴侊紝閬垮厤鍚屼竴浠跺湴闈㈢墿鍝佹瘡甯ч噸澶嶆挱鏀炬彁绀恒€?
+                // 满载提示按玩家交互节奏限频，避免同一实体在连续固定步中反复提示。
                 if *full_feedback_cooldown <= 0.0 {
                     feedback_writer.write(InventoryFeedbackEvent::Full);
                     *full_feedback_cooldown = 1.25;
@@ -76,3 +80,7 @@ pub fn pickup_system(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/game/world/interaction/pickup.rs"]
+mod tests;

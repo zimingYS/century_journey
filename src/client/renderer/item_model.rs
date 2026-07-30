@@ -1,7 +1,9 @@
+//! 提供物品模型渲染器与共享资产资源的稳定外观入口。
+
 use bevy::prelude::*;
 
 use crate::client::renderer::item::ItemRenderer;
-use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::item::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::shared::item_id::ItemId;
 

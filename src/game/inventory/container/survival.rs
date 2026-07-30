@@ -1,3 +1,5 @@
+//! 实现生存背包、装备槽和可扩展饰品槽的统一存储布局。
+
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::EquipmentSlot;
@@ -28,20 +30,25 @@ impl Default for SurvivalInventory {
 impl SurvivalInventory {
     /// 背包总槽位数
     pub const BACKPACK_SIZE: usize = 27;
+    /// 固定装备槽总数。
     pub const EQUIPMENT_SIZE: usize = EquipmentSlot::ALL.len();
 
+    /// 返回背包、装备和当前饰品槽的总容量。
     pub fn total_size(&self) -> usize {
         Self::BACKPACK_SIZE + Self::EQUIPMENT_SIZE + self.accessories.len()
     }
 
+    /// 把装备槽局部索引转换为统一容器索引。
     pub const fn equipment_index(index: usize) -> usize {
         Self::BACKPACK_SIZE + index
     }
 
+    /// 把饰品槽局部索引转换为统一容器索引。
     pub const fn accessory_index(index: usize) -> usize {
         Self::BACKPACK_SIZE + Self::EQUIPMENT_SIZE + index
     }
 
+    /// 至少扩展到指定饰品槽数量，且不丢弃已有物品。
     pub fn ensure_accessory_slots(&mut self, count: usize) {
         if self.accessories.len() < count {
             self.accessories.resize_with(count, || None);

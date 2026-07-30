@@ -1,5 +1,15 @@
+//! 把结构模板写入当前区块，并将越界体素转交延迟写入表。
+
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use crate::content::biome::BiomeRegistry;
+use crate::game::world::chunk::ChunkData;
+use crate::game::world::generation::block_ids::GenerationBlockIds;
+use crate::game::world::generation::structure::pending_writes::{PendingVoxel, PendingVoxelWrites};
+use crate::game::world::generation::terrain::context::ChunkGenContext;
+use crate::shared::voxel::CHUNK_SIZE;
+use bevy::prelude::IVec3;
 
 /// 结构生成任务的局部输入与延迟写入结果。
 pub struct StructureGenerationWorkspace {
@@ -8,6 +18,7 @@ pub struct StructureGenerationWorkspace {
 }
 
 impl StructureGenerationWorkspace {
+    /// 以任务可访问的区块快照初始化结构生成工作区。
     pub fn new(loaded_chunks: HashMap<IVec3, Arc<ChunkData>>) -> Self {
         Self {
             loaded_chunks,
@@ -15,6 +26,7 @@ impl StructureGenerationWorkspace {
         }
     }
 
+    /// 拆出已修改区块和目标区块尚未加载时产生的延迟写入。
     pub fn into_parts(
         self,
     ) -> (
@@ -124,6 +136,7 @@ impl StructureGenerator {
         }
     }
 
+    /// 从工作区按世界坐标读取体素；目标区块缺失时返回 `None`。
     pub fn get_world_voxel(
         world_x: i32,
         world_y: i32,
@@ -157,7 +170,7 @@ fn simple_hash(x: i32, z: i32, seed: u32) -> u32 {
     h.0
 }
 
-// 设置方块
+/// 按世界坐标写入结构体素，未加载的邻区块写入会进入延迟表。
 pub fn set_voxel_world_aware(
     base_chunk_pos: IVec3,
     world_x: i32,
@@ -208,10 +221,3 @@ pub fn set_voxel_world_aware(
         }
     }
 }
-use crate::content::biome::BiomeRegistry;
-use crate::content::constant::world::CHUNK_SIZE;
-use crate::game::world::chunk::ChunkData;
-use crate::game::world::generation::block_ids::GenerationBlockIds;
-use crate::game::world::generation::structure::pending_writes::{PendingVoxel, PendingVoxelWrites};
-use crate::game::world::generation::terrain::context::ChunkGenContext;
-use bevy::prelude::IVec3;

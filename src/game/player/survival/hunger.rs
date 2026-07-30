@@ -1,4 +1,6 @@
-use crate::content::item::registry::registry::ItemRegistry;
+//! 处理饥饿、饱和度、食物使用、自动恢复和饥饿伤害规则。
+
+use crate::content::item::ItemRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::state::InventoryState;
@@ -12,7 +14,7 @@ use crate::game::player::survival::health::Health;
 use crate::shared::item_id::ItemId;
 use bevy::prelude::*;
 
-/// Food must be used continuously for this long before it is consumed.
+/// 食物必须连续使用达到该时长后才会真正消耗。
 pub const FOOD_USE_DURATION_SECONDS: f32 = 1.6;
 
 /// 动作消耗系统：冲刺和跳跃会消耗饥饿值。
@@ -181,14 +183,17 @@ pub fn starvation_damage_system(
 }
 
 #[cfg(test)]
-#[path = "../../../../tests/unit/game/player/systems/hunger.rs"]
-mod stage_seven_tests;
+#[path = "../../../../tests/unit/game/player/survival/hunger.rs"]
+mod tests;
 
 /// 饥饿值
 #[derive(Component, Debug, Clone)]
 pub struct Hunger {
+    /// 当前饥饿值。
     pub current: f32,
+    /// 饥饿值上限。
     pub max: f32,
+    /// 优先吸收活动消耗的当前饱和度。
     pub saturation: f32,
 }
 
@@ -203,15 +208,18 @@ impl Default for Hunger {
 }
 
 impl Hunger {
+    /// 返回供 HUD 使用且约束在零到一之间的饥饿比例。
     pub fn fraction(&self) -> f32 {
         if !self.current.is_finite() || !self.max.is_finite() || self.max <= 0.0 {
             return 0.0;
         }
         (self.current / self.max).clamp(0.0, 1.0)
     }
+    /// 判断玩家是否已进入饥饿伤害区间。
     pub fn is_starving(&self) -> bool {
         self.current <= 0.0
     }
+    /// 判断当前饥饿值是否已达到上限。
     pub fn is_full(&self) -> bool {
         self.current >= self.max
     }
@@ -225,7 +233,7 @@ impl Hunger {
             self.saturation = (self.saturation + saturation).min(self.current.max(0.0));
         }
     }
-    /// 消耗, 优先从 saturation 扣除
+    /// 增加活动消耗，优先扣除饱和度，再扣除饥饿值。
     pub fn exhaust(&mut self, amount: f32) {
         if !amount.is_finite() || amount <= 0.0 {
             return;
@@ -241,7 +249,7 @@ impl Hunger {
     }
 }
 
-/// Tracks a food use action. The item is consumed only after the action completes.
+/// 跟踪一次持续食物使用动作；只有动作完成后才消耗物品。
 #[derive(Component, Debug, Clone, Default)]
 pub struct FoodUseState {
     item: Option<ItemId>,
@@ -250,34 +258,41 @@ pub struct FoodUseState {
 }
 
 impl FoodUseState {
+    /// 开始跟踪指定快捷栏槽位中的食物。
     pub fn start(&mut self, item: ItemId, hotbar_slot: usize) {
         self.item = Some(item);
         self.hotbar_slot = hotbar_slot;
         self.elapsed_seconds = 0.0;
     }
 
+    /// 取消当前使用动作并清空累计时长。
     pub fn cancel(&mut self) {
         *self = Self::default();
     }
 
+    /// 判断是否正在跟踪食物使用动作。
     pub fn is_active(&self) -> bool {
         self.item.is_some()
     }
 
+    /// 判断当前动作是否仍对应同一物品和快捷栏槽位。
     pub fn matches(&self, item: &ItemId, hotbar_slot: usize) -> bool {
         self.item.as_ref() == Some(item) && self.hotbar_slot == hotbar_slot
     }
 
+    /// 使用有效的正数固定步时长推进动作。
     pub fn advance(&mut self, delta_seconds: f32) {
         if delta_seconds.is_finite() && delta_seconds > 0.0 {
             self.elapsed_seconds += delta_seconds;
         }
     }
 
+    /// 返回动作已连续保持的秒数。
     pub fn elapsed_seconds(&self) -> f32 {
         self.elapsed_seconds
     }
 
+    /// 返回相对指定总时长、约束在零到一之间的进度。
     pub fn progress(&self, duration_seconds: f32) -> f32 {
         if duration_seconds <= 0.0 {
             return 1.0;

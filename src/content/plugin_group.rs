@@ -1,3 +1,5 @@
+//! 组装 Content 层各类定义与生命周期插件。
+
 use bevy::prelude::*;
 
 use crate::content::biome::plugin::BiomeContentPlugin;

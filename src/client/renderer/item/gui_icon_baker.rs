@@ -1,3 +1,5 @@
+//! 管理物品图标离屏相机、烘焙队列和结果图像生命周期。
+
 use bevy::asset::RenderAssetUsages;
 use bevy::camera::{RenderTarget, ScalingMode, visibility::RenderLayers};
 use bevy::image::ImageSampler;
@@ -5,13 +7,12 @@ use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
+use crate::client::renderer::constants::{BLOCK_ATLAS_TILES_PER_ROW, TILE_SIZE};
 use crate::client::renderer::item::baked_model::BakedItemModel;
 use crate::client::renderer::item::display::ItemDisplayContext;
 use crate::client::renderer::item::gui_icon_cache::{GuiItemIcon, GuiItemIconCache};
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
-use crate::content::constant::world::CHUNK_SIZE;
-use crate::engine::constant::texture::TILE_SIZE;
 use crate::shared::identifier::Identifier;
 
 /// GUI 图标专用渲染层，避免离屏相机把主世界也渲进去。
@@ -368,8 +369,8 @@ fn draw_icon_face(
 fn sample_block_atlas(sampler: &AtlasSampler<'_>, layer: u32, u: f32, v: f32) -> Option<[u8; 4]> {
     let tile_size = TILE_SIZE;
     let atlas_x = (u.clamp(0.0, 0.999) * tile_size as f32) as u32;
-    let atlas_y =
-        layer * CHUNK_SIZE as u32 * tile_size + (v.clamp(0.0, 0.999) * tile_size as f32) as u32;
+    let atlas_y = layer * BLOCK_ATLAS_TILES_PER_ROW * tile_size
+        + (v.clamp(0.0, 0.999) * tile_size as f32) as u32;
     if atlas_x >= sampler.width || atlas_y >= sampler.height {
         return None;
     }

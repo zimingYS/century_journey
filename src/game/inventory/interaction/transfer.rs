@@ -1,19 +1,22 @@
-use crate::game::inventory::container::InventoryContainer;
-use crate::game::inventory::item::stack::ItemStack;
+//! 提供与具体界面无关的库存插入算法。
+
 use std::ops::Range;
 
-/// 搴撳瓨鎻掑叆缁撴灉
+use crate::game::inventory::container::InventoryContainer;
+use crate::game::inventory::item::stack::ItemStack;
+
+/// 库存插入结果。
 #[derive(Debug, Clone)]
 pub enum InventoryInsertResult {
-    /// 鍏ㄩ儴鎻掑叆鎴愬姛锛屾棤鍓╀綑
+    /// 全部插入成功，无剩余。
     AllInserted,
-    /// 閮ㄥ垎鎻掑叆锛岃繑鍥炴湭鑳芥斁鍏ョ殑鍓╀綑鍫嗗彔
+    /// 部分插入，返回未能放入的剩余堆叠。
     Partial(ItemStack),
-    /// 搴撳瓨宸叉弧锛屽畬鍏ㄦ湭鑳芥彃鍏ワ紝杩斿洖鍘熷爢鍙?
+    /// 库存已满，完全未能插入，返回原堆叠。
     Full(ItemStack),
 }
 
-/// 灏濊瘯灏嗙墿鍝佸爢鍙犳彃鍏ュ鍣?
+/// 尝试将物品堆叠插入容器。
 pub fn insert_into_container<C: InventoryContainer + ?Sized>(
     container: &mut C,
     stack: ItemStack,
@@ -22,7 +25,9 @@ pub fn insert_into_container<C: InventoryContainer + ?Sized>(
     insert_into_range(container, stack, 0..slot_count)
 }
 
-/// 浠呭悜瀹瑰櫒鐨勬寚瀹氭Ы浣嶈寖鍥存彃鍏ョ墿鍝併€?
+/// 仅向容器的指定槽位范围插入物品。
+///
+/// 先填充范围内已有的同种堆叠，再使用空槽位。返回值中的剩余堆叠始终由调用方继续处理。
 pub fn insert_into_range<C: InventoryContainer + ?Sized>(
     container: &mut C,
     mut stack: ItemStack,
@@ -32,54 +37,57 @@ pub fn insert_into_range<C: InventoryContainer + ?Sized>(
         return InventoryInsertResult::AllInserted;
     }
 
-    // 灏濊瘯鍚堝苟鍒板凡鏈夊悓绉嶅爢鍙?
-    for i in range.clone() {
+    let original_count = stack.count;
+
+    // 先把输入堆叠合并到已有槽位，避免反向搬空容器中的物品。
+    for index in range.clone() {
         if stack.is_empty() {
             return InventoryInsertResult::AllInserted;
         }
-        if let Some(slot_stack) = container.get_stack_mut(i)
-            && slot_stack.can_merge(&stack)
+        if let Some(slot_stack) = container.get_stack_mut(index)
+            && slot_stack.is_same_item(&stack)
+            && !slot_stack.is_full()
         {
-            stack.merge_from(slot_stack);
+            slot_stack.merge_from(&mut stack);
         }
     }
 
-    if stack.is_empty() {
-        return InventoryInsertResult::AllInserted;
-    }
-
-    // 鏀惧叆绗竴涓┖妲戒綅
-    for i in range {
-        let is_empty = container.get_stack(i).is_none_or(|s| s.is_empty());
-        if is_empty {
-            container.set_stack(i, stack);
+    // 每个合法物品堆叠不超过上限，因此剩余部分可以整体放入一个空槽位。
+    for index in range {
+        if container.get_stack(index).is_none_or(ItemStack::is_empty) {
+            container.set_stack(index, stack);
             return InventoryInsertResult::AllInserted;
         }
     }
 
-    // 瀹瑰櫒宸叉弧
-    InventoryInsertResult::Full(stack)
+    if stack.count < original_count {
+        InventoryInsertResult::Partial(stack)
+    } else {
+        InventoryInsertResult::Full(stack)
+    }
 }
 
-/// 灏濊瘯灏嗙墿鍝佹彃鍏ョ帺瀹惰儗鍖?
+/// 尝试将物品依次插入玩家快捷栏和主背包。
 pub fn insert_into_player(
     hotbar: &mut dyn InventoryContainer,
     backpack: &mut dyn InventoryContainer,
     stack: ItemStack,
 ) -> InventoryInsertResult {
     match insert_into_container(hotbar, stack) {
-        result @ InventoryInsertResult::AllInserted => result,
-        InventoryInsertResult::Partial(remaining) => insert_into_container(backpack, remaining),
-        full @ InventoryInsertResult::Full(_) => {
-            // 蹇嵎鏍忓凡婊★紝灏濊瘯鑳屽寘
-            let InventoryInsertResult::Full(stack) = full else {
-                unreachable!()
-            };
-            insert_into_container(backpack, stack)
+        InventoryInsertResult::AllInserted => InventoryInsertResult::AllInserted,
+        InventoryInsertResult::Partial(remaining) => {
+            match insert_into_container(backpack, remaining) {
+                InventoryInsertResult::AllInserted => InventoryInsertResult::AllInserted,
+                InventoryInsertResult::Partial(remaining)
+                | InventoryInsertResult::Full(remaining) => {
+                    InventoryInsertResult::Partial(remaining)
+                }
+            }
         }
+        InventoryInsertResult::Full(remaining) => insert_into_container(backpack, remaining),
     }
 }
 
 #[cfg(test)]
-#[path = "../../../../tests/unit/game/inventory/transfer.rs"]
+#[path = "../../../../tests/unit/game/inventory/interaction/transfer.rs"]
 mod tests;

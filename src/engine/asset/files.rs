@@ -1,3 +1,5 @@
+//! 按确定顺序枚举解析器可见的资产文件。
+
 use crate::engine::asset::identifier::AssetId;
 use crate::engine::asset::resolver::AssetResolver;
 use serde::de::DeserializeOwned;
@@ -6,6 +8,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
+/// 记录逻辑资产路径及其最终解析来源。
 pub struct ResolvedAssetFile {
     pub asset_path: String,
     pub full_path: PathBuf,
@@ -22,22 +25,26 @@ pub struct AssetFiles<'a> {
 }
 
 impl<'a> AssetFiles<'a> {
+    /// 使用给定参数创建新实例。
     pub fn new(resolver: &'a AssetResolver) -> Self {
         Self { resolver }
     }
 
+    /// 读取解析后资产的原始字节。
     pub fn read_bytes(&self, id: &AssetId) -> Result<Vec<u8>, String> {
         let location = self.resolver.resolve_raw(id);
         std::fs::read(&location.full_path)
             .map_err(|e| format!("read {}: {e}", location.full_path.display()))
     }
 
+    /// 以 UTF-8 文本读取解析后的资产。
     pub fn read_string(&self, id: &AssetId) -> Result<String, String> {
         let location = self.resolver.resolve(id, "txt");
         std::fs::read_to_string(&location.full_path)
             .map_err(|e| format!("read {}: {e}", location.full_path.display()))
     }
 
+    /// 读取并反序列化解析后的 JSON 资产。
     pub fn read_json<T: DeserializeOwned>(&self, id: &AssetId) -> Result<T, String> {
         let location = self.resolver.resolve_content(id, "json");
         let content = std::fs::read_to_string(&location.full_path)

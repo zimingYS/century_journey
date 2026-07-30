@@ -1,5 +1,7 @@
+//! 解析物品模型继承链，并检测缺失父模型和循环引用。
+
+use crate::content::item::ItemRegistry;
 use crate::content::item::model::{ItemModelDefinition, ItemModelRegistry};
-use crate::content::item::registry::registry::ItemRegistry;
 use crate::shared::identifier::Identifier;
 use crate::shared::item_id::ItemId;
 

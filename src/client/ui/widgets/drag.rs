@@ -1,6 +1,8 @@
+//! 绘制并同步跟随指针的背包拖拽物品预览。
+
 use crate::client::renderer::item_model::{ItemModelRenderAssets, ItemModelRenderer};
 use crate::client::ui::resources::ui_font::UiFont;
-use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::item::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::state::LocalInventory;
 use crate::shared::item_id::ItemId;
@@ -101,6 +103,8 @@ pub fn cursor_visibility_system(
 }
 
 /// 同步拖拽图标图片和数量。
+/// 光标物品表现依赖多类可选渲染缓存，显式参数支持逐级降级。
+#[allow(clippy::too_many_arguments)]
 pub fn cursor_texture_system(
     state: LocalInventory,
     item_registry: Option<Res<ItemRegistry>>,

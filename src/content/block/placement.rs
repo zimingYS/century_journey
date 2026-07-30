@@ -1,3 +1,5 @@
+//! 定义数据驱动方块放置约束。
+
 use crate::shared::tag::identifier::TagId;
 use serde::{Deserialize, Serialize};
 

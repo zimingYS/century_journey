@@ -1,3 +1,5 @@
+//! 定义方块几何模型及自定义面的内容格式。
+
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 

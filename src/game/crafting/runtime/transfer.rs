@@ -1,6 +1,9 @@
+//! 提供合成流程在指定库存范围内预检和插入物品的辅助算法。
+
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::item::stack::ItemStack;
 
+/// 计算指定槽位范围还能接纳多少个同类物品。
 pub(super) fn capacity_range<C: InventoryContainer + ?Sized>(
     container: &C,
     incoming: &ItemStack,
@@ -15,6 +18,7 @@ pub(super) fn capacity_range<C: InventoryContainer + ?Sized>(
         .sum()
 }
 
+/// 先合并已有堆再占用空槽，并把未插入数量保留在 `incoming` 中。
 pub(super) fn insert_range<C: InventoryContainer + ?Sized>(
     container: &mut C,
     incoming: &mut ItemStack,

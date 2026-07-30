@@ -1,3 +1,5 @@
+//! 构建常驻界面根节点、通用覆盖层和屏幕级容器。
+
 use bevy::prelude::*;
 use bevy::text::{EditableText, TextCursorStyle};
 use bevy::ui_widgets::SelectAllOnFocus;

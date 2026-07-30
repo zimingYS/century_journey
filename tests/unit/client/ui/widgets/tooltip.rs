@@ -1,6 +1,6 @@
 use super::*;
+use crate::content::item::definition::presentation::{AnimationConfig, HeldRenderDefinition};
 use crate::content::item::definition::tool::{ToolData, ToolTier, ToolType};
-use crate::shared::held_item::{AnimationConfig, HeldRenderDefinition};
 use crate::shared::identifier::Identifier;
 
 #[test]

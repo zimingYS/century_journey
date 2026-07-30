@@ -1,3 +1,5 @@
+//! 定义多个界面屏幕共享的纯表现标记组件。
+
 use bevy::prelude::Component;
 
 // ===== 创造模式物品栏 =====
@@ -60,26 +62,34 @@ pub struct SurvivalItemGrid;
 #[derive(Component)]
 pub struct SurvivalHotbarPanel;
 
+/// 生存背包装备槽区域。
 #[derive(Component)]
 pub struct SurvivalEquipmentPanel;
 
+/// 生存背包饰品槽区域。
 #[derive(Component)]
 pub struct SurvivalAccessoryPanel;
 
+/// 生存背包玩家模型预览相机。
 #[derive(Component)]
 pub struct SurvivalPlayerPreviewCamera;
 
+/// 生存背包中显示当前生命值的文本。
 #[derive(Component, Default)]
 pub struct SurvivalHealthText;
 
+/// 生存背包中显示当前防御值的文本。
 #[derive(Component, Default)]
 pub struct SurvivalDefenseText;
 
+/// 生存背包中显示当前饥饿值的文本。
 #[derive(Component, Default)]
 pub struct SurvivalHungerText;
 
+/// 用于切换紧凑背包布局的按钮。
 #[derive(Component, Default)]
 pub struct CompactBackpackButton;
 
+/// 用于请求整理背包的按钮。
 #[derive(Component, Default)]
 pub struct SortBackpackButton;

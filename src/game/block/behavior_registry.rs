@@ -1,3 +1,5 @@
+//! 将 Content 层声明的方块行为标识绑定到具体游戏规则实现。
+
 use crate::content::block::behavior::{BlockBehavior, DefaultBlockBehavior};
 use crate::content::block::registry::BlockRegistry;
 use bevy::prelude::*;
@@ -10,6 +12,7 @@ use std::collections::HashMap;
 /// 具体行为实现和执行由 Game 层负责。
 #[derive(Resource, Default)]
 pub struct BlockBehaviorRegistry {
+    /// 按内容定义中的行为名称保存已注册实现；初始化系统负责保证内置项只注册一次。
     pub behaviors: HashMap<String, Box<dyn BlockBehavior<crate::game::world::state::WorldState>>>,
 }
 

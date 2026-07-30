@@ -1,3 +1,6 @@
+//! 为方块物品构建立方体几何，并映射方块图集各面纹理。
+
+use crate::client::renderer::constants::BLOCK_ATLAS_TILES_PER_ROW;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
 use bevy::asset::RenderAssetUsages;
@@ -6,8 +9,6 @@ use bevy::render::mesh::{Indices, PrimitiveTopology};
 
 /// 立方体固定 6 个面。
 const FACE_COUNT: usize = 6;
-/// 方块 atlas 每行瓦片数。
-const ATLAS_TILES_PER_ROW: f32 = 16.0;
 
 /// 方块物品模型的 mesh 构建器。
 ///
@@ -45,9 +46,9 @@ fn build_cube_mesh(face_layers: [f32; FACE_COUNT], total_layers: f32) -> Mesh {
     let mut colors = Vec::with_capacity(FACE_COUNT * 4);
     let mut indices = Vec::with_capacity(FACE_COUNT * 6);
 
-    for face_idx in 0..FACE_COUNT {
+    for (face_idx, texture_layer) in face_layers.into_iter().enumerate() {
         let face = item_cube_face(face_idx);
-        let face_uvs = face_uvs(face_idx, face_layers[face_idx], total_layers);
+        let face_uvs = face_uvs(face_idx, texture_layer, total_layers);
         let face_color = face_color(face_idx);
         let base = positions.len() as u32;
 
@@ -129,9 +130,10 @@ fn face_color(face_idx: usize) -> [f32; 4] {
 /// 根据方块 atlas 层计算单个面的 UV。
 fn face_uvs(face_idx: usize, layer: f32, total_layers: f32) -> [[f32; 2]; 4] {
     let u0 = 0.0;
-    let u1 = 1.0 / ATLAS_TILES_PER_ROW;
+    let tiles_per_row = BLOCK_ATLAS_TILES_PER_ROW as f32;
+    let u1 = 1.0 / tiles_per_row;
     let v0 = layer / total_layers;
-    let v1 = (layer * ATLAS_TILES_PER_ROW + 1.0) / (total_layers * ATLAS_TILES_PER_ROW);
+    let v1 = (layer * tiles_per_row + 1.0) / (total_layers * tiles_per_row);
 
     match face_idx {
         0 | 2 | 4 => [[u1, v0], [u0, v0], [u0, v1], [u1, v1]],

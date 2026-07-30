@@ -1,3 +1,5 @@
+//! 在固定步把攻击动作解析为命中目标的战斗消息。
+
 use crate::game::player::combat::events::AttackEvent;
 use crate::game::player::control::action::{PlayerAction, PlayerActionState};
 use crate::game::player::identity::{LocalPlayer, Player};
@@ -6,6 +8,8 @@ use crate::game::player::survival::events::{DamageEvent, DamageSource};
 use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, Transform, With};
 
 /// 将本地攻击输入转换为对准范围内玩家实体的攻击请求。
+/// 查询过滤器用于区分唯一的本地攻击者与其他玩家目标。
+#[allow(clippy::type_complexity)]
 pub fn melee_attack_input_system(
     actions: Res<PlayerActionState>,
     attacker_query: Query<
@@ -52,6 +56,7 @@ pub fn melee_attack_input_system(
     }
 }
 
+/// 把合法攻击请求转换为生存系统可统一消费的伤害事件。
 pub fn attack_damage_system(
     mut reader: MessageReader<AttackEvent>,
     mut writer: MessageWriter<DamageEvent>,
@@ -67,3 +72,7 @@ pub fn attack_damage_system(
         });
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/game/player/combat/attack.rs"]
+mod tests;

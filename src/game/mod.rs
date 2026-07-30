@@ -4,7 +4,6 @@
 //! 世界推进。Client 只展示结果，Content 只提供定义。
 
 pub mod block;
-pub mod constant;
 pub mod crafting;
 pub mod gameplay;
 pub mod inventory;

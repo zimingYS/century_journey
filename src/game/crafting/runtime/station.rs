@@ -1,12 +1,15 @@
+//! 把方块交互解析为对应工作台容器的合成会话。
+
 use crate::content::block::event::BlockInteractEvent;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::crafting::events::CraftingStationOpened;
 use crate::game::crafting::grid::ActiveCrafting;
+use crate::game::inventory::container::ContainerKind;
 use crate::game::inventory::container::world::WorldContainers;
 use crate::game::player::identity::PlayerId;
-use crate::shared::ui_types::ContainerKind;
 use bevy::prelude::{MessageReader, MessageWriter, Query, Res, ResMut};
 
+/// 根据工作台方块交互创建或恢复玩家的工作台会话。
 pub fn open_workbench_system(
     mut interactions: MessageReader<BlockInteractEvent>,
     registry: Option<Res<BlockRegistry>>,

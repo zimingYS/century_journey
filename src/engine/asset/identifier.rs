@@ -1,3 +1,5 @@
+//! 定义 Engine 资产管线使用的规范化标识。
+
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -9,14 +11,17 @@ use std::fmt;
 pub struct AssetId(String, String);
 
 impl AssetId {
+    /// 使用给定参数创建新实例。
     pub fn new(namespace: impl Into<String>, path: impl Into<String>) -> Self {
         Self(namespace.into(), path.into())
     }
 
+    /// 返回标识符的命名空间部分。
     pub fn namespace(&self) -> &str {
         &self.0
     }
 
+    /// 返回标识符的路径部分。
     pub fn path(&self) -> &str {
         &self.1
     }

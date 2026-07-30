@@ -1,3 +1,5 @@
+//! 将烘焙物品模型实例化为手持、掉落或界面预览实体。
+
 use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 
@@ -10,9 +12,9 @@ use crate::client::renderer::item::gui_icon_cache::{GuiItemIcon, GuiItemIconCach
 use crate::client::renderer::item::resolver::ItemModelResolver;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
+use crate::content::item::ItemRegistry;
 use crate::content::item::definition::ItemCategory;
 use crate::content::item::model::{ItemModelDefinition, ItemModelKind, ItemModelRegistry};
-use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::icon::IconDefinition;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::shared::identifier::Identifier;
@@ -313,6 +315,8 @@ impl ItemRenderer {
 /// 预热方块物品的 GUI 3D 图标。
 ///
 /// 普通物品不在这里创建离屏相机，GUI 会直接使用原始贴图，避免额外渲染开销。
+/// 烘焙系统显式列出所有内容注册表和资产仓库，避免把渲染依赖隐藏进全局上下文。
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_item_model_render_assets_system(
     mut commands: Commands,
     block_registry: Option<Res<BlockRegistry>>,

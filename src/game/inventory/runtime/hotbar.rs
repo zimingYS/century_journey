@@ -1,8 +1,11 @@
+//! 把玩家快捷栏动作应用到权威活动槽位。
+
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::control::action::{PlayerAction, PlayerActionState};
 use crate::game::player::identity::LocalPlayer;
 use bevy::prelude::{Query, Res, With};
 
+/// 在固定步把数字键和滚轮动作应用到本地玩家快捷栏选择。
 pub fn handle_hotbar_command_system(
     actions: Res<PlayerActionState>,
     mut inventory_query: Query<&mut InventoryState, With<LocalPlayer>>,

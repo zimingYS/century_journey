@@ -1,45 +1,39 @@
+//! 从权威玩家组件收集数据，并执行自动保存和退出保存。
+
+use bevy::app::AppExit;
+use bevy::math::Vec3;
+use bevy::prelude;
+use bevy::prelude::{MessageReader, Query, Res, ResMut, Time, Transform, With};
+
 use crate::content::item::ItemRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::{InventoryState, LocalInventory};
 use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::RespawnPoint;
+use crate::game::player::movement::components::PlayerAim;
 use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::Hunger;
 use crate::game::save::SaveConfig;
 use crate::game::save::player::io::write_player_data;
 use crate::game::save::player::runtime::manager::PlayerSaveManager;
 use crate::game::save::player::{PlayerSaveData, player_save_path};
-use crate::shared::components::FpsCamera;
-use bevy::app::AppExit;
-use bevy::camera::Camera3d;
-use bevy::math::Vec3;
-use bevy::prelude;
-use bevy::prelude::{MessageReader, Query, Res, ResMut, Time, Transform, With};
 
 fn perform_save(
     world_name: &str,
     gamemode: &PlayerGameMode,
     inventory: &InventoryState,
     item_registry: &ItemRegistry,
-    player_query: &Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
-    camera_query: &Query<&FpsCamera, With<Camera3d>>,
+    player_query: &Query<(&Transform, &Health, &Hunger, &RespawnPoint, &PlayerAim), With<Player>>,
     save_manager: &mut PlayerSaveManager,
     time: &Time,
 ) {
-    let (data, player_position) = collect_player_save_data(
-        gamemode,
-        inventory,
-        item_registry,
-        player_query,
-        camera_query,
-    );
-
+    let (data, player_position) =
+        collect_player_save_data(gamemode, inventory, item_registry, player_query);
     let path = player_save_path(world_name);
 
     match write_player_data(&data, &path) {
         Ok(()) => {
             mark_save_succeeded(save_manager, player_position, time);
-
             log::info!(
                 "玩家数据保存成功：{}，累计保存 {} 次",
                 path.display(),
@@ -58,23 +52,15 @@ pub fn save_player_now(
     gamemode: &PlayerGameMode,
     inventory: &InventoryState,
     item_registry: &ItemRegistry,
-    player_query: &Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
-    camera_query: &Query<&FpsCamera, With<Camera3d>>,
+    player_query: &Query<(&Transform, &Health, &Hunger, &RespawnPoint, &PlayerAim), With<Player>>,
     save_manager: &mut PlayerSaveManager,
     time: &Time,
 ) -> prelude::Result<(), String> {
-    let (data, player_position) = collect_player_save_data(
-        gamemode,
-        inventory,
-        item_registry,
-        player_query,
-        camera_query,
-    );
-
+    let (data, player_position) =
+        collect_player_save_data(gamemode, inventory, item_registry, player_query);
     let path = player_save_path(world_name);
 
     write_player_data(&data, &path)?;
-
     mark_save_succeeded(save_manager, player_position, time);
 
     log::info!(
@@ -82,19 +68,17 @@ pub fn save_player_now(
         path.display(),
         save_manager.total_saves
     );
-
     Ok(())
 }
 
-/// 自动保存系统
+/// 按 SaveConfig 的间隔检查并保存脏玩家数据。
 pub fn auto_save_player_system(
     time: Res<Time>,
     save_config: Res<SaveConfig>,
     gamemode: Res<PlayerGameMode>,
     inventory: LocalInventory,
     item_registry: Res<ItemRegistry>,
-    player_query: Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
-    camera_query: Query<&FpsCamera, With<Camera3d>>,
+    player_query: Query<(&Transform, &Health, &Hunger, &RespawnPoint, &PlayerAim), With<Player>>,
     mut save_manager: ResMut<PlayerSaveManager>,
 ) {
     if !save_manager.tick(time.delta_secs()) {
@@ -106,60 +90,56 @@ pub fn auto_save_player_system(
         &inventory,
         &item_registry,
         &player_query,
-        &camera_query,
         &mut save_manager,
         &time,
     );
 }
 
-/// 收到应用退出事件时立即保存。
+/// 收到应用退出事件时立即保存尚未落盘的玩家状态。
+/// 退出保存显式读取全部权威玩家字段，确保进程结束前收集完整快照。
+#[allow(clippy::too_many_arguments)]
 pub fn save_on_exit_system(
     mut exit_reader: MessageReader<AppExit>,
     save_config: Res<SaveConfig>,
     gamemode: Res<PlayerGameMode>,
     inventory: LocalInventory,
     item_registry: Res<ItemRegistry>,
-    player_query: Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
-    camera_query: Query<&FpsCamera, With<Camera3d>>,
+    player_query: Query<(&Transform, &Health, &Hunger, &RespawnPoint, &PlayerAim), With<Player>>,
     mut save_manager: ResMut<PlayerSaveManager>,
     time: Res<Time>,
 ) {
-    if exit_reader.read().next().is_none() {
+    if exit_reader.read().next().is_none() || !save_manager.dirty {
         return;
     }
-    if !save_manager.dirty {
-        return;
-    }
-    log::info!("[存档系统] 检测到游戏退出,正在保存游戏...");
-
+    log::info!("[存档系统] 检测到游戏退出，正在保存游戏");
     perform_save(
         &save_config.world_name,
         &gamemode,
         &inventory,
         &item_registry,
         &player_query,
-        &camera_query,
         &mut save_manager,
         &time,
     );
 }
 
+/// 从同一玩家实体收集位置、生存状态和权威视角，避免依赖客户端相机。
 fn collect_player_save_data(
     gamemode: &PlayerGameMode,
     inventory: &InventoryState,
     item_registry: &ItemRegistry,
-    player_query: &Query<(&Transform, &Health, &Hunger, &RespawnPoint), With<Player>>,
-    camera_query: &Query<&FpsCamera, With<Camera3d>>,
+    player_query: &Query<(&Transform, &Health, &Hunger, &RespawnPoint, &PlayerAim), With<Player>>,
 ) -> (PlayerSaveData, Vec3) {
-    let (transform, health, hunger, saturation, respawn_point) = player_query
+    let (transform, health, hunger, saturation, respawn_point, pitch) = player_query
         .single()
-        .map(|(transform, health, hunger, respawn)| {
+        .map(|(transform, health, hunger, respawn, aim)| {
             (
                 *transform,
                 health.current,
                 hunger.current,
                 hunger.saturation,
                 respawn.0,
+                aim.pitch,
             )
         })
         .unwrap_or((
@@ -168,17 +148,13 @@ fn collect_player_save_data(
             20.0,
             5.0,
             Vec3::new(0.0, 70.0, 0.0),
+            0.0,
         ));
-
-    let camera_pitch = camera_query
-        .single()
-        .map(|camera| camera.pitch)
-        .unwrap_or(0.0);
 
     let data = PlayerSaveData::from_runtime(
         transform.translation,
         transform.rotation,
-        camera_pitch,
+        pitch,
         gamemode,
         inventory,
         item_registry,
@@ -187,10 +163,10 @@ fn collect_player_save_data(
         saturation,
         respawn_point,
     );
-
     (data, transform.translation)
 }
 
+/// 仅在所有玩家数据成功落盘后更新保存管理器快照。
 fn mark_save_succeeded(save_manager: &mut PlayerSaveManager, position: Vec3, time: &Time) {
     save_manager.dirty = false;
     save_manager.last_dirty_source = None;

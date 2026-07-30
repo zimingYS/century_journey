@@ -1,3 +1,5 @@
+//! 构建工作台界面并同步当前合成容器的可见槽位。
+
 use bevy::prelude::*;
 
 use crate::client::renderer::item_model::ItemModelRenderAssets;
@@ -9,36 +11,40 @@ use crate::client::ui::widgets::slot::{
     InventorySlot, SlotKind, SlotVisual, spawn_empty_slot, sync_slot_icon,
 };
 use crate::content::block::registry::BlockRegistry;
-use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::item::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::crafting::events::CraftingStationOpened;
 use crate::game::crafting::grid::{
     ActiveCrafting, CraftingGrid, PlayerCrafting, WorkbenchCrafting,
 };
+use crate::game::inventory::container::ContainerKind;
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::container::survival::SurvivalInventory;
 use crate::game::inventory::container::world::WorldContainers;
 use crate::game::player::identity::{LocalPlayer, PlayerId};
 use crate::shared::item_id::ItemId;
-use crate::shared::ui_types::ContainerKind;
 
 const CRAFTING_SLOT_SIZE: f32 = 42.0;
 const CONTAINER_SLOT_SIZE: f32 = 46.0;
 const WORKBENCH_PANEL_WIDTH: f32 = 580.0;
 const WORKBENCH_PANEL_HEIGHT: f32 = 510.0;
 
+/// 工作台屏幕中的合成槽位面板。
 #[derive(Component)]
 pub struct CraftingPanel {
     kind: ContainerKind,
 }
 
+/// 承载合成界面的世界容器宿主标记。
 #[derive(Component)]
 pub struct CraftingHost;
 
+/// 工作台合成界面的遮罩根节点。
 #[derive(Component)]
 pub struct WorkbenchOverlay;
 
+/// 创建玩家随身合成和工作台合成界面节点。
 pub fn spawn_crafting_system(
     roots: Query<Entity, With<CraftingHost>>,
     panels: Query<(), With<CraftingPanel>>,
@@ -168,6 +174,7 @@ fn spawn_player_storage(parent: &mut ChildSpawnerCommands, theme: &UiTheme, ui_f
         });
 }
 
+// 面板的布局规格只在生成时使用，显式参数比创建一次性配置类型更容易核对。
 #[allow(clippy::too_many_arguments)]
 fn spawn_crafting_panel(
     parent: &mut ChildSpawnerCommands,
@@ -259,6 +266,7 @@ fn spawn_crafting_panel(
         });
 }
 
+/// 在工作台容器打开后把对应界面压入导航栈。
 pub fn open_crafting_station_ui_system(
     mut reader: MessageReader<CraftingStationOpened>,
     mut navigation: MessageWriter<UiNavigation>,
@@ -269,6 +277,7 @@ pub fn open_crafting_station_ui_system(
     }
 }
 
+/// 根据当前活动合成容器同步面板布局和槽位绑定。
 pub fn sync_crafting_panel_system(
     active_query: Query<Ref<ActiveCrafting>, With<LocalPlayer>>,
     mut panels: Query<(&CraftingPanel, &mut Node)>,
@@ -288,6 +297,9 @@ pub fn sync_crafting_panel_system(
     }
 }
 
+/// 把权威合成槽位内容同步到现有界面槽位表现。
+/// 多类内容缓存只用于生成槽位表现，保持显式参数可审查 Client 与 Game 的边界。
+#[allow(clippy::too_many_arguments)]
 pub fn crafting_visual_sync_system(
     player_query: Query<(&PlayerCrafting, &ActiveCrafting), With<LocalPlayer>>,
     containers: Res<WorldContainers>,

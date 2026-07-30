@@ -1,3 +1,5 @@
+//! 保存拖拽操作期间由权威库存持有的光标物品状态。
+
 use crate::game::inventory::item::stack::ItemStack;
 use crate::shared::item_id::ItemId;
 

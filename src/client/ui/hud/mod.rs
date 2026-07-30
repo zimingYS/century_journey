@@ -1,3 +1,5 @@
+//! 组织游戏内常驻抬头显示及其布局根节点。
+
 use crate::game::inventory::state::LocalInventory;
 use bevy::prelude::*;
 

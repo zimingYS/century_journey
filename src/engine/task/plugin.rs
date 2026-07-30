@@ -1,3 +1,5 @@
+//! 组装 Engine 任务管理资源与运行时插件。
+
 use crate::engine::task::manager::TaskManager;
 use crate::engine::task::runtime::TaskRuntimePlugin;
 use bevy::prelude::*;

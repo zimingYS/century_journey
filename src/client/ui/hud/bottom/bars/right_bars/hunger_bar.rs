@@ -1,3 +1,5 @@
+//! 根据玩家饥饿值更新食物图标和空心状态。
+
 use crate::client::ui::hud::bottom::bars::{
     HUD_STATUS_ICON_GAP, HudStatusIconAssets, RightBarsHud, shown_status_units, status_icon_count,
     status_icon_node, status_icon_segment,

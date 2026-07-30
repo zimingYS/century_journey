@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 use century_journey::content::block::registry::{BlockRegistry, init_block_registry_system};
+use century_journey::content::item::ItemRegistry;
 use century_journey::content::item::definition::{ItemCategory, ItemDefinition};
-use century_journey::content::item::registry::registry::ItemRegistry;
 use century_journey::content::loot::loader::load_loot_tables;
 use century_journey::content::loot::table::LootTable;
 use century_journey::content::recipe::loader::load_recipe_definitions;

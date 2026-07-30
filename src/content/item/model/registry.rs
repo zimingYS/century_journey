@@ -1,3 +1,5 @@
+//! 维护物品模型标识到模型定义的运行时索引。
+
 use std::collections::HashMap;
 
 use bevy::prelude::*;

@@ -1,3 +1,5 @@
+//! 缓存从三维物品模型离屏烘焙得到的界面图标。
+
 use std::collections::HashMap;
 
 use bevy::prelude::*;

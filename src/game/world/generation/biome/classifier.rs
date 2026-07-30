@@ -1,3 +1,5 @@
+//! 根据地形与气候样本选择初始生物群系定义。
+
 use crate::content::biome::{BiomeRegistry, BiomeTerrainParams};
 
 /// 根据温度/湿度选择最佳匹配的生物群系索引。

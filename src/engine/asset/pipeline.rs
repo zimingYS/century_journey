@@ -1,3 +1,5 @@
+//! 把资产管理器的加载结果同步到 Bevy 资源。
+
 use crate::engine::asset::location::AssetLocation;
 use crate::engine::asset::manager::AssetManager;
 use bevy::asset::AssetServer;

@@ -1,8 +1,11 @@
+//! 汇总物品基础属性、工具和表现兼容定义。
+
+pub mod presentation;
 pub mod tool;
 
+use crate::content::item::definition::presentation::{AnimationConfig, HeldRenderDefinition};
 use crate::content::item::definition::tool::ToolData;
 use crate::content::item::texture::icon::IconDefinition;
-use crate::shared::held_item::{AnimationConfig, HeldRenderDefinition};
 use crate::shared::identifier::Identifier;
 use serde::{Deserialize, Serialize};
 

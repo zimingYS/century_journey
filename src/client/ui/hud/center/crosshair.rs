@@ -1,9 +1,13 @@
+//! 构建固定尺寸准星，并同步瞄准反馈样式。
+
 use crate::client::ui::hud::center::CenterHud;
 use bevy::prelude::*;
 
+/// 第一人称视角中央准星标记。
 #[derive(Component)]
 pub struct Crosshair;
 
+/// 在 HUD 中央区域创建固定尺寸准星。
 pub fn spawn_crosshair(mut commands: Commands, hud: Query<Entity, With<CenterHud>>) {
     let Ok(hud_entity) = hud.single() else {
         log::error!("CENTER HUD NOT FOUND - cannot spawn crosshair");

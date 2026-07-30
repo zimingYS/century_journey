@@ -1,4 +1,6 @@
-/// Minimal random source used by deterministic gameplay code.
+//! 定义权威模拟可复现的随机源契约与实现。
+
+/// 确定性玩法代码依赖的最小随机源接口。
 pub trait RandomSource {
     fn next_u64(&mut self) -> u64;
 
@@ -20,13 +22,14 @@ pub trait RandomSource {
     }
 }
 
-/// SplitMix64 with a fixed algorithm, suitable for reproducible simulation streams.
+/// 使用固定 SplitMix64 算法的随机源，适合生成可复现的模拟序列。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DeterministicRng {
     state: u64,
 }
 
 impl DeterministicRng {
+    /// 使用给定参数创建新实例。
     pub const fn new(seed: u64) -> Self {
         Self { state: seed }
     }

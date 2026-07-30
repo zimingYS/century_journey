@@ -1,3 +1,5 @@
+//! 定义方块属性、渲染模式和纹理配置。
+
 use crate::content::block::model::BlockModelConfig;
 use crate::content::block::placement::BlockPlacementConfig;
 use crate::content::block::sound::BlockSoundConfig;
@@ -24,7 +26,7 @@ pub struct BlockProperty {
     #[serde(default)]
     pub required_tool: Option<ToolType>,
 
-    /// Tool type that receives its efficiency bonus without being required for drops.
+    /// 可获得挖掘效率加成、但不作为掉落必要条件的工具类型。
     #[serde(default)]
     pub effective_tool: Option<ToolType>,
 

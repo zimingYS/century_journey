@@ -1,3 +1,5 @@
+//! 定义方块声音材质、动作和事件数据。
+
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 

@@ -1,7 +1,9 @@
+//! 提供玩家轴向碰撞、接地检测和可通行空间查询算法。
+
 use crate::content::block::definition::RenderMode;
 use crate::content::block::registry::BlockRegistry;
-use crate::content::constant::world::CHUNK_SIZE;
 use crate::game::world::state::WorldState;
+use crate::shared::voxel::CHUNK_SIZE;
 use bevy::math::{IVec3, Vec3};
 
 /// 判断指定世界坐标的方块是否为固体

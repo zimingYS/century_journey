@@ -1,3 +1,5 @@
+//! 组织物品模型解析、烘焙、缓存以及世界和界面显示适配。
+
 pub mod baked_model;
 pub mod baker;
 pub mod cache;

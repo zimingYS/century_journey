@@ -1,3 +1,5 @@
+//! 构建玩家模型骨架实体，并维护手持物锚点和局部变换。
+
 use crate::client::player::model::components::{
     BackAnchor, ChestAnchor, HeldItemAnchor, HelmetAnchor, OffHandAnchor, PlayerJoint, PlayerMesh,
     PlayerModelMarker, PlayerPart, PlayerRig,
@@ -447,6 +449,7 @@ fn spawn_player_details(
     ]
 }
 
+// 细节网格的几何和归属信息属于同一条声明，保持显式参数便于逐项校对模型数据。
 #[allow(clippy::too_many_arguments)]
 fn spawn_detail_mesh(
     commands: &mut Commands,

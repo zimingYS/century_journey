@@ -1,3 +1,5 @@
+//! 构建并同步游戏内快捷栏槽位、选中框和物品数量。
+
 use crate::client::renderer::item_model::ItemModelRenderAssets;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::hud::bottom::BottomHud;
@@ -7,7 +9,7 @@ use crate::client::ui::widgets::slot::{
     InventorySlot, SlotKind, SlotVisual, spawn_display_only_slot, sync_slot_icon,
 };
 use crate::content::block::registry::BlockRegistry;
-use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::item::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::state::LocalInventory;
@@ -61,6 +63,8 @@ pub fn spawn_hotbar_ui_system(
 }
 
 /// HUD快捷栏视觉同步
+/// 参数显式列出槽位渲染缓存，便于确认 HUD 不拥有权威背包状态。
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn hud_hotbar_visual_sync_system(
     state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,

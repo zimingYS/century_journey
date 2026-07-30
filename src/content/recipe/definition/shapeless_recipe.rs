@@ -1,3 +1,5 @@
+//! 定义不要求排列形状的合成配方。
+
 use crate::content::recipe::definition::{Ingredient, RecipeResult};
 use serde::{Deserialize, Serialize};
 

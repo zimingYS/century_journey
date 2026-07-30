@@ -1,3 +1,5 @@
+//! 描述资产在基础目录或覆盖目录中的解析位置。
+
 use std::path::PathBuf;
 
 /// 已解析的资源物理位置——[`AssetResolver`](super::resolver::AssetResolver) 的唯一输出，
@@ -14,6 +16,7 @@ pub struct AssetLocation {
 }
 
 impl AssetLocation {
+    /// 使用给定参数创建新实例。
     pub fn new(relative_path: impl Into<String>, full_path: impl Into<PathBuf>) -> Self {
         Self {
             relative_path: relative_path.into(),

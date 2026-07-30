@@ -1,3 +1,5 @@
+//! 将通用槽位意图路由到对应的权威容器。
+
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::container::survival::SurvivalInventory;
@@ -7,12 +9,13 @@ use crate::game::inventory::interaction::click::{
 };
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::slot::SlotAction;
+use crate::game::inventory::slot::SlotKind;
 use crate::game::inventory::state::{CursorData, CursorSource, InventoryState};
 use crate::shared::item_id::ItemId;
-use crate::shared::ui_types::SlotKind;
 
-/// 缁熶竴鐨勬Ы浣嶄氦浜掕矾鐢?///
-/// UI 灞傚彧闇€璋冪敤姝ゅ嚱鏁帮紝鏃犻渶鍏冲績鍏蜂綋瀹瑰櫒绫诲瀷銆?/// 鏈潵娣诲姞 Chest/Furnace 鏃跺彧闇€鎵╁睍姝?match銆?
+/// 统一的槽位交互入口。
+///
+/// 调用方只提供槽位类型、索引和动作；具体容器映射集中在此，避免 UI 复制权威规则。
 pub fn handle_slot_interaction(
     state: &mut InventoryState,
     kind: SlotKind,
@@ -168,12 +171,12 @@ pub fn handle_slot_interaction(
         }
 
         SlotKind::Container(_) => {
-            // 瀹瑰櫒鐣岄潰灏氭湭鎺ュ叆涓栫晫瀹炰綋锛涙敹鍒拌绫绘Ы浣嶄簨浠舵椂淇濇寔鐘舵€佷笉鍙樸€?
+            // 容器界面尚未接入世界实体；收到该类槽位事件时保持状态不变。
         }
     }
 }
 
-/// 鎶婂悇鐢熷瓨 UI 鍒嗗尯鐨勫眬閮ㄧ储寮曡浆鎹㈡垚 SurvivalInventory 鐨勭粺涓€绱㈠紩銆?
+/// 把各生存 UI 分区的局部索引转换成 SurvivalInventory 的统一索引。
 pub fn survival_index(kind: SlotKind, index: usize) -> Option<usize> {
     use crate::game::inventory::container::survival::SurvivalInventory;
 
@@ -205,7 +208,7 @@ fn shift_into_hotbar(state: &mut InventoryState, stack: &ItemStack) {
         if let Some(hotbar_stack) = state.hotbar.get_stack_mut(i)
             && hotbar_stack.is_same_item(&remaining)
         {
-            remaining.merge_from(hotbar_stack);
+            hotbar_stack.merge_from(&mut remaining);
         }
     }
 

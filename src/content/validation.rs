@@ -5,20 +5,26 @@
 
 use crate::content::biome::BiomeDefinition;
 use crate::content::block::definition::BlockProperty;
-use crate::content::block::model::BlockModel;
-use crate::content::format::versioned_json_dir_results;
 use crate::content::item::definition::ItemDefinition;
-use crate::content::item::texture::icon::IconDefinition;
 use crate::content::loot::table::LootTable;
-use crate::content::recipe::definition::Ingredient;
 use crate::content::recipe::definition::recipe_definition::RecipeDefinition;
 use crate::content::tag::definition::TagAction;
 use crate::engine::asset::{AssetFiles, AssetResolver};
-use crate::shared::held_item::HeldRenderDefinition;
 use crate::shared::identifier::Identifier;
 use crate::shared::tag::identifier::TagId;
 use bevy::prelude::Resource;
 use std::collections::HashSet;
+
+mod checks;
+mod loading;
+mod paths;
+
+use checks::{
+    validate_biomes, validate_blocks, validate_items, validate_loot, validate_recipes,
+    validate_tags, validate_textures,
+};
+use loading::{load, unique_ids};
+use paths::{block_loot_id, inline_tag_id, recipe_id, tag_identity, tag_runtime_id};
 
 #[derive(Debug, Clone, Default)]
 /// 一次内容检查的统计结果和可定位错误列表。
@@ -228,8 +234,6 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
     }
 }
 
-mod validation_checks;
-use validation_checks::*;
 #[cfg(test)]
 #[path = "../../tests/unit/content/validation.rs"]
 mod tests;

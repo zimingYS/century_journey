@@ -1,13 +1,17 @@
+//! 描述旧版玩家存档结构，并逐版本迁移到当前模型。
+
 use crate::game::inventory::container::survival::SurvivalInventory;
 use crate::game::save::player::{PlayerSaveData, SAVE_VERSION, SaveItemStack};
 use serde::{Deserialize, Serialize};
 
+/// 版本 5 及更早存档使用的不含实例数据的物品堆。
 #[derive(Serialize, Deserialize, Clone)]
 pub struct LegacySaveItemStack {
     pub(in crate::game::save::player) item: String,
     pub(in crate::game::save::player) count: u32,
 }
 
+/// 版本 6 存档使用的含耐久度但不含动态编号的物品堆。
 #[derive(Serialize, Deserialize, Clone)]
 pub struct LegacySaveItemStackV6 {
     pub(in crate::game::save::player) item: String,
@@ -37,6 +41,7 @@ impl From<LegacySaveItemStackV6> for SaveItemStack {
     }
 }
 
+/// 玩家存档版本 6 的兼容读取模型。
 #[derive(Serialize, Deserialize)]
 pub struct LegacyPlayerSaveDataV6 {
     pub(in crate::game::save::player) version: u32,
@@ -60,6 +65,7 @@ pub struct LegacyPlayerSaveDataV6 {
     pub(in crate::game::save::player) accessories: Vec<LegacySaveItemStackV6>,
 }
 
+/// 玩家存档版本 5 的兼容读取模型。
 #[derive(Serialize, Deserialize)]
 pub struct LegacyPlayerSaveDataV5 {
     pub(in crate::game::save::player) version: u32,
@@ -81,6 +87,7 @@ pub struct LegacyPlayerSaveDataV5 {
     pub(in crate::game::save::player) accessories: Vec<LegacySaveItemStack>,
 }
 
+/// 玩家存档版本 4 的兼容读取模型。
 #[derive(Serialize, Deserialize)]
 pub struct LegacyPlayerSaveDataV4 {
     pub(in crate::game::save::player) version: u32,
@@ -101,6 +108,7 @@ pub struct LegacyPlayerSaveDataV4 {
     pub(in crate::game::save::player) accessories: Vec<LegacySaveItemStack>,
 }
 
+/// 玩家存档版本 3 的兼容读取模型。
 #[derive(Serialize, Deserialize)]
 pub struct LegacyPlayerSaveDataV3 {
     pub(in crate::game::save::player) version: u32,
@@ -235,6 +243,7 @@ impl From<LegacyPlayerSaveDataV6> for PlayerSaveData {
     }
 }
 
+/// 校验版本并把可直接反序列化的旧数据规范化为当前格式。
 pub(in crate::game) fn migrate_player_data(
     mut data: PlayerSaveData,
 ) -> Result<PlayerSaveData, String> {

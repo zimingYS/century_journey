@@ -1,3 +1,5 @@
+//! 缓存世界会话所需的区块流送状态，避免重复派发加载任务。
+
 use super::WorldStreamingConfig;
 use bevy::math::{IVec3, Vec2};
 use bevy::prelude::Resource;

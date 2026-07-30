@@ -1,5 +1,10 @@
+//! 处理玩家垂直加速度、落地检测与摔落伤害。
+
+/// 重力加速度，单位为方块每二次方秒。
+const GRAVITY: f32 = -24.0;
+/// 玩家向下速度的绝对上限，单位为方块每秒。
+const MAX_FALL_SPEED: f32 = -60.0;
 use crate::content::block::registry::BlockRegistry;
-use crate::game::constant::{GRAVITY, MAX_FALL_SPEED};
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::components::PlayerLifecycle;
@@ -109,3 +114,7 @@ pub fn player_gravity_system(
 pub fn fall_damage_from_distance(distance: f32) -> f32 {
     (distance - 3.0).floor().max(0.0)
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/game/player/physics/gravity.rs"]
+mod tests;

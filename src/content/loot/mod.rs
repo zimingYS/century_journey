@@ -1,3 +1,5 @@
+//! 汇总掉落表定义、加载器和方块掉落索引。
+
 pub mod block_registry;
 pub mod loader;
 pub mod table;
@@ -6,6 +8,7 @@ use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 
+/// 掉落表加载和方块掉落索引插件。
 pub struct LootPlugin;
 
 impl Plugin for LootPlugin {

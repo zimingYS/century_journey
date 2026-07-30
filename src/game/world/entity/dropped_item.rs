@@ -1,10 +1,12 @@
+//! 定义世界掉落实体的数据与生成、合并和拾取前置规则。
+
 use crate::content::block::registry::BlockRegistry;
-use crate::content::constant::world::CHUNK_SIZE;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::simulation::SimulationSet;
 use crate::game::simulation::SimulationTransformHistory;
 use crate::game::world::state::WorldState;
 use crate::shared::states::AppState;
+use crate::shared::voxel::CHUNK_SIZE;
 use bevy::prelude::*;
 
 /// 掉落物默认存在时间，超过后自动销毁。

@@ -85,6 +85,7 @@ const PARTICLE_GRAVITY: f32 = 7.8;
 const PARTICLE_DRAG: f32 = 1.7;
 const MAX_PARTICLE_STEP_SECONDS: f32 = 1.0 / 120.0;
 
+/// 注册仅影响视觉的粒子发射、更新和回收系统。
 pub struct ClientParticlePlugin;
 
 impl Plugin for ClientParticlePlugin {
@@ -145,6 +146,8 @@ fn spawn_block_particles_system(
     }
 }
 
+// 动画、攻击和世界读模型共同决定一次粒子反馈，参数仅在表现帧内读取。
+#[allow(clippy::too_many_arguments)]
 fn spawn_action_particles_system(
     mut reader: MessageReader<AnimationMarkerEvent>,
     mut attack_reader: MessageReader<AttackEvent>,

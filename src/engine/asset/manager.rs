@@ -1,3 +1,5 @@
+//! 协调资产定位、缓存和纹理元数据同步。
+
 use crate::engine::asset::cache::AssetCache;
 use crate::engine::asset::identifier::AssetId;
 use crate::engine::asset::pipeline::AssetPipeline;
@@ -93,6 +95,7 @@ impl AssetManager {
         matches!(asset_server.get_load_state(handle), Some(LoadState::Loaded))
     }
 
+    /// 返回资产管理器使用的路径解析器。
     pub fn resolver(&self) -> &AssetResolver {
         &self.resolver
     }

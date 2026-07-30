@@ -1,3 +1,5 @@
+//! 聚合库存领域的光标、装备、玩家库存和最近物品状态。
+
 mod cursor;
 mod equipment;
 mod inventory;

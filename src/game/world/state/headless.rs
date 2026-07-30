@@ -1,8 +1,11 @@
+//! 为测试和服务端式运行组装不依赖客户端渲染的世界状态。
+
 use crate::game::world::state::authoritative::WorldState;
 use crate::game::world::state::chunk_runtime::ChunkRuntime;
 use bevy::app::{App, Plugin};
 use bevy::prelude::{Fixed, Time};
 
+/// 组装不依赖窗口和渲染器的最小权威世界运行时。
 pub struct HeadlessWorldPlugin;
 
 impl Plugin for HeadlessWorldPlugin {
@@ -19,3 +22,7 @@ impl Plugin for HeadlessWorldPlugin {
             .add_plugins(crate::game::player::plugin::GamePlayerPlugin);
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/game/world/state/headless.rs"]
+mod tests;

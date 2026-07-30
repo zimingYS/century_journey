@@ -5,12 +5,14 @@
 ## 运行链路
 
     main
-      -> app
-      -> client::plugin_group
-         -> engine
-         -> content
-         -> game
-         -> client
+      -> app::launch
+      -> ClientApplication
+      -> app::runtime::ClientRuntimePluginGroup
+         -> EnginePluginGroup
+         -> ContentPluginGroup
+         -> GamePluginGroup
+         -> AppPluginGroup
+         -> ClientPluginGroup
 
 App 负责选择运行模式和装配插件；Content 提供定义；Game 执行规则；
 Client 负责输入与表现；Engine 和 Shared 提供底层能力与共享类型。
@@ -25,9 +27,9 @@ Client 负责输入与表现；Engine 和 Shared 提供底层能力与共享类�
     ├── app/       应用入口、配置、状态和菜单流程
     ├── client/    输入、UI、渲染、音频、粒子和本地玩家表现
     ├── content/   方块、物品、生物群系、配方、掉落表和标签定义
-    ├── engine/    资源系统、常量和异步任务门面
+    ├── engine/    资产、持久化和异步任务等通用基础设施
     ├── game/      世界、玩家、物品栏、合成与玩法规则
-    ├── shared/    跨层共享组件、标识符、状态和时间类型
+    ├── shared/    稳定标识、顶层状态、输入上下文和体素尺寸等窄契约
     ├── editor/    编辑器规划边界，当前未实现
     ├── protocol/  联机协议规划边界，当前未实现
     └── server/    专用服务端规划边界，当前未实现
@@ -45,14 +47,27 @@ Client 负责输入与表现；Engine 和 Shared 提供底层能力与共享类�
 区块数据与生成阶段。掉落物的物理、合并和生命周期归 Game 所有，模型生成归
 Client::renderer 所有。
 
+世界时间的权威时钟、日历和事件归 `Game::world::time` 所有；天空与光照对时间
+的可视化归 `Client::presentation::time` 和 `Client::sky` 所有。相机组件和玩家
+骨架只属于 Client，Shared 不保存带明确运行时所有者的表现类型。
+
+存档是独立的 Game 领域：`GameSavePlugin` 组装 `PlayerSavePlugin` 与
+`WorldSavePlugin`。世界模块不再拥有存档插件，只通过窄数据接口向存档领域提供
+权威区块和时钟快照。
+
 ## 自动边界检查
 
-tests/architecture_boundaries.rs 会递归扫描 Rust 源码并拒绝以下依赖：
+`tests/architecture_boundaries.rs` 会递归扫描 Rust 源码并拒绝以下问题：
 
 - Engine 依赖 App、Client、Content 或 Game。
 - Shared 依赖其他项目层。
 - Content 依赖 App、Client 或 Game。
 - Game 依赖 App 或 Client。
+- 生产源码文件超过 800 行。
+- 源码模块缺少文件级 `//!` 职责说明。
+- 公共类型或函数缺少中文 `///` 职责说明。
+- 使用 crate/模块级 lint 豁免，或局部豁免缺少中文原因说明。
+- 白盒测试没有镜像到 `tests/unit/`、出现孤立测试文件或被重复声明。
 
 新增跨层引用前应先确认数据或事件的真实所有者，不应绕过该测试。
 
@@ -62,6 +77,8 @@ tests/architecture_boundaries.rs 会递归扫描 Rust 源码并拒绝以下依�
 - 已被新实现替代的代码应删除，不保留第二套未接入编译的版本。
 - 公共类型放在其真实所有者模块中，通过有限重导出提供稳定入口。
 - 数据定义、游戏规则和客户端表现必须保持单向依赖。
+- 每个有多个子领域的层级使用自己的聚合插件；App 运行时只组装各层聚合入口。
+- 游戏规则读取 Client 输入转换后的命令或消息，不直接读取键盘、鼠标或界面资源。
 
 ## 中文注释规范
 

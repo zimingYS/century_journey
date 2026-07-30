@@ -1,3 +1,5 @@
+//! 从内容资产加载并校验掉落表定义。
+
 use crate::content::format::load_versioned_json_dir;
 use crate::content::loot::table::LootTable;
 use crate::engine::asset::AssetFiles;

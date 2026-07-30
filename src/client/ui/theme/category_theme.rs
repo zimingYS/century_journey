@@ -1,3 +1,5 @@
+//! 定义创造物品分类标签的图标和颜色主题。
+
 use bevy::prelude::*;
 use std::collections::HashMap;
 
