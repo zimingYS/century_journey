@@ -7,7 +7,7 @@ use crate::shared::item_id::ItemId;
 use bevy::prelude::{App, MinimalPlugins, Update};
 
 #[test]
-fn stage_seven_pickup_moves_drop_into_empty_inventory() {
+fn pickup_moves_drop_into_empty_inventory() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .add_message::<InventoryFeedbackEvent>()

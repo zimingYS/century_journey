@@ -155,7 +155,7 @@ fn break_state_resets_when_target_or_tool_changes() {
 }
 
 #[test]
-fn stage_seven_mining_rule_produces_registered_survival_drop() {
+fn mining_rule_produces_registered_survival_drop() {
     let block = BlockProperty {
         hardness: 0.5,
         required_tool: None,

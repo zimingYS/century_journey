@@ -113,7 +113,7 @@ pub fn player_animation_controller_system(
         .filter_map(|event| event.interactor)
         .collect();
     let consumed: HashSet<Entity> = input.food_events.read().map(|event| event.player).collect();
-    let holding_item = !input.inventory.hotbar.active_item().is_air();
+    let holding_item = !input.inventory.hotbar.active_stack().is_empty();
 
     for (entity, gravity, velocity, health, food_use, mut state) in &mut query {
         update_motion_parameters(

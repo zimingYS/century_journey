@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn feedback_fix_deep_night_uses_readable_exposure() {
+fn deep_night_uses_readable_exposure() {
     let night_ev100 = visibility_exposure_ev100(0.0, 1.0, 1.0);
     let noon_ev100 = visibility_exposure_ev100(1.0, -1.0, 0.0);
 

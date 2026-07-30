@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-use crate::client::renderer::item_model::ItemModelRenderAssets;
+use crate::client::renderer::item::GuiItemIconCache;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::navigation::{UiNavigation, UiScreen, UiScreenRoot};
 use crate::client::ui::resources::ui_font::UiFont;
@@ -305,7 +305,7 @@ pub fn crafting_visual_sync_system(
     containers: Res<WorldContainers>,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
-    item_model_assets: Res<ItemModelRenderAssets>,
+    gui_item_icons: Res<GuiItemIconCache>,
     item_registry: Option<Res<ItemRegistry>>,
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
     children_query: Query<&Children>,
@@ -343,7 +343,7 @@ pub fn crafting_visual_sync_system(
                 current.1,
                 block_registry,
                 block_render_assets,
-                &item_model_assets,
+                &gui_item_icons,
                 &children_query,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),

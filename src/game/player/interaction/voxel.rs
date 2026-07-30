@@ -34,8 +34,8 @@ use crate::game::world::time::WorldSimulationClock;
 use bevy::ecs::system::SystemParam;
 use bevy::math::{IVec3, Vec3};
 use bevy::prelude::{
-    Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, Single, Time, Transform,
-    With,
+    Commands, Entity, Fixed, MessageReader, MessageWriter, Query, Res, ResMut, Single, Time,
+    Transform, With,
 };
 
 #[derive(SystemParam)]
@@ -57,7 +57,7 @@ pub struct VoxelEventWriters<'w> {
 /// 汇总方块破坏过程依赖的固定步时间、状态和确定性随机源。
 pub struct BlockBreakRuntime<'w> {
     /// 当前固定步内由 Bevy 提供的模拟时间源。
-    pub time: Res<'w, Time>,
+    pub time: Res<'w, Time<Fixed>>,
     /// 跨固定步保存的方块破坏事务状态。
     pub state: ResMut<'w, BlockBreakState>,
     /// 供客户端读取的当前破坏进度。
@@ -136,7 +136,7 @@ pub fn voxel_interaction_system(
         let active_stack = inventory_state.hotbar.active_stack();
         let active_tool = active_tool_data(active_stack, item_registry.as_deref());
         let active_tool_max_durability = active_tool.map(|tool| tool.max_durability);
-        let active_item = inventory_state.hotbar.active_item().clone();
+        let active_item = active_stack.item.clone();
 
         let Some(required_seconds) = block_break_seconds(prop, &gamemode, active_tool) else {
             break_runtime.state.clear();
@@ -253,10 +253,10 @@ pub fn voxel_interaction_system(
         return;
     }
 
-    let current_hand_item = inventory_state.hotbar.active_item();
+    let current_hand_item = inventory_state.hotbar.active_stack().item.clone();
     let current_hand_identifier: String = item_registry
         .as_ref()
-        .and_then(|ir| ir.block_identifier(current_hand_item))
+        .and_then(|ir| ir.block_identifier(&current_hand_item))
         .map(|id| id.to_string())
         .unwrap_or_else(|| "century_journey:air".to_string());
 

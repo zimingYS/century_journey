@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-use crate::client::renderer::item_model::ItemModelRenderAssets;
+use crate::client::renderer::item::GuiItemIconCache;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::components::{CreativeItemGrid, CreativeRecentPanel};
 use crate::client::ui::resources::ui_font::UiFont;
@@ -38,7 +38,7 @@ pub fn populate_creative_grid_system(
     state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
-    item_model_assets: Res<ItemModelRenderAssets>,
+    gui_item_icons: Res<GuiItemIconCache>,
     grid_query: Query<Entity, With<CreativeItemGrid>>,
     children_query: Query<&Children>,
     existing_slots: Query<(Entity, &InventorySlot)>,
@@ -59,7 +59,7 @@ pub fn populate_creative_grid_system(
         return;
     };
 
-    let revision = item_model_assets.revision();
+    let revision = gui_item_icons.revision();
     if last_items.as_ref().is_some_and(|(items, cached_revision)| {
         items == &state.creative.visible_items && *cached_revision == revision
     }) {
@@ -91,7 +91,7 @@ pub fn populate_creative_grid_system(
                 0,
                 reg,
                 render_assets,
-                &item_model_assets,
+                &gui_item_icons,
                 &children_query,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
@@ -117,7 +117,7 @@ pub fn populate_creative_grid_system(
                 item,
                 reg,
                 render_assets,
-                &item_model_assets,
+                &gui_item_icons,
                 &creative_theme,
                 &ui_font,
                 item_registry.as_deref(),
@@ -134,7 +134,7 @@ pub fn populate_recent_panel_system(
     state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
-    item_model_assets: Res<ItemModelRenderAssets>,
+    gui_item_icons: Res<GuiItemIconCache>,
     recent_query: Query<Entity, With<CreativeRecentPanel>>,
     children_query: Query<&Children>,
     existing_slots: Query<(Entity, &InventorySlot)>,
@@ -155,7 +155,7 @@ pub fn populate_recent_panel_system(
         return;
     };
 
-    let revision = item_model_assets.revision();
+    let revision = gui_item_icons.revision();
     if last_items.as_ref().is_some_and(|(items, cached_revision)| {
         items == &state.recent.items && *cached_revision == revision
     }) {
@@ -191,7 +191,7 @@ pub fn populate_recent_panel_system(
                 count,
                 reg,
                 render_assets,
-                &item_model_assets,
+                &gui_item_icons,
                 &children_query,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
@@ -241,7 +241,7 @@ pub fn populate_recent_panel_system(
                 item,
                 reg,
                 render_assets,
-                &item_model_assets,
+                &gui_item_icons,
                 &recent_theme,
                 &ui_font,
                 item_registry.as_deref(),

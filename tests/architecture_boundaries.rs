@@ -224,6 +224,78 @@ fn lint_exceptions_are_local_and_explained() {
 }
 
 #[test]
+fn fixed_simulation_time_sources_are_explicit() {
+    let source_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join("game");
+    let save_root = source_root.join("save");
+    let mut violations = Vec::new();
+
+    for file in rust_source_files(&source_root) {
+        // 存档系统运行在普通帧，使用默认虚拟时间；固定步规则不在此例外范围内。
+        if file.starts_with(&save_root) {
+            continue;
+        }
+        let source = fs::read_to_string(&file)
+            .unwrap_or_else(|error| panic!("无法读取 {}: {error}", file.display()));
+        for (line_index, line) in source.lines().enumerate() {
+            if line.contains("Res<Time>") || (line.contains("Res<'") && line.contains(", Time>")) {
+                let relative = file.strip_prefix(&source_root).unwrap_or(&file);
+                violations.push(format!(
+                    "{}:{}: 固定步系统必须使用 Time<Fixed>",
+                    relative.display(),
+                    line_index + 1
+                ));
+            }
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "发现未标明固定步时间语义的 Game 系统:\n{}",
+        violations.join("\n")
+    );
+}
+
+#[test]
+fn retired_runtime_interfaces_are_not_reintroduced() {
+    let source_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
+    let retired_markers = [
+        "ItemModelRenderAssets",
+        "ItemModelRenderer",
+        "spawn_player_rig_v2",
+        "sync_legacy_screen_state_system",
+        "CraftingUpdateSet",
+        "active_item()",
+        "hotbar.items()",
+    ];
+    let mut violations = Vec::new();
+
+    for file in rust_source_files(&source_root) {
+        let source = fs::read_to_string(&file)
+            .unwrap_or_else(|error| panic!("无法读取 {}: {error}", file.display()));
+        for (line_index, line) in source.lines().enumerate() {
+            for marker in retired_markers {
+                if line.contains(marker) {
+                    let relative = file.strip_prefix(&source_root).unwrap_or(&file);
+                    violations.push(format!(
+                        "{}:{}: 残留旧运行时接口 `{marker}`",
+                        relative.display(),
+                        line_index + 1
+                    ));
+                }
+            }
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "发现已删除的运行时兼容接口残留:\n{}",
+        violations.join("\n")
+    );
+}
+
+#[test]
 fn white_box_tests_are_mirrored_and_declared_once() {
     let manifest_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let source_root = manifest_root.join("src");

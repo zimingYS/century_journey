@@ -37,11 +37,6 @@ impl InventoryState {
         self.opened = !self.opened;
     }
 
-    /// 添加最近使用物品（兼容旧 API）
-    pub fn add_recent(&mut self, item: crate::shared::item_id::ItemId) {
-        self.recent.push(item);
-    }
-
     /// 添加最近使用物品堆叠
     pub fn add_recent_stack(&mut self, stack: crate::game::inventory::item::stack::ItemStack) {
         self.recent.push_stack(stack);

@@ -6,9 +6,6 @@ use bevy::prelude::*;
 
 use crate::shared::identifier::Identifier;
 
-/// 旧 UI 代码使用的资源别名，保存需要异步准备的 GUI 图标。
-pub type ItemModelRenderAssets = GuiItemIconCache;
-
 /// GUI 图标缓存。
 ///
 /// Cube 方块保存离屏渲染结果；显式 Generated 模型保存其直接使用的 2D 贴图。

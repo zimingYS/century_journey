@@ -11,4 +11,5 @@ pub mod slot;
 pub mod state;
 
 pub use plugin::InventoryPlugin;
+pub(crate) use plugin::InventorySet;
 pub use state::{InventoryState, LocalInventory, LocalInventoryMut};

@@ -15,11 +15,11 @@ use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
 use crate::game::player::survival::events::{DamageEvent, DamageSource};
 use crate::game::world::state::WorldState;
 use bevy::math::Vec3;
-use bevy::prelude::{Entity, MessageWriter, Query, Res, Time, Transform, With};
+use bevy::prelude::{Entity, Fixed, MessageWriter, Query, Res, Time, Transform, With};
 
 /// 重力系统
 pub fn player_gravity_system(
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     registry: Option<Res<BlockRegistry>>,
     gamemode: Res<PlayerGameMode>,
     world_state: Res<WorldState>,

@@ -71,7 +71,7 @@ pub struct PlayerRigEntities {
 }
 
 /// 生成可同时服务第一人称和第三人称的真实玩家 Rig。
-pub fn spawn_player_rig_v2(
+pub fn spawn_player_rig(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,

@@ -40,7 +40,7 @@ pub fn active_tool_data<'a>(
     }
 
     item_registry
-        .and_then(|registry| registry.get(active_stack.item_id()))
+        .and_then(|registry| registry.get(&active_stack.item))
         .and_then(|definition| definition.tool_data())
 }
 

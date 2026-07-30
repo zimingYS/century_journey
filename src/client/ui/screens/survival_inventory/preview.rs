@@ -22,7 +22,7 @@ pub(super) fn spawn_player_preview(
     let target = Vec3::new(0.0, -750.0, 0.0);
     let preview_layer = RenderLayers::layer(PREVIEW_LAYER);
     let (root, rig) =
-        crate::client::player::model::rig::spawn_player_rig_v2(commands, meshes, materials, config);
+        crate::client::player::model::rig::spawn_player_rig(commands, meshes, materials, config);
 
     commands.entity(root).insert((
         Transform {

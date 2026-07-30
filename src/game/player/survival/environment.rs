@@ -32,7 +32,7 @@ const VOID_Y: f32 = -32.0;
 
 /// 检测头部水体、火焰方块与虚空，转换为统一环境伤害。
 pub fn environment_damage_system(
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     registry: Option<Res<BlockRegistry>>,
     world_state: Res<WorldState>,
     mut query: Query<

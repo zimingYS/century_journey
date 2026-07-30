@@ -3,12 +3,12 @@ use crate::game::player::control::action::PlayerActionState;
 use crate::game::player::physics::components::PlayerGravity;
 
 #[test]
-fn feedback_fix_empty_right_click_does_not_start_an_animation() {
+fn empty_right_click_does_not_start_an_animation() {
     assert_eq!(choose_behavior(AnimationSignals::default()), None);
 }
 
 #[test]
-fn feedback_fix_consumed_food_starts_using_animation() {
+fn consumed_food_starts_using_animation() {
     assert_eq!(
         choose_behavior(AnimationSignals {
             used: true,

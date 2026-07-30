@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use super::components::SlotIcon;
 use crate::client::renderer::constants::BLOCK_ATLAS_TILES_PER_LAYER;
-use crate::client::renderer::item_model::{ItemModelRenderAssets, ItemModelRenderer};
+use crate::client::renderer::item::{GuiItemIconCache, ItemRenderer};
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::ItemRegistry;
@@ -12,23 +12,20 @@ use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::shared::item_id::ItemId;
 /// 生成槽位图标子节点。
 ///
-/// UI 层不判断方块或贴图类型，只向 ItemModelRenderer 查询 GUI 所需图片。
+/// UI 层不判断方块或贴图类型，只向 ItemRenderer 查询 GUI 所需图片。
 /// 当 3D 方块图标仍在离屏烘焙时，临时回退到方块 atlas 图标，避免空槽位。
 pub(super) fn spawn_icon_child(
     parent: &mut ChildSpawnerCommands,
     item: &ItemId,
     block_registry: &BlockRegistry,
     render_assets: &BlockRenderAssets,
-    item_model_assets: &ItemModelRenderAssets,
+    gui_item_icons: &GuiItemIconCache,
     item_registry: Option<&ItemRegistry>,
     item_texture_registry: Option<&ItemTextureRegistry>,
 ) {
-    if let Some(image) = ItemModelRenderer::item_icon_image(
-        item,
-        item_registry,
-        item_texture_registry,
-        item_model_assets,
-    ) {
+    if let Some(image) = item_texture_registry.and_then(|item_textures| {
+        ItemRenderer::gui_icon_image(item, item_registry, item_textures, gui_item_icons)
+    }) {
         parent.spawn((SlotIcon, plain_image_node(image), icon_node()));
     } else if let Some(image_node) =
         block_atlas_fallback_image(item, block_registry, render_assets, item_registry)
@@ -49,7 +46,7 @@ pub fn sync_slot_icon(
     count: u32,
     block_registry: &BlockRegistry,
     render_assets: &BlockRenderAssets,
-    item_model_assets: &ItemModelRenderAssets,
+    gui_item_icons: &GuiItemIconCache,
     children_query: &Query<&Children>,
     item_registry: Option<&ItemRegistry>,
     item_texture_registry: Option<&ItemTextureRegistry>,
@@ -61,12 +58,9 @@ pub fn sync_slot_icon(
     if let Some(&icon_entity) = children.first() {
         if item.is_air() {
             commands.entity(icon_entity).insert(Visibility::Hidden);
-        } else if let Some(image) = ItemModelRenderer::item_icon_image(
-            item,
-            item_registry,
-            item_texture_registry,
-            item_model_assets,
-        ) {
+        } else if let Some(image) = item_texture_registry.and_then(|item_textures| {
+            ItemRenderer::gui_icon_image(item, item_registry, item_textures, gui_item_icons)
+        }) {
             commands
                 .entity(icon_entity)
                 .insert((Visibility::Inherited, plain_image_node(image)));

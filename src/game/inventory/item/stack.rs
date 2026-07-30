@@ -131,11 +131,6 @@ impl ItemStack {
         Some(result)
     }
 
-    /// 获取物品类型引用（兼容旧代码中的 `.item_id` 字段访问）
-    pub fn item_id(&self) -> &ItemId {
-        &self.item
-    }
-
     /// 获取方块标识符引用
     pub fn block_identifier<'a>(&self, item_registry: &'a ItemRegistry) -> Option<&'a Identifier> {
         item_registry.block_identifier(&self.item)

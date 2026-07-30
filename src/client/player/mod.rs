@@ -50,7 +50,7 @@ fn attach_local_player_presentation_system(
 
     // 创建骨骼
     let (rig_root, rig_entities) =
-        model::rig::spawn_player_rig_v2(&mut commands, &mut meshes, &mut materials, &config);
+        model::rig::spawn_player_rig(&mut commands, &mut meshes, &mut materials, &config);
 
     // 创建玩家相机
     let camera = commands

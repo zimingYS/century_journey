@@ -3,7 +3,7 @@ use crate::game::gameplay::gamemode::GameMode;
 use crate::game::player::interaction::voxel::{break_action_active, voxel_intersects_player};
 
 #[test]
-fn creative_break_fix_held_click_only_breaks_on_first_frame() {
+fn creative_held_break_only_triggers_on_initial_press() {
     let creative = PlayerGameMode {
         mode: GameMode::Creative,
     };
@@ -19,7 +19,7 @@ fn creative_break_fix_held_click_only_breaks_on_first_frame() {
 }
 
 #[test]
-fn requested_fix_block_inside_player_is_rejected() {
+fn block_inside_player_is_rejected() {
     let half = Vec3::new(0.3, 0.9, 0.3);
     let standing_position = Vec3::new(0.5, 10.9, 0.5);
 

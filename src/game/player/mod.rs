@@ -7,8 +7,7 @@ pub mod interaction;
 pub mod lifecycle;
 pub mod movement;
 pub mod physics;
-pub mod plugin;
+mod plugin;
 pub mod survival;
 
-/// 向后兼容：PlayerPlugin 等同 GamePlayerPlugin。
-pub use plugin::GamePlayerPlugin as PlayerPlugin;
+pub use plugin::GamePlayerPlugin;

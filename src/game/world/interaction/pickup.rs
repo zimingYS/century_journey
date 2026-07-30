@@ -1,7 +1,9 @@
 //! 处理玩家附近掉落物的自动拾取。
 
 use bevy::log::info;
-use bevy::prelude::{Commands, Entity, Local, MessageWriter, Query, Res, Time, Transform, With};
+use bevy::prelude::{
+    Commands, Entity, Fixed, Local, MessageWriter, Query, Res, Time, Transform, With,
+};
 
 use crate::game::inventory::events::InventoryFeedbackEvent;
 use crate::game::inventory::interaction::transfer;
@@ -17,7 +19,7 @@ const PICKUP_RANGE: f32 = 2.0;
 ///
 /// 成功插入后删除实体；容量不足时保留剩余堆叠，并对“背包已满”反馈做节流。
 pub fn pickup_system(
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     mut player_query: Query<(&Transform, &PlayerLifecycle, &mut InventoryState), With<Player>>,
     mut item_query: Query<(Entity, &Transform, &mut DroppedItem)>,
     mut commands: Commands,

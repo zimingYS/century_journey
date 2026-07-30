@@ -6,7 +6,7 @@ use crate::game::world::interaction::breaking::{
 use bevy::prelude::default;
 
 #[test]
-fn requested_fix_block_drop_starts_inside_broken_voxel() {
+fn block_drop_starts_inside_broken_voxel() {
     let block = IVec3::new(3, 12, -4);
     let position = block_drop_spawn_position(block, 0);
 

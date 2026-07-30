@@ -157,7 +157,7 @@ pub fn despawn_dropped_item(commands: &mut Commands, entity: Entity) {
 ///
 /// 模拟 ItemPhysicMod 风格的下落、弹跳、摩擦和滚动角速度；物品落地后不再无意义地竖直自转。
 pub fn dropped_item_physics_system(
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     reg: Option<Res<BlockRegistry>>,
     world_state: Res<WorldState>,
     mut query: Query<(&mut Transform, &mut DroppedItemVelocity, &mut DroppedItem)>,
@@ -282,7 +282,7 @@ pub fn dropped_item_merge_system(
 }
 /// 更新掉落物生命周期和拾取延迟。
 pub fn dropped_item_tick_system(
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     mut commands: Commands,
     mut query: Query<(Entity, &mut DroppedItem)>,
 ) {

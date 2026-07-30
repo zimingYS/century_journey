@@ -1,7 +1,6 @@
 //! 记录最近使用物品的确定顺序，供客户端展示而不反向拥有规则。
 
 use crate::game::inventory::item::stack::ItemStack;
-use crate::shared::item_id::ItemId;
 
 #[derive(Debug, Clone)]
 /// 按最近使用顺序保存去重后的物品堆快照。
@@ -28,16 +27,6 @@ impl RecentItems {
         }
         self.items.retain(|s| s.item != stack.item);
         self.items.insert(0, stack);
-        self.items.truncate(self.max_count);
-    }
-
-    /// 添加一个物品到最近使用（兼容旧 API，count=1）
-    pub fn push(&mut self, item_id: ItemId) {
-        if item_id.is_air() {
-            return;
-        }
-        self.items.retain(|s| s.item != item_id);
-        self.items.insert(0, ItemStack::single(item_id));
         self.items.truncate(self.max_count);
     }
 }

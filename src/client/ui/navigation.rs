@@ -198,8 +198,8 @@ fn close_screen_state(screen: UiScreen, interface: &mut MessageWriter<InterfaceC
     }
 }
 
-/// 在旧输入状态仍存在期间把菜单和背包状态桥接到导航栈。
-pub fn sync_legacy_screen_state_system(
+/// 当本帧没有显式导航命令时，将权威库存状态与输入上下文投影到导航栈。
+pub fn project_navigation_stack_from_authoritative_state_system(
     mut navigation: MessageReader<UiNavigation>,
     inventory: LocalInventory,
     context: Res<InputContextState>,

@@ -142,7 +142,7 @@ fn v6_player_file_migrates_to_v7_identifier_mapping() {
 }
 
 #[test]
-fn stage_seven_v5_player_file_migrates_to_v6_defaults() {
+fn v5_player_file_migrates_to_v6_defaults() {
     let mut legacy = LegacyPlayerSaveDataV5 {
         version: 5,
         game_version: "0.2.0".into(),

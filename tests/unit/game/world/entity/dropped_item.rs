@@ -3,7 +3,7 @@ use crate::game::inventory::item::stack::ItemInstanceData;
 use crate::shared::item_id::ItemId;
 
 #[test]
-fn requested_fix_embedded_drop_is_not_lifted_to_block_top() {
+fn embedded_drop_is_not_lifted_to_block_top() {
     assert!(!crossed_ground_surface(4.5, 4.4, 5.06));
     assert!(crossed_ground_surface(5.2, 5.0, 5.06));
 }

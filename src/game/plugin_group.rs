@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use crate::game::crafting::CraftingPlugin;
 use crate::game::gameplay::GameplayPlugin;
 use crate::game::inventory::InventoryPlugin;
-use crate::game::player::plugin::GamePlayerPlugin;
+use crate::game::player::GamePlayerPlugin;
 use crate::game::save::GameSavePlugin;
 use crate::game::simulation::SimulationPlugin;
 use crate::game::world::GameWorldPlugin;
@@ -18,12 +18,12 @@ pub struct GamePluginGroup;
 impl Plugin for GamePluginGroup {
     fn build(&self, app: &mut App) {
         app.add_plugins((
-            GameplayPlugin,
             SimulationPlugin,
-            CraftingPlugin,
+            GameplayPlugin,
             GameWorldPlugin,
             InventoryPlugin,
             GamePlayerPlugin,
+            CraftingPlugin,
             GameSavePlugin,
         ));
     }

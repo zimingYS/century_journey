@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 use super::layout::{MAIN_SLOT_SIZE, slot_theme};
-use crate::client::renderer::item_model::ItemModelRenderAssets;
+use crate::client::renderer::item::GuiItemIconCache;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::components::{
     SurvivalDefenseText, SurvivalHealthText, SurvivalHotbarPanel, SurvivalHungerText,
@@ -92,7 +92,7 @@ pub fn survival_grid_visual_sync_system(
     state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
-    item_model_assets: Res<ItemModelRenderAssets>,
+    gui_item_icons: Res<GuiItemIconCache>,
     children_query: Query<&Children>,
     item_registry: Option<Res<ItemRegistry>>,
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
@@ -121,7 +121,7 @@ pub fn survival_grid_visual_sync_system(
                 .unwrap_or((ItemId::air(), 0))
         })
         .collect();
-    let revision = item_model_assets.revision();
+    let revision = gui_item_icons.revision();
     if last_snapshot
         .as_ref()
         .is_some_and(|(snapshot, cached_revision)| {
@@ -151,7 +151,7 @@ pub fn survival_grid_visual_sync_system(
                 count,
                 registry,
                 render_assets,
-                &item_model_assets,
+                &gui_item_icons,
                 &children_query,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
@@ -169,7 +169,7 @@ pub fn survival_hotbar_visual_sync_system(
     state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
-    item_model_assets: Res<ItemModelRenderAssets>,
+    gui_item_icons: Res<GuiItemIconCache>,
     mut slot_query: Query<(Entity, &InventorySlot, &mut SlotVisual)>,
     children_query: Query<&Children>,
     mut commands: Commands,
@@ -201,7 +201,7 @@ pub fn survival_hotbar_visual_sync_system(
                 .unwrap_or((ItemId::air(), 0))
         })
         .collect();
-    let revision = item_model_assets.revision();
+    let revision = gui_item_icons.revision();
     let changed = last_hotbar
         .as_ref()
         .is_none_or(|(snapshot, cached_revision)| {
@@ -229,7 +229,7 @@ pub fn survival_hotbar_visual_sync_system(
                     count,
                     registry,
                     render_assets,
-                    &item_model_assets,
+                    &gui_item_icons,
                     &children_query,
                     item_registry.as_deref(),
                     item_texture_registry.as_deref(),
@@ -261,7 +261,7 @@ pub fn init_survival_hotbar_system(
     state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
-    item_model_assets: Res<ItemModelRenderAssets>,
+    gui_item_icons: Res<GuiItemIconCache>,
     hotbar_query: Query<Entity, With<SurvivalHotbarPanel>>,
     children_query: Query<&Children>,
     slot_query: Query<&InventorySlot>,
@@ -292,15 +292,18 @@ pub fn init_survival_hotbar_system(
 
     let slot_theme = slot_theme(&theme, MAIN_SLOT_SIZE);
     commands.entity(panel_entity).with_children(|bar| {
-        for (index, item) in state.hotbar.items().iter().enumerate() {
+        for (index, stack) in state.hotbar.stacks.iter().enumerate() {
+            let item = stack
+                .as_ref()
+                .map_or_else(ItemId::air, |stack| stack.item.clone());
             crate::client::ui::widgets::slot::spawn_slot_with_item(
                 bar,
                 SlotKind::Hotbar,
                 index,
-                item,
+                &item,
                 registry,
                 render_assets,
-                &item_model_assets,
+                &gui_item_icons,
                 &slot_theme,
                 &ui_font,
                 item_registry.as_deref(),

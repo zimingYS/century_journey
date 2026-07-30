@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use super::components::{InventorySlot, SlotCountText, SlotIcon, SlotPlaceholder, SlotVisual};
 use super::durability::spawn_durability_bar;
 use super::icon::{icon_node, spawn_icon_child};
-use crate::client::renderer::item_model::ItemModelRenderAssets;
+use crate::client::renderer::item::GuiItemIconCache;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
@@ -154,7 +154,7 @@ pub fn spawn_slot_with_item(
     item: &ItemId,
     registry: &BlockRegistry,
     render_assets: &BlockRenderAssets,
-    item_model_assets: &ItemModelRenderAssets,
+    gui_item_icons: &GuiItemIconCache,
     theme: &UiTheme,
     ui_font: &UiFont,
     item_registry: Option<&ItemRegistry>,
@@ -186,7 +186,7 @@ pub fn spawn_slot_with_item(
                 item,
                 registry,
                 render_assets,
-                item_model_assets,
+                gui_item_icons,
                 item_registry,
                 item_texture_registry,
             );

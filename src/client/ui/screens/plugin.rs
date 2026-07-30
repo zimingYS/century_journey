@@ -46,7 +46,7 @@ impl Plugin for UiScreensPlugin {
             (
                 crafting::open_crafting_station_ui_system,
                 navigation::handle_ui_navigation_system,
-                navigation::sync_legacy_screen_state_system,
+                navigation::project_navigation_stack_from_authoritative_state_system,
                 navigation::sync_screen_visibility_system,
                 menu::sync_menu_visibility_system,
             )

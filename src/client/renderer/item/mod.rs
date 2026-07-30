@@ -15,6 +15,6 @@ pub use baker::{ItemModelBakeContext, ItemModelBaker};
 pub use cache::ItemModelCache;
 pub use display::ItemDisplayContext;
 pub use gui_icon_baker::GuiItemIconBaker;
-pub use gui_icon_cache::{GuiItemIconCache, ItemModelRenderAssets};
+pub use gui_icon_cache::GuiItemIconCache;
 pub use renderer::{ItemRenderContext, ItemRenderer, SpawnedItemEntity};
 pub use resolver::{ItemModelResolver, ResolvedItemModel};

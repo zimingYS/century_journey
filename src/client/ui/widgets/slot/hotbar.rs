@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use super::components::{InventorySlot, SlotVisual};
 use super::icon::sync_slot_icon;
-use crate::client::renderer::item_model::ItemModelRenderAssets;
+use crate::client::renderer::item::GuiItemIconCache;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::content::block::registry::BlockRegistry;
@@ -18,7 +18,7 @@ pub fn sync_hotbar_panel_visuals(
     state: &crate::game::inventory::state::InventoryState,
     reg: &BlockRegistry,
     render_assets: &BlockRenderAssets,
-    item_model_assets: &ItemModelRenderAssets,
+    gui_item_icons: &GuiItemIconCache,
     panel_entity: Entity,
     children_query: &Query<&Children>,
     item_registry: Option<&ItemRegistry>,
@@ -47,7 +47,7 @@ pub fn sync_hotbar_panel_visuals(
         })
         .collect();
 
-    let revision = item_model_assets.revision();
+    let revision = gui_item_icons.revision();
     let force = last_snapshot.is_none();
     let revision_changed = last_snapshot
         .as_ref()
@@ -81,7 +81,7 @@ pub fn sync_hotbar_panel_visuals(
                         count,
                         reg,
                         render_assets,
-                        item_model_assets,
+                        gui_item_icons,
                         children_query,
                         item_registry,
                         item_texture_registry,

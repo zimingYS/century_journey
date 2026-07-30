@@ -4,7 +4,6 @@ use crate::content::item::definition::{FoodData, ItemCategory, ItemDefinition};
 use crate::game::inventory::item::stack::ItemStack;
 use crate::shared::identifier::Identifier;
 use crate::shared::item_id::ItemId;
-use bevy::time::TimeUpdateStrategy;
 use std::time::Duration;
 
 #[derive(Resource, Default)]
@@ -15,6 +14,13 @@ fn count_food_events(
     mut count: ResMut<FoodEventCount>,
 ) {
     count.0 += reader.read().count();
+}
+
+fn run_fixed_step(app: &mut App) {
+    app.world_mut()
+        .resource_mut::<Time<Fixed>>()
+        .advance_by(Duration::from_millis(750));
+    app.world_mut().run_schedule(FixedUpdate);
 }
 
 #[test]
@@ -43,16 +49,12 @@ fn food_is_consumed_only_after_the_use_animation_duration() {
     inventory.hotbar.set_stack(0, ItemStack::new(apple, 2));
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
-        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs(1)))
         .insert_resource(registry)
         .init_resource::<PlayerActionState>()
         .init_resource::<PlayerGameMode>()
         .init_resource::<FoodEventCount>()
         .add_message::<FoodConsumedEvent>()
-        .add_systems(Update, (use_food_system, count_food_events).chain());
-    app.world_mut()
-        .resource_mut::<Time<bevy::time::Virtual>>()
-        .set_max_delta(Duration::from_secs(2));
+        .add_systems(FixedUpdate, (use_food_system, count_food_events).chain());
     let player = app
         .world_mut()
         .spawn((
@@ -71,8 +73,8 @@ fn food_is_consumed_only_after_the_use_animation_duration() {
         .resource_mut::<PlayerActionState>()
         .update(true, [PlayerAction::Use]);
 
-    app.update();
-    app.update();
+    run_fixed_step(&mut app);
+    run_fixed_step(&mut app);
 
     let hunger = app.world().get::<Hunger>(player).unwrap();
     assert_eq!(hunger.current, 10.0);
@@ -88,7 +90,7 @@ fn food_is_consumed_only_after_the_use_animation_duration() {
         Some(2)
     );
 
-    app.update();
+    run_fixed_step(&mut app);
 
     let hunger = app.world().get::<Hunger>(player).unwrap();
     assert_eq!(hunger.current, 14.0);
@@ -132,15 +134,11 @@ fn releasing_use_cancels_food_without_consuming_it() {
         .set_stack(0, ItemStack::new(apple.clone(), 2));
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
-        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs(1)))
         .insert_resource(registry)
         .init_resource::<PlayerActionState>()
         .init_resource::<PlayerGameMode>()
         .add_message::<FoodConsumedEvent>()
-        .add_systems(Update, use_food_system);
-    app.world_mut()
-        .resource_mut::<Time<bevy::time::Virtual>>()
-        .set_max_delta(Duration::from_secs(2));
+        .add_systems(FixedUpdate, use_food_system);
     let player = app
         .world_mut()
         .spawn((
@@ -159,11 +157,11 @@ fn releasing_use_cancels_food_without_consuming_it() {
     app.world_mut()
         .resource_mut::<PlayerActionState>()
         .update(true, [PlayerAction::Use]);
-    app.update();
+    run_fixed_step(&mut app);
     app.world_mut()
         .resource_mut::<PlayerActionState>()
         .update(true, []);
-    app.update();
+    run_fixed_step(&mut app);
 
     assert_eq!(app.world().get::<Hunger>(player).unwrap().current, 10.0);
     assert!(!app.world().get::<FoodUseState>(player).unwrap().is_active());

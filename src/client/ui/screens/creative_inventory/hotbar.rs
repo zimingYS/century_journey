@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 use super::grid::{CREATIVE_SLOT_SIZE, creative_slot_theme};
-use crate::client::renderer::item_model::ItemModelRenderAssets;
+use crate::client::renderer::item::GuiItemIconCache;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::components::CreativeHotbarPanel;
 use crate::client::ui::resources::ui_font::UiFont;
@@ -23,7 +23,7 @@ pub fn init_creative_hotbar_system(
     state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
-    item_model_assets: Res<ItemModelRenderAssets>,
+    gui_item_icons: Res<GuiItemIconCache>,
     hotbar_query: Query<Entity, With<CreativeHotbarPanel>>,
     children_query: Query<&Children>,
     slot_query: Query<&InventorySlot>,
@@ -61,15 +61,18 @@ pub fn init_creative_hotbar_system(
     let creative_theme = creative_slot_theme(theme.as_ref(), CREATIVE_SLOT_SIZE);
 
     commands.entity(panel_entity).with_children(|bar| {
-        for (index, item) in state.hotbar.items().iter().enumerate() {
+        for (index, stack) in state.hotbar.stacks.iter().enumerate() {
+            let item = stack
+                .as_ref()
+                .map_or_else(ItemId::air, |stack| stack.item.clone());
             spawn_slot_with_item(
                 bar,
                 SlotKind::Hotbar,
                 index,
-                item,
+                &item,
                 reg,
                 render_assets,
-                &item_model_assets,
+                &gui_item_icons,
                 &creative_theme,
                 &ui_font,
                 item_registry.as_deref(),
@@ -86,7 +89,7 @@ pub fn creative_hotbar_visual_sync_system(
     state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
-    item_model_assets: Res<ItemModelRenderAssets>,
+    gui_item_icons: Res<GuiItemIconCache>,
     hotbar_query: Query<Entity, With<CreativeHotbarPanel>>,
     children_query: Query<&Children>,
     theme: Res<UiTheme>,
@@ -115,7 +118,7 @@ pub fn creative_hotbar_visual_sync_system(
         &state,
         reg,
         render_assets,
-        &item_model_assets,
+        &gui_item_icons,
         hotbar_entity,
         &children_query,
         item_registry.as_deref(),

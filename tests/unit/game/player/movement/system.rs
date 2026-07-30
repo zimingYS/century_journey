@@ -2,7 +2,7 @@ use super::*;
 use crate::game::player::movement::system::approach_velocity;
 
 #[test]
-fn stage_seven_horizontal_velocity_accelerates_and_decelerates_gradually() {
+fn horizontal_velocity_accelerates_and_decelerates_gradually() {
     let accelerated = approach_velocity(Vec3::ZERO, Vec3::X * 10.0, 2.0);
     assert_eq!(accelerated, Vec3::X * 2.0);
 

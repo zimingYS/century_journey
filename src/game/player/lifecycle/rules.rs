@@ -16,7 +16,9 @@ use crate::game::world::entity::dropped_item::{
     DroppedItemVelocity, spawn_dropped_item_with_velocity,
 };
 use bevy::math::Vec3;
-use bevy::prelude::{Commands, MessageReader, Query, Res, ResMut, Resource, Time, Transform, With};
+use bevy::prelude::{
+    Commands, Fixed, MessageReader, Query, Res, ResMut, Resource, Time, Transform, With,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// 玩家死亡时对库存采用的处理规则。
@@ -159,7 +161,7 @@ pub fn respawn_request_system(
 
 /// 使用固定步时间推进短暂重生阶段，结束后恢复为存活状态。
 pub fn respawn_transition_system(
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     mut query: Query<&mut PlayerLifecycle, With<Player>>,
 ) {
     for mut lifecycle in &mut query {

@@ -19,7 +19,7 @@ pub const FOOD_USE_DURATION_SECONDS: f32 = 1.6;
 
 /// 动作消耗系统：冲刺和跳跃会消耗饥饿值。
 pub fn action_cost_system(
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     actions: Res<PlayerActionState>,
     mut query: Query<(&mut Hunger, &PlayerLifecycle), With<Player>>,
 ) {
@@ -51,7 +51,7 @@ pub fn action_cost_system(
 
 /// 使用当前快捷栏中的食物。
 pub fn use_food_system(
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     actions: Res<PlayerActionState>,
     gamemode: Res<PlayerGameMode>,
     item_registry: Option<Res<ItemRegistry>>,
@@ -92,7 +92,7 @@ pub fn use_food_system(
     };
     let food_item = active_stack.item.clone();
     let Some(food) = item_registry
-        .get(active_stack.item_id())
+        .get(&active_stack.item)
         .and_then(|definition| definition.food_data())
         .copied()
     else {
@@ -137,7 +137,7 @@ pub fn use_food_system(
 /// 满饥饿自动回血 (每 4s, hunger >= 18)
 pub fn natural_regeneration_system(
     mut timer: Local<f32>,
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     mut query: Query<(Entity, &Health, &mut Hunger, &PlayerLifecycle), With<Player>>,
     mut heal_writer: MessageWriter<HealEvent>,
 ) {
@@ -161,7 +161,7 @@ pub fn natural_regeneration_system(
 /// 饥饿伤害 (每 4s, hunger <= 0)
 pub fn starvation_damage_system(
     mut timer: Local<f32>,
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     query: Query<(Entity, &Hunger, &PlayerLifecycle), With<Player>>,
     mut damage_writer: MessageWriter<DamageEvent>,
 ) {

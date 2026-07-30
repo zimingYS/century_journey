@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn stage_seven_tool_instance_loses_durability_and_breaks() {
+fn tool_instance_loses_durability_and_breaks() {
     let mut tool = ItemStack::single(ItemId::item("century_journey:test_pickaxe"));
 
     assert_eq!(
@@ -18,7 +18,7 @@ fn stage_seven_tool_instance_loses_durability_and_breaks() {
 }
 
 #[test]
-fn stage_seven_different_instance_data_never_merges() {
+fn different_instance_data_never_merges() {
     let mut used = ItemStack::single(ItemId::item("century_journey:test_pickaxe"));
     used.instance.durability = Some(4);
     let unused = ItemStack::single(ItemId::item("century_journey:test_pickaxe"));

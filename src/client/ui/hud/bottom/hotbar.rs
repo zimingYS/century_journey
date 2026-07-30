@@ -1,6 +1,6 @@
 //! 构建并同步游戏内快捷栏槽位、选中框和物品数量。
 
-use crate::client::renderer::item_model::ItemModelRenderAssets;
+use crate::client::renderer::item::GuiItemIconCache;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::hud::bottom::BottomHud;
 use crate::client::ui::resources::ui_font::UiFont;
@@ -69,7 +69,7 @@ pub fn hud_hotbar_visual_sync_system(
     state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
-    item_model_assets: Res<ItemModelRenderAssets>,
+    gui_item_icons: Res<GuiItemIconCache>,
     mut commands: Commands,
     slot_query: Query<(Entity, &InventorySlot)>,
     mut slot_visual_query: Query<&mut SlotVisual>,
@@ -107,7 +107,7 @@ pub fn hud_hotbar_visual_sync_system(
         .collect();
 
     // 图标同步 — 物品、数量或 3D 图标缓存版本变化时执行
-    let revision = item_model_assets.revision();
+    let revision = gui_item_icons.revision();
     let force = last_hotbar.is_none();
     let revision_changed = last_hotbar
         .as_ref()
@@ -138,7 +138,7 @@ pub fn hud_hotbar_visual_sync_system(
                     count,
                     reg,
                     render_assets,
-                    &item_model_assets,
+                    &gui_item_icons,
                     &children_query,
                     item_registry.as_deref(),
                     item_texture_registry.as_deref(),

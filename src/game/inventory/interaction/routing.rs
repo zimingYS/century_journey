@@ -41,13 +41,13 @@ pub fn handle_slot_interaction(
                         .cursor
                         .set_stack(ItemStack::new(item.clone(), ItemStack::MAX_STACK_SIZE));
                     state.cursor.source = None;
-                    state.add_recent(item);
+                    state.add_recent_stack(ItemStack::single(item));
                 }
                 SlotAction::RightClick => {
                     let half = ItemStack::MAX_STACK_SIZE.div_ceil(2);
                     state.cursor.set_stack(ItemStack::new(item.clone(), half));
                     state.cursor.source = None;
-                    state.add_recent(item);
+                    state.add_recent_stack(ItemStack::single(item));
                 }
                 SlotAction::ShiftClick => {
                     shift_into_hotbar(state, &ItemStack::new(item, ItemStack::MAX_STACK_SIZE));
@@ -75,7 +75,7 @@ pub fn handle_slot_interaction(
                         ItemStack::MAX_STACK_SIZE,
                     ));
                     state.cursor.source = None;
-                    state.add_recent(stack.item.clone());
+                    state.add_recent_stack(ItemStack::single(stack.item.clone()));
                 }
                 SlotAction::RightClick => {
                     let half = ItemStack::MAX_STACK_SIZE.div_ceil(2);
@@ -83,7 +83,7 @@ pub fn handle_slot_interaction(
                         .cursor
                         .set_stack(ItemStack::new(stack.item.clone(), half));
                     state.cursor.source = None;
-                    state.add_recent(stack.item.clone());
+                    state.add_recent_stack(ItemStack::single(stack.item.clone()));
                 }
                 SlotAction::ShiftClick => {
                     shift_into_hotbar(

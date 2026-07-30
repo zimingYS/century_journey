@@ -11,12 +11,12 @@ use crate::game::player::physics::collision::check_collision_at;
 use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
 use crate::game::world::state::WorldState;
 use bevy::math::Vec3;
-use bevy::prelude::{Query, Res, Time, Transform, With};
+use bevy::prelude::{Fixed, Query, Res, Time, Transform, With};
 
 /// 移动系统在同一固定步读取碰撞体并写入变换、速度和重力状态。
 #[allow(clippy::type_complexity)]
 pub fn player_movement_system(
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     actions: Res<PlayerActionState>,
     registry: Option<Res<BlockRegistry>>,
     world_state: Res<WorldState>,
