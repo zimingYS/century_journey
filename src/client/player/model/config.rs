@@ -1,3 +1,5 @@
+//! 定义玩家模型各部位尺寸和相对位置的表现配置。
+
 use crate::client::player::model::components::PlayerPart;
 use bevy::prelude::*;
 
@@ -98,5 +100,5 @@ impl PlayerModelConfig {
 }
 
 #[cfg(test)]
-#[path = "../../../../tests/unit/game/player/model/config.rs"]
+#[path = "../../../../tests/unit/client/player/model/config.rs"]
 mod tests;

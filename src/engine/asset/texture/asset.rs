@@ -1,3 +1,5 @@
+//! 保存 Engine 资产管线中的纹理记录。
+
 use crate::engine::asset::identifier::AssetId;
 use crate::engine::asset::texture::metadata::TextureMetadata;
 use crate::engine::asset::texture::usage::TextureUsage;

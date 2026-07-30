@@ -1,16 +1,20 @@
-use crate::content::constant::world::{CHUNK_SIZE, CHUNK_VOLUME};
+//! 定义固定尺寸区块的体素存储及局部坐标访问方法。
+
+use crate::shared::voxel::{CHUNK_SIZE, CHUNK_VOLUME};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// 标记渲染的方块实体属于哪个区块
 #[derive(Component)]
 pub struct ChunkComponents {
+    /// 区块在世界区块网格中的整数坐标，而非方块或渲染坐标。
     pub position: IVec3,
 }
 
 /// 存储每个区块的方块
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ChunkData {
+    /// 按固定局部坐标顺序存储的运行时方块编号；该顺序也是存档编码契约。
     #[serde(with = "serde_arrays")]
     pub voxels: [u16; CHUNK_VOLUME],
 }
@@ -35,11 +39,13 @@ impl ChunkData {
         (y * CHUNK_SIZE * CHUNK_SIZE) + (z * CHUNK_SIZE) + x
     }
 
+    /// 读取区块局部坐标处的运行时方块编号。
     pub fn get_voxel(&self, x: usize, y: usize, z: usize) -> u16 {
         let idx = Self::xyz_to_index(x, y, z);
         self.voxels[idx]
     }
 
+    /// 写入区块局部坐标；调用方必须保证坐标位于区块范围内。
     pub fn set_voxel(&mut self, x: usize, y: usize, z: usize, voxel_id: u16) {
         let idx = Self::xyz_to_index(x, y, z);
         self.voxels[idx] = voxel_id;

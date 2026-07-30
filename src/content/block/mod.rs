@@ -1,3 +1,5 @@
+//! 汇总方块定义、状态、行为和注册表插件。
+
 use crate::content::block::event::*;
 use crate::content::block::sound::BlockSoundEvent;
 use crate::content::lifecycle::ContentStartupSet;
@@ -13,6 +15,7 @@ pub mod registry;
 pub mod sound;
 pub mod state;
 
+/// 方块定义与运行时注册表的内容插件。
 pub struct VoxelPlugin;
 
 impl Plugin for VoxelPlugin {

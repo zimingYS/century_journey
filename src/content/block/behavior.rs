@@ -1,3 +1,5 @@
+//! 定义与世界实现解耦的方块行为契约。
+
 use crate::content::block::registry::BlockRegistry;
 use bevy::prelude::*;
 

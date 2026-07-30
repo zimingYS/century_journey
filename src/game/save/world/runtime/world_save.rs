@@ -1,3 +1,5 @@
+//! 收集并提交世界元数据与脏区块写入任务。
+
 use crate::content::block::registry::BlockRegistry;
 use crate::game::save::world::chunk::model::SavedChunk;
 use crate::game::save::world::chunk::region::{RegionManager, SaveError};

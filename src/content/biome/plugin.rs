@@ -1,9 +1,12 @@
+//! 组装生物群系定义加载与注册表刷新。
+
 use crate::content::biome::registry::BiomeRegistry;
 use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::content::validation::ContentCompilation;
 use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 
+/// 生物群系内容加载与注册插件。
 pub struct BiomeContentPlugin;
 
 impl Plugin for BiomeContentPlugin {

@@ -1,3 +1,5 @@
+//! 定义世界级存档元数据及其版本字段。
+
 use serde::{Deserialize, Serialize};
 
 /// 世界数据
@@ -26,6 +28,8 @@ pub struct LevelData {
 }
 
 impl LevelData {
+    /// 当前世界元数据格式版本。
     pub const CURRENT_VERSION: u32 = 3;
+    /// 构建此存档的游戏包版本。
     pub const GAME_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 }

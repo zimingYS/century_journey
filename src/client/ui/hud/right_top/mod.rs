@@ -1,6 +1,9 @@
+//! 构建 HUD 右上区域，供环境与任务信息扩展。
+
 use crate::client::ui::hud::HudRoot;
 use bevy::prelude::*;
 
+/// HUD 右上区域根节点。
 #[derive(Component)]
 pub struct RightTopHud;
 

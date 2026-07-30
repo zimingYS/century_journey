@@ -1,3 +1,5 @@
+//! 累积区块网格的顶点属性，并转换为 Bevy 网格资产。
+
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
@@ -27,10 +29,12 @@ impl Default for MeshBufferData {
 }
 
 impl MeshBufferData {
+    /// 创建具有默认面容量的空网格缓冲区。
     pub fn new() -> Self {
         Self::with_capacity(512)
     }
 
+    /// 按预计面数预分配顶点和索引容量。
     pub fn with_capacity(estimated_faces: usize) -> Self {
         Self {
             positions: Vec::with_capacity(estimated_faces * 4),
@@ -40,6 +44,7 @@ impl MeshBufferData {
         }
     }
 
+    /// 判断缓冲区是否尚未写入任何顶点。
     pub fn is_empty(&self) -> bool {
         self.positions.is_empty()
     }

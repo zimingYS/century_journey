@@ -1,16 +1,27 @@
-use crate::content::constant::world::{CHUNK_SIZE, SEA_LEVEL};
+//! 保存区块流送半径、预算和玩家位置对应的期望区块集合。
+
+use crate::game::world::generation::terrain::SEA_LEVEL;
+use crate::shared::voxel::CHUNK_SIZE;
 use bevy::math::{IVec3, Vec2, Vec3};
 use bevy::prelude::Resource;
 use std::collections::HashSet;
 
+/// 控制权威区块数据窗口和客户端网格窗口范围的运行时配置。
 #[derive(Resource, Debug, Clone, PartialEq, Eq)]
 pub struct WorldStreamingConfig {
+    /// 权威区块数据窗口的水平半径，单位为区块。
     pub data_horizontal_radius: i32,
+    /// 可提交给 Client 网格构建的水平半径，不能大于数据窗口。
     pub mesh_horizontal_radius: i32,
+    /// 玩家所在区块上方保留的权威数据层数。
     pub data_vertical_radius_above: i32,
+    /// 玩家所在区块下方保留的权威数据层数。
     pub data_vertical_radius_below: i32,
+    /// 玩家所在区块上方允许生成网格的层数。
     pub mesh_vertical_radius_above: i32,
+    /// 玩家所在区块下方允许生成网格的层数。
     pub mesh_vertical_radius_below: i32,
+    /// 排序时不施加地表距离惩罚的垂直区块范围。
     pub surface_priority_radius: i32,
 }
 
@@ -47,6 +58,7 @@ impl WorldStreamingConfig {
         }
     }
 
+    /// 将连续世界坐标映射为使用欧氏分区语义的区块坐标。
     pub fn chunk_from_world(position: Vec3) -> IVec3 {
         let size = CHUNK_SIZE as f32;
         IVec3::new(
@@ -56,6 +68,7 @@ impl WorldStreamingConfig {
         )
     }
 
+    /// 按距离、地表邻近度和观察方向重建有序加载窗口。
     pub fn rebuild_expected_chunks(
         &self,
         player_chunk_pos: IVec3,
@@ -81,6 +94,7 @@ impl WorldStreamingConfig {
         (chunks, expected)
     }
 
+    /// 判断已加载区块是否位于客户端网格生成窗口内。
     pub fn should_mesh_chunk(&self, player_chunk_pos: IVec3, chunk_pos: IVec3) -> bool {
         let delta = chunk_pos - player_chunk_pos;
         horizontal_distance_sq(delta.x, delta.z)

@@ -1,11 +1,15 @@
+//! 根据玩家护甲值更新护甲状态条表现。
+
 use crate::client::ui::hud::bottom::bars::LeftBarsHud;
 use crate::game::player::identity::Player;
 use crate::game::player::survival::protection::Defense;
 use bevy::prelude::*;
 
+/// 护甲状态条根节点。
 #[derive(Component)]
 pub struct ArmorBar;
 
+/// 在左侧生存状态区创建护甲条。
 pub fn spawn_armor_bar(mut commands: Commands, bars_hud: Query<Entity, With<LeftBarsHud>>) {
     let Ok(bars_hud_entity) = bars_hud.single() else {
         log::error!("LEFT BARS HUD NOT FOUND — cannot spawn armor bar");
@@ -23,6 +27,7 @@ pub fn spawn_armor_bar(mut commands: Commands, bars_hud: Query<Entity, With<Left
     });
 }
 
+/// 根据玩家装备防御值同步护甲条文本和可见性。
 pub fn armor_bar_sync_system(
     defense_q: Query<&Defense, With<Player>>,
     bar_q: Query<Entity, With<ArmorBar>>,

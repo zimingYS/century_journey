@@ -1,3 +1,5 @@
+//! 执行玩家存档的原子读写、备份检测和恢复。
+
 use crate::engine::persistence;
 use crate::game::save::player::data::migration;
 use crate::game::save::player::data::migration::{
@@ -44,16 +46,19 @@ pub fn read_player_data(path: &std::path::Path) -> Result<PlayerSaveData, String
     decode_player_data(&bytes)
 }
 
+/// 从最近一次有效备份读取玩家数据，但不修改主文件。
 pub fn read_player_backup(path: &std::path::Path) -> Result<PlayerSaveData, String> {
     let bytes = persistence::read_backup_verified(path, validate_player_bytes)
         .map_err(|error| error.to_string())?;
     decode_player_data(&bytes)
 }
 
+/// 判断指定玩家存档是否存在可通过完整性校验的备份。
 pub fn player_backup_available(path: &std::path::Path) -> bool {
     persistence::has_valid_backup(path, validate_player_bytes)
 }
 
+/// 使用最近一次有效备份原子恢复玩家主存档。
 pub fn restore_player_backup(path: &std::path::Path) -> Result<(), String> {
     persistence::restore_backup(path, validate_player_bytes).map_err(|error| error.to_string())
 }

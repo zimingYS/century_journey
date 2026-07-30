@@ -1,3 +1,5 @@
+//! 定义通用异步任务的完成结果。
+
 /// Task 执行结果
 #[derive(Debug, Clone)]
 pub enum TaskResult {

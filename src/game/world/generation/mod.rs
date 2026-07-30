@@ -1,3 +1,5 @@
+//! 组织确定性世界生成的地形、生物群系、结构和异步运行时。
+
 pub mod biome;
 pub mod block_ids;
 pub mod generator;

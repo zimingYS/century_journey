@@ -1,9 +1,11 @@
+//! 从内容资产加载物品模型并补齐默认展示变换。
+
 use bevy::prelude::*;
 
 use crate::engine::asset::AssetFiles;
 use crate::engine::asset::manager::AssetManager;
 use crate::shared::identifier::Identifier;
-use crate::shared::identifier::identifier::DEFAULT_NAMESPACE;
+use crate::shared::identifier::value::DEFAULT_NAMESPACE;
 
 use super::definition::ItemModelDefinition;
 use super::registry::ItemModelRegistry;

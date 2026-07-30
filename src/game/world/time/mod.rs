@@ -1,8 +1,9 @@
+//! 定义权威世界时钟、日历快照和时间推进事件。
+
 mod calendar;
 mod clock;
 mod events;
 mod plugin;
-mod visual;
 
 pub use calendar::{
     CalendarSnapshot, DAYS_PER_GAME_YEAR, DAYS_PER_SOLAR_TERM, HOURS_PER_GAME_DAY,
@@ -17,6 +18,5 @@ pub use events::{
     GameDayElapsed, GameHourElapsed, GameMinuteElapsed, GameYearElapsed, SeasonChanged,
     SolarTermChanged,
 };
-pub use visual::{TimeOfDay, TimePhase, update_visual_time};
 
 pub(in crate::game::world) use plugin::WorldTimePlugin;

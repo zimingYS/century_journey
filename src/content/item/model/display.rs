@@ -1,3 +1,5 @@
+//! 定义物品模型在 GUI、手持和掉落场景中的变换。
+
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 

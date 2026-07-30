@@ -1,3 +1,5 @@
+//! 定义客户端可直接实例化的物品模型烘焙结果。
+
 use bevy::prelude::*;
 
 use crate::content::item::model::ItemModelDisplay;

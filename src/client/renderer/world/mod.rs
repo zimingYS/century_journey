@@ -1,3 +1,5 @@
+//! 负责把权威区块和掉落实体转换为客户端可见网格。
+
 mod channel;
 pub mod dropped_item;
 mod greedy_mesh;

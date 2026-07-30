@@ -1,3 +1,5 @@
+//! 定义工具种类、等级和耐久属性。
+
 use serde::{Deserialize, Serialize};
 
 /// 工具类型
@@ -29,6 +31,7 @@ pub enum ToolTier {
 }
 
 impl ToolTier {
+    /// 返回工具等级对应的采集能力数值。
     pub const fn harvest_level(self) -> u8 {
         match self {
             Self::Wood => 0,

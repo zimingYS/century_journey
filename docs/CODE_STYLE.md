@@ -101,15 +101,15 @@ tests/
 白盒测试文件与源码镜像，例如：
 
 ```text
-src/game/player/model/animation.rs
-tests/unit/game/player/model/animation.rs
+src/client/player/model/animation.rs
+tests/unit/client/player/model/animation.rs
 ```
 
 源码仅保留：
 
 ```rust
 #[cfg(test)]
-#[path = "../../../../tests/unit/game/player/model/animation.rs"]
+#[path = "../../../../tests/unit/client/player/model/animation.rs"]
 mod tests;
 ```
 

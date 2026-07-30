@@ -1,3 +1,5 @@
+//! 定义具有固定二维排列的合成配方。
+
 use crate::content::recipe::definition::{Ingredient, RecipeResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -1,7 +1,8 @@
-use crate::content::constant::world::*;
+//! 负责区域文件寻址、原子写入和世界目录生命周期操作。
+
 use crate::engine::persistence;
 use crate::game::save::world::chunk::model::{
-    RegionFile, RegionHeader, SavedChunk, chunk_local_index, chunk_to_region_pos,
+    REGION_SIZE, RegionFile, RegionHeader, SavedChunk, chunk_local_index, chunk_to_region_pos,
     local_index_to_flat,
 };
 use bevy::prelude::*;
@@ -11,7 +12,16 @@ use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use std::fs;
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+/// 世界存档根目录名。
+const SAVE_DIR_NAME: &str = "saves";
+/// 世界元数据文件名。
+const LEVEL_FILE_NAME: &str = "level.dat";
+/// Region 文件目录名。
+const REGION_DIR_NAME: &str = "regions";
+/// Region 文件名前缀。
+const REGION_FILE_PREFIX: &str = "r";
 
 /// Region 文件的读写管理器
 pub struct RegionManager;
@@ -72,19 +82,41 @@ impl From<crate::engine::persistence::AtomicFileError> for SaveError {
 
 // 对外接口
 impl RegionManager {
-    /// 获取存档根路径
+    /// 获取存档根路径。
     pub fn save_root(world_name: &str) -> PathBuf {
         PathBuf::from(SAVE_DIR_NAME).join(world_name)
     }
 
-    /// 获取 region 文件路径
+    /// 获取保存 Region 文件的目录。
+    pub(in crate::game::save::world) fn regions_path(world_name: &str) -> PathBuf {
+        Self::save_root(world_name).join(REGION_DIR_NAME)
+    }
+
+    /// 从 Region 文件路径解析三维 Region 坐标。
+    ///
+    /// 只接受 `r.x.y.z.bin` 形式的文件名，其他文件由世界加载器忽略。
+    pub(in crate::game::save::world) fn region_position_from_path(path: &Path) -> Option<IVec3> {
+        if path.extension()? != "bin" {
+            return None;
+        }
+        let mut parts = path.file_stem()?.to_str()?.split('.');
+        if parts.next()? != REGION_FILE_PREFIX {
+            return None;
+        }
+        let position = IVec3::new(
+            parts.next()?.parse().ok()?,
+            parts.next()?.parse().ok()?,
+            parts.next()?.parse().ok()?,
+        );
+        parts.next().is_none().then_some(position)
+    }
+
+    /// 获取 region 文件路径。
     pub fn region_path(world_name: &str, region_pos: IVec3) -> PathBuf {
-        Self::save_root(world_name)
-            .join(REGION_DIR_NAME)
-            .join(format!(
-                "{}.{}.{}.{}.bin",
-                REGION_FILE_PREFIX, region_pos.x, region_pos.y, region_pos.z
-            ))
+        Self::regions_path(world_name).join(format!(
+            "{}.{}.{}.{}.bin",
+            REGION_FILE_PREFIX, region_pos.x, region_pos.y, region_pos.z
+        ))
     }
 
     /// 获取 level.dat 路径
@@ -234,6 +266,7 @@ impl RegionManager {
         Ok(())
     }
 
+    /// 删除指定世界的完整存档目录。
     pub fn delete_world(world_name: &str) -> std::io::Result<()> {
         let root = Self::save_root(world_name);
         if root.exists() {

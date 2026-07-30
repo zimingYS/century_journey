@@ -1,3 +1,5 @@
+//! 保存创造模式分类筛选与目录选择状态，不拥有权威物品数量。
+
 use crate::shared::item_id::ItemId;
 use crate::shared::tag::identifier::TagId;
 

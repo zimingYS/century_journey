@@ -1,3 +1,5 @@
+//! 定义带权重、数量和条件的掉落表数据。
+
 use crate::shared::item_id::ItemId;
 use crate::shared::random::RandomSource;
 use serde::{Deserialize, Serialize};
@@ -54,6 +56,7 @@ pub struct LootTable {
 }
 
 impl LootTable {
+    /// 使用给定参数创建新实例。
     pub fn new() -> Self {
         Self {
             entries: Vec::new(),

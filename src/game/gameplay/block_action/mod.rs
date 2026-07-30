@@ -1,3 +1,5 @@
+//! 组织玩家放置和破坏方块时使用的纯规则与进度状态。
+
 mod breaking;
 mod placement;
 mod state;

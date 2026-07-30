@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
+use crate::client::camera::FpsCamera;
 use crate::content::block::event::{BlockInteractEvent, BlockPlaceEvent};
 use crate::game::gameplay::block_action::BlockBreakProgress;
 use crate::game::inventory::state::LocalInventory;
@@ -19,7 +20,6 @@ use crate::game::player::physics::components::PlayerGravity;
 use crate::game::player::survival::events::{DamageEvent, FoodConsumedEvent};
 use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::FoodUseState;
-use crate::shared::components::camera::FpsCamera;
 
 use super::*;
 #[derive(SystemParam)]
@@ -39,6 +39,7 @@ pub struct AnimationControllerInput<'w, 's> {
     food_events: MessageReader<'w, 's, FoodConsumedEvent>,
 }
 
+/// 当前帧从权威事件和输入采样得到的动画行为信号。
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct AnimationSignals {
     pub(crate) died: bool,
@@ -49,6 +50,7 @@ pub(crate) struct AnimationSignals {
     pub(crate) attacked: bool,
 }
 
+/// 按表现优先级从同帧信号中选择唯一上半身行为。
 pub(crate) fn choose_behavior(signals: AnimationSignals) -> Option<PlayerBehaviorState> {
     if signals.died {
         Some(PlayerBehaviorState::Death)
@@ -68,6 +70,8 @@ pub(crate) fn choose_behavior(signals: AnimationSignals) -> Option<PlayerBehavio
 }
 
 /// 把游戏状态采样为动画状态。该系统绝不写回移动、生命或方块逻辑。
+/// 查询元组准确表达动画只读输入和唯一可写状态，拆散会破坏同实体快照的一致性。
+#[allow(clippy::type_complexity)]
 pub fn player_animation_controller_system(
     mut input: AnimationControllerInput,
     camera_query: Query<&FpsCamera, With<Camera3d>>,
@@ -109,7 +113,7 @@ pub fn player_animation_controller_system(
         .filter_map(|event| event.interactor)
         .collect();
     let consumed: HashSet<Entity> = input.food_events.read().map(|event| event.player).collect();
-    let holding_item = !input.inventory.hotbar.active_item().is_air();
+    let holding_item = !input.inventory.hotbar.active_stack().is_empty();
 
     for (entity, gravity, velocity, health, food_use, mut state) in &mut query {
         update_motion_parameters(
@@ -165,6 +169,7 @@ pub fn player_animation_controller_system(
     }
 }
 
+/// 从固定步速度和接地状态更新连续移动动画参数。
 pub(crate) fn update_motion_parameters(
     state: &mut PlayerAnimationState,
     simulated_horizontal_speed: f32,
@@ -174,9 +179,7 @@ pub(crate) fn update_motion_parameters(
     config: &PlayerAnimationConfig,
     actions: &PlayerActionState,
 ) {
-    // The velocity is authored by the fixed-step simulation. Sampling Transform here
-    // would turn each fixed tick into one large render-frame speed spike followed by
-    // several zero-speed frames, which makes locomotion visibly stutter.
+    // 速度来自固定步模拟；若在此用变换差分，固定步之间的渲染帧会交替出现尖峰和零值。
     let sampled_speed = simulated_horizontal_speed.max(0.0);
     let response = 1.0 - (-18.0 * delta_seconds).exp();
     let horizontal_speed = state.parameters.horizontal_speed

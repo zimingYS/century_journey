@@ -1,3 +1,5 @@
+//! 维护物品贴图标识到客户端可加载路径的索引。
+
 use crate::engine::asset::AssetManager;
 use crate::engine::asset::files::scan_dir;
 use crate::engine::asset::identifier::AssetId;
@@ -27,10 +29,12 @@ impl ItemTextureRegistry {
         self.textures.get(&key)
     }
 
+    /// 返回当前集合中的条目数量。
     pub fn len(&self) -> usize {
         self.textures.len()
     }
 
+    /// 判断集合或缓存当前是否为空。
     pub fn is_empty(&self) -> bool {
         self.textures.is_empty()
     }

@@ -1,32 +1,56 @@
+//! 定义物品容器的统一访问契约和具体容器实现。
+
 pub mod creative;
 pub mod hotbar;
 pub mod survival;
 pub mod world;
 
 use crate::game::inventory::item::stack::ItemStack;
-use crate::shared::ui_types::ContainerKind;
 
+/// 权威玩法中可持久识别的容器分类。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ContainerKind {
+    /// 玩家随身的 2x2 合成区域。
+    PlayerCrafting,
+    /// 世界中的工作台合成区域。
+    Workbench,
+    /// 通用存储箱。
+    Chest,
+    /// 具有输入、燃料和输出槽的熔炉。
+    Furnace,
+}
+
+/// 描述容器在界面与规则中共享的矩形布局。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ContainerLayout {
+    /// 每行槽位数。
     pub columns: usize,
+    /// 容器行数。
     pub rows: usize,
 }
 
 impl ContainerLayout {
+    /// 创建固定行列数的容器布局。
     pub const fn new(columns: usize, rows: usize) -> Self {
         Self { columns, rows }
     }
 
+    /// 返回布局包含的槽位总数。
     pub const fn slot_count(self) -> usize {
         self.columns * self.rows
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// 描述容器槽位在规则中的用途。
 pub enum ContainerSlotRole {
+    /// 可自由存取的通用存储槽。
     Storage,
+    /// 只用于流程输入的槽位。
     Input,
+    /// 由规则生成内容的输出槽。
     Output,
+    /// 为加工流程提供能量的燃料槽。
     Fuel,
 }
 
@@ -66,18 +90,23 @@ pub trait InventoryContainer {
 /// 背包等旧容器继续只需实现 `InventoryContainer`；工作台以及后续箱子、熔炉
 /// 使用此接口向交互和 UI 层公开统一的容器元数据。
 pub trait GameContainer: InventoryContainer {
+    /// 返回可持久识别的容器类别。
     fn kind(&self) -> ContainerKind;
 
+    /// 返回容器的矩形布局。
     fn layout(&self) -> ContainerLayout;
 
+    /// 返回指定槽位承担的规则角色。
     fn slot_role(&self, _index: usize) -> ContainerSlotRole {
         ContainerSlotRole::Storage
     }
 
+    /// 判断指定物品堆是否允许插入该槽位。
     fn can_insert(&self, index: usize, _stack: &ItemStack) -> bool {
         index < self.slot_count() && self.slot_role(index) != ContainerSlotRole::Output
     }
 
+    /// 判断该槽位是否允许取出物品。
     fn can_extract(&self, index: usize) -> bool {
         index < self.slot_count()
     }

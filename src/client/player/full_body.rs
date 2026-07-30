@@ -1,3 +1,5 @@
+//! 根据本地视角控制玩家全身模型和头部的可见性。
+
 use bevy::prelude::*;
 
 use crate::client::player::model::rig::PlayerRigEntities;
@@ -6,8 +8,8 @@ use crate::client::renderer::item::{
 };
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
+use crate::content::item::ItemRegistry;
 use crate::content::item::model::ItemModelRegistry;
-use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::state::LocalInventory;
 use crate::game::player::identity::LocalPlayer;
@@ -52,6 +54,8 @@ impl Plugin for FullBodyFirstPersonPlugin {
 /// 同步真实右手上的手持物品。
 ///
 /// 外部只提供 ItemId；这里统一走 ItemRenderer 解析、烘焙并生成实体，保证第一人称和第三人称看到同一个物品模型。
+// 手持物同步需要多套只读内容缓存和独立实体查询，保持显式参数便于审查表现边界。
+#[allow(clippy::too_many_arguments)]
 fn sync_full_body_held_item_system(
     time: Res<Time>,
     inventory: LocalInventory,

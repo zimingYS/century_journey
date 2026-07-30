@@ -1,3 +1,5 @@
+//! 定义物品图标引用方块或独立贴图的格式。
+
 use crate::shared::identifier::Identifier;
 use serde::{Deserialize, Serialize};
 

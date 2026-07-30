@@ -1,4 +1,6 @@
-use crate::content::item::registry::registry::ItemRegistry;
+//! 定义当前版本玩家存档，并负责权威运行时状态的双向转换。
+
+use crate::content::item::ItemRegistry;
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
@@ -9,6 +11,7 @@ use crate::game::save::player::data::item_codec;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+/// 当前玩家存档格式版本。
 pub const SAVE_VERSION: u32 = 7;
 
 /// 可序列化物品堆叠
@@ -22,6 +25,7 @@ pub struct SaveItemStack {
 }
 
 impl SaveItemStack {
+    /// 创建表示空槽位的稳定存档值。
     pub(crate) fn air() -> Self {
         Self {
             runtime_id: None,
@@ -31,6 +35,7 @@ impl SaveItemStack {
         }
     }
 
+    /// 判断该记录是否应恢复为空槽位。
     pub fn is_air(&self) -> bool {
         self.item == "century_journey:air" || self.count == 0
     }
@@ -92,10 +97,12 @@ impl Default for PlayerSaveData {
     }
 }
 
+/// 为缺少饱和度字段的旧存档提供迁移默认值。
 pub(crate) fn default_saturation() -> f32 {
     5.0
 }
 
+/// 为缺少重生点字段的旧存档提供迁移默认值。
 pub(crate) fn default_respawn_point() -> [f32; 3] {
     [0.0, 70.0, 0.0]
 }
@@ -119,6 +126,9 @@ fn string_to_gamemode(s: &str) -> GameMode {
 // ─── PlayerSaveData 方法 ──────────────────────────────
 
 impl PlayerSaveData {
+    /// 从玩家权威运行时状态收集当前版本存档快照。
+    /// 参数逐项对应存档字段，保持显式可避免遗漏版本化状态。
+    #[allow(clippy::too_many_arguments)]
     pub fn from_runtime(
         position: Vec3,
         rotation: Quat,
@@ -177,16 +187,19 @@ impl PlayerSaveData {
         }
     }
 
+    /// 将存档字符串恢复为受支持的游戏模式。
     pub fn restore_gamemode(&self) -> PlayerGameMode {
         PlayerGameMode {
             mode: string_to_gamemode(&self.gamemode),
         }
     }
 
+    /// 不依赖当前内容注册表恢复背包，主要供旧格式迁移和测试使用。
     pub fn restore_inventory(&self) -> InventoryState {
         self.restore_inventory_resolving(item_codec::save_to_optional_stack)
     }
 
+    /// 按稳定标识和动态编号映射恢复背包，并清除已删除内容。
     pub fn restore_inventory_with_registry(&self, item_registry: &ItemRegistry) -> InventoryState {
         let remap = item_registry.build_id_remap_table(&self.item_id_map);
         self.restore_inventory_resolving(|slot| {
@@ -235,6 +248,7 @@ impl PlayerSaveData {
         state
     }
 
+    /// 从存档位置和旋转恢复玩家权威变换。
     pub fn restore_transform(&self) -> Transform {
         let [x, y, z] = self.position;
         let [rx, ry, rz, rw] = self.rotation;
@@ -245,10 +259,12 @@ impl PlayerSaveData {
         }
     }
 
+    /// 返回独立保存的第一人称相机俯仰角。
     pub fn camera_pitch(&self) -> f32 {
         self.camera_pitch
     }
 
+    /// 返回存档中的玩家重生点。
     pub fn respawn_point(&self) -> Vec3 {
         Vec3::from_array(self.respawn_point)
     }

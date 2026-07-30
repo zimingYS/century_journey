@@ -1,3 +1,5 @@
+//! 汇总物品模型定义、展示变换、加载器和注册表。
+
 pub mod definition;
 pub mod display;
 pub mod loader;

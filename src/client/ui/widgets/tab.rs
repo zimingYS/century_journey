@@ -1,3 +1,5 @@
+//! 构建并更新界面使用的标签页切换控件。
+
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::common::{UiControl, UiControlKind};

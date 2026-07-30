@@ -4,12 +4,12 @@ pub mod voxel_highlight;
 
 use bevy::prelude::*;
 
+use crate::client::camera::FpsCamera;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::game::gameplay::block_action::BlockBreakProgress;
 use crate::game::inventory::events::InventoryFeedbackEvent;
 use crate::game::player::identity::LocalPlayer;
 use crate::game::player::survival::events::DamageEvent;
-use crate::shared::components::FpsCamera;
 use crate::shared::states::AppState;
 
 const DAMAGE_FLASH_SECONDS: f32 = 0.34;
@@ -35,6 +35,7 @@ struct FeedbackNotice;
 #[derive(Component)]
 struct FeedbackNoticeText;
 
+/// 组装方块高亮等客户端视觉反馈效果。
 pub struct ClientEffectPlugin;
 
 impl Plugin for ClientEffectPlugin {
@@ -186,6 +187,8 @@ fn receive_notice_feedback_system(
     }
 }
 
+// 多组互斥查询必须保持在同一反馈帧中更新，显式过滤器可避免运行时借用冲突。
+#[allow(clippy::type_complexity)]
 fn update_feedback_ui_system(
     time: Res<Time>,
     mut damage: ResMut<DamageFeedback>,

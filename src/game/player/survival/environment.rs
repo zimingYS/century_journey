@@ -1,3 +1,5 @@
+//! 从玩家位置采样环境介质，并更新水下和氧气状态。
+
 use crate::content::block::registry::BlockRegistry;
 use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::components::PlayerLifecycle;
@@ -10,7 +12,9 @@ use bevy::prelude::*;
 /// 环境暴露计时，集中保存溺水和周期环境伤害的状态。
 #[derive(Component, Debug, Clone, Copy)]
 pub struct EnvironmentExposure {
+    /// 头部浸没时剩余的可呼吸秒数。
     pub remaining_air: f32,
+    /// 下一次周期环境伤害生效前的固定步倒计时。
     pub damage_cooldown: f32,
 }
 
@@ -28,7 +32,7 @@ const VOID_Y: f32 = -32.0;
 
 /// 检测头部水体、火焰方块与虚空，转换为统一环境伤害。
 pub fn environment_damage_system(
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     registry: Option<Res<BlockRegistry>>,
     world_state: Res<WorldState>,
     mut query: Query<

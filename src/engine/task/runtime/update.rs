@@ -1,7 +1,10 @@
-﻿use crate::engine::task::manager::TaskManager;
+//! 执行任务运行时每帧状态回收与统计更新。
+
+use crate::engine::task::manager::TaskManager;
 use crate::engine::task::runtime::context::RuntimeContext;
 use bevy::prelude::*;
 
+/// 刷新任务运行时统计并回收已完成状态。
 pub fn task_runtime_update_system(task: Res<TaskManager>, mut ctx: ResMut<RuntimeContext>) {
     ctx.tick();
 

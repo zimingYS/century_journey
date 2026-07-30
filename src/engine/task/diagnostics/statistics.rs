@@ -1,3 +1,5 @@
+//! 记录任务运行时的诊断统计快照。
+
 /// 当前任务运行时的轻量统计快照。
 #[derive(Debug, Clone, Default)]
 pub struct RuntimeStatistics {

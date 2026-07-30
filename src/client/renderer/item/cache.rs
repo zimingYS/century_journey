@@ -1,3 +1,5 @@
+//! 缓存已烘焙物品模型，避免背包和手持表现重复构建网格。
+
 use std::collections::HashMap;
 
 use bevy::prelude::*;

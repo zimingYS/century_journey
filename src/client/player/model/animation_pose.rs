@@ -1,3 +1,5 @@
+//! 定义可混合的玩家骨架姿态及其局部变换采样规则。
+
 use bevy::prelude::*;
 
 use crate::client::player::model::animation::{
@@ -416,5 +418,5 @@ fn smoothstep(value: f32) -> f32 {
 }
 
 #[cfg(test)]
-#[path = "../../../../tests/unit/game/player/model/animation_pose.rs"]
+#[path = "../../../../tests/unit/client/player/model/animation_pose.rs"]
 mod tests;

@@ -1,3 +1,5 @@
+//! 定义数据驱动标签的成员变更格式。
+
 use serde::{Deserialize, Serialize};
 
 /// 标签文件支持的操作类型。

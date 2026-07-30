@@ -1,10 +1,13 @@
+//! 在合成界面关闭时归还网格输入，避免物品遗留在失效会话中。
+
 use crate::game::crafting::grid::{ActiveCrafting, PlayerCrafting};
 use crate::game::crafting::runtime::transfer::insert_range;
 use crate::game::inventory::InventoryState;
+use crate::game::inventory::container::ContainerKind;
 use crate::game::inventory::container::InventoryContainer;
-use crate::shared::ui_types::ContainerKind;
 use bevy::prelude::Query;
 
+/// 界面关闭时把玩家随身合成区的剩余输入归还库存。
 pub fn return_crafting_on_close_system(
     mut players: Query<(
         &mut InventoryState,

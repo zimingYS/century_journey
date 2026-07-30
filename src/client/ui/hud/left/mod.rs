@@ -1,6 +1,9 @@
+//! 构建 HUD 左侧区域容器。
+
 use crate::client::ui::hud::HudRoot;
 use bevy::prelude::*;
 
+/// HUD 左侧区域根节点。
 #[derive(Component)]
 pub struct LeftHud;
 

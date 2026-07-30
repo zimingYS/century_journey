@@ -1,3 +1,5 @@
+//! 提供只组装 App 层流程插件的聚合入口。
+
 use bevy::prelude::*;
 
 use crate::app::plugin::CorePlugin;

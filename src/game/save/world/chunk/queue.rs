@@ -1,4 +1,5 @@
-use crate::content::constant::world::MAX_SAVE_PER_FRAME;
+//! 串行化区块写入意图，并跟踪异步保存任务的完成状态。
+
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::save::config::SaveConfig;
 use crate::game::save::world::chunk::model::SavedChunk;
@@ -8,6 +9,9 @@ use bevy::prelude;
 use bevy::prelude::{Res, ResMut, Resource};
 use std::collections::{HashSet, VecDeque};
 use std::sync::{Mutex, mpsc};
+
+/// 单次后台写盘批次最多包含的区块数，限制复制与压缩造成的帧尖峰。
+const MAX_SAVE_PER_FRAME: usize = 4;
 
 /// 保存队列
 #[derive(Resource, Default, Debug)]
@@ -59,6 +63,7 @@ impl Default for SaveWorker {
 }
 
 impl SaveWorker {
+    /// 判断后台是否没有正在写入的区块批次。
     pub fn is_idle(&self) -> bool {
         self.in_flight_batches == 0
     }

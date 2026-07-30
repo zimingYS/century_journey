@@ -1,3 +1,5 @@
+//! 组织玩家存档数据、磁盘 I/O 和运行时保存流程。
+
 pub mod data;
 mod io;
 mod plugin;

@@ -1,3 +1,5 @@
+//! 根据带透明通道的二维图标生成具有像素厚度的物品网格。
+
 use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
@@ -6,9 +8,11 @@ use bevy::render::render_resource::TextureFormat;
 const ITEM_WORLD_WIDTH: f32 = 0.78;
 const ALPHA_CUTOFF: u8 = 30;
 
+/// 把图标中的不透明像素挤出为薄三维网格。
 pub struct GeneratedItemMeshBuilder;
 
 impl GeneratedItemMeshBuilder {
+    /// 按给定厚度构建像素挤出网格，缺失像素数据时返回空网格。
     pub fn build_mesh(image: &Image, thickness: f32) -> Mesh {
         let size = image.size();
         let width = size.x as i32;
@@ -175,6 +179,8 @@ struct PixelCell {
 }
 
 impl PixelCell {
+    // 像素、纹理和世界尺寸共同定义一次坐标变换，保持为纯值参数便于逐项验证。
+    #[allow(clippy::too_many_arguments)]
     fn new(
         x: i32,
         y: i32,
@@ -277,6 +283,8 @@ fn shade_color(color: [f32; 4], factor: f32) -> [f32; 4] {
     ]
 }
 
+// 五个并行顶点缓冲必须同步追加，显式参数可防止缓冲归属被隐藏在全局状态中。
+#[allow(clippy::too_many_arguments)]
 fn push_quad(
     vertices: &mut Vec<[f32; 3]>,
     normals: &mut Vec<[f32; 3]>,

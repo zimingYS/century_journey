@@ -1,7 +1,10 @@
+//! 加载并暴露全局界面字体句柄。
+
 use crate::engine::asset::identifier::asset_id;
 use crate::engine::asset::manager::AssetManager;
 use bevy::prelude::*;
 
+/// 全部界面文字共享的默认中文像素字体句柄。
 #[derive(Resource, Default)]
 pub struct UiFont {
     pub default: Handle<Font>,

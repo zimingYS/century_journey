@@ -1,3 +1,5 @@
+//! 按基础目录和覆盖优先级解析逻辑资产路径。
+
 use crate::engine::asset::identifier::AssetId;
 use crate::engine::asset::location::AssetLocation;
 use bevy::prelude::Resource;
@@ -15,6 +17,7 @@ pub struct AssetResolver {
 }
 
 impl AssetResolver {
+    /// 使用给定参数创建新实例。
     pub fn new(root: impl Into<PathBuf>) -> Self {
         let root = root.into();
         Self {
@@ -37,10 +40,12 @@ impl AssetResolver {
         }
     }
 
+    /// 返回基础资产根目录。
     pub fn root_dir(&self) -> &Path {
         &self.root
     }
 
+    /// 返回按覆盖优先级参与解析的内容根目录。
     pub fn content_roots(&self) -> &[PathBuf] {
         &self.content_roots
     }

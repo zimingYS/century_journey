@@ -1,15 +1,16 @@
+//! 使用地形上下文生成基础体素层和地表覆盖。
+
+use super::SEA_LEVEL;
 use super::climate::ClimateSampler;
+use super::constants::{GLOBAL_DETAIL_SCALE, GLOBAL_ROUGHNESS_SCALE, GLOBAL_TERRAIN_SCALE};
 use super::context::{ChunkGenContext, ColumnContext};
 use super::noise::NoiseSampler;
 use crate::content::biome::BiomeRegistry;
-use crate::content::constant::world::{
-    CHUNK_SIZE, CHUNK_VOLUME, GLOBAL_DETAIL_SCALE, GLOBAL_ROUGHNESS_SCALE, GLOBAL_TERRAIN_SCALE,
-    SEA_LEVEL,
-};
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::biome::classifier::{blend_terrain_params, select_biome};
 use crate::game::world::generation::block_ids::GenerationBlockIds;
 use crate::game::world::generation::pipeline::BaseGenerationKey;
+use crate::shared::voxel::{CHUNK_SIZE, CHUNK_VOLUME};
 use noise::NoiseFn;
 
 /// 地形生成器 - 根据群系参数生成地形
@@ -130,7 +131,6 @@ impl TerrainGenerator {
     }
 
     /// 根据上下文填充方块数据
-    #[allow(deprecated)]
     pub fn generate_terrain(
         ctx: &ChunkGenContext,
         block_ids: &GenerationBlockIds,

@@ -1,6 +1,7 @@
+//! 实现玩家快捷栏容器及活动槽位选择规则。
+
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::item::stack::ItemStack;
-use crate::shared::item_id::ItemId;
 use std::array;
 use std::sync::LazyLock;
 
@@ -54,53 +55,11 @@ impl HotbarData {
     pub fn get_stack(&self, index: usize) -> Option<&ItemStack> {
         self.stacks.get(index).and_then(|s| s.as_ref())
     }
-}
 
-// 兼容旧的API
-impl HotbarData {
-    /// 选中当前物品（兼容旧 API，返回 &ItemId）
-    pub fn active_item(&self) -> &ItemId {
-        static AIR: LazyLock<ItemId> = LazyLock::new(ItemId::air);
-        self.stacks[self.active_index]
-            .as_ref()
-            .map(|s| &s.item)
-            .unwrap_or(&AIR)
-    }
-
-    /// 设定指定物品格（兼容旧 API，count=1）
-    pub fn set_item(&mut self, index: usize, item_id: ItemId) {
-        if index < HOTBAR_SIZE {
-            if item_id.is_air() {
-                self.stacks[index] = None;
-            } else {
-                self.stacks[index] = Some(ItemStack::single(item_id));
-            }
-        }
-    }
-
-    /// 清空指定格（兼容旧 API）
+    /// 清空指定格。
     pub fn clear_slot(&mut self, index: usize) {
         if index < HOTBAR_SIZE {
             self.stacks[index] = None;
-        }
-    }
-
-    /// 获取所有物品 ID 数组（兼容旧 UI 代码的 `.items.to_vec()` 模式）
-    pub fn items(&self) -> [ItemId; HOTBAR_SIZE] {
-        array::from_fn(|i| {
-            self.stacks[i]
-                .as_ref()
-                .map_or(ItemId::air(), |s| s.item.clone())
-        })
-    }
-
-    /// 设置所有物品（兼容旧 UI 代码的 `items = [...]` 模式）
-    pub fn set_items(&mut self, ids: &[ItemId]) {
-        for (i, id) in ids.iter().enumerate() {
-            if i >= HOTBAR_SIZE {
-                break;
-            }
-            self.set_item(i, id.clone());
         }
     }
 

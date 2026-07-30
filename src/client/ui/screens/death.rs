@@ -1,3 +1,5 @@
+//! 构建死亡界面，并把重生和返回操作转换为领域请求。
+
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::components::{PlayerLifeState, PlayerLifecycle};
@@ -5,18 +7,23 @@ use crate::game::player::lifecycle::events::RespawnRequest;
 use crate::game::player::lifecycle::rules::LastDeathInfo;
 use bevy::prelude::*;
 
+/// 死亡屏幕根节点。
 #[derive(Component)]
 pub struct DeathScreenRoot;
 
+/// 显示玩家死亡原因的文本节点。
 #[derive(Component)]
 pub struct DeathReasonText;
 
+/// 显示死亡掉落规则摘要的文本节点。
 #[derive(Component)]
 pub struct DeathDropText;
 
+/// 请求玩家重生的按钮。
 #[derive(Component)]
 pub struct RespawnButton;
 
+/// 创建默认隐藏的死亡屏幕。
 pub fn spawn_death_screen_system(mut commands: Commands, ui_font: Res<UiFont>) {
     commands
         .spawn((
@@ -97,6 +104,7 @@ pub fn spawn_death_screen_system(mut commands: Commands, ui_font: Res<UiFont>) {
         });
 }
 
+/// 根据玩家生命周期和最近死亡信息同步死亡屏幕内容。
 pub fn sync_death_screen_system(
     player_query: Query<&PlayerLifecycle, With<Player>>,
     last_death: Res<LastDeathInfo>,
@@ -141,6 +149,7 @@ pub fn sync_death_screen_system(
     }
 }
 
+/// 将重生按钮点击转换为权威重生请求。
 pub fn respawn_button_system(
     button_query: Query<&Interaction, (Changed<Interaction>, With<RespawnButton>)>,
     player_query: Query<(Entity, &PlayerLifecycle), With<Player>>,

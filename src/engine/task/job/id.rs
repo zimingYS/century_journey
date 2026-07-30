@@ -1,3 +1,5 @@
+//! 定义进程内唯一的任务标识。
+
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// 全局唯一的 Task ID

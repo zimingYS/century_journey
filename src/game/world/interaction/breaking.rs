@@ -1,3 +1,5 @@
+//! 执行方块破坏规则，并根据掉落表产生权威掉落实体请求。
+
 use crate::content::block::definition::BlockProperty;
 use crate::content::block::event::BlockChangedEvent;
 use crate::content::block::registry::BlockRegistry;
@@ -17,6 +19,9 @@ use crate::shared::random::RandomSource;
 use bevy::math::{IVec3, Vec3};
 use bevy::prelude::{Commands, MessageWriter};
 
+/// 执行一次完整破坏事务；只有规则校验和体素写入均成功才返回 `true`。
+/// 破坏事务显式接收规则、随机源、世界和事件出口，避免隐藏跨领域副作用。
+#[allow(clippy::too_many_arguments)]
 pub fn execute_block_break(
     world_pos: IVec3,
     block_id: u16,
@@ -61,6 +66,7 @@ pub fn execute_block_break(
     true
 }
 
+/// 判断当前模式和工具是否允许生成方块掉落。
 pub fn should_drop_block_loot(
     gamemode: &PlayerGameMode,
     block: &BlockProperty,
@@ -78,3 +84,7 @@ pub fn block_drop_spawn_position(world_pos: IVec3, drop_index: usize) -> Vec3 {
     );
     world_pos.as_vec3() + Vec3::splat(0.5) + offset
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/game/world/interaction/breaking.rs"]
+mod tests;

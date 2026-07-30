@@ -1,3 +1,5 @@
+//! 根据玩家装备计算护甲值和伤害减免。
+
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::identity::Player;
 use bevy::prelude::{Component, Query, With};
@@ -7,6 +9,7 @@ use bevy::prelude::{Component, Query, With};
 pub struct Defense(pub f32);
 
 impl Defense {
+    /// 把非负防御值映射为零到一之间且不会达到完全免伤的比例。
     pub fn damage_reduction(&self) -> f32 {
         if !self.0.is_finite() {
             return 0.0;
@@ -16,7 +19,7 @@ impl Defense {
     }
 }
 
-/// 每帧从头盔、胸甲、护腿和靴子槽位推导 Defense 值。
+/// 每个固定步从头盔、胸甲、护腿和靴子槽位推导 Defense 值。
 pub fn armor_calculation_system(mut query: Query<(&InventoryState, &mut Defense), With<Player>>) {
     for (inventory, mut defense) in &mut query {
         let armor_vals = [2.0, 6.0, 5.0, 2.0];

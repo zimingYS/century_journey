@@ -1,3 +1,5 @@
+//! 把鼠标和键盘界面操作转换为 Game 层背包与合成命令。
+
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
     CategoryClickedEvent, CategoryTab, CreativeSearchInput, InventorySlot, SearchInputState,
@@ -5,14 +7,16 @@ use crate::client::ui::widgets::slot::{
 };
 use crate::game::crafting::grid::ActiveCrafting;
 use crate::game::inventory::slot::SlotAction;
-use crate::game::inventory::state::{LocalInventory, LocalInventoryMut};
+use crate::game::inventory::state::{InventoryState, LocalInventory, LocalInventoryMut};
 use crate::game::player::identity::{LocalPlayer, PlayerId};
+use crate::shared::states::{InputContext, InputContextState};
 use bevy::input::mouse::MouseWheel;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::EditableText;
 use std::collections::HashSet;
 
+/// 客户端槽位拖拽过程中的起始槽位和指针状态。
 #[derive(Resource, Default)]
 pub struct SlotDragState {
     button: Option<MouseButton>,
@@ -20,6 +24,8 @@ pub struct SlotDragState {
 }
 
 /// 槽位左键或 Shift 左键交互。
+/// 查询过滤器只处理本帧变化的可点击槽位，保持显式可避免误消费其他按钮。
+#[allow(clippy::type_complexity)]
 pub fn slot_interaction_system(
     query: Query<(&Interaction, &InventorySlot), (Changed<Interaction>, With<Button>)>,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -123,6 +129,7 @@ fn drag_action(button: MouseButton, shift: bool) -> SlotAction {
     }
 }
 
+/// 将悬停槽位上的滚轮操作转换为单个物品转移命令。
 pub fn slot_wheel_interaction_system(
     query: Query<(&Interaction, &InventorySlot), With<Button>>,
     mut wheel: MessageReader<MouseWheel>,
@@ -187,7 +194,9 @@ fn slot_interaction_event(
 ) -> SlotInteractionEvent {
     let (player_id, active) = **context;
     let container_id = match slot.kind {
-        SlotKind::Container(crate::shared::ui_types::ContainerKind::PlayerCrafting) => None,
+        SlotKind::Container(crate::game::inventory::container::ContainerKind::PlayerCrafting) => {
+            None
+        }
         SlotKind::Container(_) => active.container_id,
         _ => None,
     };
@@ -201,6 +210,8 @@ fn slot_interaction_event(
 }
 
 /// 分类标签点击交互。
+/// 查询过滤器限定创造分类标签，不能与普通主题按钮共享处理。
+#[allow(clippy::type_complexity)]
 pub fn category_tab_interaction_system(
     mut query: Query<(&Interaction, &CategoryTab), (Changed<Interaction>, With<Button>)>,
     mut writer: MessageWriter<CategoryClickedEvent>,
@@ -261,6 +272,8 @@ pub fn handle_category_clicked_system(
 }
 
 /// 槽位边框高亮。
+/// 同一查询同时更新悬停槽位边框，过滤器用于隔离其他按钮组件。
+#[allow(clippy::type_complexity)]
 pub fn slot_hover_system(
     theme: Res<UiTheme>,
     state: LocalInventory,
@@ -300,6 +313,44 @@ fn editable_text_value(editable_text: &EditableText) -> String {
     value
 }
 
+/// 组装槽位输入采集、分类切换和搜索框同步系统。
+pub struct UiInteractionPlugin;
+
+impl Plugin for UiInteractionPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<SlotDragState>()
+            .add_systems(
+                Update,
+                (
+                    slot_interaction_system,
+                    slot_right_click_system,
+                    slot_drag_interaction_system,
+                    slot_wheel_interaction_system,
+                    slot_q_drop_system,
+                    category_tab_interaction_system,
+                )
+                    .run_if(|context: Res<InputContextState>| {
+                        context.active() == InputContext::Inventory
+                    }),
+            )
+            .add_systems(
+                Update,
+                handle_category_clicked_system.run_if(local_inventory_open),
+            )
+            .add_systems(
+                Update,
+                (
+                    sync_search_input_focus_system,
+                    sync_search_text_from_editable_system,
+                )
+                    .chain(),
+            );
+    }
+}
+
+fn local_inventory_open(query: Query<&InventoryState, With<LocalPlayer>>) -> bool {
+    query.single().is_ok_and(|inventory| inventory.opened)
+}
 #[cfg(test)]
-#[path = "../../../tests/unit/client/ui/click.rs"]
+#[path = "../../../tests/unit/client/ui/interaction.rs"]
 mod tests;

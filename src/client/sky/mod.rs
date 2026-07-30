@@ -1,3 +1,5 @@
+//! 组织天空盒、日月、方向光和世界时间驱动的视觉变化。
+
 pub mod components;
 mod constants;
 pub mod systems;
@@ -6,6 +8,7 @@ pub mod texture;
 use crate::shared::states::app_state::AppState;
 use bevy::prelude::*;
 
+/// 组装天空实体、程序纹理和时间驱动的光照表现。
 pub struct SkyPlugin;
 
 impl Plugin for SkyPlugin {

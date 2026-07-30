@@ -1,3 +1,5 @@
+//! 定义配方输出物品与数量。
+
 use crate::shared::item_id::ItemId;
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +16,7 @@ pub struct RecipeResult {
     pub count: u32,
 }
 
+/// 返回配方结果的默认数量。
 pub fn default_count() -> u32 {
     1
 }

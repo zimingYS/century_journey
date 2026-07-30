@@ -1,3 +1,5 @@
+//! 定义纹理在渲染管线中的用途分类。
+
 /// 纹理用途标签
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TextureUsage {

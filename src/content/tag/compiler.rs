@@ -1,5 +1,7 @@
+//! 按覆盖顺序把标签动作编译为确定性成员集合。
+
 use crate::content::block::registry::BlockRegistry;
-use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::item::ItemRegistry;
 use crate::content::tag::definition::TagAction;
 use crate::content::tag::runtime::{ItemTagIndex, RuntimeTagRegistry};
 use crate::shared::identifier::Identifier;
@@ -25,6 +27,7 @@ pub struct TagRegistryCompiler {
 }
 
 impl TagRegistryCompiler {
+    /// 使用给定参数创建新实例。
     pub fn new() -> Self {
         Self {
             pending: HashMap::new(),

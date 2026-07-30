@@ -1,7 +1,7 @@
 //! 组装 Game 层的完整存档能力。
 
 use super::SaveConfig;
-use super::debug_controls::save_load_keybind_system;
+use super::debug_controls::{SaveDebugCommand, handle_save_debug_commands_system};
 use super::player::PlayerSavePlugin;
 use super::world::WorldSavePlugin;
 use crate::shared::states::AppState;
@@ -17,10 +17,11 @@ pub struct GameSavePlugin;
 impl Plugin for GameSavePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(SaveConfig::default())
+            .add_message::<SaveDebugCommand>()
             .add_plugins((WorldSavePlugin, PlayerSavePlugin))
             .add_systems(
                 Update,
-                save_load_keybind_system.run_if(in_state(AppState::InGame)),
+                handle_save_debug_commands_system.run_if(in_state(AppState::InGame)),
             );
     }
 }

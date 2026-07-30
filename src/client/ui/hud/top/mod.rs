@@ -1,6 +1,9 @@
+//! 构建 HUD 顶部区域，供后续状态提示扩展。
+
 use crate::client::ui::hud::HudRoot;
 use bevy::prelude::*;
 
+/// HUD 顶部区域根节点。
 #[derive(Component)]
 pub struct TopHud;
 

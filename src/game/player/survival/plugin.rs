@@ -1,9 +1,12 @@
+//! 按固定步阶段组装环境、护甲、饥饿和生命规则。
+
 use crate::game::player;
 use crate::game::player::survival;
 use crate::game::simulation::SimulationSet;
 use crate::shared::states::AppState;
 use bevy::prelude::*;
 
+/// 注册生存消息以及 Survival、Combat 两个固定步阶段的系统。
 pub struct PlayerSurvivalPlugin;
 
 impl Plugin for PlayerSurvivalPlugin {

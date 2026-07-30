@@ -1,3 +1,5 @@
+//! 从区域文件加载区块，并把持久化方块标识映射为运行时编号。
+
 use crate::content::block::registry::BlockRegistry;
 use crate::game::save::config::SaveConfig;
 use crate::game::save::world::chunk::model::SavedChunk;

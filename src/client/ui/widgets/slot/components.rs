@@ -1,11 +1,15 @@
+//! 定义槽位 UI 使用的标记组件和本地交互消息。
+
+use crate::game::inventory::slot::SlotKind;
 use crate::shared::item_id::ItemId;
-use crate::shared::ui_types::SlotKind;
 use bevy::prelude::*;
 
 /// 槽位
 #[derive(Component, Debug, Clone, Copy)]
 pub struct InventorySlot {
+    /// 槽位对应的逻辑区域。
     pub kind: SlotKind,
+    /// 槽位在该区域内的局部索引。
     pub index: usize,
 }
 
@@ -21,12 +25,16 @@ pub struct SlotCountText;
 #[derive(Component)]
 pub struct SlotPlaceholder;
 
+/// 绑定逻辑槽位的耐久条根节点。
 #[derive(Component, Debug, Clone, Copy)]
 pub struct SlotDurabilityBar {
+    /// 槽位对应的逻辑区域。
     pub kind: SlotKind,
+    /// 槽位在该区域内的局部索引。
     pub index: usize,
 }
 
+/// 耐久条中表示剩余比例的填充节点。
 #[derive(Component)]
 pub struct SlotDurabilityFill;
 

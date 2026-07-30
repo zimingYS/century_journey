@@ -1,3 +1,5 @@
+//! 从内容资产加载标签增删动作。
+
 use crate::content::format::load_versioned_json_dir;
 use crate::content::tag::definition::TagAction;
 use crate::engine::asset::AssetFiles;

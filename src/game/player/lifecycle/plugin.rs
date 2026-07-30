@@ -1,9 +1,12 @@
+//! 组装权威玩家生成、伤害、治疗、死亡与重生系统。
+
 use crate::game::player;
 use crate::game::player::lifecycle;
 use crate::game::simulation::SimulationSet;
 use crate::shared::states::AppState;
 use bevy::prelude::*;
 
+/// 注册玩家生成、死亡与重生资源、消息和固定步系统。
 pub struct PlayerLifecyclePlugin;
 
 impl Plugin for PlayerLifecyclePlugin {

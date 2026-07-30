@@ -1,6 +1,8 @@
+//! 定义物品模型来源和各展示场景配置。
+
+use crate::content::item::definition::presentation::HeldRenderDefinition;
 use crate::content::item::definition::{ItemCategory, ItemDefinition};
 use crate::content::item::texture::icon::IconDefinition;
-use crate::shared::held_item::HeldRenderDefinition;
 use crate::shared::identifier::Identifier;
 use serde::{Deserialize, Serialize};
 

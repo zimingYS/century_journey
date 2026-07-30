@@ -1,3 +1,5 @@
+//! 定义物品或标签形式的配方原料。
+
 use crate::shared::item_id::ItemId;
 use crate::shared::tag::identifier::TagId;
 use serde::{Deserialize, Serialize};

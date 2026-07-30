@@ -1,10 +1,11 @@
+//! 管理区块网格任务的派发、接收、实体更新和卸载生命周期。
+
 use super::{
     BlockInfoSnapshot, CachedBlockInfo, DIRECTIONS, MeshBuildChannel, MeshBuildInput,
     build_greedy_mesh,
 };
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
-use crate::content::constant::world::*;
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::state::ChunkRuntime;
@@ -16,6 +17,12 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
 
+/// 单帧最多派发的客户端网格构建任务数。
+const MAX_MESH_TASKS_PER_FRAME: u32 = 16;
+/// 单帧最多接收的客户端网格构建结果数。
+const MAX_MESH_RECEIVE_PER_FRAME: usize = 16;
+
+/// 内容注册表变化时重建后台网格任务使用的属性快照。
 pub fn rebuild_block_info_snapshot(
     registry: Res<BlockRegistry>,
     mut cached: ResMut<CachedBlockInfo>,
@@ -25,6 +32,9 @@ pub fn rebuild_block_info_snapshot(
     }
 }
 
+/// 按可见窗口和帧预算派发区块网格后台任务。
+/// 网格任务派发同时受流送、任务池和区块生命周期约束，资源访问保持显式。
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_mesh_build_tasks(
     channel: Res<MeshBuildChannel>,
     registry: Option<Res<BlockRegistry>>,
@@ -104,6 +114,7 @@ pub fn spawn_mesh_build_tasks(
     }
 }
 
+/// 在渲染主线程接收网格结果并更新区块表现实体。
 pub fn receive_mesh_results(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,

@@ -1,9 +1,11 @@
+//! 在渲染帧把固定步权威变换插值到独立表现子实体。
+
 use bevy::prelude::*;
 
 use crate::game::simulation::SimulationTransformHistory;
 use crate::shared::states::AppState;
 
-/// Marks a visual child whose parent owns an authoritative simulation transform.
+/// 标记由父实体持有权威模拟变换的表现子实体。
 #[derive(Component, Debug, Clone, Copy)]
 pub struct SimulationPresentation {
     base: Option<Transform>,
@@ -11,6 +13,7 @@ pub struct SimulationPresentation {
 }
 
 impl SimulationPresentation {
+    /// 创建只插值位移、保持权威旋转的表现配置。
     pub const fn translation_only() -> Self {
         Self {
             base: None,
@@ -18,6 +21,7 @@ impl SimulationPresentation {
         }
     }
 
+    /// 创建同时插值位移和旋转的表现配置。
     pub const fn full_transform() -> Self {
         Self {
             base: None,
@@ -26,6 +30,7 @@ impl SimulationPresentation {
     }
 }
 
+/// 在每个渲染帧把权威变换历史应用到表现子实体。
 pub struct ClientInterpolationPlugin;
 
 impl Plugin for ClientInterpolationPlugin {

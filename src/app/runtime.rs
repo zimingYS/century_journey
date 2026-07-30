@@ -1,3 +1,5 @@
+//! 按架构层级组装单机客户端运行时。
+
 use bevy::prelude::*;
 
 use crate::app::plugin_group::AppPluginGroup;

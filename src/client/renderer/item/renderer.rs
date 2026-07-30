@@ -1,3 +1,5 @@
+//! 将烘焙物品模型实例化为手持、掉落或界面预览实体。
+
 use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 
@@ -10,9 +12,9 @@ use crate::client::renderer::item::gui_icon_cache::{GuiItemIcon, GuiItemIconCach
 use crate::client::renderer::item::resolver::ItemModelResolver;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
+use crate::content::item::ItemRegistry;
 use crate::content::item::definition::ItemCategory;
 use crate::content::item::model::{ItemModelDefinition, ItemModelKind, ItemModelRegistry};
-use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::icon::IconDefinition;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::shared::identifier::Identifier;
@@ -222,7 +224,6 @@ impl ItemRenderer {
             })
     }
 
-    /// 获取普通物品的原始 2D 贴图。
     /// 解析 GUI 方块图标实际应该采样的方块 ID。
     fn gui_block_identifier(
         item: &ItemId,
@@ -240,6 +241,7 @@ impl ItemRenderer {
                 })
         })
     }
+
     /// 显式 Generated 模型在 GUI 中直接使用其物品贴图，避免被方块分类强制烘焙为 Cube 图标。
     fn resolved_generated_gui_texture(
         item: &ItemId,
@@ -250,6 +252,7 @@ impl ItemRenderer {
         generated_gui_texture(&resolved.definition).cloned()
     }
 
+    /// 获取普通物品的原始 2D 贴图。
     fn texture_icon_image(
         item: &ItemId,
         item_registry: Option<&ItemRegistry>,
@@ -313,14 +316,16 @@ impl ItemRenderer {
 /// 预热方块物品的 GUI 3D 图标。
 ///
 /// 普通物品不在这里创建离屏相机，GUI 会直接使用原始贴图，避免额外渲染开销。
-pub fn prepare_item_model_render_assets_system(
+/// 烘焙系统显式列出所有内容注册表和资产仓库，避免把渲染依赖隐藏进全局上下文。
+#[allow(clippy::too_many_arguments)]
+pub fn prepare_gui_item_icons_system(
     mut commands: Commands,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
     item_registry: Option<Res<ItemRegistry>>,
     model_registry: Option<Res<ItemModelRegistry>>,
     item_textures: Option<Res<ItemTextureRegistry>>,
-    mut previews: ResMut<GuiItemIconCache>,
+    mut icon_cache: ResMut<GuiItemIconCache>,
     mut model_cache: ResMut<ItemModelCache>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -333,7 +338,7 @@ pub fn prepare_item_model_render_assets_system(
         return;
     };
 
-    let resources_changed = previews.is_prepared()
+    let resources_changed = icon_cache.is_prepared()
         && (item_registry_res.is_changed()
             || item_textures_res.is_changed()
             || model_registry
@@ -347,11 +352,11 @@ pub fn prepare_item_model_render_assets_system(
                 .is_some_and(|assets| assets.is_changed()));
 
     if resources_changed {
-        previews.clear();
+        icon_cache.clear();
         model_cache.clear();
     }
 
-    if previews.is_prepared() {
+    if icon_cache.is_prepared() {
         return;
     }
 
@@ -381,12 +386,16 @@ pub fn prepare_item_model_render_assets_system(
 
     let mut all_icons_ready = true;
     for item in item_ids {
-        let icon =
-            ItemRenderer::ensure_gui_icon(&mut commands, &item, &mut render_context, &mut previews);
+        let icon = ItemRenderer::ensure_gui_icon(
+            &mut commands,
+            &item,
+            &mut render_context,
+            &mut icon_cache,
+        );
         all_icons_ready &= icon.is_some();
     }
 
-    previews.set_prepared(all_icons_ready);
+    icon_cache.set_prepared(all_icons_ready);
 }
 
 #[cfg(test)]

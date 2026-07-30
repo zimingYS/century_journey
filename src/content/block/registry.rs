@@ -1,5 +1,6 @@
+//! 维护方块标识、运行时 ID 与定义之间的映射。
+
 use crate::content::block::definition::BlockProperty;
-use crate::content::constant::world::CHUNK_SIZE;
 use crate::content::validation::ContentCompilation;
 use crate::shared::identifier::Identifier;
 use crate::shared::states::app_state::AppState;
@@ -7,6 +8,7 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 #[derive(Resource, Default)]
+/// 维护方块运行时 ID、标识符、属性和纹理层映射的注册表。
 pub struct BlockRegistry {
     id_to_properties: HashMap<u16, BlockProperty>,
     identifier_to_id: HashMap<Identifier, u16>,
@@ -16,23 +18,33 @@ pub struct BlockRegistry {
 }
 
 impl BlockRegistry {
+    /// 返回指定键或索引对应的只读值。
     pub fn get(&self, id: u16) -> Option<&BlockProperty> {
         self.id_to_properties.get(&id)
     }
 
-    pub fn get_id_by_identifier(&self, identifier: &str) -> Option<u16> {
-        let key = Identifier::parse(identifier).ok()?;
-        self.identifier_to_id.get(&key).copied()
+    /// 根据稳定标识符查询本次内容编译得到的运行时方块 ID。
+    pub fn get_id(&self, identifier: &Identifier) -> Option<u16> {
+        self.identifier_to_id.get(identifier).copied()
     }
 
+    /// 解析字符串标识符并查询本次内容编译得到的运行时方块 ID。
+    pub fn get_id_by_identifier(&self, identifier: &str) -> Option<u16> {
+        let key = Identifier::parse(identifier).ok()?;
+        self.get_id(&key)
+    }
+
+    /// 返回运行时方块 ID 对应的稳定标识。
     pub fn get_identifier_by_id(&self, id: u16) -> Option<&Identifier> {
         self.id_to_identifier.get(&id)
     }
 
+    /// 返回方块指定面的纹理层索引。
     pub fn get_layer(&self, id: u16, face_idx: usize) -> u32 {
         *self.texture_layers.get(&(id, face_idx)).unwrap_or(&0)
     }
 
+    /// 返回 atlas 所需的方块纹理层总数。
     pub fn total_layer_count(&self) -> usize {
         self.texture_layers
             .values()
@@ -42,12 +54,7 @@ impl BlockRegistry {
             .unwrap_or(0)
     }
 
-    pub fn get_icon_atlas_index(&self, block_id: &Identifier) -> Option<usize> {
-        let runtime_id = *self.identifier_to_id.get(block_id)? as usize;
-        let layer = self.get_layer(runtime_id as u16, 4) as usize;
-        Some(layer * CHUNK_SIZE * CHUNK_SIZE)
-    }
-
+    /// 导出写入存档的运行时 ID 与稳定标识映射。
     pub fn build_save_id_map(&self) -> Vec<(u16, String)> {
         let mut map: Vec<(u16, String)> = self
             .id_to_identifier
@@ -58,6 +65,7 @@ impl BlockRegistry {
         map
     }
 
+    /// 根据存档 ID 映射构建到当前注册表的重映射表。
     pub fn build_id_remap_table(&self, saved_map: &[(u16, String)]) -> HashMap<u16, u16> {
         let mut remap = HashMap::new();
 
@@ -72,31 +80,38 @@ impl BlockRegistry {
         remap
     }
 
+    /// 遍历全部方块运行时 ID 与属性。
     pub fn iter_properties(&self) -> impl Iterator<Item = (&u16, &BlockProperty)> {
         self.id_to_properties.iter()
     }
 
+    /// 遍历注册表中的全部方块标识。
     pub fn identifiers(&self) -> impl Iterator<Item = &Identifier> {
         self.identifier_to_id.keys()
     }
 
+    /// 遍历方块面到纹理层的映射。
     pub fn texture_layers_iter(&self) -> impl Iterator<Item = (&(u16, usize), &u32)> {
         self.texture_layers.iter()
     }
 
+    /// 返回按层索引排列的方块纹理路径。
     pub fn texture_paths(&self) -> &[String] {
         &self.texture_paths
     }
 
+    /// 遍历方块运行时 ID 与稳定标识对。
     pub fn id_identifier_pairs(&self) -> impl Iterator<Item = (&u16, &Identifier)> {
         self.id_to_identifier.iter()
     }
 
+    /// 返回注册表使用的最大方块纹理层。
     pub fn max_texture_layer(&self) -> u32 {
         self.texture_layers.values().copied().max().unwrap_or(0) + 1
     }
 }
 
+/// 根据已编译内容重建方块注册表。
 pub fn init_block_registry_system(
     mut commands: Commands,
     compilation: Res<ContentCompilation>,

@@ -1,12 +1,15 @@
+//! 消费槽位交互消息并更新容器或生成世界掉落请求。
+
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::events::{DropItemEvent, SlotInteractionEvent};
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::slot::SlotAction;
+use crate::game::inventory::slot::SlotKind;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::identity::PlayerId;
-use crate::shared::ui_types::SlotKind;
 use bevy::prelude::{MessageReader, MessageWriter, Query};
 
+/// 在固定步路由玩家槽位操作，并把丢弃结果发布为领域消息。
 pub fn handle_slot_interaction_system(
     mut reader: MessageReader<SlotInteractionEvent>,
     mut inventories: Query<(&PlayerId, &mut InventoryState)>,

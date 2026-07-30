@@ -1,3 +1,5 @@
+//! 把内容定义中的显示变换解析为具体持有场景使用的变换。
+
 use crate::content::item::model::ItemModelDisplayTarget;
 
 /// 物品渲染场景。

@@ -1,5 +1,6 @@
+//! 保存拖拽操作期间由权威库存持有的光标物品状态。
+
 use crate::game::inventory::item::stack::ItemStack;
-use crate::shared::item_id::ItemId;
 
 /// 光标物品的来源槽位（用于 E 关闭时返回原位）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,35 +75,5 @@ impl CursorData {
     pub fn clear(&mut self) {
         self.stack = None;
         self.source = None;
-    }
-}
-
-/// 此部分用于兼容旧的API
-impl CursorData {
-    /// 拾取物品（兼容旧 API，count=1）
-    pub fn pick_up(&mut self, item_id: ItemId) {
-        if item_id.is_air() {
-            return;
-        }
-        self.stack = Some(ItemStack::single(item_id));
-    }
-
-    /// 放置物品，返回被放置的物品 ID（兼容旧 API）
-    pub fn place(&mut self) -> Option<ItemId> {
-        self.stack.take().map(|s| s.item)
-    }
-
-    /// 交换物品（兼容旧 API）
-    pub fn swap(&mut self, new_item: ItemId) -> Option<ItemId> {
-        let old = self.stack.take().map(|s| s.item);
-        if !new_item.is_air() {
-            self.stack = Some(ItemStack::single(new_item));
-        }
-        old
-    }
-
-    /// 获取物品引用（兼容旧 API）
-    pub fn item(&self) -> Option<&ItemId> {
-        self.stack.as_ref().map(|s| &s.item)
     }
 }

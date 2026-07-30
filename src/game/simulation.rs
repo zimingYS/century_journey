@@ -1,9 +1,13 @@
+//! 定义游戏规则使用的固定步调度、插值时钟与确定性随机源。
+
 use crate::shared::random::DeterministicRng;
 use bevy::prelude::*;
 
+/// 掉落判定使用的确定性随机域，避免与其他玩法随机序列相互干扰。
 pub const LOOT_RANDOM_DOMAIN: u64 = 0x4C4F_4F54;
 const INTERPOLATION_SNAP_DISTANCE: f32 = 4.0;
 
+/// 权威固定步内各类游戏规则的全局执行阶段。
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SimulationSet {
     Clock,
@@ -17,10 +21,9 @@ pub enum SimulationSet {
     Entities,
 }
 
-/// Stores the two latest authoritative transforms for render interpolation.
+/// 保存最近两次权威变换，供客户端进行视觉插值。
 ///
-/// The component never replaces the entity's simulation transform. Client presentation
-/// entities consume these snapshots and apply the visual offset to child nodes instead.
+/// 本组件不会替换实体的模拟变换；客户端只把插值结果应用到表现子实体。
 #[derive(Component, Debug, Clone, Copy)]
 pub struct SimulationTransformHistory {
     previous: Transform,
@@ -28,6 +31,7 @@ pub struct SimulationTransformHistory {
 }
 
 impl SimulationTransformHistory {
+    /// 以同一权威变换初始化前后两个采样点。
     pub const fn new(transform: Transform) -> Self {
         Self {
             previous: transform,
@@ -35,10 +39,12 @@ impl SimulationTransformHistory {
         }
     }
 
+    /// 返回最近一次固定步提交的权威变换。
     pub const fn current(&self) -> Transform {
         self.current
     }
 
+    /// 按渲染帧插值系数计算两个权威采样点之间的变换。
     pub fn interpolated(&self, alpha: f32) -> Transform {
         let alpha = alpha.clamp(0.0, 1.0);
         Transform {
@@ -51,6 +57,7 @@ impl SimulationTransformHistory {
         }
     }
 
+    /// 计算视觉变换；位移突变超过阈值时直接吸附到权威位置。
     pub fn visual_transform(&self, authoritative: Transform, alpha: f32) -> Transform {
         if self
             .current
@@ -65,6 +72,7 @@ impl SimulationTransformHistory {
     }
 }
 
+/// 由世界种子派生事件级随机流的确定性随机资源。
 #[derive(Resource, Debug, Clone)]
 pub struct SimulationRng {
     world_seed: u64,
@@ -77,20 +85,24 @@ impl Default for SimulationRng {
 }
 
 impl SimulationRng {
+    /// 使用给定世界种子创建随机资源。
     pub const fn new(world_seed: u64) -> Self {
         Self { world_seed }
     }
 
+    /// 在切换世界时更新用于派生随机流的种子。
     pub fn set_world_seed(&mut self, world_seed: u64) {
         self.world_seed = world_seed;
     }
 
+    /// 为指定领域、模拟 Tick 和事件键创建互不干扰的随机流。
     pub fn for_event(&self, domain: u64, tick: u64, event_key: u64) -> DeterministicRng {
         DeterministicRng::new(mix64(
             self.world_seed ^ mix64(domain) ^ mix64(tick) ^ mix64(event_key),
         ))
     }
 
+    /// 将方块坐标和运行时编号折叠为稳定事件键。
     pub fn block_event_key(position: IVec3, block_id: u16) -> u64 {
         mix64(position.x as u32 as u64)
             ^ mix64((position.y as u32 as u64).rotate_left(21))
@@ -141,6 +153,7 @@ fn capture_simulation_transforms(mut query: Query<(&Transform, &mut SimulationTr
     }
 }
 
+/// 配置全局固定步阶段、变换采样和确定性随机资源。
 pub struct SimulationPlugin;
 
 impl Plugin for SimulationPlugin {

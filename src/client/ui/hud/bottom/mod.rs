@@ -1,9 +1,12 @@
+//! 组织 HUD 底部生存状态条和快捷栏布局。
+
 use crate::client::ui::hud::HudRoot;
 use bevy::prelude::*;
 
 pub mod bars;
 pub mod hotbar;
 
+/// HUD 底部区域根节点。
 #[derive(Component)]
 pub struct BottomHud;
 

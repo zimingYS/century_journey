@@ -1,3 +1,5 @@
+//! 组织物品模型解析、烘焙、缓存以及世界和界面显示适配。
+
 pub mod baked_model;
 pub mod baker;
 pub mod cache;
@@ -13,6 +15,6 @@ pub use baker::{ItemModelBakeContext, ItemModelBaker};
 pub use cache::ItemModelCache;
 pub use display::ItemDisplayContext;
 pub use gui_icon_baker::GuiItemIconBaker;
-pub use gui_icon_cache::{GuiItemIconCache, ItemModelRenderAssets};
+pub use gui_icon_cache::GuiItemIconCache;
 pub use renderer::{ItemRenderContext, ItemRenderer, SpawnedItemEntity};
 pub use resolver::{ItemModelResolver, ResolvedItemModel};

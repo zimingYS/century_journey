@@ -1,9 +1,11 @@
+//! 根据连续视觉时间更新天空颜色、日月轨迹和主方向光。
+
 use super::constants::*;
 use crate::app::flow::GameSettings;
+use crate::client::presentation::TimeOfDay;
 use crate::client::sky::components::*;
 use crate::client::sky::texture;
-use crate::content::constant::world::CHUNK_SIZE;
-use crate::game::world::time::TimeOfDay;
+use crate::shared::voxel::CHUNK_SIZE;
 use bevy::camera::{Exposure, visibility::RenderLayers};
 use bevy::light::atmosphere::ScatteringMedium;
 use bevy::light::{
@@ -15,6 +17,7 @@ use bevy::prelude::*;
 use rand::{RngExt, SeedableRng};
 use std::f32::consts::TAU;
 
+/// 创建天空盒、太阳、月亮和主方向光实体。
 pub fn setup_sky_system(
     mut commands: Commands,
     mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
@@ -150,6 +153,9 @@ pub fn setup_sky_system(
     }
 }
 
+/// 根据连续视觉时间更新天空颜色、日月位置和环境亮度。
+/// 日月、相机曝光和雾效必须使用同一视觉时间快照，查询过滤器保持显式。
+#[allow(clippy::type_complexity)]
 pub fn atmosphere_system(
     time_of_day: Res<TimeOfDay>,
     settings: Res<GameSettings>,
@@ -163,7 +169,7 @@ pub fn atmosphere_system(
             Option<&mut DistanceFog>,
             Option<&mut AtmosphereEnvironmentMapLight>,
         ),
-        With<crate::shared::components::FpsCamera>,
+        With<crate::client::camera::FpsCamera>,
     >,
 ) {
     // 太阳当前弧度角 (0.0 到 2π)
@@ -284,8 +290,10 @@ fn smoothstep(value: f32) -> f32 {
 }
 
 /// 天体纹理处理系统
+/// 日月标记通过互斥过滤器保证各自只跟随对应光源。
+#[allow(clippy::type_complexity)]
 pub fn celestial_mesh_system(
-    camera_query: Query<&GlobalTransform, With<crate::shared::components::FpsCamera>>,
+    camera_query: Query<&GlobalTransform, With<crate::client::camera::FpsCamera>>,
     mut sun_mesh_query: Query<&mut Transform, (With<SunMesh>, Without<MoonMesh>)>,
     mut moon_mesh_query: Query<&mut Transform, (With<MoonMesh>, Without<SunMesh>)>,
     sun_query: Query<&Transform, (With<Sun>, Without<SunMesh>, Without<MoonMesh>)>,

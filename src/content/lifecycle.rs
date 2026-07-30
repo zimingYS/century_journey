@@ -1,3 +1,5 @@
+//! 协调内容编译、注册表刷新和消费者重建顺序。
+
 use crate::shared::states::AppState;
 use crate::{content::validation::ContentCompilation, engine::asset::manager::AssetManager};
 use bevy::prelude::*;
@@ -18,6 +20,7 @@ pub enum ContentReloadSet {
 }
 
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// 内容首次加载期间的显式调度阶段。
 pub enum ContentStartupSet {
     Compile,
     Registry,
@@ -31,6 +34,7 @@ pub fn content_reload_requested(mut requests: MessageReader<ContentReloadRequest
     requests.read().next().is_some()
 }
 
+/// 判断当前内容编译资源是否存在且有效。
 pub fn content_compilation_valid(compilation: Option<Res<ContentCompilation>>) -> bool {
     compilation.is_some_and(|compilation| compilation.is_valid())
 }

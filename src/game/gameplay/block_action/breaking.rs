@@ -1,3 +1,5 @@
+//! 计算工具适配、可采集性和方块破坏耗时等规则。
+
 use crate::content::block::definition::BlockProperty;
 use crate::content::item::{ItemRegistry, ToolData};
 use crate::content::tag::runtime::RuntimeTagRegistry;
@@ -13,6 +15,7 @@ const MIN_SURVIVAL_BREAK_SECONDS: f32 = 0.08;
 const MIN_TOOL_EFFICIENCY: f32 = 0.1;
 const INCORRECT_TOOL_BREAK_TIME_MULTIPLIER: f32 = 5.0;
 
+/// 判断指定方块在当前模式和标签规则下是否允许被破坏。
 pub fn can_break_block(
     block_id: u16,
     gamemode: &PlayerGameMode,
@@ -27,6 +30,7 @@ pub fn can_break_block(
     !is_unbreakable_block(block_id, tags)
 }
 
+/// 从当前手持物品解析工具属性；空堆或未知物品返回 `None`。
 pub fn active_tool_data<'a>(
     active_stack: &ItemStack,
     item_registry: Option<&'a ItemRegistry>,
@@ -36,10 +40,11 @@ pub fn active_tool_data<'a>(
     }
 
     item_registry
-        .and_then(|registry| registry.get(active_stack.item_id()))
+        .and_then(|registry| registry.get(&active_stack.item))
         .and_then(|definition| definition.tool_data())
 }
 
+/// 判断工具类型和采集等级是否满足方块掉落要求。
 pub fn can_harvest_block(block: &BlockProperty, active_tool: Option<&ToolData>) -> bool {
     let Some(required_tool) = block.required_tool else {
         return true;
@@ -52,6 +57,7 @@ pub fn can_harvest_block(block: &BlockProperty, active_tool: Option<&ToolData>) 
     tool.tool_type == required_tool && tool.tier.harvest_level() >= block.harvest_level
 }
 
+/// 计算破坏方块所需秒数；返回 `None` 表示没有有效破坏规则。
 pub fn block_break_seconds(
     block: &BlockProperty,
     gamemode: &PlayerGameMode,
@@ -85,10 +91,12 @@ pub fn block_break_seconds(
     )
 }
 
+/// 判断运行时方块是否属于不可破坏标签。
 pub fn is_unbreakable_block(block_id: u16, tags: Option<&RuntimeTagRegistry>) -> bool {
     tags.is_some_and(|tags| tags.contains(&block_tag(UNBREAKABLE_TAG), block_id))
 }
 
+/// 判断目标体素是否可被新方块直接替换。
 pub fn is_replaceable_block(block_id: u16, tags: Option<&RuntimeTagRegistry>) -> bool {
     block_id == 0 || tags.is_some_and(|tags| tags.contains(&block_tag(REPLACEABLE_TAG), block_id))
 }

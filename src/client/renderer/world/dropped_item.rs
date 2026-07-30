@@ -1,11 +1,13 @@
+//! 为权威掉落实体附加模型、旋转与插值表现。
+
 use crate::client::interpolation::SimulationPresentation;
 use crate::client::renderer::item::{
     ItemDisplayContext, ItemModelCache, ItemRenderContext, ItemRenderer,
 };
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::content::block::registry::BlockRegistry;
+use crate::content::item::ItemRegistry;
 use crate::content::item::model::ItemModelRegistry;
-use crate::content::item::registry::registry::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::world::entity::dropped_item::DroppedItem;
 use bevy::prelude::*;
@@ -17,6 +19,8 @@ pub struct DroppedItemVisualReady;
 /// 为尚未具备视觉子实体的掉落物生成模型。
 ///
 /// Game 只维护掉落物逻辑数据；物品模型、贴图和材质全部在 Client 层解析。
+/// 掉落表现依赖多类可选内容资源，显式参数允许内容尚未就绪时分别降级。
+#[allow(clippy::too_many_arguments)]
 pub fn dropped_item_visual_system(
     mut commands: Commands,
     query: Query<(Entity, &DroppedItem), Without<DroppedItemVisualReady>>,

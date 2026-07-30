@@ -1,3 +1,5 @@
+//! 编排环境采样、地形塑造、生物群系分类和结构放置的生成流水线。
+
 use crate::content::biome::registry::BiomeRegistry;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::block_ids::GenerationBlockIds;
@@ -34,10 +36,12 @@ pub struct GenerationPipeline {
 }
 
 impl GenerationPipeline {
+    /// 使用当前算法版本构建生成管线。
     pub fn new(seed: u32, biome_registry: BiomeRegistry) -> Self {
         Self::with_generation_version(seed, CURRENT_GENERATION_VERSION, biome_registry)
     }
 
+    /// 使用显式兼容版本构建生成管线，并拒绝未知版本。
     pub fn with_generation_version(
         seed: u32,
         generation_version: u32,
@@ -56,6 +60,7 @@ impl GenerationPipeline {
         }
     }
 
+    /// 返回指定区块的完整基础生成键。
     pub fn key(&self, chunk_pos: IVec3) -> BaseGenerationKey {
         BaseGenerationKey {
             seed: self.seed,
@@ -64,6 +69,7 @@ impl GenerationPipeline {
         }
     }
 
+    /// 采样区块每个地表列所需的地形与气候上下文。
     pub fn sample_context(&self, chunk_pos: IVec3) -> ChunkGenContext {
         TerrainGenerator::sample_context(
             &self.noise_sampler,
@@ -73,6 +79,7 @@ impl GenerationPipeline {
         )
     }
 
+    /// 生成不含跨区块结构的基础区块及其可复用上下文。
     pub fn generate_base_chunk(
         &self,
         chunk_pos: IVec3,
@@ -83,10 +90,12 @@ impl GenerationPipeline {
         (data, context)
     }
 
+    /// 生成指定坐标的基础区块体素数据。
     pub fn generate_chunk(&self, chunk_pos: IVec3, block_ids: GenerationBlockIds) -> ChunkData {
         self.generate_base_chunk(chunk_pos, &block_ids).0
     }
 
+    /// 替换后续生成任务使用的生物群系注册表快照。
     pub fn replace_biome_registry(&mut self, biome_registry: BiomeRegistry) {
         self.biome_registry = Arc::new(biome_registry);
     }

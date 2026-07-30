@@ -1,3 +1,5 @@
+//! 提供按钮、文本和面板等可复用界面组件包。
+
 use bevy::ecs::bundle::Bundle;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
@@ -6,6 +8,7 @@ use crate::client::ui::resources::frame_assets::UiFrameKind;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 
+/// 通用界面控件的视觉和交互类别。
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UiControlKind {
     Button,
@@ -13,6 +16,7 @@ pub enum UiControlKind {
     Tab,
 }
 
+/// 通用控件当前的选中和禁用状态。
 #[derive(Component, Debug, Clone, Copy)]
 pub struct UiControl {
     pub kind: UiControlKind,
@@ -20,12 +24,15 @@ pub struct UiControl {
     pub disabled: bool,
 }
 
+/// 可由鼠标滚轮驱动的界面滚动区域标记。
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct UiScrollArea;
 
+/// 使用模态框架样式的界面面板标记。
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct UiModalPanel;
 
+/// 创建带文本标签和通用交互状态的主题按钮。
 pub fn spawn_text_button<M: Bundle>(
     parent: &mut ChildSpawnerCommands,
     marker: M,
@@ -66,6 +73,7 @@ pub fn spawn_text_button<M: Bundle>(
         .id()
 }
 
+/// 创建固定尺寸图标按钮；图标由字体字符提供。
 pub fn spawn_icon_button<M: Bundle>(
     parent: &mut ChildSpawnerCommands,
     marker: M,
@@ -83,6 +91,7 @@ pub fn spawn_icon_button<M: Bundle>(
     )
 }
 
+/// 创建可声明初始选中状态的标签页按钮。
 pub fn spawn_tab<M: Bundle>(
     parent: &mut ChildSpawnerCommands,
     marker: M,
@@ -100,6 +109,7 @@ pub fn spawn_tab<M: Bundle>(
     entity
 }
 
+/// 创建仅纵向滚动的主题滚动区域。
 pub fn spawn_scroll_area<M: Bundle>(
     parent: &mut ChildSpawnerCommands,
     marker: M,
@@ -121,6 +131,7 @@ pub fn spawn_scroll_area<M: Bundle>(
         .id()
 }
 
+/// 将滚轮输入应用到当前悬停的滚动区域。
 pub fn scroll_area_wheel_system(
     mut wheel_events: MessageReader<MouseWheel>,
     mut query: Query<(&Interaction, &mut ScrollPosition), With<UiScrollArea>>,
@@ -143,6 +154,7 @@ pub fn scroll_area_wheel_system(
     }
 }
 
+/// 创建带统一内边距和九宫格边框的模态面板。
 pub fn spawn_modal_panel<M: Bundle>(
     parent: &mut ChildSpawnerCommands,
     marker: M,
@@ -165,6 +177,9 @@ pub fn spawn_modal_panel<M: Bundle>(
         .id()
 }
 
+/// 根据悬停、按下、选中和禁用状态同步控件主题颜色。
+/// 查询元组同时更新控件背景和边框，过滤器仅接受发生视觉状态变化的按钮。
+#[allow(clippy::type_complexity)]
 pub fn themed_control_interaction_system(
     theme: Res<UiTheme>,
     mut query: Query<

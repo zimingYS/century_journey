@@ -1,3 +1,5 @@
+//! 定义纹理尺寸、格式和加载状态元数据。
+
 use crate::engine::asset::texture::usage::TextureUsage;
 
 /// 纹理元数据

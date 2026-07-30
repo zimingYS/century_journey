@@ -1,3 +1,5 @@
+//! 保存结构跨越未生成区块时的确定性延迟体素写入。
+
 use bevy::prelude::IVec3;
 use std::collections::HashMap;
 

@@ -1,7 +1,6 @@
 use super::*;
 use crate::client::player::model::components::PlayerPart;
 use crate::client::player::model::config::PlayerModelConfig;
-use crate::shared::components::camera::{MAX_CAMERA_PITCH, MIN_CAMERA_PITCH};
 
 #[test]
 fn player_visual_camera_pitch_is_clamped_before_world_can_flip() {
@@ -33,4 +32,13 @@ fn second_person_camera_is_in_front_and_faces_the_player() {
 
     assert!(offset.z < 0.0);
     assert!(forward.z > 0.99);
+}
+
+#[test]
+fn perspective_cycles_first_second_third() {
+    let first = CameraPerspective::FirstPerson;
+
+    assert_eq!(first.next(), CameraPerspective::SecondPerson);
+    assert_eq!(first.next().next(), CameraPerspective::ThirdPerson);
+    assert_eq!(first.next().next().next(), first);
 }

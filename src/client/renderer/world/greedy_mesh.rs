@@ -1,10 +1,15 @@
+//! 使用贪心合并生成区块表面，并单独处理透明和交叉平面方块。
+
 use crate::content::block::definition::RenderMode;
 use crate::content::block::model::generate_cross_vertices;
-use crate::content::constant::world::*;
 use crate::game::world::chunk::ChunkData;
+use crate::shared::voxel::CHUNK_SIZE;
 use bevy::prelude::*;
 use std::sync::Arc;
 
+/// 面掩码中表示当前位置没有可生成表面的哨兵值。
+const FACE_NONE: u32 = u32::MAX;
+/// 水面相对完整方块顶面的下沉距离。
 const WATER_SURFACE_INSET: f32 = 0.12;
 
 use super::{BlockInfoSnapshot, DIRECTIONS, MeshBufferData, MeshBuildInput};
@@ -25,9 +30,7 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
     let cs = CHUNK_SIZE;
     let mut mask = [[0u32; 16]; 16];
 
-    for face_idx in 0..6 {
-        let (dir, _) = DIRECTIONS[face_idx];
-
+    for (face_idx, (dir, _)) in DIRECTIONS.iter().copied().enumerate() {
         let (depth_axis, mx_axis, my_axis) = match face_idx {
             0 | 1 => (1, 0, 2), // Top/Bottom: depth=Y
             2 | 3 => (0, 2, 1), // Left/Right: depth=X
@@ -37,18 +40,18 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
 
         for depth in 0..cs {
             // 构建面遮罩
-            for my in 0..cs {
-                for mx in 0..cs {
+            for (my, row) in mask.iter_mut().enumerate().take(cs) {
+                for (mx, face_key) in row.iter_mut().enumerate().take(cs) {
                     let (x, y, z) = decode_mask_to_xyz(mx, my, depth, depth_axis, mx_axis, my_axis);
 
                     let voxel_id = current_data.get_voxel(x, y, z);
                     if voxel_id == 0 {
-                        mask[my][mx] = FACE_NONE;
+                        *face_key = FACE_NONE;
                         continue;
                     }
 
                     if block_info.is_cross_model(voxel_id) {
-                        mask[my][mx] = FACE_NONE;
+                        *face_key = FACE_NONE;
                         continue;
                     }
 
@@ -68,7 +71,7 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
                     };
 
                     if !is_visible {
-                        mask[my][mx] = FACE_NONE;
+                        *face_key = FACE_NONE;
                         continue;
                     }
 
@@ -87,7 +90,7 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
                         }
                     };
 
-                    mask[my][mx] = texture_layer * 4 + buffer_idx as u32 + 1;
+                    *face_key = texture_layer * 4 + buffer_idx as u32 + 1;
                 }
             }
 
@@ -133,7 +136,9 @@ fn decode_mask_to_xyz(
     (coords[0], coords[1], coords[2])
 }
 
-/// 对一个面切片执行贪心合并
+/// 对一个面切片执行贪心合并。
+// 轴映射、掩码和三个材质通道构成一次局部算法上下文，均为显式借用。
+#[allow(clippy::too_many_arguments)]
 fn greedy_merge_pass(
     face_idx: usize,
     depth: usize,
@@ -236,7 +241,9 @@ fn inset_water_surface(positions: &mut [[f32; 3]; 4], face_idx: usize) {
     }
 }
 
-/// 生成合并面的顶点坐标和 UV 坐标
+/// 生成合并面的顶点坐标和 UV 坐标。
+// 几何参数全部为小型标量，封装成临时对象不会减少调用方的认知负担。
+#[allow(clippy::too_many_arguments)]
 fn get_merged_face_data(
     mx: usize,
     my: usize,
@@ -464,4 +471,4 @@ fn rotate_vertices_around_block_center(vertices: &mut [[f32; 3]; 4], center: Vec
 
 #[cfg(test)]
 #[path = "../../../../tests/unit/client/renderer/world/greedy_mesh.rs"]
-mod water_surface_tests;
+mod tests;

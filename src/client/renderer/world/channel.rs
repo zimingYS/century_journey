@@ -1,3 +1,5 @@
+//! 定义后台区块网格任务向渲染主线程回传结果的通道。
+
 use super::mesh_buffer::MeshBufferData;
 use crate::content::block::definition::RenderMode;
 use crate::content::block::model::BlockModel;
@@ -56,6 +58,7 @@ pub struct BlockInfoSnapshot {
 }
 
 impl BlockInfoSnapshot {
+    /// 从内容注册表复制后台网格任务所需的最小只读属性。
     pub fn from_registry(registry: &BlockRegistry) -> Self {
         let water_id = registry
             .get_id_by_identifier("century_journey:water")
@@ -103,6 +106,7 @@ impl BlockInfoSnapshot {
     }
 
     #[inline]
+    /// 返回方块指定面的图集层，越界编号回退到首层。
     pub fn get_texture_layer(&self, voxel_id: u16, face_index: usize) -> u32 {
         let index = voxel_id as usize * 6 + face_index;
         self.texture_layers.get(index).copied().unwrap_or(0)
@@ -126,6 +130,7 @@ impl BlockInfoSnapshot {
     }
 }
 
+/// ECS 中缓存的方块渲染属性快照。
 #[derive(Resource, Default, Clone)]
 pub struct CachedBlockInfo(pub BlockInfoSnapshot);
 

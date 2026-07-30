@@ -1,6 +1,9 @@
+//! 构建 HUD 右下区域，供快捷提示扩展。
+
 use crate::client::ui::hud::HudRoot;
 use bevy::prelude::*;
 
+/// HUD 右下区域根节点。
 #[derive(Component)]
 pub struct RightBottomHud;
 

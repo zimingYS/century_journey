@@ -1,13 +1,7 @@
-//! # States
-//!
-//! 公共状态。
-//!
-//! 定义应用及游戏运行过程中共享的 State。
+//! 汇总 App 与其他顶层模块共享的稳定状态契约。
 
 pub mod app_state;
-pub mod input_blocked;
 pub mod input_context;
 
 pub use app_state::AppState;
-pub use input_blocked::InputBlocked;
-pub use input_context::{InputContext, InputContextState, InputSet};
+pub use input_context::{InputContext, InputContextState};

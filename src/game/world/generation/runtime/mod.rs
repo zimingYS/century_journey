@@ -1,3 +1,5 @@
+//! 管理地形与结构生成任务通道及主线程结果接收系统。
+
 mod channel;
 mod structure_tasks;
 mod terrain_tasks;

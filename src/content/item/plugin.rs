@@ -1,7 +1,9 @@
+//! 组装物品定义、贴图和模型注册表的刷新流程。
+
 use bevy::prelude::*;
 
 use crate::content::item::model::{ItemModelRegistry, load_item_models_system};
-use crate::content::item::registry::registry::{
+use crate::content::item::registry::store::{
     ItemRegistry, auto_generate_block_items_system, load_item_definitions_system,
 };
 use crate::content::item::texture::registry::load_item_textures_system;
@@ -10,6 +12,7 @@ use crate::content::lifecycle::{
 };
 use crate::shared::states::app_state::AppState;
 
+/// 物品定义、模型与贴图注册表的聚合插件。
 pub struct ItemContentPlugin;
 
 impl Plugin for ItemContentPlugin {

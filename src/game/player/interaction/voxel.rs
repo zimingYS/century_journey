@@ -1,3 +1,5 @@
+//! 校验并执行玩家破坏、放置、使用和丢弃物品等体素交互。
+
 use crate::content::block::event::{
     BlockBreakEvent, BlockChangedEvent, BlockInteractEvent, BlockPlaceEvent,
 };
@@ -32,29 +34,42 @@ use crate::game::world::time::WorldSimulationClock;
 use bevy::ecs::system::SystemParam;
 use bevy::math::{IVec3, Vec3};
 use bevy::prelude::{
-    Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, Single, Time, Transform,
-    With,
+    Commands, Entity, Fixed, MessageReader, MessageWriter, Query, Res, ResMut, Single, Time,
+    Transform, With,
 };
 
 #[derive(SystemParam)]
+/// 汇总一次体素交互可能发布的领域消息出口。
 pub struct VoxelEventWriters<'w> {
+    /// 成功破坏方块后的消息出口。
     pub break_events: MessageWriter<'w, BlockBreakEvent>,
+    /// 成功放置方块后的消息出口。
     pub place_events: MessageWriter<'w, BlockPlaceEvent>,
+    /// 使用已有方块时的消息出口。
     pub interact_events: MessageWriter<'w, BlockInteractEvent>,
     /// 运行时方块写入统一经过此消息，以驱动区块刷新和邻居规则。
     pub changed_blocks: MessageWriter<'w, BlockChangedEvent>,
+    /// 方块破坏或放置声音的消息出口。
     pub sound_events: MessageWriter<'w, BlockSoundEvent>,
 }
 
 #[derive(SystemParam)]
+/// 汇总方块破坏过程依赖的固定步时间、状态和确定性随机源。
 pub struct BlockBreakRuntime<'w> {
-    pub time: Res<'w, Time>,
+    /// 当前固定步内由 Bevy 提供的模拟时间源。
+    pub time: Res<'w, Time<Fixed>>,
+    /// 跨固定步保存的方块破坏事务状态。
     pub state: ResMut<'w, BlockBreakState>,
+    /// 供客户端读取的当前破坏进度。
     pub progress: ResMut<'w, BlockBreakProgress>,
+    /// 权威世界模拟时钟。
     pub clock: Res<'w, WorldSimulationClock>,
+    /// 按领域隔离使用的确定性随机资源。
     pub random: Res<'w, SimulationRng>,
 }
 
+/// 方块交互在一次固定步事务中协调规则、背包、世界和事件出口，借用保持显式。
+#[allow(clippy::too_many_arguments)]
 pub fn voxel_interaction_system(
     target_voxel: Res<TargetVoxel>,
     registry: Option<Res<BlockRegistry>>,
@@ -121,7 +136,7 @@ pub fn voxel_interaction_system(
         let active_stack = inventory_state.hotbar.active_stack();
         let active_tool = active_tool_data(active_stack, item_registry.as_deref());
         let active_tool_max_durability = active_tool.map(|tool| tool.max_durability);
-        let active_item = inventory_state.hotbar.active_item().clone();
+        let active_item = active_stack.item.clone();
 
         let Some(required_seconds) = block_break_seconds(prop, &gamemode, active_tool) else {
             break_runtime.state.clear();
@@ -238,10 +253,10 @@ pub fn voxel_interaction_system(
         return;
     }
 
-    let current_hand_item = inventory_state.hotbar.active_item();
+    let current_hand_item = inventory_state.hotbar.active_stack().item.clone();
     let current_hand_identifier: String = item_registry
         .as_ref()
-        .and_then(|ir| ir.block_identifier(current_hand_item))
+        .and_then(|ir| ir.block_identifier(&current_hand_item))
         .map(|id| id.to_string())
         .unwrap_or_else(|| "century_journey:air".to_string());
 
@@ -313,6 +328,7 @@ pub fn break_action_active(actions: &PlayerActionState, gamemode: &PlayerGameMod
     }
 }
 
+/// 判断待放置体素的单位包围盒是否与玩家碰撞箱严格相交。
 pub fn voxel_intersects_player(voxel: IVec3, player_position: Vec3, half_extents: Vec3) -> bool {
     let block_min = voxel.as_vec3();
     let block_max = block_min + Vec3::ONE;
@@ -327,6 +343,7 @@ pub fn voxel_intersects_player(voxel: IVec3, player_position: Vec3, half_extents
         && player_max.z > block_min.z
 }
 
+/// 把已通过库存规则确认的丢弃消息转换为玩家前方的世界掉落物。
 pub fn drop_item_system(
     mut reader: MessageReader<crate::game::inventory::events::DropItemEvent>,
     player_query: Query<(&PlayerId, &Transform), With<Player>>,
@@ -353,10 +370,11 @@ pub fn drop_item_system(
         let pos = player_transform.translation + Vec3::Y * 1.25 + throw_direction * 0.75;
         let velocity = DroppedItemVelocity::thrown(throw_direction);
         spawn_dropped_item_with_velocity(&mut commands, pos, event.stack.clone(), velocity);
-        log::info!("[Q] Dropped {:?}", event.stack);
+        log::info!("[库存] 玩家丢弃物品: {:?}", event.stack);
     }
 }
 
+/// 将丢弃动作转换为当前快捷栏物品的权威扣减和掉落消息。
 pub fn drop_active_hotbar_action_system(
     actions: Res<PlayerActionState>,
     mut player: Single<(&PlayerId, &mut InventoryState), With<LocalPlayer>>,
@@ -386,3 +404,7 @@ pub fn drop_active_hotbar_action_system(
         });
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/game/player/interaction/voxel.rs"]
+mod tests;

@@ -1,3 +1,5 @@
+//! 维护配方标识到已解析定义的运行时索引。
+
 use crate::content::recipe::definition::recipe_definition::RecipeDefinition;
 use crate::shared::identifier::Identifier;
 use bevy::prelude::*;
@@ -10,6 +12,7 @@ pub struct RecipeRegistry {
 }
 
 impl RecipeRegistry {
+    /// 把定义注册到运行时索引。
     pub fn register(&mut self, id: Identifier, def: RecipeDefinition) {
         if self.entries.insert(id.clone(), def).is_some() {
             log::warn!("[Recipe] 重复注册配方：{}", id);

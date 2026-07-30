@@ -1,3 +1,5 @@
+//! 提供可重复的固定性能场景、采样窗口和结果报告。
+
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 
@@ -98,6 +100,7 @@ struct ChunkSummary {
     rendered: usize,
 }
 
+/// 根据环境变量启用固定性能场景，并把采样系统接入应用。
 pub fn configure_fixed_performance_scenario(app: &mut App) {
     let Ok(scenario) = std::env::var("CJ_PERF_SCENARIO") else {
         return;

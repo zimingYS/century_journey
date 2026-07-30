@@ -1,3 +1,5 @@
+//! 定义可序列化方块状态及属性覆盖。
+
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

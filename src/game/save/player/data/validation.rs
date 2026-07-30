@@ -1,3 +1,5 @@
+//! 校验玩家存档的容量、索引和数值范围，拒绝损坏数据。
+
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::save::player::PlayerSaveData;
 use crate::game::save::player::SaveItemStack;

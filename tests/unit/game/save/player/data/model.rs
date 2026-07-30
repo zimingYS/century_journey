@@ -2,7 +2,7 @@ use super::*;
 use crate::shared::item_id::ItemId;
 
 #[test]
-fn stage_seven_reload_keeps_inventory_durability_stats_and_respawn_point() {
+fn reload_keeps_inventory_durability_stats_and_respawn_point() {
     let mut inventory = InventoryState::default();
     let mut tool = ItemStack::single(ItemId::item("century_journey:test_tool"));
     tool.instance.durability = Some(23);

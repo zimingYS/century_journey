@@ -1,3 +1,5 @@
+//! 解析生成阶段常用方块标识，避免生成算法依赖硬编码运行时编号。
+
 use crate::content::block::registry::BlockRegistry;
 use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::shared::identifier::Identifier;

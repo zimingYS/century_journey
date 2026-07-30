@@ -1,3 +1,5 @@
+//! 定义运行时物品堆及其数量、耐久和实例数据约束。
+
 use crate::content::item::ItemRegistry;
 use crate::shared::identifier::Identifier;
 use crate::shared::item_id::ItemId;
@@ -12,15 +14,15 @@ pub struct ItemInstanceData {
 /// 工具承受一次耐久消耗后的结果。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToolDamageResult {
+    /// 该物品没有可消耗的耐久。
     NotDamageable,
+    /// 耐久已减少但物品仍可使用。
     Damaged { remaining: u32 },
+    /// 耐久耗尽，物品堆已被清空。
     Broken,
 }
 
-// 这边先临时使用全部物品最大堆叠64个
-// 以后会根据物品种类进行最大堆叠分类
-// 故现在先写到这边
-/// 物品最大堆叠数
+/// 当前统一物品堆叠上限；后续接入内容定义时应由物品属性覆盖。
 pub const MAX_STACK_SIZE: u32 = 64;
 
 /// 物品堆叠
@@ -35,7 +37,7 @@ pub struct ItemStack {
 }
 
 impl ItemStack {
-    // 由数量创建物品
+    /// 使用物品 ID 和数量创建不带实例数据的物品堆。
     pub fn new(item: ItemId, count: u32) -> Self {
         Self {
             item,
@@ -53,7 +55,7 @@ impl ItemStack {
         }
     }
 
-    // 创建一个物品
+    /// 创建数量为一的物品堆。
     pub fn single(item_id: ItemId) -> Self {
         Self::new(item_id, 1)
     }
@@ -67,7 +69,7 @@ impl ItemStack {
         }
     }
 
-    // 判断是否为空
+    /// 判断物品堆是否没有有效物品或数量为零。
     pub fn is_empty(&self) -> bool {
         self.count == 0 || self.item.is_air()
     }
@@ -129,11 +131,6 @@ impl ItemStack {
         Some(result)
     }
 
-    /// 获取物品类型引用（兼容旧代码中的 `.item_id` 字段访问）
-    pub fn item_id(&self) -> &ItemId {
-        &self.item
-    }
-
     /// 获取方块标识符引用
     pub fn block_identifier<'a>(&self, item_registry: &'a ItemRegistry) -> Option<&'a Identifier> {
         item_registry.block_identifier(&self.item)
@@ -188,7 +185,6 @@ impl ItemStack {
     pub const MAX_STACK_SIZE: u32 = 64;
 }
 
-// 初始化物品堆叠为空气
 impl Default for ItemStack {
     fn default() -> Self {
         Self::empty()
@@ -197,4 +193,4 @@ impl Default for ItemStack {
 
 #[cfg(test)]
 #[path = "../../../../tests/unit/game/inventory/item/stack.rs"]
-mod stage_seven_tests;
+mod tests;

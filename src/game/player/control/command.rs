@@ -1,3 +1,5 @@
+//! 缓冲客户端动作命令，并在目标模拟刻派生权威动作状态。
+
 use std::collections::BTreeMap;
 
 use crate::game::player::control::action::{PlayerAction, PlayerActionState};
@@ -7,17 +9,26 @@ use crate::game::world::time::WorldSimulationClock;
 use bevy::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// 客户端为指定模拟刻提交的动作和视角快照。
 pub struct PlayerCommand {
+    /// 命令目标模拟刻。
     pub tick: u64,
+    /// 目标刻持续生效的动作位图。
     pub(crate) active: [bool; PlayerAction::COUNT],
+    /// 在渲染帧间累计且不能丢失的按下边沿。
     pub(crate) pressed: [bool; PlayerAction::COUNT],
+    /// 在渲染帧间累计且不能丢失的释放边沿。
     pub(crate) released: [bool; PlayerAction::COUNT],
+    /// 因上下文切换产生的取消边沿。
     pub(crate) cancelled: [bool; PlayerAction::COUNT],
+    /// 玩家身体绕世界 Y 轴的朝向。
     pub yaw: f32,
+    /// 玩家瞄准俯仰角。
     pub pitch: f32,
 }
 
 impl PlayerCommand {
+    /// 从持续动作集合构造命令；边沿会在固定步取出时补全。
     pub fn new(
         tick: u64,
         actions: impl IntoIterator<Item = PlayerAction>,
@@ -31,6 +42,7 @@ impl PlayerCommand {
         Self::held(tick, active, yaw, pitch)
     }
 
+    /// 从客户端动作快照构造保留全部边沿的目标刻命令。
     pub fn from_action_state(tick: u64, state: &PlayerActionState, yaw: f32, pitch: f32) -> Self {
         Self {
             tick,
@@ -68,6 +80,7 @@ impl PlayerCommand {
 }
 
 #[derive(Resource, Debug, Clone)]
+/// 按模拟刻合并并缓存尚未消费的玩家命令。
 pub struct PlayerCommandBuffer {
     pending: BTreeMap<u64, PlayerCommand>,
     held: [bool; PlayerAction::COUNT],
@@ -87,6 +100,7 @@ impl Default for PlayerCommandBuffer {
 }
 
 impl PlayerCommandBuffer {
+    /// 入队命令；同一目标刻的边沿会合并而不是相互覆盖。
     pub fn enqueue(&mut self, command: PlayerCommand) {
         self.pending
             .entry(command.tick)
@@ -94,6 +108,7 @@ impl PlayerCommandBuffer {
             .or_insert(command);
     }
 
+    /// 取出目标刻命令；缺失时沿用持续状态并生成无边沿命令。
     pub fn take_for_tick(&mut self, tick: u64) -> PlayerCommand {
         self.pending.retain(|pending_tick, _| *pending_tick >= tick);
         if let Some(mut command) = self.pending.remove(&tick) {
@@ -110,11 +125,13 @@ impl PlayerCommandBuffer {
         }
     }
 
+    /// 清除待处理命令和上一刻持续状态。
     pub fn clear(&mut self) {
         *self = Self::default();
     }
 }
 
+/// 在命令阶段把当前模拟刻命令应用到动作状态和权威朝向。
 pub fn apply_player_command_system(
     clock: Res<WorldSimulationClock>,
     mut commands: ResMut<PlayerCommandBuffer>,
@@ -134,6 +151,7 @@ pub fn apply_player_command_system(
     }
 }
 
+/// 进入新世界会话时重置命令缓冲和动作状态。
 pub fn reset_player_command_pipeline_system(
     mut commands: ResMut<PlayerCommandBuffer>,
     mut actions: ResMut<PlayerActionState>,
@@ -141,3 +159,7 @@ pub fn reset_player_command_pipeline_system(
     commands.clear();
     actions.clear();
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/game/player/control/command.rs"]
+mod tests;

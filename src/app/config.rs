@@ -3,6 +3,7 @@
 use crate::app::application::mode::AppMode;
 use std::path::PathBuf;
 
+/// 进程启动时使用的完整应用配置。
 #[derive(Debug, Clone)]
 pub struct AppConfig {
     pub mode: AppMode,
@@ -28,6 +29,7 @@ impl Default for AppConfig {
     }
 }
 
+/// 主窗口创建和显示模式配置。
 #[derive(Debug, Clone)]
 pub struct WindowConfig {
     pub title: String,
@@ -49,6 +51,7 @@ impl Default for WindowConfig {
     }
 }
 
+/// 客户端渲染质量和世界可见范围配置。
 #[derive(Debug, Clone)]
 pub struct RenderConfig {
     pub render_distance: u32,
@@ -74,6 +77,7 @@ impl Default for RenderConfig {
     }
 }
 
+/// 网络连接地址与超时配置。
 #[derive(Debug, Clone)]
 pub struct NetworkConfig {
     pub address: String,
@@ -91,6 +95,7 @@ impl Default for NetworkConfig {
     }
 }
 
+/// 存档根目录和自动保存周期配置。
 #[derive(Debug, Clone)]
 pub struct SaveConfig {
     pub world_directory: PathBuf,
@@ -106,6 +111,7 @@ impl Default for SaveConfig {
     }
 }
 
+/// 日志级别和文件输出配置。
 #[derive(Debug, Clone)]
 pub struct LoggingConfig {
     pub level: LogLevel,
@@ -121,6 +127,7 @@ impl Default for LoggingConfig {
     }
 }
 
+/// 应用日志详细程度。
 #[derive(Debug, Clone, Copy)]
 pub enum LogLevel {
     Trace,
@@ -130,6 +137,7 @@ pub enum LogLevel {
     Error,
 }
 
+/// 仅供开发构建启用的诊断显示选项。
 #[derive(Debug, Clone, Default)]
 pub struct DebugConfig {
     pub diagnostics: bool,

@@ -1,3 +1,5 @@
+//! 汇总纹理资产、元数据和用途定义。
+
 pub mod asset;
 pub mod metadata;
 pub mod usage;

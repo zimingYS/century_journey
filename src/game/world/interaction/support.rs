@@ -1,3 +1,5 @@
+//! 处理方块支撑关系，移除失去有效支撑的可附着方块。
+
 use crate::content::block::event::{BlockChangedEvent, BlockNeighborChangedEvent};
 use crate::content::block::registry::BlockRegistry;
 use crate::content::tag::runtime::RuntimeTagRegistry;

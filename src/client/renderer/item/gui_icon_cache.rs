@@ -1,11 +1,10 @@
+//! 缓存从三维物品模型离屏烘焙得到的界面图标。
+
 use std::collections::HashMap;
 
 use bevy::prelude::*;
 
 use crate::shared::identifier::Identifier;
-
-/// 旧 UI 代码使用的资源别名，保存需要异步准备的 GUI 图标。
-pub type ItemModelRenderAssets = GuiItemIconCache;
 
 /// GUI 图标缓存。
 ///

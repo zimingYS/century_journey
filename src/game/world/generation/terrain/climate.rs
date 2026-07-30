@@ -1,8 +1,10 @@
+//! 从世界坐标采样生成期温度和湿度等稳定气候场。
+
 use crate::game::world::time::Season;
 use noise::{NoiseFn, Perlin, Seedable};
 use serde::{Deserialize, Serialize};
 
-/// 气候配置
+/// 控制生成期气候噪声尺度和季节偏移幅度的配置。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClimateConfig {
     /// 温度噪声
@@ -48,7 +50,7 @@ impl Season {
     }
 }
 
-/// 气候采样器 — 从世界坐标采样温度/湿度
+/// 从世界坐标采样稳定温度场和湿度场。
 pub struct ClimateSampler {
     pub seed: u32,
     pub temperature_noise: Perlin,
@@ -57,6 +59,7 @@ pub struct ClimateSampler {
 }
 
 impl ClimateSampler {
+    /// 使用世界种子和气候配置创建独立噪声场。
     pub fn new(seed: u32, config: ClimateConfig) -> Self {
         Self {
             seed,
@@ -102,10 +105,12 @@ impl ClimateSampler {
         (base + seasonal).clamp(0.0, 1.0)
     }
 
+    /// 采样不叠加运行期季节变化的基础温度。
     pub fn sample_temperature(&self, world_x: i32, world_z: i32) -> f64 {
         self.sample_base_temperature(world_x, world_z)
     }
 
+    /// 采样不叠加运行期季节变化的基础湿度。
     pub fn sample_humidity(&self, world_x: i32, world_z: i32) -> f64 {
         self.sample_base_humidity(world_x, world_z)
     }
@@ -124,6 +129,7 @@ impl ClimateSampler {
         }
     }
 
+    /// 按生成算法版本采样湿度，保持旧世界生成结果兼容。
     pub fn sample_generation_humidity(
         &self,
         world_x: i32,

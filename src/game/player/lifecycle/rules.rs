@@ -1,3 +1,5 @@
+//! 实现玩家伤害、治疗、死亡掉落和重生的权威状态机。
+
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::InventoryState;
@@ -14,24 +16,35 @@ use crate::game::world::entity::dropped_item::{
     DroppedItemVelocity, spawn_dropped_item_with_velocity,
 };
 use bevy::math::Vec3;
-use bevy::prelude::{Commands, MessageReader, Query, Res, ResMut, Resource, Time, Transform, With};
+use bevy::prelude::{
+    Commands, Fixed, MessageReader, Query, Res, ResMut, Resource, Time, Transform, With,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// 玩家死亡时对库存采用的处理规则。
 pub enum DeathDropRule {
+    /// 保留玩家全部库存。
     KeepInventory,
+    /// 清空库存并在死亡位置生成掉落物。
     #[default]
     DropInventory,
 }
 
 #[derive(Resource, Debug, Clone, Copy, Default)]
+/// 当前世界会话生效的死亡规则配置。
 pub struct DeathRules {
+    /// 玩家死亡时采用的库存处理方式。
     pub drop_rule: DeathDropRule,
 }
 
 #[derive(Resource, Debug, Clone, Default)]
+/// 最近一次玩家死亡的原因、位置和掉落摘要。
 pub struct LastDeathInfo {
+    /// 最近一次死亡来源；尚未死亡时为空。
     pub source: Option<DamageSource>,
+    /// 最近一次死亡发生的世界位置。
     pub position: Vec3,
+    /// 最近一次死亡生成的物品堆数量。
     pub dropped_stacks: usize,
 }
 
@@ -97,6 +110,8 @@ pub fn death_system(
     }
 }
 
+/// 重生事务必须同时恢复同一玩家的全部生存和移动组件，查询元组保持原子快照。
+#[allow(clippy::type_complexity)]
 pub fn respawn_request_system(
     mut reader: MessageReader<RespawnRequest>,
     mut query: Query<
@@ -144,8 +159,9 @@ pub fn respawn_request_system(
     }
 }
 
+/// 使用固定步时间推进短暂重生阶段，结束后恢复为存活状态。
 pub fn respawn_transition_system(
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     mut query: Query<&mut PlayerLifecycle, With<Player>>,
 ) {
     for mut lifecycle in &mut query {
@@ -160,6 +176,7 @@ pub fn respawn_transition_system(
     }
 }
 
+/// 返回单个权威玩家当前是否存活，用作固定步系统运行条件。
 pub fn player_is_alive(query: Query<&PlayerLifecycle, With<Player>>) -> bool {
     query.single().is_ok_and(PlayerLifecycle::is_alive)
 }
@@ -194,3 +211,7 @@ fn drain_death_inventory(inventory: &mut InventoryState) -> Vec<ItemStack> {
     drops.retain(|stack| !stack.is_empty());
     drops
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/game/player/lifecycle/rules.rs"]
+mod tests;

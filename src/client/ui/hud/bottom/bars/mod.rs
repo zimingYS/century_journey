@@ -1,3 +1,5 @@
+//! 组织生命、护甲、饥饿等生存状态条的左右布局。
+
 use crate::client::ui::hud::bottom::BottomHud;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::engine::asset::identifier::asset_id;

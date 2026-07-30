@@ -1,3 +1,5 @@
+//! 定义可反序列化的配方类型联合。
+
 use crate::content::recipe::definition::shaped_recipe::ShapedRecipe;
 use crate::content::recipe::definition::shapeless_recipe::ShapelessRecipe;
 use serde::{Deserialize, Serialize};

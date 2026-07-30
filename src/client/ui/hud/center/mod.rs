@@ -1,8 +1,11 @@
+//! 组织 HUD 中央准星和目标反馈。
+
 pub mod crosshair;
 
 use crate::client::ui::hud::HudRoot;
 use bevy::prelude::*;
 
+/// HUD 中央区域根节点。
 #[derive(Component)]
 pub struct CenterHud;
 

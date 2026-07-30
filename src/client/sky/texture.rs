@@ -1,3 +1,5 @@
+//! 生成天空、太阳和月亮使用的客户端纹理资产。
+
 use bevy::asset::RenderAssetUsages;
 use bevy::image::ImageSampler;
 use bevy::prelude::*;
@@ -139,6 +141,7 @@ pub fn generate_star_texture(size: u32) -> image::RgbaImage {
     img
 }
 
+/// 将 CPU 侧 RGBA 图像转换为可上传到渲染器的 Bevy 图像。
 pub fn rgba_image_to_bevy(img: image::RgbaImage) -> Image {
     let (w, h) = img.dimensions();
     let data = img.into_raw();

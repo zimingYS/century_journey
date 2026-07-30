@@ -1,9 +1,10 @@
+//! 从内容纹理构建方块图集，并提供运行时纹理索引映射。
+
+use crate::client::renderer::constants::{BLOCK_ATLAS_TILES_PER_ROW, TILE_SIZE};
 use crate::content::block::definition::RenderMode;
 use crate::content::block::registry::BlockRegistry;
-use crate::content::constant::world::CHUNK_SIZE;
 use crate::engine::asset::AssetFiles;
 use crate::engine::asset::manager::AssetManager;
-use crate::engine::constant::texture::TILE_SIZE;
 use bevy::asset::{Assets, RenderAssetUsages};
 use bevy::color::Color;
 use bevy::image::{Image, ImageSampler, TextureAtlasLayout};
@@ -14,6 +15,7 @@ use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
+/// 方块图集及各透明模式共享材质的客户端资产集合。
 #[derive(Resource, Clone)]
 pub struct BlockRenderAssets {
     base_texture: Handle<Image>,
@@ -24,14 +26,17 @@ pub struct BlockRenderAssets {
 }
 
 impl BlockRenderAssets {
+    /// 返回方块图集基础纹理。
     pub fn base_texture(&self) -> &Handle<Image> {
         &self.base_texture
     }
 
+    /// 返回方块图集布局。
     pub fn atlas_layout(&self) -> &Handle<TextureAtlasLayout> {
         &self.atlas_layout
     }
 
+    /// 返回指定渲染模式使用的共享材质。
     pub fn material(&self, mode: RenderMode) -> &Handle<StandardMaterial> {
         match mode {
             RenderMode::Opaque => &self.opaque_material,
@@ -40,19 +45,23 @@ impl BlockRenderAssets {
         }
     }
 
+    /// 返回不透明方块材质。
     pub fn opaque_material(&self) -> &Handle<StandardMaterial> {
         &self.opaque_material
     }
 
+    /// 返回透明裁切方块材质。
     pub fn cutout_material(&self) -> &Handle<StandardMaterial> {
         &self.cutout_material
     }
 
+    /// 返回半透明方块材质。
     pub fn transparent_material(&self) -> &Handle<StandardMaterial> {
         &self.transparent_material
     }
 }
 
+/// 在内容注册表就绪后构建并插入方块渲染资产资源。
 pub fn init_block_render_assets_system(
     mut commands: Commands,
     registry: Res<BlockRegistry>,
@@ -66,6 +75,7 @@ pub fn init_block_render_assets_system(
     commands.insert_resource(render_assets);
 }
 
+/// 从方块注册表引用的纹理构建图集、布局及三类共享材质。
 pub fn build_texture_atlas(
     registry: &BlockRegistry,
     images: &mut Assets<Image>,
@@ -76,8 +86,8 @@ pub fn build_texture_atlas(
     let unique_paths = registry.texture_paths();
     let layer_count = unique_paths.len() as u32;
 
-    let atlas_width = CHUNK_SIZE as u32 * TILE_SIZE;
-    let atlas_height = layer_count * CHUNK_SIZE as u32 * TILE_SIZE;
+    let atlas_width = BLOCK_ATLAS_TILES_PER_ROW * TILE_SIZE;
+    let atlas_height = layer_count * BLOCK_ATLAS_TILES_PER_ROW * TILE_SIZE;
 
     let pixel_count = atlas_width * atlas_height;
     let data_len = pixel_count as usize * 4;
@@ -110,10 +120,10 @@ pub fn build_texture_atlas(
         );
         let src_pixels = resized.as_raw();
 
-        let layer_pixel_y_start = layer_idx as u32 * CHUNK_SIZE as u32 * TILE_SIZE;
+        let layer_pixel_y_start = layer_idx as u32 * BLOCK_ATLAS_TILES_PER_ROW * TILE_SIZE;
 
-        for tile_y in 0..CHUNK_SIZE as u32 {
-            for tile_x in 0..CHUNK_SIZE as u32 {
+        for tile_y in 0..BLOCK_ATLAS_TILES_PER_ROW {
+            for tile_x in 0..BLOCK_ATLAS_TILES_PER_ROW {
                 for row in 0..TILE_SIZE {
                     let dest_x = tile_x * TILE_SIZE;
                     let dest_y = layer_pixel_y_start + tile_y * TILE_SIZE + row;
@@ -145,8 +155,8 @@ pub fn build_texture_atlas(
     let texture_handle = images.add(array_image);
     let atlas_layout = layouts.add(TextureAtlasLayout::from_grid(
         UVec2::splat(TILE_SIZE),
-        CHUNK_SIZE as u32,
-        layer_count * CHUNK_SIZE as u32,
+        BLOCK_ATLAS_TILES_PER_ROW,
+        layer_count * BLOCK_ATLAS_TILES_PER_ROW,
         None,
         None,
     ));

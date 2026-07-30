@@ -116,6 +116,7 @@ struct FootstepPlayback {
     airborne_seconds: f32,
 }
 
+/// 注册环境、方块和玩家反馈音效的客户端播放系统。
 pub struct ClientSoundPlugin;
 
 impl Plugin for ClientSoundPlugin {
@@ -148,6 +149,8 @@ impl Plugin for ClientSoundPlugin {
     }
 }
 
+// 组合过滤器明确限定可发声控件，避免所有按钮都触发同一音效。
+#[allow(clippy::type_complexity)]
 fn ui_interaction_sound_system(
     query: Query<
         &Interaction,
@@ -292,6 +295,8 @@ fn step_clips(assets: &FeedbackAudioAssets, material: SoundMaterial) -> &[Handle
     }
 }
 
+// 动画标记音效需要同时读取目标、世界和多类内容映射，但不修改权威状态。
+#[allow(clippy::too_many_arguments)]
 fn animation_marker_sound_system(
     mut reader: MessageReader<AnimationMarkerEvent>,
     target: Res<TargetVoxel>,

@@ -1,4 +1,6 @@
-use crate::client::renderer::item_model::ItemModelRenderAssets;
+//! 构建并同步游戏内快捷栏槽位、选中框和物品数量。
+
+use crate::client::renderer::item::GuiItemIconCache;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::hud::bottom::BottomHud;
 use crate::client::ui::resources::ui_font::UiFont;
@@ -7,7 +9,7 @@ use crate::client::ui::widgets::slot::{
     InventorySlot, SlotKind, SlotVisual, spawn_display_only_slot, sync_slot_icon,
 };
 use crate::content::block::registry::BlockRegistry;
-use crate::content::item::registry::registry::ItemRegistry;
+use crate::content::item::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
 use crate::game::inventory::state::LocalInventory;
@@ -61,11 +63,13 @@ pub fn spawn_hotbar_ui_system(
 }
 
 /// HUD快捷栏视觉同步
+/// 参数显式列出槽位渲染缓存，便于确认 HUD 不拥有权威背包状态。
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn hud_hotbar_visual_sync_system(
     state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
-    item_model_assets: Res<ItemModelRenderAssets>,
+    gui_item_icons: Res<GuiItemIconCache>,
     mut commands: Commands,
     slot_query: Query<(Entity, &InventorySlot)>,
     mut slot_visual_query: Query<&mut SlotVisual>,
@@ -103,7 +107,7 @@ pub fn hud_hotbar_visual_sync_system(
         .collect();
 
     // 图标同步 — 物品、数量或 3D 图标缓存版本变化时执行
-    let revision = item_model_assets.revision();
+    let revision = gui_item_icons.revision();
     let force = last_hotbar.is_none();
     let revision_changed = last_hotbar
         .as_ref()
@@ -134,7 +138,7 @@ pub fn hud_hotbar_visual_sync_system(
                     count,
                     reg,
                     render_assets,
-                    &item_model_assets,
+                    &gui_item_icons,
                     &children_query,
                     item_registry.as_deref(),
                     item_texture_registry.as_deref(),

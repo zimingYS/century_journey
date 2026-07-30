@@ -1,11 +1,12 @@
+//! 组装区块、物品和纹理图集等客户端渲染子系统。
+
 use bevy::prelude::*;
 
 use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::shared::states::app_state::AppState;
 
+pub(crate) mod constants;
 pub mod item;
-pub mod item_model;
-pub mod mesh_cache;
 pub mod tex_atlas;
 pub mod world;
 
@@ -15,8 +16,7 @@ pub struct ClientRenderingPlugin;
 impl Plugin for ClientRenderingPlugin {
     /// 注册客户端渲染资源和运行时系统。
     fn build(&self, app: &mut App) {
-        app.init_resource::<crate::client::presentation::ClientPresentation>()
-            .init_resource::<item::cache::ItemModelCache>()
+        app.init_resource::<item::cache::ItemModelCache>()
             .init_resource::<item::gui_icon_cache::GuiItemIconCache>()
             .init_resource::<world::MeshBuildChannel>()
             .init_resource::<world::CachedBlockInfo>()
@@ -29,7 +29,7 @@ impl Plugin for ClientRenderingPlugin {
             .add_systems(
                 Update,
                 (
-                    item::renderer::prepare_item_model_render_assets_system,
+                    item::renderer::prepare_gui_item_icons_system,
                     item::gui_icon_baker::retire_gui_item_icon_cameras_system,
                     world::dropped_item::dropped_item_visual_system,
                 )

@@ -1,3 +1,5 @@
+//! 根据玩家瞄准结果显示方块选择线框。
+
 use crate::game::player::interaction::targeting::TargetVoxel;
 use bevy::color::Color;
 use bevy::math::Vec3;

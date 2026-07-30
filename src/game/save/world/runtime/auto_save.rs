@@ -1,3 +1,5 @@
+//! 根据定时器和脏状态触发世界自动保存。
+
 use crate::content::block::registry::BlockRegistry;
 use crate::game::player::identity::Player;
 use crate::game::save::world::chunk::model::SavedChunk;
@@ -10,6 +12,8 @@ use bevy::math::Vec3;
 use bevy::prelude::{Query, Res, ResMut, Time, Timer, TimerMode, Transform, With};
 
 /// 区块卸载时自动保存系统
+/// 自动保存同时协调时钟、队列和脏区块，资源借用保持显式便于审查写入顺序。
+#[allow(clippy::too_many_arguments)]
 pub fn auto_save_on_unload_system(
     time: Res<Time>,
     mut auto_save_timer: ResMut<AutoSaveTimer>,

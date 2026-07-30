@@ -1,6 +1,5 @@
-use crate::content::constant::world::{
-    MAX_STRUCTURE_RECEIVE_PER_FRAME, MAX_STRUCTURE_TASKS_PER_FRAME,
-};
+//! 调度结构生成并合并跨区块延迟写入，保持结果可复现。
+
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::generation::block_ids::CachedBlockIds;
@@ -18,6 +17,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
+/// 单帧最多派发的结构生成任务数。
+const MAX_STRUCTURE_TASKS_PER_FRAME: u32 = 4;
+/// 单帧最多接收的结构生成结果数。
+const MAX_STRUCTURE_RECEIVE_PER_FRAME: usize = 4;
+
 const CHUNK_NEIGHBOR_OFFSETS: [IVec3; 6] = [
     IVec3::new(0, 1, 0),
     IVec3::new(0, -1, 0),
@@ -27,6 +31,9 @@ const CHUNK_NEIGHBOR_OFFSETS: [IVec3; 6] = [
     IVec3::new(0, 0, -1),
 ];
 
+/// 按流送优先级派发结构任务，并为任务提供相邻区块快照。
+/// 任务派发同时受流送窗口、任务池和区块状态约束，资源访问保持显式。
+#[allow(clippy::too_many_arguments)]
 pub fn generate_structures_system(
     world_state: Res<WorldState>,
     channel: Res<StructureGenChannel>,
@@ -121,6 +128,7 @@ pub fn generate_structures_system(
     }
 }
 
+/// 在主线程合并结构修改和延迟写入，并推进区块生命周期状态。
 pub fn receive_structure_results(
     mut world_state: ResMut<WorldState>,
     channel: Res<StructureGenChannel>,

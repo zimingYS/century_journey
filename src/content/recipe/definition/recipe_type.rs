@@ -1,3 +1,5 @@
+//! 定义配方所属工作站和匹配类型。
+
 use serde::{Deserialize, Serialize};
 
 /// 配方类型。

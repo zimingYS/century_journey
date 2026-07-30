@@ -1,3 +1,5 @@
+//! 监听玩家权威状态变化，并只标记对应的存档脏来源。
+
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::InventoryState;
 use crate::game::player::identity::{LocalPlayer, Player};

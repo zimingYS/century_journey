@@ -1,3 +1,5 @@
+//! 构建玩家模型骨架实体，并维护手持物锚点和局部变换。
+
 use crate::client::player::model::components::{
     BackAnchor, ChestAnchor, HeldItemAnchor, HelmetAnchor, OffHandAnchor, PlayerJoint, PlayerMesh,
     PlayerModelMarker, PlayerPart, PlayerRig,
@@ -69,7 +71,7 @@ pub struct PlayerRigEntities {
 }
 
 /// 生成可同时服务第一人称和第三人称的真实玩家 Rig。
-pub fn spawn_player_rig_v2(
+pub fn spawn_player_rig(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
@@ -447,6 +449,7 @@ fn spawn_player_details(
     ]
 }
 
+// 细节网格的几何和归属信息属于同一条声明，保持显式参数便于逐项校对模型数据。
 #[allow(clippy::too_many_arguments)]
 fn spawn_detail_mesh(
     commands: &mut Commands,
