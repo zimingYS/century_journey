@@ -6,7 +6,9 @@ use crate::game::save::{CachedBlockIdRemap, SaveConfig};
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::generation::block_ids::CachedBlockIds;
 use crate::game::world::generation::generator::WorldGenerator;
-use crate::game::world::generation::runtime::{TerrainGenChannel, TerrainGenResult};
+use crate::game::world::generation::runtime::{
+    TerrainGenChannel, TerrainGenOutcome, TerrainGenResult,
+};
 use crate::game::world::generation::terrain::context::ChunkGenContext;
 use crate::game::world::state::ChunkRuntime;
 use crate::game::world::state::WorldState;
@@ -69,7 +71,7 @@ pub fn spawn_terrain_gen_tasks(
 
         channel.in_flight.fetch_add(1, Ordering::Relaxed);
         task.spawn_cpu(move || {
-            let result = match RegionManager::read_chunk(&world_name, chunk_pos) {
+            let outcome = match RegionManager::read_chunk(&world_name, chunk_pos) {
                 Ok(Some(mut saved)) => {
                     if !remap.is_empty() {
                         for voxel in saved.data.voxels.iter_mut() {
@@ -80,25 +82,32 @@ pub fn spawn_terrain_gen_tasks(
                             }
                         }
                     }
-                    sender.send(TerrainGenResult {
-                        chunk_pos,
-                        chunk_data: saved.data,
+                    TerrainGenOutcome::Ready {
+                        chunk_data: Box::new(saved.data),
                         gen_context: ChunkGenContext::new(chunk_pos),
-                    })
+                        tree_instances: saved.tree_instances,
+                    }
                 }
-                _ => {
-                    let (chunk_data, ctx) = pipeline.generate_base_chunk(chunk_pos, &block_ids);
-                    sender.send(TerrainGenResult {
-                        chunk_pos,
-                        chunk_data,
-                        gen_context: ctx,
-                    })
+                Ok(None) => {
+                    let (chunk_data, gen_context) =
+                        pipeline.generate_base_chunk(chunk_pos, &block_ids);
+                    TerrainGenOutcome::Ready {
+                        chunk_data: Box::new(chunk_data),
+                        gen_context,
+                        tree_instances: Vec::new(),
+                    }
                 }
+                Err(error) => TerrainGenOutcome::LoadFailed(error.to_string()),
             };
+            let task_result = match &outcome {
+                TerrainGenOutcome::Ready { .. } => TaskResult::Success,
+                TerrainGenOutcome::LoadFailed(error) => TaskResult::Failed(error.clone()),
+            };
+            let result = sender.send(TerrainGenResult { chunk_pos, outcome });
             if result.is_err() {
                 in_flight.fetch_sub(1, Ordering::Relaxed);
             }
-            TaskResult::Success
+            task_result
         });
 
         *chunk_state = ChunkState::GeneratingTerrain;
@@ -124,9 +133,6 @@ pub fn receive_terrain_results(
         received += 1;
 
         let chunk_pos = result.chunk_pos;
-        let mut chunk_data = result.chunk_data;
-        let gen_ctx = result.gen_context;
-
         let Some(entity) = chunk_runtime.chunk_entity(chunk_pos) else {
             continue;
         };
@@ -137,8 +143,27 @@ pub fn receive_terrain_results(
             continue;
         }
 
+        let (mut chunk_data, gen_ctx, tree_instances) = match result.outcome {
+            TerrainGenOutcome::Ready {
+                chunk_data,
+                gen_context,
+                tree_instances,
+            } => (*chunk_data, gen_context, tree_instances),
+            TerrainGenOutcome::LoadFailed(error) => {
+                log::error!("[存档系统] 区块 {chunk_pos:?} 读取失败，已阻止重新生成: {error}");
+                *chunk_state = ChunkState::LoadFailed;
+                continue;
+            }
+        };
+
         apply_pending_writes(chunk_pos, &mut chunk_data, &mut world_state);
-        world_state.insert_chunk(chunk_pos, Arc::from(chunk_data));
+        if let Err(error) =
+            world_state.insert_restored_chunk(chunk_pos, Arc::from(chunk_data), tree_instances)
+        {
+            log::error!("[存档系统] 区块 {chunk_pos:?} 树实例恢复失败: {error}");
+            *chunk_state = ChunkState::LoadFailed;
+            continue;
+        }
         if !gen_ctx.columns.is_empty() {
             chunk_runtime.cache_generation_context(chunk_pos, gen_ctx);
         }

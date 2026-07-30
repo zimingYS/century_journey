@@ -39,6 +39,8 @@ pub fn process_load_queue_system(
             break;
         };
 
+        let position = saved.position;
+        let tree_instances = saved.tree_instances;
         let mut chunk_data = saved.data;
 
         // 如果存档中有 ID 映射，进行重映射
@@ -46,7 +48,11 @@ pub fn process_load_queue_system(
             io::remap_chunk_block_ids(&mut chunk_data, &saved_id_map, &block_registry);
         }
 
-        world_state.insert_chunk(saved.position, Arc::from(chunk_data));
+        if let Err(error) =
+            world_state.insert_restored_chunk(position, Arc::from(chunk_data), tree_instances)
+        {
+            log::error!("[存档系统] 区块 {position:?} 树实例恢复失败: {error}");
+        }
 
         loaded += 1;
     }

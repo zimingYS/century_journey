@@ -31,6 +31,10 @@ impl Default for PlayerSaveManager {
 impl PlayerSaveManager {
     /// 自动保存检查间隔,单位为秒
     pub(in crate::game) const AUTO_SAVE_INTERVAL: f32 = 30.0;
+    /// 开始新的世界会话并丢弃上一个世界的计时、脏标记和统计快照。
+    pub(in crate::game) fn begin_session(&mut self) {
+        *self = Self::default();
+    }
 
     /// 标记玩家数据已经发生需要持久化的变化
     pub(in crate::game) fn set_dirty(&mut self, source: SaveDirtySource) {
@@ -68,3 +72,6 @@ impl PlayerSaveManager {
         }
     }
 }
+#[cfg(test)]
+#[path = "../../../../../tests/unit/game/save/player/runtime/manager.rs"]
+mod tests;

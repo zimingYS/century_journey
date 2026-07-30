@@ -68,15 +68,14 @@ pub fn auto_save_on_unload_system(
     }
 
     for (position, modified_time) in world_state.take_modified_chunks() {
-        let Some(data) = world_state.chunk(position) else {
+        let Some(snapshot) = world_state.chunk_snapshot(position) else {
             continue;
         };
-
-        save_queue.enqueue(SavedChunk {
+        save_queue.enqueue(SavedChunk::from_world_snapshot(
             position,
-            data: data.as_ref().clone(),
+            snapshot,
             modified_time,
-        });
+        ));
     }
     log::trace!(
         "[自动保存] 元数据已保存，{} 个修改区块已进入后台队列",

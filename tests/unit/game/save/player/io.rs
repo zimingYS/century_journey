@@ -1,6 +1,17 @@
 use super::*;
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::save::player::{SAVE_VERSION, SaveItemStack};
+use crate::game::save::world::chunk::region::RegionManager;
+
+#[test]
+fn player_save_is_nested_inside_its_world_root() {
+    assert_eq!(
+        player_save_path("isolated_world"),
+        RegionManager::save_root("isolated_world")
+            .join("players")
+            .join("singleplayer.dat")
+    );
+}
 
 impl LegacySaveItemStack {
     fn air() -> Self {

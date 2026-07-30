@@ -1,13 +1,23 @@
-//! 维护可持久化的权威体素数据，并提供跨区块坐标访问入口。
+//! 维护可持久化的权威区块与树木实例，并提供统一快照入口。
 
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::structure::pending_writes::{PendingVoxel, PendingVoxelWrites};
+use crate::game::world::vegetation::{TreeInstance, TreeInstanceStore};
 use bevy::math::IVec3;
 use bevy::prelude::Resource;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-/// 当前世界会话的权威区块快照、修改时间和跨区块延迟写入。
+/// 区块卸载时一次性移交给存档领域的权威数据。
+#[derive(Debug)]
+pub(in crate::game) struct WorldChunkSnapshot {
+    /// 区块的不可变体素快照。
+    pub data: Arc<ChunkData>,
+    /// 根坐标属于该区块的有序树木实例。
+    pub tree_instances: Vec<TreeInstance>,
+}
+
+/// 当前世界会话的权威区块快照、树木实例、修改时间和生成期延迟写入。
 #[derive(Resource, Debug, Default)]
 pub struct WorldState {
     /// 当前流送窗口内已加载的权威区块快照。
@@ -16,6 +26,8 @@ pub struct WorldState {
     chunk_modified_times: HashMap<IVec3, f64>,
     /// 结构越过区块边界时等待目标区块加载的确定性延迟写入。
     pending_writes: PendingVoxelWrites,
+    /// 按树根所在区块唯一持有的逻辑树实例；不会复制到树冠跨入的区块。
+    tree_instances: TreeInstanceStore,
 }
 
 impl WorldState {
@@ -39,9 +51,27 @@ impl WorldState {
         self.loaded_chunks.insert(position, data);
     }
 
-    /// 移除区块并返回其最后快照，供卸载保存流程使用。
-    pub fn remove_chunk(&mut self, position: IVec3) -> Option<Arc<ChunkData>> {
-        self.loaded_chunks.remove(&position)
+    /// 恢复磁盘区块及其根区块树实例；校验失败时不替换原有数据。
+    pub(in crate::game) fn insert_restored_chunk(
+        &mut self,
+        position: IVec3,
+        data: Arc<ChunkData>,
+        tree_instances: Vec<TreeInstance>,
+    ) -> Result<(), String> {
+        self.tree_instances
+            .replace_chunk(position, tree_instances)?;
+        self.loaded_chunks.insert(position, data);
+        Ok(())
+    }
+
+    /// 移除区块并同时返回体素与根区块树实例，供卸载保存流程使用。
+    pub(in crate::game) fn remove_chunk(&mut self, position: IVec3) -> Option<WorldChunkSnapshot> {
+        let data = self.loaded_chunks.remove(&position)?;
+        let tree_instances = self.tree_instances.take_chunk(position);
+        Some(WorldChunkSnapshot {
+            data,
+            tree_instances,
+        })
     }
 
     /// 返回当前已加载区块数量，供客户端统计使用。
@@ -55,6 +85,39 @@ impl WorldState {
             .iter()
             .map(|(position, data)| (*position, data))
     }
+    /// 克隆指定已加载区块的体素与树实例快照，供异步存档取得独立所有权。
+    pub(in crate::game) fn chunk_snapshot(&self, position: IVec3) -> Option<WorldChunkSnapshot> {
+        let data = Arc::clone(self.loaded_chunks.get(&position)?);
+        Some(WorldChunkSnapshot {
+            data,
+            tree_instances: self.tree_instances.snapshot_chunk(position),
+        })
+    }
+
+    /// 插入新树实例；树根区块未加载或根坐标重复时拒绝写入。
+    pub(in crate::game::world) fn insert_tree_instance(
+        &mut self,
+        instance: TreeInstance,
+    ) -> Result<(), String> {
+        if !self.contains_chunk(instance.owner_chunk()) {
+            return Err(format!("树根 {:?} 所属区块尚未加载", instance.root()));
+        }
+        self.tree_instances.insert(instance)
+    }
+
+    /// 返回指定树根坐标的逻辑实例。
+    pub(in crate::game) fn tree_instance(&self, root: IVec3) -> Option<&TreeInstance> {
+        self.tree_instances.get(root)
+    }
+
+    /// 删除指定树根坐标的逻辑实例。
+    pub(in crate::game::world) fn remove_tree_instance(
+        &mut self,
+        root: IVec3,
+    ) -> Option<TreeInstance> {
+        self.tree_instances.remove(root)
+    }
+
     /// 标记区块发生修改，并记录该修改对应的时间。
     pub fn mark_chunk_modified(&mut self, position: IVec3, modified_time: f64) {
         self.chunk_modified_times.insert(position, modified_time);
@@ -94,3 +157,7 @@ impl WorldState {
         self.pending_writes.writes.remove(&position)
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/game/world/state/authoritative.rs"]
+mod tests;

@@ -1,5 +1,6 @@
 use super::*;
 use crate::game::world::chunk::ChunkData;
+use crate::shared::identifier::Identifier;
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -40,6 +41,10 @@ fn small_tree(anchor: IVec3) -> TreeBlueprint {
     )
 }
 
+fn tree_instance(anchor: IVec3) -> TreeInstance {
+    TreeInstance::new_mature(anchor, Identifier::new("century_journey", "oak"), 0, 25)
+}
+
 #[test]
 fn valid_sapling_replaces_itself_with_a_complete_tree() {
     let anchor = IVec3::new(8, 1, 8);
@@ -49,10 +54,10 @@ fn valid_sapling_replaces_itself_with_a_complete_tree() {
     let blueprint = small_tree(anchor);
 
     let changes = try_apply_tree_growth(
-        anchor,
         SAPLING_ID,
         &support_tag,
         &blueprint,
+        tree_instance(anchor),
         &tags,
         &mut world,
         |_| true,
@@ -64,6 +69,9 @@ fn valid_sapling_replaces_itself_with_a_complete_tree() {
     for voxel in blueprint.voxels() {
         assert_eq!(get_voxel_at_world(voxel.world_pos, &world), voxel.block_id);
     }
+    let instance = world.tree_instance(anchor).unwrap();
+    assert_eq!(instance.root(), anchor);
+    assert_eq!(instance.shape_seed(), 0);
 }
 
 #[test]
@@ -74,10 +82,10 @@ fn unsupported_sapling_keeps_the_world_unchanged() {
     let (support_tag, tags) = support_tag_registry();
 
     let result = try_apply_tree_growth(
-        anchor,
         SAPLING_ID,
         &support_tag,
         &small_tree(anchor),
+        tree_instance(anchor),
         &tags,
         &mut world,
         |_| true,
@@ -85,6 +93,7 @@ fn unsupported_sapling_keeps_the_world_unchanged() {
 
     assert!(result.is_none());
     assert_eq!(get_voxel_at_world(anchor, &world), SAPLING_ID);
+    assert!(world.tree_instance(anchor).is_none());
 }
 
 #[test]
@@ -97,10 +106,10 @@ fn blocked_tree_space_produces_no_partial_writes() {
     let (support_tag, tags) = support_tag_registry();
 
     let result = try_apply_tree_growth(
-        anchor,
         SAPLING_ID,
         &support_tag,
         &small_tree(anchor),
+        tree_instance(anchor),
         &tags,
         &mut world,
         |_| true,
@@ -119,10 +128,10 @@ fn blueprint_crossing_an_unloaded_chunk_keeps_the_sapling() {
     let (support_tag, tags) = support_tag_registry();
 
     let result = try_apply_tree_growth(
-        anchor,
         SAPLING_ID,
         &support_tag,
         &small_tree(anchor),
+        tree_instance(anchor),
         &tags,
         &mut world,
         |_| true,
@@ -130,6 +139,7 @@ fn blueprint_crossing_an_unloaded_chunk_keeps_the_sapling() {
 
     assert!(result.is_none());
     assert_eq!(get_voxel_at_world(anchor, &world), SAPLING_ID);
+    assert!(world.tree_instance(anchor).is_none());
 }
 
 #[test]

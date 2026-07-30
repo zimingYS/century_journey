@@ -11,6 +11,7 @@ use crate::game::world::chunk::ChunkState;
 use crate::game::world::state::{ChunkRuntime, WorldState};
 use crate::game::world::structure::{TreeBlueprint, TreeBlueprintParameters};
 use crate::game::world::time::{GameMinuteElapsed, WorldSimulationClock};
+use crate::game::world::vegetation::TreeInstance;
 use crate::shared::random::RandomSource;
 use crate::shared::tag::identifier::TagId;
 use bevy::ecs::system::SystemParam;
@@ -91,19 +92,26 @@ pub(super) fn grow_saplings_system(
             crown_radius_max: species.definition.blueprint.crown_radius.max,
         };
         let mut shape_rng = simulation_rng.for_event(TREE_SHAPE_RANDOM_DOMAIN, 0, event_key);
+        let shape_seed = shape_rng.next_u64() as u32;
         let blueprint = TreeBlueprint::generate(
             position,
-            shape_rng.next_u64() as u32,
+            shape_seed,
             species.trunk_block_id,
             species.leaves_block_id,
             parameters,
         );
+        let tree_instance = TreeInstance::new_mature(
+            position,
+            species.definition.identifier.clone(),
+            shape_seed,
+            game_minute,
+        );
 
         let changes = try_apply_tree_growth(
-            position,
             sapling_block_id,
             support_tag,
             &blueprint,
+            tree_instance,
             &tag_registry,
             &mut world_state,
             |chunk_position| chunk_is_ready(chunk_position, &chunk_runtime, &chunk_states),
@@ -125,14 +133,19 @@ fn growth_attempt_is_due(position: IVec3, block_id: u16, game_minute: u64, inter
 }
 
 fn try_apply_tree_growth(
-    anchor: IVec3,
     sapling_block_id: u16,
     support_tag: &TagId,
     blueprint: &TreeBlueprint,
+    tree_instance: TreeInstance,
     tag_registry: &RuntimeTagRegistry,
     world_state: &mut WorldState,
     mut chunk_is_ready: impl FnMut(IVec3) -> bool,
 ) -> Option<Vec<BlockChangedEvent>> {
+    let anchor = tree_instance.root();
+    if world_state.tree_instance(anchor).is_some() {
+        return None;
+    }
+
     let support_position = anchor - IVec3::Y;
     let support_chunk = world_to_chunk_position(support_position);
     if !world_state.contains_chunk(support_chunk) || !chunk_is_ready(support_chunk) {
@@ -169,6 +182,9 @@ fn try_apply_tree_growth(
             .expect("树形预检后，同一系统内的体素写入必须发生变化");
         changes.push(change);
     }
+    world_state
+        .insert_tree_instance(tree_instance)
+        .expect("树形预检后，根区块和实例主键必须仍然有效");
     Some(changes)
 }
 

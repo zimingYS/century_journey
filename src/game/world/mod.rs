@@ -13,3 +13,4 @@ pub mod time;
 mod vegetation;
 
 pub use plugin::GameWorldPlugin;
+pub(in crate::game) use vegetation::{TreeGrowthStage, TreeInstance};

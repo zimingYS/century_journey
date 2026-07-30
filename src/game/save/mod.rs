@@ -6,6 +6,7 @@ pub mod world;
 
 mod config;
 mod debug_controls;
+mod path;
 mod plugin;
 
 pub use config::{AutoSaveTimer, SaveConfig};

@@ -38,10 +38,14 @@ pub fn save_entire_world(
     // 批量保存所有区块
     let chunks: Vec<SavedChunk> = world_state
         .chunks()
-        .map(|(position, data)| SavedChunk {
-            position,
-            data: data.as_ref().clone(),
-            modified_time: world_state.chunk_modified_time(position).unwrap_or(now),
+        .filter_map(|(position, _)| {
+            world_state.chunk_snapshot(position).map(|snapshot| {
+                SavedChunk::from_world_snapshot(
+                    position,
+                    snapshot,
+                    world_state.chunk_modified_time(position).unwrap_or(now),
+                )
+            })
         })
         .collect();
 

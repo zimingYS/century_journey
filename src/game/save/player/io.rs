@@ -1,6 +1,7 @@
 //! 执行玩家存档的原子读写、备份检测和恢复。
 
 use crate::engine::persistence;
+use crate::game::save::path::world_save_root;
 use crate::game::save::player::data::migration;
 use crate::game::save::player::data::migration::{
     LegacyPlayerSaveDataV3, LegacyPlayerSaveDataV4, LegacyPlayerSaveDataV5, LegacyPlayerSaveDataV6,
@@ -15,6 +16,8 @@ use flate2::write::GzEncoder;
 use std::io::{Read, Write};
 
 const PLAYER_MAGIC: &[u8; 4] = b"CJPL";
+const PLAYER_DIRECTORY_NAME: &str = "players";
+const SINGLE_PLAYER_FILE_NAME: &str = "singleplayer.dat";
 
 /// 序列化并压缩写入玩家数据
 pub fn write_player_data(data: &PlayerSaveData, path: &std::path::Path) -> Result<(), String> {
@@ -115,12 +118,13 @@ fn validate_player_bytes(bytes: &[u8]) -> Result<(), String> {
     decode_player_data(bytes).map(|_| ())
 }
 
-/// 获取玩家存档文件路径
+/// 返回指定世界内部的单机玩家存档路径。
+///
+/// 玩家数据必须位于世界根目录内，才能与世界创建、删除和备份生命周期保持一致。
 pub fn player_save_path(world_name: &str) -> std::path::PathBuf {
-    std::path::PathBuf::from("../../../../saves")
-        .join(world_name)
-        .join("players")
-        .join("singleplayer.dat")
+    world_save_root(world_name)
+        .join(PLAYER_DIRECTORY_NAME)
+        .join(SINGLE_PLAYER_FILE_NAME)
 }
 
 #[cfg(test)]
