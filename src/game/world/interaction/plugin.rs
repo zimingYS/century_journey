@@ -23,7 +23,7 @@ impl Plugin for WorldInteractionPlugin {
                 remove_unsupported_blocks_system,
             )
                 .chain()
-                .after(SimulationSet::Interaction)
+                .after(SimulationSet::Environment)
                 .before(SimulationSet::Survival)
                 .run_if(in_state(AppState::InGame)),
         )

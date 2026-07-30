@@ -8,6 +8,7 @@ use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::block_ids::GenerationBlockIds;
 use crate::game::world::generation::structure::pending_writes::{PendingVoxel, PendingVoxelWrites};
 use crate::game::world::generation::terrain::context::ChunkGenContext;
+use crate::game::world::structure::{TreeBlueprint, TreeBlueprintParameters};
 use crate::shared::voxel::CHUNK_SIZE;
 use bevy::prelude::IVec3;
 
@@ -103,36 +104,24 @@ impl StructureGenerator {
         workspace: &mut StructureGenerationWorkspace,
     ) {
         let hash = simple_hash(base_world_x, base_world_z, 114514);
-        let trunk_height = 4 + (hash % 3) as i32;
-        let crown_radius = 2 + ((hash >> 8) % 2) as i32;
-        let crown_center_y = base_world_y + trunk_height + 1;
+        let trunk_anchor = IVec3::new(base_world_x, base_world_y + 1, base_world_z);
+        let blueprint = TreeBlueprint::generate(
+            trunk_anchor,
+            hash,
+            block_ids.wood,
+            block_ids.leaves,
+            TreeBlueprintParameters::generated_tree(),
+        );
 
-        // 树干
-        for dy in 1..=trunk_height {
-            let wy = base_world_y + dy;
+        for voxel in blueprint.voxels() {
             set_voxel_world_aware(
                 chunk_pos,
-                base_world_x,
-                wy,
-                base_world_z,
-                block_ids.wood,
+                voxel.world_pos.x,
+                voxel.world_pos.y,
+                voxel.world_pos.z,
+                voxel.block_id,
                 workspace,
             );
-        }
-
-        // 树冠
-        for dx in -crown_radius..=crown_radius {
-            for dy in -crown_radius..=crown_radius {
-                for dz in -crown_radius..=crown_radius {
-                    if dx * dx + dy * dy + dz * dz > crown_radius * crown_radius {
-                        continue;
-                    }
-                    let wx = base_world_x + dx;
-                    let wy = crown_center_y + dy;
-                    let wz = base_world_z + dz;
-                    set_voxel_world_aware(chunk_pos, wx, wy, wz, block_ids.leaves, workspace);
-                }
-            }
         }
     }
 

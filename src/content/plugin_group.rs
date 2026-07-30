@@ -9,6 +9,7 @@ use crate::content::lifecycle::ContentLifecyclePlugin;
 use crate::content::loot::LootPlugin;
 use crate::content::recipe::plugin::RecipeContentPlugin;
 use crate::content::tag::plugin::TagContentPlugin;
+use crate::content::vegetation::VegetationContentPlugin;
 
 /// Content 层插件聚合入口。
 ///
@@ -25,6 +26,7 @@ impl Plugin for ContentPluginGroup {
             LootPlugin,
             TagContentPlugin,
             RecipeContentPlugin,
+            VegetationContentPlugin,
         ));
     }
 }

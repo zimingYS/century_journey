@@ -1,0 +1,16 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:oak",
+  "display_name": "橡树",
+  "sapling_block": "century_journey:sapling",
+  "trunk_block": "century_journey:wood",
+  "leaves_block": "century_journey:leaves",
+  "growth": {
+    "attempt_interval_game_minutes": 5,
+    "chance_per_attempt": 0.5
+  },
+  "blueprint": {
+    "trunk_height": { "min": 4, "max": 6 },
+    "crown_radius": { "min": 2, "max": 3 }
+  }
+}

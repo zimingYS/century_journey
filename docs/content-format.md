@@ -43,3 +43,16 @@ This contract currently covers JSON content definitions only. Texture, model,
 script, binary compatibility, load hooks, and runtime code extension are not a
 stable Mod API. The environment variable names and Rust traits may change
 before that API is explicitly versioned.
+
+## Tree Species
+
+树种定义放在 `assets/definitions/tree_species/`，并由 Content 层统一编译和校验。树种文件必须声明：
+
+- `identifier`、`display_name`
+- `sapling_block`、`trunk_block`、`leaves_block`
+- `growth.attempt_interval_game_minutes` 与 `growth.chance_per_attempt`
+- `blueprint.trunk_height` 与 `blueprint.crown_radius` 的 `min`、`max`
+
+树苗可放置和可继续生长的地面约束来自树苗方块的
+`placement.required_support_tag`，树种文件不重复声明支撑标签。所有方块引用必须存在，
+树苗不能同时映射到多个树种，空气不能作为树苗、树干或树叶。

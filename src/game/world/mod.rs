@@ -8,6 +8,8 @@ pub mod interaction;
 mod plugin;
 pub mod state;
 pub mod streaming;
+mod structure;
 pub mod time;
+mod vegetation;
 
 pub use plugin::GameWorldPlugin;
