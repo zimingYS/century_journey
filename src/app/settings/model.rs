@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// 玩家可持久化的客户端运行设置。
 #[derive(Resource, Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
 pub struct GameSettings {
     /// 水平区块加载与渲染距离。
     pub render_distance: u32,

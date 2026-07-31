@@ -22,6 +22,8 @@ const LEVEL_FILE_NAME: &str = "level.dat";
 const REGION_DIR_NAME: &str = "regions";
 /// Region 文件名前缀。
 const REGION_FILE_PREFIX: &str = "r";
+/// 单个区块解压后的硬上限，阻止损坏记录在读取屏障前无限占用内存。
+const MAX_DECOMPRESSED_CHUNK_BYTES: usize = 20 * 1024 * 1024;
 
 /// Region 文件的读写管理器
 pub struct RegionManager;
@@ -273,7 +275,7 @@ impl RegionManager {
     pub(in crate::game::save::world) fn decode_compressed_chunk(
         compressed: &[u8],
     ) -> Result<SavedChunk, SaveError> {
-        let decompressed = Self::decompress(compressed)?;
+        let decompressed = Self::decompress_chunk(compressed)?;
         decode_chunk_record(&decompressed)
     }
 
@@ -410,6 +412,19 @@ impl RegionManager {
         let mut decoder = GzDecoder::new(data);
         let mut decompressed = Vec::new();
         decoder.read_to_end(&mut decompressed)?;
+        Ok(decompressed)
+    }
+
+    fn decompress_chunk(data: &[u8]) -> Result<Vec<u8>, SaveError> {
+        let mut decoder = GzDecoder::new(data).take((MAX_DECOMPRESSED_CHUNK_BYTES + 1) as u64);
+        let mut decompressed = Vec::new();
+        decoder.read_to_end(&mut decompressed)?;
+        if decompressed.len() > MAX_DECOMPRESSED_CHUNK_BYTES {
+            return Err(SaveError::Serialize(format!(
+                "区块解压后超过 {} 字节上限",
+                MAX_DECOMPRESSED_CHUNK_BYTES
+            )));
+        }
         Ok(decompressed)
     }
 }

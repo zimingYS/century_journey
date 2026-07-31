@@ -94,6 +94,7 @@ pub fn manage_chunks_system(
             ));
         }
 
+        chunk_runtime.remove_generation_context(pos);
         chunk_runtime.remove_chunk_entity(pos);
         world_state.clear_chunk_modified(pos);
         commands

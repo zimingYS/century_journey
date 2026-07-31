@@ -1,4 +1,4 @@
-//! 定义当前版本玩家存档，并负责权威运行时状态的双向转换。
+//! 定义当前玩家存档，并负责权威运行时状态的双向转换。
 
 use crate::content::item::ItemRegistry;
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
@@ -11,17 +11,23 @@ use crate::game::save::player::data::item_codec;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-/// 当前玩家存档格式版本。
-pub const SAVE_VERSION: u32 = 7;
-
-/// 可序列化物品堆叠
+/// 可序列化物品堆叠。
+///
+/// 字段缺失时以空气槽位为基准补全，未知字段由 Serde 自动忽略。
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(default)]
 pub struct SaveItemStack {
     pub runtime_id: Option<u32>,
     pub item: String,
     pub count: u32,
     #[serde(default)]
     pub durability: Option<u32>,
+}
+
+impl Default for SaveItemStack {
+    fn default() -> Self {
+        Self::air()
+    }
 }
 
 impl SaveItemStack {
@@ -41,23 +47,22 @@ impl SaveItemStack {
     }
 }
 
-/// 可序列化玩家存档数据
+/// 当前可序列化玩家存档数据。
+///
+/// 此结构直接代表当前业务状态，不携带随字段增删递增的版本号。命名 MessagePack
+/// 读取时以 `Default` 补全新字段并忽略已删除字段；只有字段语义变化才需要单独迁移。
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(default)]
 pub struct PlayerSaveData {
-    pub version: u32,
     pub game_version: String,
     pub position: [f32; 3],
     pub rotation: [f32; 4],
-    #[serde(default)]
     pub camera_pitch: f32,
     pub gamemode: String,
-    #[serde(default)]
     pub health: f32,
-    #[serde(default)]
+    #[serde(alias = "food_level")]
     pub hunger: f32,
-    #[serde(default = "default_saturation")]
     pub saturation: f32,
-    #[serde(default = "default_respawn_point")]
     pub respawn_point: [f32; 3],
     pub hotbar_active: usize,
     #[serde(with = "serde_arrays")]
@@ -76,7 +81,6 @@ pub struct PlayerSaveData {
 impl Default for PlayerSaveData {
     fn default() -> Self {
         Self {
-            version: SAVE_VERSION,
             game_version: env!("CARGO_PKG_VERSION").to_string(),
             position: [0.0, 70.0, 0.0],
             rotation: [0.0, 0.0, 0.0, 1.0],
@@ -126,8 +130,8 @@ fn string_to_gamemode(s: &str) -> GameMode {
 // ─── PlayerSaveData 方法 ──────────────────────────────
 
 impl PlayerSaveData {
-    /// 从玩家权威运行时状态收集当前版本存档快照。
-    /// 参数逐项对应存档字段，保持显式可避免遗漏版本化状态。
+    /// 从玩家权威运行时状态收集当前存档快照。
+    /// 参数逐项对应存档字段，保持显式可避免遗漏权威状态。
     #[allow(clippy::too_many_arguments)]
     pub fn from_runtime(
         position: Vec3,
@@ -167,7 +171,6 @@ impl PlayerSaveData {
             .collect();
 
         Self {
-            version: SAVE_VERSION,
             game_version: env!("CARGO_PKG_VERSION").to_string(),
             position: [position.x, position.y, position.z],
             rotation: [rotation.x, rotation.y, rotation.z, rotation.w],

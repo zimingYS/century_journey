@@ -114,6 +114,7 @@ pub fn generate_structures_system(
 
             let result = sender.send(StructureGenResult {
                 chunk_pos,
+                request_entity: entity,
                 modified_chunks,
                 pending_writes,
             });
@@ -145,10 +146,10 @@ pub fn receive_structure_results(
         channel.in_flight.fetch_sub(1, Ordering::Relaxed);
         received += 1;
 
-        let Some(result_entity) = chunk_runtime.chunk_entity(result.chunk_pos) else {
+        if chunk_runtime.chunk_entity(result.chunk_pos) != Some(result.request_entity) {
             continue;
-        };
-        let Ok((result_components, result_state)) = chunk_query.get(result_entity) else {
+        }
+        let Ok((result_components, result_state)) = chunk_query.get(result.request_entity) else {
             continue;
         };
         if result_components.position != result.chunk_pos
@@ -176,8 +177,9 @@ pub fn receive_structure_results(
 
         chunk_runtime.remove_generation_context(result.chunk_pos);
 
-        if let Some(entity) = chunk_runtime.chunk_entity(result.chunk_pos)
-            && let Ok((chunk_components, mut chunk_state)) = chunk_query.get_mut(entity)
+        if chunk_runtime.chunk_entity(result.chunk_pos) == Some(result.request_entity)
+            && let Ok((chunk_components, mut chunk_state)) =
+                chunk_query.get_mut(result.request_entity)
             && chunk_components.position == result.chunk_pos
             && *chunk_state == ChunkState::GeneratingStructure
         {

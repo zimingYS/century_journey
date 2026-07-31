@@ -6,7 +6,7 @@ use bevy::window::{MonitorSelection, PresentMode, PrimaryWindow, WindowMode};
 
 use super::contracts::{DialogKind, DialogState, SettingAction};
 use crate::app::settings::{
-    GameSettings, load_settings, save_settings, settings_backup_available, settings_path,
+    GameSettings, load_settings, save_settings, settings_backup_available, settings_file_exists,
 };
 use crate::client::ui::theme::scale::UiScaleSettings;
 use crate::game::world::streaming::WorldStreamingConfig;
@@ -78,8 +78,7 @@ pub(super) fn load_settings_system(
     mut persistence_state: ResMut<SettingsPersistenceState>,
     mut dialog: ResMut<DialogState>,
 ) {
-    let path = settings_path();
-    if !path.exists() {
+    if !settings_file_exists() {
         if settings_backup_available() {
             persistence_state.blocked = true;
             dialog.kind = Some(DialogKind::ConfirmRecoverSettings);

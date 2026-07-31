@@ -106,6 +106,7 @@ pub(super) struct PrepareWorldParams<'w, 's> {
     structure_channel: ResMut<'w, StructureGenChannel>,
     mesh_channel: ResMut<'w, MeshBuildChannel>,
     save_queue: ResMut<'w, SaveQueue>,
+    save_worker: ResMut<'w, SaveWorker>,
     load_queue: ResMut<'w, LoadQueue>,
     chunk_query: Query<'w, 's, Entity, With<ChunkComponents>>,
     session: ResMut<'w, GameSession>,
@@ -155,6 +156,23 @@ pub(super) fn prepare_world_system(pending: Res<PendingWorld>, mut params: Prepa
                 params.next_state.set(AppState::MainMenu);
                 return;
             }
+
+            // 切换会话前必须让旧世界所有已接受写入完成；否则旧快照可能进入新世界的
+            // 读取屏障，或在新世界开始后继续覆盖旧 Region。
+            if !params.save_queue.queue.is_empty() || !params.save_worker.is_idle() {
+                let previous_world = params.save_config.world_name.clone();
+                if let Err(error) = flush_save_queue(
+                    &previous_world,
+                    &mut params.save_queue,
+                    &mut params.save_worker,
+                ) {
+                    params
+                        .dialog
+                        .error("世界切换失败", format!("旧世界存档尚未完成：{error}"));
+                    params.next_state.set(AppState::MainMenu);
+                    return;
+                }
+            }
             for entity in &params.chunk_query {
                 params.commands.entity(entity).despawn();
             }
@@ -165,6 +183,7 @@ pub(super) fn prepare_world_system(pending: Res<PendingWorld>, mut params: Prepa
             *params.structure_channel = StructureGenChannel::default();
             *params.mesh_channel = MeshBuildChannel::default();
             params.save_queue.queue.clear();
+            *params.save_worker = SaveWorker::default();
             params.load_queue.queue.clear();
             params.save_config.world_name = world_id.to_string();
             let biomes = params

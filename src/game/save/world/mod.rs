@@ -6,6 +6,7 @@ mod plugin;
 pub mod runtime;
 
 pub use chunk::load::{LoadQueue, try_load_chunk_from_disk};
+pub(in crate::game) use chunk::queue::latest_snapshot_for_load;
 pub use chunk::queue::{SaveQueue, SaveWorker, flush_save_queue};
 pub(super) use plugin::WorldSavePlugin;
 pub use runtime::world_load::CachedBlockIdRemap;
