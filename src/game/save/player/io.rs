@@ -1,22 +1,23 @@
 //! 执行玩家存档的原子读写、备份检测和恢复。
 
-use crate::engine::persistence;
-use crate::game::save::player::data::migration;
-use crate::game::save::player::data::migration::{
-    LegacyPlayerSaveDataV3, LegacyPlayerSaveDataV4, LegacyPlayerSaveDataV5, LegacyPlayerSaveDataV6,
-};
+use crate::engine::{document, persistence};
+use crate::game::save::path::world_save_root;
+use crate::game::save::player::data::legacy_bincode;
 #[cfg(test)]
-use crate::game::save::player::data::migration::{LegacySaveItemStack, LegacySaveItemStackV6};
+use crate::game::save::player::data::legacy_bincode::{
+    DurabilityLayout, DurabilityStack, EquipmentInventoryLayout, ExpandedInventoryLayout,
+    GameBuildLayout, IdentifierCountStack, RuntimeIdMapLayout, RuntimeMappedStack,
+};
 use crate::game::save::player::data::model::PlayerSaveData;
-use bincode::Options;
-use flate2::Compression;
-use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
-use std::io::{Read, Write};
 
-const PLAYER_MAGIC: &[u8; 4] = b"CJPL";
+const PLAYER_DOCUMENT_MAGIC: [u8; 4] = *b"CJPM";
+const LEGACY_PLAYER_MAGIC: &[u8; 4] = b"CJPL";
+const PLAYER_DOCUMENT_FORMAT: u32 = 1;
+const PLAYER_MAX_DECOMPRESSED_BYTES: usize = 4 * 1024 * 1024;
+const PLAYER_DIRECTORY_NAME: &str = "players";
+const SINGLE_PLAYER_FILE_NAME: &str = "singleplayer.dat";
 
-/// 序列化并压缩写入玩家数据
+/// 使用命名 MessagePack 文档原子写入当前玩家数据。
 pub fn write_player_data(data: &PlayerSaveData, path: &std::path::Path) -> Result<(), String> {
     let compressed = encode_player_data(data)?;
     persistence::atomic_write_verified(path, &compressed, validate_player_bytes)
@@ -24,22 +25,10 @@ pub fn write_player_data(data: &PlayerSaveData, path: &std::path::Path) -> Resul
 }
 
 fn encode_player_data(data: &PlayerSaveData) -> Result<Vec<u8>, String> {
-    let serialized = bincode::DefaultOptions::new()
-        .with_varint_encoding()
-        .serialize(data)
-        .map_err(|e| format!("bincode serialize: {e}"))?;
-    let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
-    encoder
-        .write_all(&serialized)
-        .map_err(|e| format!("gzip write: {e}"))?;
-    let compressed = encoder.finish().map_err(|e| format!("gzip finish: {e}"))?;
-    let mut encoded = Vec::with_capacity(PLAYER_MAGIC.len() + compressed.len());
-    encoded.extend_from_slice(PLAYER_MAGIC);
-    encoded.extend_from_slice(&compressed);
-    Ok(encoded)
+    document::encode_named(PLAYER_DOCUMENT_MAGIC, PLAYER_DOCUMENT_FORMAT, data)
 }
 
-/// 读取并解压反序列化玩家数据
+/// 读取玩家数据；当前命名文档按字段兼容，历史 bincode 文件通过冻结布局只读升级。
 pub fn read_player_data(path: &std::path::Path) -> Result<PlayerSaveData, String> {
     let bytes = persistence::read_verified(path, validate_player_bytes)
         .map_err(|error| error.to_string())?;
@@ -64,63 +53,32 @@ pub fn restore_player_backup(path: &std::path::Path) -> Result<(), String> {
 }
 
 fn decode_player_data(bytes: &[u8]) -> Result<PlayerSaveData, String> {
-    let (compressed, current_format) = match bytes.strip_prefix(PLAYER_MAGIC) {
-        Some(data) => (data, true),
-        None => (bytes, false),
-    };
-    let mut decoder = GzDecoder::new(compressed);
-    let mut decompressed = Vec::new();
-    decoder
-        .read_to_end(&mut decompressed)
-        .map_err(|e| format!("gzip decompress: {e}"))?;
-    if current_format {
-        if let Ok(data) = bincode::DefaultOptions::new()
-            .with_varint_encoding()
-            .reject_trailing_bytes()
-            .deserialize::<PlayerSaveData>(&decompressed)
-        {
-            return migration::migrate_player_data(data);
-        }
-        if let Ok(legacy) = bincode::DefaultOptions::new()
-            .with_varint_encoding()
-            .reject_trailing_bytes()
-            .deserialize::<LegacyPlayerSaveDataV6>(&decompressed)
-        {
-            return Ok(legacy.into());
-        }
-        let legacy = bincode::DefaultOptions::new()
-            .with_varint_encoding()
-            .reject_trailing_bytes()
-            .deserialize::<LegacyPlayerSaveDataV5>(&decompressed)
-            .map_err(|error| format!("bincode deserialize v7/v6/v5: {error}"))?;
-        return Ok(legacy.into());
+    if document::has_magic(bytes, PLAYER_DOCUMENT_MAGIC) {
+        return document::decode_named(
+            bytes,
+            PLAYER_DOCUMENT_MAGIC,
+            PLAYER_DOCUMENT_FORMAT,
+            PLAYER_MAX_DECOMPRESSED_BYTES,
+        );
     }
 
-    if let Ok(legacy) = bincode::DefaultOptions::new()
-        .with_varint_encoding()
-        .reject_trailing_bytes()
-        .deserialize::<LegacyPlayerSaveDataV4>(&decompressed)
-    {
-        return Ok(legacy.into());
+    if let Some(compressed) = bytes.strip_prefix(LEGACY_PLAYER_MAGIC) {
+        return legacy_bincode::decode(compressed, true);
     }
-    let legacy = bincode::DefaultOptions::new()
-        .with_varint_encoding()
-        .reject_trailing_bytes()
-        .deserialize::<LegacyPlayerSaveDataV3>(&decompressed)
-        .map_err(|e| format!("bincode deserialize (v5/v4/v3): {e}"))?;
-    Ok(legacy.into())
+    legacy_bincode::decode(bytes, false)
 }
 
 fn validate_player_bytes(bytes: &[u8]) -> Result<(), String> {
     decode_player_data(bytes).map(|_| ())
 }
 
-/// 获取玩家存档文件路径
+/// 返回指定世界内部的单机玩家存档路径。
+///
+/// 玩家数据必须位于世界根目录内，才能与世界创建、删除和备份生命周期保持一致。
 pub fn player_save_path(world_name: &str) -> std::path::PathBuf {
-    std::path::PathBuf::from("../../../../saves")
-        .join(world_name)
-        .join("players")
-        .join("singleplayer.dat")
+    world_save_root(world_name)
+        .join(PLAYER_DIRECTORY_NAME)
+        .join(SINGLE_PLAYER_FILE_NAME)
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@ use bevy::prelude::{DetectChangesMut, Query, Res, ResMut, Transform, With};
 
 use crate::content::item::ItemRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
-use crate::game::inventory::state::LocalInventoryMut;
+use crate::game::inventory::state::{InventoryState, LocalInventoryMut};
 use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::{PlayerLifecycle, RespawnPoint};
 use crate::game::player::movement::components::{PlayerAim, PlayerVelocity};
@@ -39,6 +39,7 @@ pub fn load_player_on_enter_system(
     >,
     mut save_manager: ResMut<PlayerSaveManager>,
 ) {
+    save_manager.begin_session();
     let save_path = player_save_path(&save_config.world_name);
     let raw_data = if save_path.exists() {
         match read_player_data(&save_path) {
@@ -59,9 +60,7 @@ pub fn load_player_on_enter_system(
     let save_data = validate_player_data(&raw_data);
     *gamemode = save_data.restore_gamemode();
 
-    let restored = save_data.restore_inventory_with_registry(&item_registry);
-    inventory.hotbar = restored.hotbar;
-    inventory.survival = restored.survival;
+    replace_inventory_for_session(&mut inventory, &save_data, &item_registry);
 
     if let Ok((
         mut transform,
@@ -102,3 +101,15 @@ pub fn load_player_on_enter_system(
         save_data.gamemode
     );
 }
+/// 使用当前世界的存档整体替换库存，避免光标和最近物品等会话状态跨世界残留。
+fn replace_inventory_for_session(
+    inventory: &mut InventoryState,
+    save_data: &PlayerSaveData,
+    item_registry: &ItemRegistry,
+) {
+    *inventory = save_data.restore_inventory_with_registry(item_registry);
+}
+
+#[cfg(test)]
+#[path = "../../../../../tests/unit/game/save/player/runtime/load.rs"]
+mod tests;

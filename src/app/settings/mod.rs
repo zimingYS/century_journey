@@ -8,6 +8,7 @@ mod persistence;
 
 pub use model::GameSettings;
 pub use persistence::{
-    SETTINGS_FORMAT_VERSION, load_settings, load_settings_from, restore_settings_backup,
-    save_settings, save_settings_to, settings_backup_available, settings_path,
+    SETTINGS_DOCUMENT_FORMAT, load_settings, load_settings_from, restore_settings_backup,
+    save_settings, save_settings_to, settings_backup_available, settings_file_exists,
+    settings_path,
 };

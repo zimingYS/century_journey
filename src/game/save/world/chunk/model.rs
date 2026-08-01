@@ -1,6 +1,8 @@
 //! 定义磁盘区块记录以及运行时区块之间的转换。
 
+use crate::game::world::TreeInstance;
 use crate::game::world::chunk::ChunkData;
+use crate::game::world::state::WorldChunkSnapshot;
 use bevy::math::IVec3;
 use serde::{Deserialize, Serialize};
 
@@ -29,15 +31,56 @@ pub struct RegionHeader {
     pub chunk_lengths: Vec<u32>,
 }
 
-/// 单个区块的持久化数据
-#[derive(Serialize, Deserialize, Clone, Debug)]
+/// 单个区块的持久化数据。
+///
+/// 树实例只随树根所属区块保存，跨入相邻区块的树干和树叶仍由各自体素快照持有。
+#[derive(Clone, Debug)]
 pub struct SavedChunk {
-    /// 区块世界坐标
+    /// 区块世界坐标。
     pub position: IVec3,
-    /// 区块方块数据
+    /// 区块方块数据。
     pub data: ChunkData,
-    /// 区块最后修改时间（自存档创建以来的秒数）
+    /// 根坐标属于该区块的有序树实例。
+    pub tree_instances: Vec<TreeInstance>,
+    /// 区块最后修改时间（自存档创建以来的秒数）。
     pub modified_time: f64,
+}
+
+impl SavedChunk {
+    /// 从世界层的聚合快照创建存档记录，保持体素与树实例处于同一时刻。
+    pub(in crate::game) fn from_world_snapshot(
+        position: IVec3,
+        snapshot: WorldChunkSnapshot,
+        modified_time: f64,
+    ) -> Self {
+        Self {
+            position,
+            data: snapshot.data.as_ref().clone(),
+            tree_instances: snapshot.tree_instances,
+            modified_time,
+        }
+    }
+
+    /// 校验树根归属、唯一性和时间戳，阻止损坏载荷进入权威世界。
+    pub(super) fn validate(&self) -> Result<(), String> {
+        if !self.modified_time.is_finite() {
+            return Err("区块修改时间必须是有限值".into());
+        }
+        let mut roots = std::collections::HashSet::new();
+        for instance in &self.tree_instances {
+            if instance.owner_chunk() != self.position {
+                return Err(format!(
+                    "树根 {:?} 不属于存档区块 {:?}",
+                    instance.root(),
+                    self.position
+                ));
+            }
+            if !roots.insert(instance.root()) {
+                return Err(format!("存档区块包含重复树根 {:?}", instance.root()));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// 将区块世界坐标转换为所属 Region 坐标。

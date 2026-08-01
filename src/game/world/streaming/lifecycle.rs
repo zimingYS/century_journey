@@ -78,22 +78,23 @@ pub fn manage_chunks_system(
             continue;
         }
 
-        let unloaded_chunk = world_state.remove_chunk(pos);
+        let unloaded_snapshot = world_state.remove_chunk(pos);
 
         if save_config.save_on_unload
-            && let Some(chunk_data) = unloaded_chunk
+            && let Some(snapshot) = unloaded_snapshot
         {
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs_f64();
-            save_queue.enqueue(SavedChunk {
-                position: pos,
-                data: chunk_data.as_ref().clone(),
-                modified_time: world_state.chunk_modified_time(pos).unwrap_or(now),
-            });
+            save_queue.enqueue(SavedChunk::from_world_snapshot(
+                pos,
+                snapshot,
+                world_state.chunk_modified_time(pos).unwrap_or(now),
+            ));
         }
 
+        chunk_runtime.remove_generation_context(pos);
         chunk_runtime.remove_chunk_entity(pos);
         world_state.clear_chunk_modified(pos);
         commands

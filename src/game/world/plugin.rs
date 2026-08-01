@@ -1,10 +1,10 @@
-//! 组装世界状态、生成、流送、交互、时间与实体等子插件。
+//! 组装世界状态、生成、流送、植被、交互、时间与实体等子插件。
 
 use crate::game::world::state;
-use crate::game::world::{entity, generation, interaction, streaming, time};
+use crate::game::world::{entity, generation, interaction, streaming, time, vegetation};
 use bevy::app::{App, Plugin, Startup};
 
-/// 组装世界基础资源、时间、生成、流送和实体子领域插件。
+/// 组装世界基础资源、时间、生成、流送、植被、交互和实体子领域插件。
 ///
 /// 本插件只负责世界领域的顶层装配；具体运行逻辑将逐步下沉到各子领域插件。
 pub struct GameWorldPlugin;
@@ -19,6 +19,7 @@ impl Plugin for GameWorldPlugin {
                 time::WorldTimePlugin,
                 streaming::WorldStreamingPlugin,
                 generation::WorldGenerationPlugin,
+                vegetation::VegetationPlugin,
                 entity::EntityPlugin,
                 interaction::WorldInteractionPlugin,
             ));

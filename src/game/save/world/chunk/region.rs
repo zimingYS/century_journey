@@ -1,6 +1,8 @@
 //! 负责区域文件寻址、原子写入和世界目录生命周期操作。
 
+use super::codec::{decode_chunk_record, encode_chunk_record};
 use crate::engine::persistence;
+use crate::game::save::path::world_save_root;
 use crate::game::save::world::chunk::model::{
     REGION_SIZE, RegionFile, RegionHeader, SavedChunk, chunk_local_index, chunk_to_region_pos,
     local_index_to_flat,
@@ -14,14 +16,14 @@ use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-/// 世界存档根目录名。
-const SAVE_DIR_NAME: &str = "saves";
 /// 世界元数据文件名。
 const LEVEL_FILE_NAME: &str = "level.dat";
 /// Region 文件目录名。
 const REGION_DIR_NAME: &str = "regions";
 /// Region 文件名前缀。
 const REGION_FILE_PREFIX: &str = "r";
+/// 单个区块解压后的硬上限，阻止损坏记录在读取屏障前无限占用内存。
+const MAX_DECOMPRESSED_CHUNK_BYTES: usize = 20 * 1024 * 1024;
 
 /// Region 文件的读写管理器
 pub struct RegionManager;
@@ -84,7 +86,7 @@ impl From<crate::engine::persistence::AtomicFileError> for SaveError {
 impl RegionManager {
     /// 获取存档根路径。
     pub fn save_root(world_name: &str) -> PathBuf {
-        PathBuf::from(SAVE_DIR_NAME).join(world_name)
+        world_save_root(world_name)
     }
 
     /// 获取保存 Region 文件的目录。
@@ -158,10 +160,13 @@ impl RegionManager {
         // 在 header 的有序列表中找到此区块
         let chunk_idx = Self::find_chunk_index(&region, flat)?;
         let compressed = &region.chunks[chunk_idx];
-        let decompressed = Self::decompress(compressed)?;
-        let saved: SavedChunk = bincode::DefaultOptions::new()
-            .with_varint_encoding()
-            .deserialize(&decompressed)?;
+        let saved = Self::decode_compressed_chunk(compressed)?;
+        if saved.position != chunk_pos {
+            return Err(SaveError::Serialize(format!(
+                "区块索引请求 {chunk_pos:?}，载荷却声明 {:?}",
+                saved.position
+            )));
+        }
 
         Ok(Some(saved))
     }
@@ -264,6 +269,14 @@ impl RegionManager {
         }
 
         Ok(())
+    }
+
+    /// 解压并解码单个区块记录，供流式加载与完整世界加载共享迁移规则。
+    pub(in crate::game::save::world) fn decode_compressed_chunk(
+        compressed: &[u8],
+    ) -> Result<SavedChunk, SaveError> {
+        let decompressed = Self::decompress_chunk(compressed)?;
+        decode_chunk_record(&decompressed)
     }
 
     /// 删除指定世界的完整存档目录。
@@ -381,12 +394,10 @@ impl RegionManager {
         count
     }
 
-    /// 压缩区块
+    /// 编码并压缩带独立格式头的区块载荷。
     fn compress_chunk(chunk: &SavedChunk) -> Result<Vec<u8>, SaveError> {
-        let serialized = bincode::DefaultOptions::new()
-            .with_varint_encoding()
-            .serialize(chunk)?;
-        Self::compress(&serialized)
+        let encoded = encode_chunk_record(chunk)?;
+        Self::compress(&encoded)
     }
 
     /// 压缩
@@ -401,6 +412,19 @@ impl RegionManager {
         let mut decoder = GzDecoder::new(data);
         let mut decompressed = Vec::new();
         decoder.read_to_end(&mut decompressed)?;
+        Ok(decompressed)
+    }
+
+    fn decompress_chunk(data: &[u8]) -> Result<Vec<u8>, SaveError> {
+        let mut decoder = GzDecoder::new(data).take((MAX_DECOMPRESSED_CHUNK_BYTES + 1) as u64);
+        let mut decompressed = Vec::new();
+        decoder.read_to_end(&mut decompressed)?;
+        if decompressed.len() > MAX_DECOMPRESSED_CHUNK_BYTES {
+            return Err(SaveError::Serialize(format!(
+                "区块解压后超过 {} 字节上限",
+                MAX_DECOMPRESSED_CHUNK_BYTES
+            )));
+        }
         Ok(decompressed)
     }
 }

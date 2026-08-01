@@ -71,7 +71,8 @@ ClientApplication
    │  ├─ VoxelPlugin
    │  ├─ LootPlugin
    │  ├─ TagContentPlugin
-   │  └─ RecipeContentPlugin
+   │  ├─ RecipeContentPlugin
+   │  └─ VegetationContentPlugin
    ├─ GamePluginGroup
    │  ├─ SimulationPlugin
    │  ├─ GameplayPlugin
@@ -79,6 +80,7 @@ ClientApplication
    │  │  ├─ WorldTimePlugin
    │  │  ├─ WorldStreamingPlugin
    │  │  ├─ WorldGenerationPlugin
+   │  │  ├─ VegetationPlugin
    │  │  ├─ EntityPlugin
    │  │  │  └─ DroppedItemPlugin
    │  │  └─ WorldInteractionPlugin
@@ -153,6 +155,7 @@ ContentReloadSet::Request
 | `RecipeContentPlugin` | 配方注册表。 |
 | `LootPlugin` | 方块掉落表注册表。 |
 | `TagContentPlugin` | 由方块、物品和标签定义编译出的运行时标签索引。 |
+| `VegetationContentPlugin` | 树种定义及树苗方块到运行时树种的索引。 |
 
 Content 只回答“游戏中有哪些定义及其静态属性”，不直接生成玩家、执行饥饿规则或创建渲染网格。
 
@@ -162,17 +165,17 @@ Content 只回答“游戏中有哪些定义及其静态属性”，不直接生
 |---|---|
 | `SimulationPlugin` | 定义固定步 `SimulationSet` 顺序、确定性随机源和变换历史。 |
 | `GameplayPlugin` | 管理游戏模式等基础玩法状态，并消费客户端转换后的玩法请求。 |
-| `GameWorldPlugin` | 世界状态、区块流送、地形/结构生成、世界时间、交互与掉落物子插件。 |
+| `GameWorldPlugin` | 世界状态、区块流送、地形/结构生成、世界时间、树实例与植被生长、交互和掉落物子插件。 |
 | `InventoryPlugin` | 背包容器、槽位交互、权威命令和物品丢弃请求。 |
 | `CraftingPlugin` | 工作台交互、合成网格和容器行为。 |
 | `GamePlayerPlugin` | 玩家命令、移动、重力、方块交互、生存、生命周期和战斗规则。 |
-| `GameSavePlugin` | 独立组装玩家存档、世界存档、备份恢复和异步写入队列。 |
+| `GameSavePlugin` | 独立组装玩家存档、世界存档、区块载荷迁移、备份恢复和异步写入队列。 |
 
 `SimulationPlugin` 中的固定步顺序是：
 
 ```text
 Clock -> Commands -> Movement -> Physics -> Targeting
-      -> Interaction -> Survival -> Combat -> Entities
+      -> Interaction -> Environment -> Survival -> Combat -> Entities
 ```
 
 这条顺序比插件注册顺序更直接地决定了同一模拟步内移动、饥饿、伤害和掉落物逻辑的先后关系。
@@ -283,7 +286,7 @@ flowchart TD
     AppRuntime --> ClientGroup["ClientPluginGroup"]
 
     EngineGroup --> EngineLeaf["Asset / Task"]
-    ContentGroup --> ContentLeaf["Lifecycle / Block / Item / Biome / Recipe / Loot / Tag"]
+    ContentGroup --> ContentLeaf["Lifecycle / Block / Item / Biome / Recipe / Loot / Tag / Vegetation"]
     GameGroup --> GameLeaf["Simulation / World / Player / Inventory / Crafting / Save / Gameplay"]
     AppGroup --> AppLeaf["State / Flow"]
     ClientGroup --> ClientLeaf["Input / Renderer / Player Presentation / UI / Sound / Effects"]

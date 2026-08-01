@@ -1,5 +1,8 @@
 use super::*;
 use crate::game::world::chunk::ChunkData;
+use crate::game::world::{TreeGrowthStage, TreeInstance};
+use crate::shared::identifier::Identifier;
+use crate::shared::voxel::CHUNK_SIZE;
 
 fn saved_chunk(position: IVec3, voxel: u16) -> SavedChunk {
     let mut data = ChunkData::default();
@@ -7,6 +10,20 @@ fn saved_chunk(position: IVec3, voxel: u16) -> SavedChunk {
     SavedChunk {
         position,
         data,
+        tree_instances: vec![
+            TreeInstance::from_persisted(
+                position * CHUNK_SIZE as i32 + IVec3::ONE,
+                Identifier::new("century_journey", "oak"),
+                u32::from(voxel),
+                TreeGrowthStage::Mature,
+                0,
+                0,
+                1_000,
+                0,
+                None,
+            )
+            .unwrap(),
+        ],
         modified_time: f64::from(voxel),
     }
 }
@@ -47,6 +64,14 @@ fn missing_primary_reads_and_extends_the_valid_backup() {
             .unwrap()
             .data
             .voxels[0],
+        21
+    );
+    assert_eq!(
+        RegionManager::read_chunk(&world, IVec3::X)
+            .unwrap()
+            .unwrap()
+            .tree_instances[0]
+            .shape_seed(),
         21
     );
 

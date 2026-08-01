@@ -2,14 +2,12 @@
 
 use crate::content::block::registry::BlockRegistry;
 use crate::game::save::SaveConfig;
-use crate::game::save::world::chunk::model::SavedChunk;
 use crate::game::save::world::chunk::region::{RegionManager, SaveError};
 use crate::game::save::world::metadata::io;
 use crate::game::save::world::metadata::model::LevelData;
 use crate::game::world::state::WorldState;
 use bevy::prelude;
 use bevy::prelude::{Res, ResMut, Resource};
-use bincode::Options;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -57,18 +55,15 @@ pub fn load_entire_world(
             let region_path = RegionManager::region_path(world_name, region_pos);
             if let Ok(region) = RegionManager::read_region_path(&region_path) {
                 for compressed in &region.chunks {
-                    if let Ok(decompressed) = RegionManager::decompress(compressed)
-                        && let Ok(mut saved) = bincode::DefaultOptions::new()
-                            .with_varint_encoding()
-                            .deserialize::<SavedChunk>(&decompressed)
-                    {
-                        io::remap_chunk_block_ids(
-                            &mut saved.data,
-                            &level.block_id_map,
-                            block_registry,
-                        );
-                        storage.insert_chunk(saved.position, Arc::from(saved.data));
-                    }
+                    let mut saved = RegionManager::decode_compressed_chunk(compressed)?;
+                    io::remap_chunk_block_ids(&mut saved.data, &level.block_id_map, block_registry);
+                    storage
+                        .insert_restored_chunk(
+                            saved.position,
+                            Arc::from(saved.data),
+                            saved.tree_instances,
+                        )
+                        .map_err(SaveError::Serialize)?;
                 }
             }
         }

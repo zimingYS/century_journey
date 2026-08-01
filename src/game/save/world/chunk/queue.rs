@@ -1,4 +1,4 @@
-//! 串行化区块写入意图，并跟踪异步保存任务的完成状态。
+//! 串行化区块写入意图，并向异步加载提供“最新已接受快照”读取屏障。
 
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::save::config::SaveConfig;
@@ -7,20 +7,20 @@ use crate::game::save::world::chunk::region::RegionManager;
 use bevy::math::IVec3;
 use bevy::prelude;
 use bevy::prelude::{Res, ResMut, Resource};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Mutex, mpsc};
 
 /// 单次后台写盘批次最多包含的区块数，限制复制与压缩造成的帧尖峰。
 const MAX_SAVE_PER_FRAME: usize = 4;
 
-/// 保存队列
+/// 尚未交给后台写盘的区块快照队列。
 #[derive(Resource, Default, Debug)]
 pub struct SaveQueue {
     pub queue: VecDeque<SavedChunk>,
 }
 
 impl SaveQueue {
-    /// 同一区块只保留最新快照，避免玩家在边界往返时重复排队。
+    /// 同一区块只保留时间更新的快照；时间相同时以后来提交者为准。
     pub fn enqueue(&mut self, chunk: SavedChunk) {
         if let Some(existing) = self
             .queue
@@ -41,12 +41,15 @@ struct SaveBatchCompletion {
     error: Option<String>,
 }
 
-/// 流式区块保存后台任务状态。只允许一个批次写盘，避免同一 Region 并发覆盖。
+/// 流式区块保存后台状态，并保留飞行中快照供加载屏障查询。
+///
+/// 只允许一个批次写盘，避免同一 Region 并发覆盖；飞行中最多四个快照，
+/// 有界克隆换取了卸载后立即重载时不会读取旧磁盘状态。
 #[derive(Resource)]
 pub struct SaveWorker {
     sender: mpsc::Sender<SaveBatchCompletion>,
     receiver: Mutex<mpsc::Receiver<SaveBatchCompletion>>,
-    in_flight_positions: HashSet<IVec3>,
+    in_flight_snapshots: HashMap<IVec3, SavedChunk>,
     in_flight_batches: usize,
 }
 
@@ -56,7 +59,7 @@ impl Default for SaveWorker {
         Self {
             sender,
             receiver: Mutex::new(receiver),
-            in_flight_positions: HashSet::new(),
+            in_flight_snapshots: HashMap::new(),
             in_flight_batches: 0,
         }
     }
@@ -69,7 +72,24 @@ impl SaveWorker {
     }
 }
 
-/// 每帧处理保存队列，批量写入磁盘
+/// 返回加载必须看到的最新内存快照，但不消费其保存意图。
+///
+/// 同坐标待写队列一定晚于已经派发的飞行中批次，因此即便两个墙钟时间相同，
+/// 也必须优先选择队列，随后才选择飞行中快照，最后由调用方读取磁盘。
+pub(in crate::game) fn latest_snapshot_for_load(
+    queue: &SaveQueue,
+    worker: &SaveWorker,
+    position: IVec3,
+) -> Option<SavedChunk> {
+    queue
+        .queue
+        .iter()
+        .find(|chunk| chunk.position == position)
+        .cloned()
+        .or_else(|| worker.in_flight_snapshots.get(&position).cloned())
+}
+
+/// 每帧收集完成结果并按固定批量派发新的后台写盘任务。
 pub fn process_save_queue_system(
     mut save_queue: ResMut<SaveQueue>,
     save_config: Res<SaveConfig>,
@@ -87,7 +107,7 @@ pub fn process_save_queue_system(
         let Some(chunk) = save_queue.queue.pop_front() else {
             break;
         };
-        if worker.in_flight_positions.contains(&chunk.position) {
+        if worker.in_flight_snapshots.contains_key(&chunk.position) {
             save_queue.queue.push_back(chunk);
             continue;
         }
@@ -101,7 +121,9 @@ pub fn process_save_queue_system(
     }
 
     for chunk in &batch {
-        worker.in_flight_positions.insert(chunk.position);
+        worker
+            .in_flight_snapshots
+            .insert(chunk.position, chunk.clone());
     }
     worker.in_flight_batches += 1;
 
@@ -123,7 +145,7 @@ pub fn process_save_queue_system(
     });
 }
 
-/// 同步写完队列中的所有区块。保存并退出必须在离开世界前调用此函数。
+/// 同步写完队列中的所有区块；世界切换和保存退出必须先经过此屏障。
 pub fn flush_save_queue(
     world_name: &str,
     save_queue: &mut SaveQueue,
@@ -146,10 +168,6 @@ pub fn flush_save_queue(
     Ok(saved)
 }
 
-#[cfg(test)]
-#[path = "../../../../../tests/unit/game/save/world/chunk/queue.rs"]
-mod tests;
-
 fn collect_save_completions(save_queue: &mut SaveQueue, worker: &mut SaveWorker) {
     let completions: Vec<_> = {
         let Ok(receiver) = worker.receiver.lock() else {
@@ -158,19 +176,37 @@ fn collect_save_completions(save_queue: &mut SaveQueue, worker: &mut SaveWorker)
         receiver.try_iter().collect()
     };
     for completion in completions {
-        worker.in_flight_batches = worker.in_flight_batches.saturating_sub(1);
-        for chunk in &completion.chunks {
-            worker.in_flight_positions.remove(&chunk.position);
-        }
-        if let Some(error) = completion.error {
-            log::error!("[存档系统] 后台保存区块失败: {error}");
-            for chunk in completion.chunks {
-                save_queue.enqueue(chunk);
-            }
-        } else {
-            log::trace!("[存档系统] 后台已保存 {} 个区块", completion.chunks.len());
+        match apply_completion(save_queue, worker, completion) {
+            Ok(saved) => log::trace!("[存档系统] 后台已保存 {saved} 个区块"),
+            Err(error) => log::error!("[存档系统] 后台保存区块失败: {error}"),
         }
     }
+}
+
+fn apply_completion(
+    save_queue: &mut SaveQueue,
+    worker: &mut SaveWorker,
+    completion: SaveBatchCompletion,
+) -> Result<usize, String> {
+    worker.in_flight_batches = worker.in_flight_batches.saturating_sub(1);
+    for chunk in &completion.chunks {
+        worker.in_flight_snapshots.remove(&chunk.position);
+    }
+
+    if let Some(error) = completion.error {
+        for chunk in completion.chunks {
+            // 若写盘期间已经产生更新快照，旧失败批次不得覆盖或替换它。
+            if !save_queue
+                .queue
+                .iter()
+                .any(|queued| queued.position == chunk.position)
+            {
+                save_queue.queue.push_back(chunk);
+            }
+        }
+        return Err(error);
+    }
+    Ok(completion.chunks.len())
 }
 
 fn wait_for_save_worker(
@@ -187,17 +223,14 @@ fn wait_for_save_worker(
             .map_err(|error| {
                 super::region::SaveError::Serialize(format!("保存任务意外终止: {error}"))
             })?;
-        worker.in_flight_batches = worker.in_flight_batches.saturating_sub(1);
-        for chunk in &completion.chunks {
-            worker.in_flight_positions.remove(&chunk.position);
+        match apply_completion(save_queue, worker, completion) {
+            Ok(count) => saved += count,
+            Err(error) => return Err(super::region::SaveError::Serialize(error)),
         }
-        if let Some(error) = completion.error {
-            for chunk in completion.chunks {
-                save_queue.enqueue(chunk);
-            }
-            return Err(super::region::SaveError::Serialize(error));
-        }
-        saved += completion.chunks.len();
     }
     Ok(saved)
 }
+
+#[cfg(test)]
+#[path = "../../../../../tests/unit/game/save/world/chunk/queue.rs"]
+mod tests;

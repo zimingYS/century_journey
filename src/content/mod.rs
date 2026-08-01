@@ -13,3 +13,4 @@ pub mod plugin_group;
 pub mod recipe;
 pub mod tag;
 pub mod validation;
+pub mod vegetation;

@@ -9,6 +9,7 @@ mod loot;
 mod recipe;
 mod tag;
 mod texture;
+mod vegetation;
 
 pub(super) use biome::validate_biomes;
 pub(super) use block::validate_blocks;
@@ -17,3 +18,4 @@ pub(super) use loot::validate_loot;
 pub(super) use recipe::validate_recipes;
 pub(super) use tag::validate_tags;
 pub(super) use texture::validate_textures;
+pub(super) use vegetation::validate_tree_species;

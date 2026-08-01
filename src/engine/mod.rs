@@ -4,6 +4,7 @@
 //! 资源解析与加载、持久化原语及异步任务门面。尚未形成真实实现的抽象不在此占位。
 
 pub mod asset;
+pub mod document;
 pub mod persistence;
 pub mod plugin_group;
 pub mod task;

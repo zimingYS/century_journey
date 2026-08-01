@@ -9,6 +9,7 @@ use crate::content::item::definition::ItemDefinition;
 use crate::content::loot::table::LootTable;
 use crate::content::recipe::definition::recipe_definition::RecipeDefinition;
 use crate::content::tag::definition::TagAction;
+use crate::content::vegetation::definition::TreeSpeciesDefinition;
 use crate::engine::asset::{AssetFiles, AssetResolver};
 use crate::shared::identifier::Identifier;
 use crate::shared::tag::identifier::TagId;
@@ -21,7 +22,7 @@ mod paths;
 
 use checks::{
     validate_biomes, validate_blocks, validate_items, validate_loot, validate_recipes,
-    validate_tags, validate_textures,
+    validate_tags, validate_textures, validate_tree_species,
 };
 use loading::{load, unique_ids};
 use paths::{block_loot_id, inline_tag_id, recipe_id, tag_identity, tag_runtime_id};
@@ -51,6 +52,7 @@ pub struct CompiledContent {
     pub recipes: Vec<(Identifier, RecipeDefinition)>,
     pub block_loot: Vec<(Identifier, LootTable)>,
     pub tags: Vec<(TagId, TagAction)>,
+    pub tree_species: Vec<TreeSpeciesDefinition>,
 }
 
 #[derive(Resource, Debug, Clone, Default)]
@@ -101,6 +103,8 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
     let mut recipes = load::<RecipeDefinition>(&files, "definitions/recipes", &mut report);
     let mut loot = load::<LootTable>(&files, "definitions/loot/blocks", &mut report);
     let mut tags = load::<TagAction>(&files, "definitions/tags", &mut report);
+    let mut tree_species =
+        load::<TreeSpeciesDefinition>(&files, "definitions/tree_species", &mut report);
 
     let block_ids = unique_ids(
         blocks
@@ -114,6 +118,13 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
             .iter()
             .map(|(path, item)| (path, item.identifier.to_string())),
         "item",
+        &mut report,
+    );
+    unique_ids(
+        tree_species
+            .iter()
+            .map(|(path, species)| (path, species.identifier.to_string())),
+        "tree species",
         &mut report,
     );
     let mut item_ids = explicit_item_ids.clone();
@@ -147,6 +158,7 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
     validate_loot(&loot, &block_ids, &item_ids, &mut report);
     validate_tags(&tags, &block_ids, &item_ids, &biomes, &mut report);
     validate_textures(resolver, &files, &mut report);
+    validate_tree_species(&tree_species, &blocks, &block_ids, &mut report);
 
     blocks.sort_by(|left, right| {
         left.1
@@ -170,6 +182,12 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
     recipes.sort_by(|left, right| left.0.cmp(&right.0));
     loot.sort_by(|left, right| left.0.cmp(&right.0));
     tags.sort_by(|left, right| left.0.cmp(&right.0));
+    tree_species.sort_by(|left, right| {
+        left.1
+            .identifier
+            .cmp(&right.1.identifier)
+            .then_with(|| left.0.cmp(&right.0))
+    });
 
     let mut recipe_ids = HashSet::new();
     let recipes = recipes
@@ -230,6 +248,7 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
             recipes,
             block_loot,
             tags,
+            tree_species: tree_species.into_iter().map(|(_, value)| value).collect(),
         },
     }
 }

@@ -75,6 +75,8 @@ pub enum ChunkState {
     Empty,
     /// 初始状态，正在生成地形基础地形数据
     GeneratingTerrain,
+    /// 区块存档存在但无法安全读取；保持空白并等待显式修复，禁止重新生成覆盖。
+    LoadFailed,
     /// 基础地形生成完成，等待进入结构生成阶段
     TerrainReady,
     /// 生成结构

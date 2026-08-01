@@ -1,30 +1,66 @@
-//! 设置文件的版本、校验、备份与迁移。
+//! 使用命名 MessagePack 文档持久化设置，并兼容读取历史 JSON 文件。
 
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 use super::model::GameSettings;
-use crate::engine::persistence;
+use crate::engine::{document, persistence};
 
-/// 当前支持的设置文件格式版本。
-pub const SETTINGS_FORMAT_VERSION: u32 = 1;
+/// 当前设置文档的外层编码格式；普通字段变化不得递增此值。
+pub const SETTINGS_DOCUMENT_FORMAT: u32 = 1;
+const SETTINGS_MAGIC: [u8; 4] = *b"CJST";
+const MAX_SETTINGS_DOCUMENT_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct SettingsFile {
+#[serde(default)]
+struct SettingsDocument {
+    game_version: String,
+    settings: GameSettings,
+}
+
+impl Default for SettingsDocument {
+    fn default() -> Self {
+        Self {
+            game_version: env!("CARGO_PKG_VERSION").to_string(),
+            settings: GameSettings::default(),
+        }
+    }
+}
+
+/// 冻结的历史 JSON 顶层布局，仅用于迁移已有设置。
+#[derive(Debug, Serialize, Deserialize)]
+struct LegacyJsonSettings {
     format_version: u32,
     game_version: String,
     settings: GameSettings,
 }
 
-/// 返回默认设置文件路径。
+/// 返回当前设置文档路径。
 pub fn settings_path() -> PathBuf {
+    PathBuf::from("config").join("settings.dat")
+}
+
+fn legacy_settings_path() -> PathBuf {
     PathBuf::from("config").join("settings.json")
 }
 
-/// 从默认路径读取并校验设置。
+/// 判断当前或历史设置主文件是否存在。
+pub fn settings_file_exists() -> bool {
+    settings_path().exists() || legacy_settings_path().exists()
+}
+
+/// 从默认路径读取设置；首次读取旧 JSON 后会写出当前文档。
 pub fn load_settings() -> Result<GameSettings, String> {
-    load_settings_from(&settings_path())
+    let current = settings_path();
+    if current.exists() {
+        return load_settings_from(&current);
+    }
+
+    let legacy = legacy_settings_path();
+    let settings = load_legacy_settings_from(&legacy)?;
+    save_settings(&settings)?;
+    Ok(settings)
 }
 
 /// 将设置原子写入默认路径，并保留可恢复备份。
@@ -32,7 +68,7 @@ pub fn save_settings(settings: &GameSettings) -> Result<(), String> {
     save_settings_to(&settings_path(), settings)
 }
 
-/// 从指定路径读取设置，供运行时和持久化测试复用。
+/// 从指定路径读取当前设置文档，供运行时和持久化测试复用。
 pub fn load_settings_from(path: &Path) -> Result<GameSettings, String> {
     let bytes = persistence::read_verified(path, validate_settings_bytes)
         .map_err(|error| error.to_string())?;
@@ -41,47 +77,60 @@ pub fn load_settings_from(path: &Path) -> Result<GameSettings, String> {
 
 /// 将设置原子写入指定路径，供运行时和持久化测试复用。
 pub fn save_settings_to(path: &Path, settings: &GameSettings) -> Result<(), String> {
-    let file = SettingsFile {
-        format_version: SETTINGS_FORMAT_VERSION,
+    let file = SettingsDocument {
         game_version: env!("CARGO_PKG_VERSION").to_string(),
         settings: normalize_settings(settings.clone()),
     };
-    let bytes =
-        serde_json::to_vec_pretty(&file).map_err(|error| format!("设置序列化失败: {error}"))?;
+    let bytes = document::encode_named(SETTINGS_MAGIC, SETTINGS_DOCUMENT_FORMAT, &file)?;
     persistence::atomic_write_verified(path, &bytes, validate_settings_bytes)
         .map_err(|error| error.to_string())
 }
 
-/// 判断默认设置文件是否存在通过校验的备份。
+/// 判断当前文档或历史 JSON 是否存在可恢复的有效备份。
 pub fn settings_backup_available() -> bool {
     persistence::has_valid_backup(&settings_path(), validate_settings_bytes)
+        || persistence::has_valid_backup(&legacy_settings_path(), validate_legacy_settings_bytes)
 }
 
-/// 使用有效备份恢复默认设置文件。
+/// 使用有效备份恢复设置；历史 JSON 备份会直接升级为当前文档。
 pub fn restore_settings_backup() -> Result<(), String> {
-    persistence::restore_backup(&settings_path(), validate_settings_bytes)
-        .map_err(|error| error.to_string())
+    let current = settings_path();
+    if persistence::has_valid_backup(&current, validate_settings_bytes) {
+        return persistence::restore_backup(&current, validate_settings_bytes)
+            .map_err(|error| error.to_string());
+    }
+
+    let legacy = legacy_settings_path();
+    let bytes = persistence::read_backup_verified(&legacy, validate_legacy_settings_bytes)
+        .map_err(|error| error.to_string())?;
+    let settings = decode_legacy_settings(&bytes)?;
+    save_settings(&settings)
 }
 
 fn decode_settings(bytes: &[u8]) -> Result<GameSettings, String> {
-    let file: SettingsFile =
-        serde_json::from_slice(bytes).map_err(|error| format!("设置文件格式无效: {error}"))?;
-    migrate_settings(file)
+    let file: SettingsDocument = document::decode_named(
+        bytes,
+        SETTINGS_MAGIC,
+        SETTINGS_DOCUMENT_FORMAT,
+        MAX_SETTINGS_DOCUMENT_BYTES,
+    )?;
+    Ok(normalize_settings(file.settings))
 }
 
-/// 所有格式升级都从这里进入，避免版本判断散落在读写代码中。
-fn migrate_settings(mut file: SettingsFile) -> Result<GameSettings, String> {
-    match file.format_version {
-        0 => {
-            file.format_version = SETTINGS_FORMAT_VERSION;
-            file.game_version = env!("CARGO_PKG_VERSION").to_string();
-        }
-        SETTINGS_FORMAT_VERSION => {}
-        found => {
-            return Err(format!(
-                "设置文件版本 {found} 高于当前支持版本 {SETTINGS_FORMAT_VERSION}"
-            ));
-        }
+fn load_legacy_settings_from(path: &Path) -> Result<GameSettings, String> {
+    let bytes = persistence::read_verified(path, validate_legacy_settings_bytes)
+        .map_err(|error| error.to_string())?;
+    decode_legacy_settings(&bytes)
+}
+
+fn decode_legacy_settings(bytes: &[u8]) -> Result<GameSettings, String> {
+    let file: LegacyJsonSettings =
+        serde_json::from_slice(bytes).map_err(|error| format!("旧设置文件格式无效: {error}"))?;
+    if file.format_version > 1 {
+        return Err(format!(
+            "旧设置文件版本 {} 高于最后支持版本 1",
+            file.format_version
+        ));
     }
     Ok(normalize_settings(file.settings))
 }
@@ -100,6 +149,10 @@ fn finite_or(value: f32, fallback: f32) -> f32 {
 
 fn validate_settings_bytes(bytes: &[u8]) -> Result<(), String> {
     decode_settings(bytes).map(|_| ())
+}
+
+fn validate_legacy_settings_bytes(bytes: &[u8]) -> Result<(), String> {
+    decode_legacy_settings(bytes).map(|_| ())
 }
 
 #[cfg(test)]
