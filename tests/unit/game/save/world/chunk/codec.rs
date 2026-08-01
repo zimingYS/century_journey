@@ -41,6 +41,34 @@ fn section_record_round_trip_preserves_tree_identity_and_schedule() {
 }
 
 #[test]
+fn field_codec_round_trips_all_named_growth_stages() {
+    let root = bevy::math::IVec3::new(1, 2, 3);
+    let stages = [
+        (crate::game::world::TreeGrowthStage::Sapling, Some(130)),
+        (crate::game::world::TreeGrowthStage::Young, Some(180)),
+        (crate::game::world::TreeGrowthStage::Mature, None),
+    ];
+
+    for (stage, next_update) in stages {
+        let instance = crate::game::world::TreeInstance::from_persisted(
+            root,
+            Identifier::new("century_journey", "oak"),
+            91,
+            stage,
+            100,
+            100,
+            1_000,
+            120,
+            next_update,
+        )
+        .unwrap();
+        let payload = tree_fields::encode(std::slice::from_ref(&instance)).unwrap();
+
+        assert_eq!(tree_fields::decode(&payload).unwrap(), vec![instance]);
+    }
+}
+
+#[test]
 fn missing_tree_section_defaults_to_empty_and_unknown_section_is_skipped() {
     let expected = saved_chunk();
     let mut sections = section::build_sections(&expected).unwrap();

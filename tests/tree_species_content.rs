@@ -47,6 +47,13 @@ fn repository_tree_species_builds_a_runtime_registry() {
 
     let oak = registry.get_by_sapling_id(sapling_id).unwrap();
     assert_eq!(oak.definition.identifier.to_string(), "century_journey:oak");
+    assert_eq!(oak.definition.growth.sapling_duration_game_minutes, 24 * 60);
+    assert_eq!(
+        oak.definition.growth.young_duration_game_minutes,
+        3 * 24 * 60
+    );
+    assert_eq!(oak.definition.growth.retry_interval_game_minutes, 5);
+    assert!(oak.definition.young_blueprint.is_some());
     assert_eq!(
         block_registry
             .get_identifier_by_id(oak.trunk_block_id)
@@ -74,8 +81,13 @@ fn invalid_tree_species_reports_reference_and_growth_fields() {
             "trunk_block": "century_journey:missing_wood",
             "leaves_block": "century_journey:leaves",
             "growth": {
-                "attempt_interval_game_minutes": 0,
-                "chance_per_attempt": 1.5
+                "sapling_duration_game_minutes": 0,
+                "young_duration_game_minutes": 0,
+                "retry_interval_game_minutes": 0
+            },
+            "young_blueprint": {
+                "trunk_height": { "min": 0, "max": 2 },
+                "crown_radius": { "min": 4, "max": 2 }
             },
             "blueprint": {
                 "trunk_height": { "min": 0, "max": 80 },
@@ -94,8 +106,11 @@ fn invalid_tree_species_reports_reference_and_growth_fields() {
     assert!(!compilation.is_valid());
     for expected_field in [
         "trunk_block",
-        "growth.attempt_interval_game_minutes",
-        "growth.chance_per_attempt",
+        "growth.sapling_duration_game_minutes",
+        "growth.young_duration_game_minutes",
+        "growth.retry_interval_game_minutes",
+        "young_blueprint.trunk_height",
+        "young_blueprint.crown_radius",
         "blueprint.trunk_height",
         "blueprint.crown_radius",
     ] {

@@ -33,3 +33,33 @@ fn invalid_chunk_replacement_is_atomic_and_take_removes_bucket() {
     assert_eq!(taken.len(), 1);
     assert!(store.snapshot_chunk(IVec3::ZERO).is_empty());
 }
+
+#[test]
+fn due_roots_are_filtered_and_sorted_across_chunk_buckets() {
+    let mut store = TreeInstanceStore::default();
+    store
+        .insert(TreeInstance::new_sapling(
+            IVec3::new(17, 2, 3),
+            Identifier::new("century_journey", "oak"),
+            20,
+            10,
+            5,
+        ))
+        .unwrap();
+    store
+        .insert(TreeInstance::new_sapling(
+            IVec3::new(1, 2, 3),
+            Identifier::new("century_journey", "oak"),
+            10,
+            10,
+            10,
+        ))
+        .unwrap();
+
+    assert_eq!(store.due_roots(14), Vec::<IVec3>::new());
+    assert_eq!(store.due_roots(15), vec![IVec3::new(17, 2, 3)]);
+    assert_eq!(
+        store.due_roots(20),
+        vec![IVec3::new(1, 2, 3), IVec3::new(17, 2, 3)]
+    );
+}

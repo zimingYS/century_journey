@@ -10,7 +10,10 @@ use std::collections::HashSet;
 const MAX_TREE_COUNT: usize = 4_096;
 const MAX_TREE_RECORD_BYTES: usize = 64 * 1024;
 const FULL_TREE_HEALTH: u16 = 1_000;
+// `Mature = 0` 已写入现有存档，后续阶段只能分配新代码。
 const MATURE_STAGE_CODE: u8 = 0;
+const SAPLING_STAGE_CODE: u8 = 1;
+const YOUNG_STAGE_CODE: u8 = 2;
 
 // 字段编号写入磁盘后永久保留，删除字段也不得复用其编号。
 const ROOT_FIELD: u16 = 1;
@@ -83,6 +86,8 @@ fn encode_tree(instance: &TreeInstance) -> Result<Vec<u8>, SaveError> {
         &instance.shape_seed().to_le_bytes(),
     )?;
     let stage = match instance.stage() {
+        TreeGrowthStage::Sapling => SAPLING_STAGE_CODE,
+        TreeGrowthStage::Young => YOUNG_STAGE_CODE,
         TreeGrowthStage::Mature => MATURE_STAGE_CODE,
     };
     push_field(&mut record, STAGE_FIELD, &[stage])?;
@@ -149,6 +154,8 @@ fn decode_tree(record: &[u8]) -> Result<TreeInstance, SaveError> {
             STAGE_FIELD => {
                 stage = match decode_u8(field, "stage")? {
                     MATURE_STAGE_CODE => TreeGrowthStage::Mature,
+                    SAPLING_STAGE_CODE => TreeGrowthStage::Sapling,
+                    YOUNG_STAGE_CODE => TreeGrowthStage::Young,
                     code => {
                         return Err(SaveError::Serialize(format!(
                             "未知树木生命周期阶段代码 {code}"

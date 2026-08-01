@@ -3,6 +3,10 @@
 use crate::shared::identifier::Identifier;
 use serde::{Deserialize, Serialize};
 
+const DEFAULT_SAPLING_DURATION_GAME_MINUTES: u64 = 24 * 60;
+const DEFAULT_YOUNG_DURATION_GAME_MINUTES: u64 = 3 * 24 * 60;
+const DEFAULT_RETRY_INTERVAL_GAME_MINUTES: u64 = 5;
+
 /// 描述一种树木从树苗到体素结构所需的稳定内容数据。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TreeSpeciesDefinition {
@@ -16,19 +20,30 @@ pub struct TreeSpeciesDefinition {
     pub trunk_block: Identifier,
     /// 生长后使用的树叶方块。
     pub leaves_block: Identifier,
-    /// 低频生长尝试规则。
+    /// 低频生命周期阶段时长与受阻重试规则。
     pub growth: TreeGrowthDefinition,
+    /// 幼树阶段使用的较小树形；缺失时由成熟尺寸确定性派生。
+    #[serde(default)]
+    pub young_blueprint: Option<TreeBlueprintDefinition>,
     /// 当前树形蓝图使用的尺寸范围。
     pub blueprint: TreeBlueprintDefinition,
 }
 
-/// 定义树苗参与权威生长判定的时间间隔和成功概率。
+/// 定义树苗、幼树的阶段时长和空间受阻后的重试间隔。
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct TreeGrowthDefinition {
-    /// 两次生长机会之间相隔的游戏分钟数。
-    pub attempt_interval_game_minutes: u64,
-    /// 每次满足环境和空间约束后的成功概率。
-    pub chance_per_attempt: f32,
+    /// 树苗成为幼树前至少经过的游戏分钟数。
+    #[serde(default = "default_sapling_duration_game_minutes")]
+    pub sapling_duration_game_minutes: u64,
+    /// 幼树成为成熟树前至少经过的游戏分钟数。
+    #[serde(default = "default_young_duration_game_minutes")]
+    pub young_duration_game_minutes: u64,
+    /// 区块未加载或空间被占用后延迟多久再次检查。
+    #[serde(
+        default = "default_retry_interval_game_minutes",
+        alias = "attempt_interval_game_minutes"
+    )]
+    pub retry_interval_game_minutes: u64,
 }
 
 /// 定义小树蓝图的树干高度和树冠半径范围。
@@ -47,6 +62,18 @@ pub struct TreeSizeRange {
     pub min: u8,
     /// 最大尺寸，包含在范围内。
     pub max: u8,
+}
+
+const fn default_sapling_duration_game_minutes() -> u64 {
+    DEFAULT_SAPLING_DURATION_GAME_MINUTES
+}
+
+const fn default_young_duration_game_minutes() -> u64 {
+    DEFAULT_YOUNG_DURATION_GAME_MINUTES
+}
+
+const fn default_retry_interval_game_minutes() -> u64 {
+    DEFAULT_RETRY_INTERVAL_GAME_MINUTES
 }
 
 #[cfg(test)]

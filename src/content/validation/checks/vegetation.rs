@@ -64,18 +64,42 @@ pub(in crate::content::validation) fn validate_tree_species(
             ));
         }
 
-        if definition.growth.attempt_interval_game_minutes == 0 {
-            report.errors.push(format!(
-                "{path}:growth.attempt_interval_game_minutes: must be greater than zero"
-            ));
+        for (field, duration) in [
+            (
+                "growth.sapling_duration_game_minutes",
+                definition.growth.sapling_duration_game_minutes,
+            ),
+            (
+                "growth.young_duration_game_minutes",
+                definition.growth.young_duration_game_minutes,
+            ),
+            (
+                "growth.retry_interval_game_minutes",
+                definition.growth.retry_interval_game_minutes,
+            ),
+        ] {
+            if duration == 0 {
+                report
+                    .errors
+                    .push(format!("{path}:{field}: must be greater than zero"));
+            }
         }
-        if !definition.growth.chance_per_attempt.is_finite()
-            || !(0.0..=1.0).contains(&definition.growth.chance_per_attempt)
-            || definition.growth.chance_per_attempt == 0.0
-        {
-            report.errors.push(format!(
-                "{path}:growth.chance_per_attempt: must be finite and within (0, 1]"
-            ));
+
+        if let Some(young) = definition.young_blueprint {
+            validate_size_range(
+                path,
+                "young_blueprint.trunk_height",
+                young.trunk_height,
+                64,
+                report,
+            );
+            validate_size_range(
+                path,
+                "young_blueprint.crown_radius",
+                young.crown_radius,
+                16,
+                report,
+            );
         }
 
         validate_size_range(

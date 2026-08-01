@@ -11,9 +11,11 @@ fn definition(identifier: &str, sapling: &str) -> TreeSpeciesDefinition {
         trunk_block: Identifier::parse("test:wood").unwrap(),
         leaves_block: Identifier::parse("test:leaves").unwrap(),
         growth: TreeGrowthDefinition {
-            attempt_interval_game_minutes: 5,
-            chance_per_attempt: 0.5,
+            sapling_duration_game_minutes: 24 * 60,
+            young_duration_game_minutes: 3 * 24 * 60,
+            retry_interval_game_minutes: 5,
         },
+        young_blueprint: None,
         blueprint: TreeBlueprintDefinition {
             trunk_height: TreeSizeRange { min: 4, max: 6 },
             crown_radius: TreeSizeRange { min: 2, max: 3 },

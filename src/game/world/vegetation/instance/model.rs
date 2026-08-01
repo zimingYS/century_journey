@@ -9,10 +9,13 @@ const FULL_TREE_HEALTH: u16 = 1_000;
 
 /// 表示树木当前参与权威生命周期规则的语义阶段。
 ///
-/// 当前树苗会直接生成成熟树；后续阶段只能追加具名语义，并由存档编解码器显式映射，
-/// 不能依赖枚举声明顺序作为磁盘协议。
+/// 存档编解码器会为每个阶段显式映射稳定代码，不能依赖枚举声明顺序作为磁盘协议。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TreeGrowthStage {
+    /// 世界中仍由树苗方块表示、等待首次生长的阶段。
+    Sapling,
+    /// 已形成较小体素蓝图、等待继续扩展的幼树阶段。
+    Young,
     /// 已形成当前完整体素蓝图的成熟树。
     Mature,
 }
@@ -23,7 +26,7 @@ pub enum TreeGrowthStage {
 /// 实体。年龄由世界分钟减去出生分钟得到，避免持久化两个会互相漂移的事实源。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TreeInstance {
-    /// 树苗被替换为树干时的世界方块坐标，也是实例稳定主键。
+    /// 树苗所在的世界方块坐标，也是实例跨阶段保持不变的稳定主键。
     root: IVec3,
     /// 树种的稳定内容标识，不保存会随内容重载变化的运行时 ID。
     species: Identifier,
@@ -39,12 +42,36 @@ pub struct TreeInstance {
     health: u16,
     /// 最近完成生命周期结算的绝对游戏分钟。
     last_simulated_game_minute: u64,
-    /// 下一次低频结算时间；当前成熟树没有后续规则，因此保持为空。
+    /// 下一次低频结算时间；成熟树没有后续规则，因此保持为空。
     next_update_game_minute: Option<u64>,
 }
 
 impl TreeInstance {
+    /// 为已进入权威模拟的树苗创建实例，并安排首次阶段推进。
+    pub(in crate::game::world) fn new_sapling(
+        root: IVec3,
+        species: Identifier,
+        shape_seed: u32,
+        game_minute: u64,
+        sapling_duration_game_minutes: u64,
+    ) -> Self {
+        Self {
+            root,
+            species,
+            shape_seed,
+            stage: TreeGrowthStage::Sapling,
+            born_at_game_minute: game_minute,
+            stage_started_at_game_minute: game_minute,
+            health: FULL_TREE_HEALTH,
+            last_simulated_game_minute: game_minute,
+            next_update_game_minute: Some(
+                game_minute.saturating_add(sapling_duration_game_minutes),
+            ),
+        }
+    }
+
     /// 在树苗完整生长成功后创建一棵满健康成熟树。
+    #[cfg(test)]
     pub(in crate::game::world) fn new_mature(
         root: IVec3,
         species: Identifier,
@@ -66,7 +93,7 @@ impl TreeInstance {
 
     // 存档恢复逐项接收协议字段，聚合参数会隐藏迁移边界。
     #[allow(clippy::too_many_arguments, reason = "存档字段需要逐项校验")]
-    /// 从经过版本迁移的存档字段恢复实例，并拒绝倒退的时间顺序。
+    /// 从经过版本迁移的存档字段恢复实例，校验时间顺序并规范化阶段调度。
     pub(in crate::game) fn from_persisted(
         root: IVec3,
         species: Identifier,
@@ -84,9 +111,16 @@ impl TreeInstance {
         if last_simulated_game_minute < stage_started_at_game_minute {
             return Err("树木最近结算时间不能早于阶段开始时间".into());
         }
-        if next_update_game_minute.is_some_and(|next| next < last_simulated_game_minute) {
-            return Err("树木下次结算时间不能早于最近结算时间".into());
-        }
+        let next_update_game_minute = match stage {
+            TreeGrowthStage::Sapling | TreeGrowthStage::Young => {
+                let next_update = next_update_game_minute.unwrap_or(last_simulated_game_minute);
+                if next_update < last_simulated_game_minute {
+                    return Err("树木下次结算时间不能早于最近结算时间".into());
+                }
+                Some(next_update)
+            }
+            TreeGrowthStage::Mature => None,
+        };
 
         Ok(Self {
             root,
@@ -144,6 +178,59 @@ impl TreeInstance {
     /// 返回下一次低频生命周期结算分钟。
     pub(in crate::game) const fn next_update_game_minute(&self) -> Option<u64> {
         self.next_update_game_minute
+    }
+
+    /// 判断该实例是否已经到达本次低频生命周期结算时间。
+    pub(in crate::game::world) fn is_due(&self, game_minute: u64) -> bool {
+        self.next_update_game_minute
+            .is_some_and(|next_update| next_update <= game_minute)
+    }
+
+    /// 在体素替换成功后把树苗推进为幼树，并安排成熟时间。
+    pub(in crate::game::world) fn transition_to_young(
+        &mut self,
+        game_minute: u64,
+        young_duration_game_minutes: u64,
+    ) -> Result<(), String> {
+        if self.stage != TreeGrowthStage::Sapling {
+            return Err("只有树苗阶段能够推进为幼树".into());
+        }
+        self.stage = TreeGrowthStage::Young;
+        self.stage_started_at_game_minute = game_minute;
+        self.last_simulated_game_minute = game_minute;
+        self.next_update_game_minute =
+            Some(game_minute.saturating_add(young_duration_game_minutes));
+        Ok(())
+    }
+
+    /// 在完整体素替换成功后把幼树推进为成熟树并停止定时更新。
+    pub(in crate::game::world) fn transition_to_mature(
+        &mut self,
+        game_minute: u64,
+    ) -> Result<(), String> {
+        if self.stage != TreeGrowthStage::Young {
+            return Err("只有幼树阶段能够推进为成熟树".into());
+        }
+        self.stage = TreeGrowthStage::Mature;
+        self.stage_started_at_game_minute = game_minute;
+        self.last_simulated_game_minute = game_minute;
+        self.next_update_game_minute = None;
+        Ok(())
+    }
+
+    /// 在区块未就绪或空间受阻时延后本次更新，避免固定步内反复扫描。
+    pub(in crate::game::world) fn defer_update(
+        &mut self,
+        game_minute: u64,
+        retry_interval_game_minutes: u64,
+    ) -> Result<(), String> {
+        if self.stage == TreeGrowthStage::Mature {
+            return Err("成熟树没有可延后的生命周期更新".into());
+        }
+        self.last_simulated_game_minute = game_minute;
+        self.next_update_game_minute =
+            Some(game_minute.saturating_add(retry_interval_game_minutes));
+        Ok(())
     }
 
     /// 返回唯一拥有该实例的根区块坐标，负坐标使用欧几里得除法。

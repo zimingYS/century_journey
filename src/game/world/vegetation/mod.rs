@@ -4,6 +4,7 @@ mod growth;
 mod instance;
 mod plugin;
 mod runtime;
+mod transition;
 
 pub(in crate::game::world) use instance::TreeInstanceStore;
 pub(in crate::game) use instance::{TreeGrowthStage, TreeInstance};

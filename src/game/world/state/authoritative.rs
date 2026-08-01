@@ -110,6 +110,19 @@ impl WorldState {
         self.tree_instances.get(root)
     }
 
+    /// 返回指定树根的可变实例，仅供世界生命周期在体素提交后更新元数据。
+    pub(in crate::game::world) fn tree_instance_mut(
+        &mut self,
+        root: IVec3,
+    ) -> Option<&mut TreeInstance> {
+        self.tree_instances.get_mut(root)
+    }
+
+    /// 返回当前已加载世界中到达生命周期结算时间的有序树根。
+    pub(in crate::game::world) fn due_tree_roots(&self, game_minute: u64) -> Vec<IVec3> {
+        self.tree_instances.due_roots(game_minute)
+    }
+
     /// 删除指定树根坐标的逻辑实例。
     pub(in crate::game::world) fn remove_tree_instance(
         &mut self,

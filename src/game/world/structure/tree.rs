@@ -26,6 +26,19 @@ impl TreeBlueprintParameters {
             crown_radius_max: 3,
         }
     }
+
+    /// 在树种未显式提供幼树尺寸时，从成熟尺寸确定性派生较小范围。
+    pub fn young_from_mature(mature: Self) -> Self {
+        let halve = |value: u8| (value / 2).max(1);
+        let trunk_height_min = halve(mature.trunk_height_min);
+        let crown_radius_min = halve(mature.crown_radius_min);
+        Self {
+            trunk_height_min,
+            trunk_height_max: halve(mature.trunk_height_max).max(trunk_height_min),
+            crown_radius_min,
+            crown_radius_max: halve(mature.crown_radius_max).max(crown_radius_min),
+        }
+    }
 }
 
 /// 树形蓝图中的一次不重复体素写入。

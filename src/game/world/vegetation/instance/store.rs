@@ -55,13 +55,27 @@ impl TreeInstanceStore {
 
     /// 返回指定根坐标的实例。
     pub(in crate::game::world) fn get(&self, root: IVec3) -> Option<&TreeInstance> {
-        let chunk_size = crate::shared::voxel::CHUNK_SIZE as i32;
-        let owner = IVec3::new(
-            root.x.div_euclid(chunk_size),
-            root.y.div_euclid(chunk_size),
-            root.z.div_euclid(chunk_size),
-        );
+        let owner = owner_chunk(root);
         self.chunks.get(&owner)?.get(&root)
+    }
+
+    /// 返回指定根坐标的可变实例，供生命周期在体素提交后更新阶段。
+    pub(in crate::game::world) fn get_mut(&mut self, root: IVec3) -> Option<&mut TreeInstance> {
+        let owner = owner_chunk(root);
+        self.chunks.get_mut(&owner)?.get_mut(&root)
+    }
+
+    /// 返回已到结算时间的有序根坐标，只扫描当前已加载的实例分桶。
+    pub(in crate::game::world) fn due_roots(&self, game_minute: u64) -> Vec<IVec3> {
+        let mut roots = self
+            .chunks
+            .values()
+            .flat_map(|bucket| bucket.values())
+            .filter(|instance| instance.is_due(game_minute))
+            .map(TreeInstance::root)
+            .collect::<Vec<_>>();
+        roots.sort_by_key(|root| (root.x, root.y, root.z));
+        roots
     }
 
     /// 删除指定根坐标的实例，并在分桶为空后释放分桶。
@@ -108,6 +122,15 @@ impl TreeInstanceStore {
         });
         instances
     }
+}
+
+fn owner_chunk(root: IVec3) -> IVec3 {
+    let chunk_size = crate::shared::voxel::CHUNK_SIZE as i32;
+    IVec3::new(
+        root.x.div_euclid(chunk_size),
+        root.y.div_euclid(chunk_size),
+        root.z.div_euclid(chunk_size),
+    )
 }
 
 #[cfg(test)]

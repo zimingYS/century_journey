@@ -5,6 +5,8 @@ use crate::content::vegetation::registry::TreeSpeciesRegistry;
 use crate::game::world::state::WorldState;
 use bevy::prelude::*;
 
+use super::TreeGrowthStage;
+
 /// 在树根不再是所属树种的树干时移除逻辑实例。
 ///
 /// 树苗生长产生的“树苗变树干”消息会保留刚创建的实例；玩家或其他规则真正替换树根时，
@@ -21,7 +23,13 @@ pub(in crate::game::world::vegetation) fn track_tree_root_changes_system(
         };
         let root_still_matches = species_registry
             .get(instance.species())
-            .is_some_and(|species| change.new_block_id == species.trunk_block_id);
+            .is_some_and(|species| {
+                let expected_root = match instance.stage() {
+                    TreeGrowthStage::Sapling => species.sapling_block_id,
+                    TreeGrowthStage::Young | TreeGrowthStage::Mature => species.trunk_block_id,
+                };
+                change.new_block_id == expected_root
+            });
         if !root_still_matches {
             world_state.remove_tree_instance(change.world_pos);
         }

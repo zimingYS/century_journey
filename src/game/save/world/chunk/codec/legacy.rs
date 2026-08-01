@@ -75,10 +75,15 @@ fn strict_options() -> impl Options {
         .reject_trailing_bytes()
 }
 
+// 历史布局在生产环境中只读；该转换仅用于构造迁移回归测试载荷。
+#[cfg(test)]
 impl From<&TreeInstance> for PositionalTreeRecord {
     fn from(instance: &TreeInstance) -> Self {
         let stage_code = match instance.stage() {
             TreeGrowthStage::Mature => MATURE_STAGE_CODE,
+            TreeGrowthStage::Sapling | TreeGrowthStage::Young => {
+                panic!("冻结的顺序式历史格式不能写入新增树木阶段")
+            }
         };
         Self {
             root: instance.root(),
