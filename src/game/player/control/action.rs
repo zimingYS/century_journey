@@ -17,6 +17,8 @@ pub enum PlayerAction {
     MoveRight,
     /// 请求加速奔跑。
     Sprint,
+    /// 请求下蹲
+    Squat,
     /// 请求跳跃。
     Jump,
     /// 持续破坏目标方块。
@@ -57,7 +59,7 @@ pub enum PlayerAction {
 
 impl PlayerAction {
     /// 动作枚举在紧凑状态数组中占用的固定元素数。
-    pub const COUNT: usize = 23;
+    pub const COUNT: usize = 24;
 
     /// 返回动作在紧凑状态数组中的稳定索引。
     pub const fn index(self) -> usize {

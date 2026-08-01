@@ -6,6 +6,9 @@ const GRAVITY: f32 = -24.0;
 const MAX_FALL_SPEED: f32 = -60.0;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
+use crate::game::player::control::action::PlayerActionState;
+use crate::game::player::flight::components::PlayerFlight;
+use crate::game::player::flight::system::flight_vertical_velocity;
 use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::components::PlayerLifecycle;
 use crate::game::player::physics::collision::{
@@ -18,11 +21,15 @@ use bevy::math::Vec3;
 use bevy::prelude::{Entity, Fixed, MessageWriter, Query, Res, Time, Transform, With};
 
 /// 重力系统
+///
+/// 查询同时携带飞行状态组件，元组较长；与移动系统一致豁免复杂度检查。
+#[allow(clippy::type_complexity)]
 pub fn player_gravity_system(
     time: Res<Time<Fixed>>,
     registry: Option<Res<BlockRegistry>>,
     gamemode: Res<PlayerGameMode>,
     world_state: Res<WorldState>,
+    actions: Res<PlayerActionState>,
     mut query: Query<
         (
             Entity,
@@ -30,6 +37,7 @@ pub fn player_gravity_system(
             &PlayerCollider,
             &mut PlayerGravity,
             &PlayerLifecycle,
+            &mut PlayerFlight,
         ),
         With<Player>,
     >,
@@ -38,7 +46,7 @@ pub fn player_gravity_system(
     let Some(reg) = registry else { return };
     let dt = time.delta_secs();
 
-    for (entity, mut transform, collider, mut gravity, lifecycle) in &mut query {
+    for (entity, mut transform, collider, mut gravity, lifecycle, mut flight) in &mut query {
         if !lifecycle.is_alive() {
             gravity.velocity_y = 0.0;
             gravity.fall_distance = 0.0;
@@ -55,6 +63,28 @@ pub fn player_gravity_system(
                 gravity.is_grounded = true;
                 gravity.fall_distance = 0.0;
             }
+            continue;
+        }
+
+        // 创造飞行：不施加重力，按输入直接驱动垂直速度，保留碰撞但不计坠落伤害。
+        if flight.enabled {
+            gravity.velocity_y = flight_vertical_velocity(&actions, &flight);
+            let move_y = gravity.velocity_y * dt;
+            let new_pos = Vec3::new(pos.x, pos.y + move_y, pos.z);
+            if !check_collision_at(new_pos, half, &world_state, &reg) {
+                transform.translation.y = new_pos.y;
+                gravity.is_grounded = false;
+            } else if move_y <= 0.0 {
+                // 向下移动被阻挡：接触到地面，自动退出飞行并落地。
+                gravity.velocity_y = 0.0;
+                gravity.is_grounded = true;
+                flight.enabled = false;
+            } else {
+                // 向上移动被阻挡（撞顶）：保持飞行悬停。
+                gravity.velocity_y = 0.0;
+                gravity.is_grounded = false;
+            }
+            gravity.fall_distance = 0.0;
             continue;
         }
 

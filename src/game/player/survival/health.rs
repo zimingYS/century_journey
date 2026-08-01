@@ -1,12 +1,12 @@
 //! 处理生命值约束、伤害、治疗和死亡消息转换。
 
+use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::components::{PlayerLifeState, PlayerLifecycle};
 use crate::game::player::lifecycle::events::DeathEvent;
 use crate::game::player::survival::events::{DamageEvent, HealEvent};
 use crate::game::player::survival::protection::Defense;
 use bevy::prelude::{Component, MessageReader, MessageWriter, Query, Res, With};
-use crate::game::gameplay::gamemode::PlayerGameMode;
 
 /// 生命值
 #[derive(Component, Debug, Clone)]
@@ -64,7 +64,7 @@ pub fn damage_system(
             continue;
         };
 
-        if gamemode.is_creative(){
+        if gamemode.is_creative() {
             continue;
         }
 

@@ -38,7 +38,7 @@ pub fn action_cost_system(
     let jumped = actions.just_pressed(PlayerAction::Jump);
 
     for (mut hunger, lifecycle) in &mut query {
-        if !lifecycle.is_alive() || gamemode.is_creative(){
+        if !lifecycle.is_alive() || gamemode.is_creative() {
             continue;
         }
         if sprinting {
@@ -174,7 +174,7 @@ pub fn starvation_damage_system(
     *timer = 4.0;
 
     for (entity, hunger, lifecycle) in &query {
-        if lifecycle.is_alive() && hunger.is_starving()&& gamemode.is_survival() {
+        if lifecycle.is_alive() && hunger.is_starving() && gamemode.is_survival() {
             damage_writer.write(DamageEvent {
                 target: entity,
                 amount: 1.0,

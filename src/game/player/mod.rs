@@ -2,6 +2,7 @@
 
 pub mod combat;
 pub mod control;
+pub mod flight;
 pub mod identity;
 pub mod interaction;
 pub mod lifecycle;

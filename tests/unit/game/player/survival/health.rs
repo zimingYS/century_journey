@@ -1,6 +1,7 @@
 //! 验证伤害结算的数值边界以及死亡事件的幂等性。
 
 use super::*;
+use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
 use crate::game::player::survival::events::DamageSource;
 use bevy::prelude::{App, IntoScheduleConfigs, ResMut, Resource, Update};
 
@@ -17,6 +18,9 @@ fn exact_lethal_damage_emits_one_death_and_invalid_damage_is_ignored() {
     app.init_resource::<DeathEventCount>()
         .add_message::<DamageEvent>()
         .add_message::<DeathEvent>()
+        .insert_resource(PlayerGameMode {
+            mode: GameMode::Survival,
+        })
         .add_systems(Update, (damage_system, count_death_events).chain());
     let player = app
         .world_mut()
