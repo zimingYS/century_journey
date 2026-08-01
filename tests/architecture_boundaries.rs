@@ -405,11 +405,10 @@ fn public_item_declaration(line: &str) -> Option<&str> {
     }
     let mut declaration = if let Some(rest) = line.strip_prefix("pub ") {
         rest
-    } else if let Some(rest) = line.strip_prefix("pub(") {
+    } else {
+        let rest = line.strip_prefix("pub(")?;
         let visibility_end = rest.find(')')?;
         rest.get(visibility_end + 1..)?.trim_start()
-    } else {
-        return None;
     };
 
     for modifier in ["async ", "unsafe "] {
