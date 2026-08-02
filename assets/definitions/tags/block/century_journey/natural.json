@@ -9,6 +9,16 @@
     "century_journey:stone",
     "century_journey:ice",
     "century_journey:leaves",
-    "century_journey:wood"
+    "century_journey:wood",
+    "century_journey:gravel",
+    "century_journey:clay",
+    "century_journey:coal_ore",
+    "century_journey:iron_ore",
+    "century_journey:gold_ore",
+    "century_journey:obsidian",
+    "century_journey:bedrock",
+    "century_journey:cactus",
+    "century_journey:pumpkin",
+    "century_journey:melon"
   ]
 }

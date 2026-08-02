@@ -1,0 +1,21 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:cobblestone",
+  "display_name": "圆石",
+  "render_mode": "Opaque",
+  "is_solid": true,
+  "light_emission": 0,
+  "hardness": 2.0,
+  "required_tool": "pickaxe",
+  "harvest_level": 0,
+  "tags": ["mineable/pickaxe", "stone_like"],
+  "sound": {
+    "sound_material": "Stone",
+    "break_volume": 1.0,
+    "place_volume": 0.85,
+    "step_volume": 0.62
+  },
+  "textures": {
+    "top": "textures/blocks/cobblestone.png"
+  }
+}

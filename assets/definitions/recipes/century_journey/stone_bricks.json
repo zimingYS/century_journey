@@ -1,0 +1,17 @@
+{
+  "format_version": 1,
+  "type": "shaped",
+  "pattern": [
+    "CC",
+    "CC"
+  ],
+  "key": {
+    "C": {
+      "item": "century_journey:cobblestone"
+    }
+  },
+  "result": {
+    "item": "century_journey:stone_bricks",
+    "count": 4
+  }
+}

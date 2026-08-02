@@ -1,0 +1,17 @@
+{
+  "format_version": 1,
+  "type": "shaped",
+  "pattern": [
+    "PPP",
+    "PPP"
+  ],
+  "key": {
+    "P": {
+      "item": "century_journey:planks"
+    }
+  },
+  "result": {
+    "item": "century_journey:bookshelf",
+    "count": 1
+  }
+}

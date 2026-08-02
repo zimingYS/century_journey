@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:pumpkin",
+  "display_name": "南瓜",
+  "render_mode": "Opaque",
+  "is_solid": true,
+  "light_emission": 0,
+  "hardness": 1.0,
+  "required_tool": null,
+  "effective_tool": "axe",
+  "harvest_level": 0,
+  "tags": ["mineable/axe", "plant"],
+  "sound": {
+    "sound_material": "Wood",
+    "break_volume": 0.85,
+    "place_volume": 0.78,
+    "step_volume": 0.55
+  },
+  "textures": {
+    "top": "textures/blocks/pumpkin_top.png",
+    "bottom": "textures/blocks/pumpkin_top.png",
+    "north": "textures/blocks/pumpkin_side.png",
+    "south": "textures/blocks/pumpkin_side.png",
+    "east": "textures/blocks/pumpkin_side.png",
+    "west": "textures/blocks/pumpkin_side.png"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "format_version": 1,
+  "type": "shaped",
+  "pattern": [
+    "SS",
+    "SS"
+  ],
+  "key": {
+    "S": {
+      "item": "century_journey:sand"
+    }
+  },
+  "result": {
+    "item": "century_journey:sandstone",
+    "count": 1
+  }
+}

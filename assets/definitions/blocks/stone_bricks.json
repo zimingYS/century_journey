@@ -1,0 +1,21 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:stone_bricks",
+  "display_name": "石砖",
+  "render_mode": "Opaque",
+  "is_solid": true,
+  "light_emission": 0,
+  "hardness": 1.5,
+  "required_tool": "pickaxe",
+  "harvest_level": 0,
+  "tags": ["mineable/pickaxe", "stone_like"],
+  "sound": {
+    "sound_material": "Stone",
+    "break_volume": 0.95,
+    "place_volume": 0.82,
+    "step_volume": 0.6
+  },
+  "textures": {
+    "top": "textures/blocks/stone_bricks.png"
+  }
+}
