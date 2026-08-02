@@ -7,16 +7,14 @@ use crate::client::camera::{CameraPlugin, FpsCamera};
 use crate::client::interpolation::SimulationPresentation;
 use crate::game::player::identity::LocalPlayer;
 use crate::game::player::lifecycle::spawn::PlayerStartupSet;
-use model::PlayerModelPlugin;
 use model::animation::PlayerAnimationState;
-use model::components::{PlayerMesh, PlayerPart};
 use model::config::PlayerModelConfig;
+use model::PlayerModelPlugin;
 
 pub mod full_body;
 pub mod model;
 
 const WORLD_RENDER_LAYER: usize = 0;
-const PLAYER_SHADOW_ONLY_LAYER: usize = 1;
 
 /// 组装本地玩家模型、相机可见层和手持物表现。
 pub struct ClientPlayerPlugin;
@@ -91,31 +89,22 @@ fn attach_local_player_presentation_system(
 /// 第一人称仍渲染同一个身体实体，只隐藏头部网格避免相机穿模；第三人称显示完整身体。
 fn first_person_visibility_system(
     mut commands: Commands,
-    camera_query: Query<&FpsCamera, With<Camera3d>>,
     rig_query: Query<&model::rig::PlayerRigEntities, With<LocalPlayer>>,
-    mut mesh_query: Query<(&PlayerMesh, &mut Visibility, Option<&mut RenderLayers>)>,
+    mut mesh_query: Query<(&mut Visibility, Option<&mut RenderLayers>)>,
 ) {
-    let is_first_person = camera_query
-        .single()
-        .map(FpsCamera::is_first_person)
-        .unwrap_or(true);
     let Ok(rig) = rig_query.single() else {
         return;
     };
 
     for mesh_entity in &rig.mesh_entities {
-        let Ok((mesh, mut visibility, layers)) = mesh_query.get_mut(*mesh_entity) else {
+        let Ok((mut visibility, layers)) = mesh_query.get_mut(*mesh_entity) else {
             continue;
         };
 
         *visibility = Visibility::Inherited;
 
-        // 第一人称只把头部移到相机不可见、光源可见的层，保留头部阴影。
-        let target_layers = if is_first_person && mesh.0 == PlayerPart::Head {
-            RenderLayers::layer(PLAYER_SHADOW_ONLY_LAYER)
-        } else {
-            RenderLayers::layer(WORLD_RENDER_LAYER)
-        };
+        let target_layers = RenderLayers::layer(WORLD_RENDER_LAYER);
+
         if let Some(mut layers) = layers {
             *layers = target_layers;
         } else {
