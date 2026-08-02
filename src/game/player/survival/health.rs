@@ -1,11 +1,12 @@
 //! 处理生命值约束、伤害、治疗和死亡消息转换。
 
+use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::components::{PlayerLifeState, PlayerLifecycle};
 use crate::game::player::lifecycle::events::DeathEvent;
 use crate::game::player::survival::events::{DamageEvent, HealEvent};
 use crate::game::player::survival::protection::Defense;
-use bevy::prelude::{Component, MessageReader, MessageWriter, Query, With};
+use bevy::prelude::{Component, MessageReader, MessageWriter, Query, Res, With};
 
 /// 生命值
 #[derive(Component, Debug, Clone)]
@@ -56,16 +57,24 @@ pub fn damage_system(
     mut reader: MessageReader<DamageEvent>,
     mut query: Query<(&mut Health, Option<&Defense>, &mut PlayerLifecycle), With<Player>>,
     mut death_writer: MessageWriter<DeathEvent>,
+    gamemode: Res<PlayerGameMode>,
 ) {
     for event in reader.read() {
         let Ok((mut health, defense_opt, mut lifecycle)) = query.get_mut(event.target) else {
             continue;
         };
+
+        if gamemode.is_creative() {
+            continue;
+        }
+
         if !lifecycle.is_alive() || !event.amount.is_finite() || event.amount <= 0.0 {
             continue;
         }
+
         let reduction = defense_opt.map_or(0.0, Defense::damage_reduction);
         health.apply_damage(event.amount * (1.0 - reduction));
+
         if health.is_dead() {
             lifecycle.state = PlayerLifeState::Dead;
             death_writer.write(DeathEvent {

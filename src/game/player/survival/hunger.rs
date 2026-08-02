@@ -21,6 +21,7 @@ pub const FOOD_USE_DURATION_SECONDS: f32 = 1.6;
 pub fn action_cost_system(
     time: Res<Time<Fixed>>,
     actions: Res<PlayerActionState>,
+    gamemode: Res<PlayerGameMode>,
     mut query: Query<(&mut Hunger, &PlayerLifecycle), With<Player>>,
 ) {
     let dt = time.delta_secs();
@@ -37,7 +38,7 @@ pub fn action_cost_system(
     let jumped = actions.just_pressed(PlayerAction::Jump);
 
     for (mut hunger, lifecycle) in &mut query {
-        if !lifecycle.is_alive() {
+        if !lifecycle.is_alive() || gamemode.is_creative() {
             continue;
         }
         if sprinting {
@@ -163,6 +164,7 @@ pub fn starvation_damage_system(
     mut timer: Local<f32>,
     time: Res<Time<Fixed>>,
     query: Query<(Entity, &Hunger, &PlayerLifecycle), With<Player>>,
+    gamemode: Res<PlayerGameMode>,
     mut damage_writer: MessageWriter<DamageEvent>,
 ) {
     *timer -= time.delta_secs();
@@ -172,7 +174,7 @@ pub fn starvation_damage_system(
     *timer = 4.0;
 
     for (entity, hunger, lifecycle) in &query {
-        if lifecycle.is_alive() && hunger.is_starving() {
+        if lifecycle.is_alive() && hunger.is_starving() && gamemode.is_survival() {
             damage_writer.write(DamageEvent {
                 target: entity,
                 amount: 1.0,

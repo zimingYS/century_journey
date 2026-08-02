@@ -14,6 +14,7 @@ impl Plugin for GamePlayerPlugin {
             .add_plugins(player::physics::plugin::PlayerPhysicsPlugin)
             .add_plugins(player::survival::plugin::PlayerSurvivalPlugin)
             .add_plugins(player::lifecycle::plugin::PlayerLifecyclePlugin)
-            .add_plugins(player::combat::plugin::PlayerCombatPlugin);
+            .add_plugins(player::combat::plugin::PlayerCombatPlugin)
+            .add_plugins(player::flight::plugin::PlayerFlightPlugin);
     }
 }

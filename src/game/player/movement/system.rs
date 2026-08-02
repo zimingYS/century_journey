@@ -4,6 +4,7 @@
 const STEP_HEIGHT: f32 = 0.6;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::player::control::action::{PlayerAction, PlayerActionState};
+use crate::game::player::flight::components::PlayerFlight;
 use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::components::PlayerLifecycle;
 use crate::game::player::movement::components::{PlayerMovement, PlayerVelocity};
@@ -28,6 +29,7 @@ pub fn player_movement_system(
             &mut PlayerGravity,
             &mut PlayerVelocity,
             &PlayerLifecycle,
+            &PlayerFlight,
         ),
         With<Player>,
     >,
@@ -35,7 +37,9 @@ pub fn player_movement_system(
     let Some(reg) = registry else { return };
     let dt = time.delta_secs().min(0.05);
 
-    for (mut transform, collider, movement, mut gravity, mut velocity, lifecycle) in &mut query {
+    for (mut transform, collider, movement, mut gravity, mut velocity, lifecycle, flight) in
+        &mut query
+    {
         if !lifecycle.is_alive() {
             velocity.horizontal = Vec3::ZERO;
             continue;
@@ -43,7 +47,7 @@ pub fn player_movement_system(
         let half = collider.half_extents;
 
         // 跳跃
-        if actions.just_pressed(PlayerAction::Jump) && gravity.is_grounded {
+        if !flight.enabled && actions.just_pressed(PlayerAction::Jump) && gravity.is_grounded {
             // 跳跃高度计算
             gravity.velocity_y = movement.jump_force;
             // 标记着地状态，防止空中连跳
@@ -71,7 +75,15 @@ pub fn player_movement_system(
         }
 
         // 处理移动速度
-        let speed = if actions.pressed(PlayerAction::Sprint) {
+        let speed = if flight.enabled {
+            // 飞行加速
+            if actions.pressed(PlayerAction::Sprint) {
+                flight.fly_speed * movement.sprint_factor * 1.5
+            } else {
+                flight.fly_speed
+            }
+        } else if actions.pressed(PlayerAction::Sprint) {
+            // 移动加速
             movement.movement_speed * movement.sprint_factor
         } else {
             movement.movement_speed
@@ -90,8 +102,13 @@ pub fn player_movement_system(
         } else {
             movement.acceleration * movement.air_control
         };
-        velocity.horizontal =
-            approach_velocity(velocity.horizontal, desired_velocity, control * dt);
+        if flight.enabled {
+            // 飞行：水平速度直接取目标速度，瞬时响应，与垂直速度保持一致。
+            velocity.horizontal = desired_velocity;
+        } else {
+            velocity.horizontal =
+                approach_velocity(velocity.horizontal, desired_velocity, control * dt);
+        }
         velocity.horizontal.y = 0.0;
         let move_delta = velocity.horizontal * dt;
 
@@ -105,7 +122,7 @@ pub fn player_movement_system(
         let new_pos_x = Vec3::new(pos.x + move_delta.x, pos.y, pos.z);
         if !check_collision_at(new_pos_x, half, &world_state, &reg) {
             transform.translation.x = new_pos_x.x;
-        } else if gravity.is_grounded {
+        } else if gravity.is_grounded && !flight.enabled {
             // X 轴发生碰撞时，尝试沿 X 轴跨上台阶。
             if !try_step_up(
                 &mut transform.translation,
@@ -126,7 +143,7 @@ pub fn player_movement_system(
         let new_pos_z = Vec3::new(pos.x, pos.y, pos.z + move_delta.z);
         if !check_collision_at(new_pos_z, half, &world_state, &reg) {
             transform.translation.z = new_pos_z.z;
-        } else if gravity.is_grounded {
+        } else if gravity.is_grounded && !flight.enabled {
             // Z 轴发生碰撞时，尝试沿 Z 轴跨上台阶。
             if !try_step_up(
                 &mut transform.translation,

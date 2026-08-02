@@ -1,14 +1,10 @@
 /target
-/.idea
 /saves
 /config/settings.json
 /config/settings.json.bak
 /config/settings.json.tmp-*
-/NVIDIA Corporation
 *.log
 .env
 .env.*
 !.env.example
-/.agents/
-/.codex/
 /docs/PROJECT_HANDOVER_LEARNING_PLAN.md

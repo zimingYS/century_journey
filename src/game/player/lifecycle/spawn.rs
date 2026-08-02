@@ -5,6 +5,7 @@
 
 use crate::game::crafting::grid::{ActiveCrafting, PlayerCrafting};
 use crate::game::inventory::state::InventoryState;
+use crate::game::player::flight::components::PlayerFlight;
 use crate::game::player::identity::{LocalPlayer, Player, PlayerId};
 use crate::game::player::lifecycle::components::{PlayerLifecycle, RespawnPoint};
 use crate::game::player::movement::components::{PlayerAim, PlayerMovement, PlayerVelocity};
@@ -49,6 +50,7 @@ pub fn spawn_authoritative_player_system(
             PlayerCollider::default(),
             PlayerMovement::default(),
             PlayerVelocity::default(),
+            PlayerFlight::default(),
             FoodUseState::default(),
             Health::default(),
             Hunger::default(),
