@@ -55,7 +55,7 @@ fn dangling_reference_reports_file_and_field_path() {
         "century_journey_content_dangling_{}",
         std::process::id()
     ));
-    let override_file = root.join("definitions/loot/blocks/stone.json");
+    let override_file = root.join("definitions/loot/blocks/century_journey/stone.json");
     std::fs::create_dir_all(override_file.parent().unwrap()).unwrap();
     std::fs::write(
         &override_file,
@@ -79,7 +79,7 @@ fn dangling_reference_reports_file_and_field_path() {
 
     assert!(!compilation.is_valid());
     assert!(compilation.report.errors.iter().any(|error| {
-        error.contains("definitions/loot/blocks/stone:entries[0].item")
+        error.contains("definitions/loot/blocks/century_journey/stone:entries[0].item")
             && error.contains("oak_sapling")
     }));
     std::fs::remove_dir_all(root).unwrap();

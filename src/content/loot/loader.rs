@@ -11,7 +11,8 @@ use std::collections::HashMap;
 ///
 /// 目录结构:
 ///   loot/blocks/namespace/block_name.json → Identifier(namespace, "block_name")
-///   loot/blocks/block_name.json → Identifier("century_journey", "block_name")
+///
+/// 掉落表路径必须带命名空间目录，与配方等定义保持一致的层级约定。
 ///
 /// 格式:
 ///   ```json
@@ -31,11 +32,11 @@ pub fn load_loot_tables(asset: &AssetManager) -> HashMap<Identifier, LootTable> 
         };
 
         let relative = relative.replace('\\', "/");
-        let id = if let Some((namespace, path)) = relative.split_once('/') {
-            Identifier::new(namespace, path.to_string())
-        } else {
-            Identifier::new("century_journey", relative)
+        let Some((namespace, path)) = relative.split_once('/') else {
+            log::warn!("[Loot] 掉落表路径缺少命名空间: {}", asset_path);
+            continue;
         };
+        let id = Identifier::new(namespace, path.to_string());
         log::info!("[Loot] 加载 {} ({} entries)", id, table.entries.len());
         tables.insert(id, table);
     }

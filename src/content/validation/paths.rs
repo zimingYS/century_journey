@@ -21,8 +21,11 @@ pub(super) fn recipe_id(path: &str) -> Option<Identifier> {
 }
 
 /// 从方块掉落表路径推导目标方块标识符。
+///
+/// 掉落表路径必须带命名空间目录（`definitions/loot/blocks/<namespace>/<name>.json`），
+/// 与配方一致强制目录层级，不提供扁平兜底。
 pub(super) fn block_loot_id(path: &str) -> Option<Identifier> {
-    definition_identifier(path, "definitions/loot/blocks/", Some("century_journey"))
+    definition_identifier(path, "definitions/loot/blocks/", None)
 }
 
 /// 按目录前缀和可选默认命名空间解析定义标识符。
