@@ -91,3 +91,21 @@ before that API is explicitly versioned.
 
 树苗可放置和继续生长的地面约束来自树苗方块的 `placement.required_support_tag`，树种文件不重复声明支撑标签。
 所有方块引用必须存在，树苗不能同时映射到多个树种，空气不能作为树苗、树干或树叶。
+
+## Dynamic Clouds
+
+动态云定义放在 `assets/definitions/clouds/<namespace>/<name>.json`。每份定义必须声明：
+
+- `identifier`：稳定云场标识，用于以后由世界或天气配置选择云场；
+- `density` 与 `seed`：程序纹理的覆盖阈值和确定性种子；
+- `layers`：按高度从低到高排列的 1 至 8 个表现层；
+- 可选 `patches`：相机附近的 billboard 云片，默认关闭。
+
+每层的 `size` 同时是云平面边长和纹理世界重复周期，范围为 32 至 4096。`speed`
+使用世界单位/秒，`wind_direction` 是水平 X/Z 向量，运行时只负责归一化，不允许零向量。
+云层高度、尺寸、速度、色调、不透明度和云片数量都会经过内容校验；运行时不再用常量覆盖
+这些定义值。
+
+云层属于 Client 表现。`CloudWeatherState` 仅提供云量、风速倍率和能见度的有限范围输入；
+当前没有权威天气模拟。以后 Game 层接入粗粒度天气单元时，应通过跨层适配器更新该表现状态，
+不能让云实体、材质或渲染帧时间反向决定降雨、温度、存档或其他世界规则。

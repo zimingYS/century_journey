@@ -5,6 +5,7 @@
 
 pub mod biome;
 pub mod block;
+pub mod cloud;
 pub mod format;
 pub mod item;
 pub mod lifecycle;

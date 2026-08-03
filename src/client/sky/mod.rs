@@ -1,5 +1,6 @@
-//! 组织天空盒、日月、方向光和世界时间驱动的视觉变化。
+//! 组织天空盒、日月、方向光、动态云层和世界时间驱动的视觉变化。
 
+pub mod cloud;
 pub mod components;
 mod constants;
 pub mod systems;
@@ -13,7 +14,8 @@ pub struct SkyPlugin;
 
 impl Plugin for SkyPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (systems::setup_sky_system,))
+        app.add_plugins(cloud::CloudPlugin)
+            .add_systems(Startup, (systems::setup_sky_system,))
             .add_systems(
                 Update,
                 (

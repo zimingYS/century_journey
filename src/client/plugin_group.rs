@@ -10,6 +10,7 @@ use crate::client::player::ClientPlayerPlugin;
 use crate::client::presentation::ClientPresentationPlugin;
 use crate::client::renderer::ClientRenderingPlugin;
 use crate::client::sky::SkyPlugin;
+
 use crate::client::sound::ClientSoundPlugin;
 use crate::client::ui::UIPlugin;
 

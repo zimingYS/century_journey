@@ -4,6 +4,7 @@
 
 mod biome;
 mod block;
+mod cloud;
 mod item;
 mod loot;
 mod recipe;
@@ -13,6 +14,7 @@ mod vegetation;
 
 pub(super) use biome::validate_biomes;
 pub(super) use block::validate_blocks;
+pub(super) use cloud::validate_clouds;
 pub(super) use item::validate_items;
 pub(super) use loot::validate_loot;
 pub(super) use recipe::validate_recipes;
