@@ -7,12 +7,14 @@ use crate::game::player::identity::Player;
 use crate::shared::states::InputContextState;
 use bevy::audio::SpatialListener;
 use bevy::camera::Exposure;
+use bevy::core_pipeline::prepass::DepthPrepass;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::input::mouse::MouseMotion;
 use bevy::light::{AtmosphereEnvironmentMapLight, ShadowFilteringMethod, VolumetricFog};
 use bevy::pbr::{AtmosphereSettings, DistanceFog, FogFalloff};
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
+use bevy::render::view::ColorGrading;
 
 /// 摄像机俯仰上限；预留五度避免与竖直方向重合后出现翻转奇异。
 pub const MAX_CAMERA_PITCH: f32 = std::f32::consts::FRAC_PI_2 - 5.0 * std::f32::consts::PI / 180.0;
@@ -109,6 +111,9 @@ pub fn setup_player_camera_system(
             },
             Exposure { ev100: 13.0 },
             Tonemapping::AcesFitted,
+            ColorGrading::default(),
+            // 水面材质用深度预通道计算水体厚度和岸线泡沫。
+            DepthPrepass,
             Bloom::NATURAL,
             VolumetricFog {
                 ambient_color: Color::srgb(0.62, 0.72, 0.82),

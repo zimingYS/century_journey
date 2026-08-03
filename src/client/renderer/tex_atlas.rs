@@ -1,6 +1,7 @@
 //! 从内容纹理构建方块图集，并提供运行时纹理索引映射。
 
 use crate::client::renderer::constants::{BLOCK_ATLAS_TILES_PER_ROW, TILE_SIZE};
+use crate::client::water::{WaterMaterial, WaterMaterialExtension};
 use crate::content::block::definition::RenderMode;
 use crate::content::block::registry::BlockRegistry;
 use crate::engine::asset::AssetFiles;
@@ -23,6 +24,10 @@ pub struct BlockRenderAssets {
     opaque_material: Handle<StandardMaterial>,
     cutout_material: Handle<StandardMaterial>,
     transparent_material: Handle<StandardMaterial>,
+    /// 水面可见性基线材质：不依赖扩展着色器，保证水体始终可见。
+    water_base_material: Handle<StandardMaterial>,
+    /// 叠加在基线之上的动态水面效果材质。
+    water_effect_material: Handle<WaterMaterial>,
 }
 
 impl BlockRenderAssets {
@@ -59,6 +64,16 @@ impl BlockRenderAssets {
     pub fn transparent_material(&self) -> &Handle<StandardMaterial> {
         &self.transparent_material
     }
+
+    /// 返回不依赖扩展着色器的水面可见性基线材质。
+    pub fn water_base_material(&self) -> &Handle<StandardMaterial> {
+        &self.water_base_material
+    }
+
+    /// 返回负责深度、高光和泡沫的动态水面效果材质。
+    pub fn water_effect_material(&self) -> &Handle<WaterMaterial> {
+        &self.water_effect_material
+    }
 }
 
 /// 在内容注册表就绪后构建并插入方块渲染资产资源。
@@ -68,10 +83,17 @@ pub fn init_block_render_assets_system(
     mut images: ResMut<Assets<Image>>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut water_materials: ResMut<Assets<WaterMaterial>>,
     asset: Res<AssetManager>,
 ) {
-    let render_assets =
-        build_texture_atlas(&registry, &mut images, &mut layouts, &mut materials, &asset);
+    let render_assets = build_texture_atlas(
+        &registry,
+        &mut images,
+        &mut layouts,
+        &mut materials,
+        &mut water_materials,
+        &asset,
+    );
     commands.insert_resource(render_assets);
 }
 
@@ -81,6 +103,7 @@ pub fn build_texture_atlas(
     images: &mut Assets<Image>,
     layouts: &mut Assets<TextureAtlasLayout>,
     materials: &mut Assets<StandardMaterial>,
+    water_materials: &mut Assets<WaterMaterial>,
     asset: &AssetManager,
 ) -> BlockRenderAssets {
     let unique_paths = registry.texture_paths();
@@ -184,12 +207,88 @@ pub fn build_texture_atlas(
         ..default()
     });
 
+    // 水面独立材质：单独加载 water.png 为 repeat 纹理，避免 uv_transform
+    // 平移时采样到图集相邻 tile。
+    let (water_base_material, water_effect_material) = {
+        let water_path = "textures/blocks/water.png";
+        let water_id = crate::engine::asset::identifier::asset_id(water_path);
+        let mut water_image = match files.read_bytes(&water_id) {
+            Ok(bytes) => match image::load_from_memory(&bytes) {
+                Ok(img) => img.to_rgba8(),
+                Err(_) => {
+                    error!("cannot decode water texture {water_path}");
+                    image::RgbaImage::new(TILE_SIZE, TILE_SIZE)
+                }
+            },
+            Err(_) => {
+                error!("cannot load water texture {water_path}");
+                image::RgbaImage::new(TILE_SIZE, TILE_SIZE)
+            }
+        };
+        // 水位调整：轻度提升亮度和饱和度，让水面在暗环境可读。
+        for pixel in water_image.pixels_mut() {
+            for channel in 0..3 {
+                pixel[channel] = (pixel[channel] as f32 * 1.1 + 6.0).min(255.0) as u8;
+            }
+        }
+        let resized = image::imageops::resize(
+            &water_image,
+            TILE_SIZE,
+            TILE_SIZE,
+            image::imageops::FilterType::Nearest,
+        );
+        let data = resized.into_raw();
+        let mut water_texture = Image::new(
+            Extent3d {
+                width: TILE_SIZE,
+                height: TILE_SIZE,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            data,
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
+        );
+        // 平铺采样供水面 shader 叠加时空波形；线性过滤保持高光连续。
+        let mut sampler = bevy::image::ImageSamplerDescriptor::linear();
+        sampler.address_mode_u = bevy::render::render_resource::AddressMode::Repeat.into();
+        sampler.address_mode_v = bevy::render::render_resource::AddressMode::Repeat.into();
+        water_texture.sampler = bevy::image::ImageSampler::Descriptor(sampler);
+        let water_handle = images.add(water_texture);
+        let base_material = materials.add(StandardMaterial {
+            base_color_texture: Some(water_handle.clone()),
+            base_color: Color::srgba(0.58, 0.86, 1.0, 0.74),
+            perceptual_roughness: 0.16,
+            reflectance: 0.86,
+            metallic: 0.0,
+            alpha_mode: AlphaMode::Blend,
+            cull_mode: None,
+            ..default()
+        });
+        let effect_material = water_materials.add(WaterMaterial {
+            base: StandardMaterial {
+                base_color_texture: Some(water_handle),
+                base_color: Color::srgba(0.98, 1.0, 1.0, 0.32),
+                perceptual_roughness: 0.10,
+                reflectance: 0.98,
+                metallic: 0.0,
+                alpha_mode: AlphaMode::Blend,
+                cull_mode: None,
+                ..default()
+            },
+            extension: WaterMaterialExtension::default(),
+        });
+        (base_material, effect_material)
+    };
+
     BlockRenderAssets {
         base_texture: texture_handle,
         atlas_layout,
         opaque_material,
         cutout_material,
         transparent_material,
+        water_base_material,
+        water_effect_material,
     }
 }
 
