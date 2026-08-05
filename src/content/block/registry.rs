@@ -169,7 +169,9 @@ fn register_blocks(registry: &mut BlockRegistry, mut raw_configs: Vec<BlockPrope
         }
         registry.id_to_properties.insert(0, air_block);
     } else {
-        panic!("missing required block definition: assets/definitions/blocks/air.json");
+        panic!(
+            "missing required block definition: assets/definitions/blocks/century_journey/air.json"
+        );
     }
 
     for (assigned_id, block) in (1u16..).zip(raw_configs) {

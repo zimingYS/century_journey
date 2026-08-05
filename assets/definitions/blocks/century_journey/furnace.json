@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:furnace",
+  "display_name": "熔炉",
+  "render_mode": "Opaque",
+  "is_solid": true,
+  "is_interactable": true,
+  "light_emission": 0,
+  "hardness": 3.5,
+  "required_tool": "pickaxe",
+  "harvest_level": 0,
+  "tags": ["mineable/pickaxe", "stone_like"],
+  "sound": {
+    "sound_material": "Stone",
+    "break_volume": 1.0,
+    "place_volume": 0.85,
+    "step_volume": 0.62
+  },
+  "textures": {
+    "top": "textures/blocks/furnace_top.png",
+    "bottom": "textures/blocks/furnace_top.png",
+    "north": "textures/blocks/furnace_front.png",
+    "south": "textures/blocks/furnace_side.png",
+    "east": "textures/blocks/furnace_side.png",
+    "west": "textures/blocks/furnace_side.png"
+  }
+}

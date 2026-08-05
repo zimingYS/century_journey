@@ -1,0 +1,17 @@
+{
+  "format_version": 1,
+  "type": "shaped",
+  "pattern": [
+    "CC",
+    "CC"
+  ],
+  "key": {
+    "C": {
+      "item": "century_journey:clay"
+    }
+  },
+  "result": {
+    "item": "century_journey:bricks",
+    "count": 1
+  }
+}

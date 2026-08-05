@@ -5,6 +5,7 @@ use super::{
     build_greedy_mesh,
 };
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
+
 use crate::content::block::registry::BlockRegistry;
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
@@ -128,7 +129,8 @@ pub fn receive_mesh_results(
     };
     let opaque_mat = render_assets.opaque_material().clone();
     let cutout_mat = render_assets.cutout_material().clone();
-    let transparent_mat = render_assets.transparent_material().clone();
+    let water_base_mat = render_assets.water_base_material().clone();
+    let water_effect_mat = render_assets.water_effect_material().clone();
 
     let receiver = channel.receiver.lock().unwrap();
     let mut received = 0usize;
@@ -198,11 +200,18 @@ pub fn receive_mesh_results(
 
         if !result.water.is_empty() {
             let water_mesh = meshes.add(result.water.build_mesh());
-            let mat = transparent_mat.clone();
-            let child = commands
+            let base_child = commands
+                .spawn((
+                    Mesh3d(water_mesh.clone()),
+                    MeshMaterial3d(water_base_mat.clone()),
+                    Transform::IDENTITY,
+                    Visibility::default(),
+                ))
+                .id();
+            let effect_child = commands
                 .spawn((
                     Mesh3d(water_mesh),
-                    MeshMaterial3d(mat),
+                    MeshMaterial3d(water_effect_mat.clone()),
                     Transform::IDENTITY,
                     Visibility::default(),
                 ))
@@ -210,7 +219,8 @@ pub fn receive_mesh_results(
             commands
                 .entity(chunk_entity)
                 .queue_silenced(move |mut entity: EntityWorldMut| {
-                    entity.add_child(child);
+                    entity.add_child(base_child);
+                    entity.add_child(effect_child);
                 });
         }
 

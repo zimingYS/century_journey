@@ -1,0 +1,6 @@
+{
+  "format_version": 1,
+  "entries": [
+    { "item": "century_journey:coal", "min_count": 1, "max_count": 1, "chance": 1.0 }
+  ]
+}

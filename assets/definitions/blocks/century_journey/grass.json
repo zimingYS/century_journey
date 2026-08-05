@@ -18,6 +18,6 @@
   "textures": {
     "top": "textures/blocks/grass_top.png",
     "bottom": "textures/blocks/dirt.png",
-    "north": "textures/blocks/grass.png"
+    "north": "textures/blocks/grass_side.png"
   }
 }

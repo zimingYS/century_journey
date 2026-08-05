@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 use crate::content::biome::plugin::BiomeContentPlugin;
 use crate::content::block::VoxelPlugin;
+use crate::content::cloud::plugin::CloudContentPlugin;
 use crate::content::item::plugin::ItemContentPlugin;
 use crate::content::lifecycle::ContentLifecyclePlugin;
 use crate::content::loot::LootPlugin;
@@ -27,6 +28,7 @@ impl Plugin for ContentPluginGroup {
             TagContentPlugin,
             RecipeContentPlugin,
             VegetationContentPlugin,
+            CloudContentPlugin,
         ));
     }
 }

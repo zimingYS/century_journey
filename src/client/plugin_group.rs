@@ -10,8 +10,10 @@ use crate::client::player::ClientPlayerPlugin;
 use crate::client::presentation::ClientPresentationPlugin;
 use crate::client::renderer::ClientRenderingPlugin;
 use crate::client::sky::SkyPlugin;
+use crate::client::sky::cloud::CloudPlugin;
 use crate::client::sound::ClientSoundPlugin;
 use crate::client::ui::UIPlugin;
+use crate::client::water::WaterPlugin;
 
 /// Client 层插件聚合入口。
 ///
@@ -27,6 +29,8 @@ impl Plugin for ClientPluginGroup {
             ClientInterpolationPlugin,
             ClientPresentationPlugin,
             SkyPlugin,
+            CloudPlugin,
+            WaterPlugin,
             UIPlugin,
             ClientSoundPlugin,
             ClientParticlePlugin,

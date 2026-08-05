@@ -7,9 +7,9 @@ use crate::client::camera::{CameraPlugin, FpsCamera};
 use crate::client::interpolation::SimulationPresentation;
 use crate::game::player::identity::LocalPlayer;
 use crate::game::player::lifecycle::spawn::PlayerStartupSet;
+use model::PlayerModelPlugin;
 use model::animation::PlayerAnimationState;
 use model::config::PlayerModelConfig;
-use model::PlayerModelPlugin;
 
 pub mod full_body;
 pub mod model;

@@ -1,0 +1,6 @@
+{
+  "format_version": 1,
+  "entries": [
+    { "item": "century_journey:raw_gold", "min_count": 1, "max_count": 1, "chance": 1.0 }
+  ]
+}

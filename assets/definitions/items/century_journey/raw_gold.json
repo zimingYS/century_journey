@@ -1,0 +1,12 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:raw_gold",
+  "display_name": "粗金",
+  "category": "material",
+  "max_stack": 64,
+  "tags": ["material"],
+  "icon": {
+    "type": "texture",
+    "value": "century_journey:raw_gold"
+  }
+}

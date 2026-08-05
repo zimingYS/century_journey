@@ -1,0 +1,18 @@
+{
+  "format_version": 1,
+  "type": "shaped",
+  "pattern": [
+    "CCC",
+    "C C",
+    "CCC"
+  ],
+  "key": {
+    "C": {
+      "item": "century_journey:cobblestone"
+    }
+  },
+  "result": {
+    "item": "century_journey:furnace",
+    "count": 1
+  }
+}

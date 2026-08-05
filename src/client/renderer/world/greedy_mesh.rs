@@ -195,6 +195,7 @@ fn greedy_merge_pass(
                 my_axis,
                 texture_layer,
                 block_info.total_layers,
+                buffer_idx == 2,
             );
             if buffer_idx == 2 {
                 inset_water_surface(&mut positions, face_idx);
@@ -256,6 +257,7 @@ fn get_merged_face_data(
     my_axis: usize,
     texture_layer: u32,
     total_layers: u32,
+    water_uv: bool,
 ) -> ([[f32; 3]; 4], [[f32; 2]; 4]) {
     let cs = CHUNK_SIZE as f32;
     let nt = total_layers as f32;
@@ -271,11 +273,19 @@ fn get_merged_face_data(
     extent[mx_axis] = w;
     extent[my_axis] = h;
 
-    // UV（平铺式图集）
-    let u0 = 0.0f32;
-    let u1 = w / cs;
-    let v0 = (texture_layer as f32 * cs) / (nt * cs);
-    let v1 = (texture_layer as f32 * cs + h) / (nt * cs);
+    // 水面使用独立的可平铺 repeat 纹理：UV 为每方块一张完整纹理，
+    // 由客户端水面动画系统平移 uv_transform 实现流动。
+    let (u0, u1, v0, v1) = if water_uv {
+        (0.0, w, 0.0, h)
+    } else {
+        // 普通图集 UV（平铺式）
+        (
+            0.0,
+            w / cs,
+            (texture_layer as f32 * cs) / (nt * cs),
+            (texture_layer as f32 * cs + h) / (nt * cs),
+        )
+    };
 
     match face_idx {
         0 => {

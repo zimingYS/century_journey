@@ -1,0 +1,36 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:overworld",
+  "density": 0.62,
+  "seed": 20260803,
+  "layers": [
+    {
+      "height": 128.0,
+      "size": 512.0,
+      "speed": 24.0,
+      "wind_direction": [1.0, 0.12],
+      "tint_day": [1.0, 1.0, 1.0],
+      "tint_night": [0.22, 0.25, 0.36],
+      "tint_sunset": [1.0, 0.72, 0.52],
+      "opacity": 0.7
+    },
+    {
+      "height": 168.0,
+      "size": 768.0,
+      "speed": 12.0,
+      "wind_direction": [0.86, -0.18],
+      "tint_day": [1.0, 1.0, 1.0],
+      "tint_night": [0.25, 0.27, 0.38],
+      "tint_sunset": [1.0, 0.78, 0.58],
+      "opacity": 0.45
+    }
+  ],
+  "patches": {
+    "enabled": false,
+    "count": 6,
+    "spawn_radius": 180.0,
+    "scale_min": 12.0,
+    "scale_max": 24.0,
+    "opacity": 0.35
+  }
+}

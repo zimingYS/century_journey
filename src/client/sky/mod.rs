@@ -1,5 +1,6 @@
 //! 组织天空盒、日月、方向光和世界时间驱动的视觉变化。
 
+pub mod cloud;
 pub mod components;
 mod constants;
 pub mod systems;

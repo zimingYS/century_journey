@@ -11,6 +11,23 @@
     "century_journey:wood",
     "century_journey:planks",
     "century_journey:crafting_table",
-    "century_journey:leaves"
+    "century_journey:leaves",
+    "century_journey:cobblestone",
+    "century_journey:mossy_cobblestone",
+    "century_journey:gravel",
+    "century_journey:sandstone",
+    "century_journey:bricks",
+    "century_journey:stone_bricks",
+    "century_journey:coal_ore",
+    "century_journey:iron_ore",
+    "century_journey:gold_ore",
+    "century_journey:glass",
+    "century_journey:obsidian",
+    "century_journey:bedrock",
+    "century_journey:clay",
+    "century_journey:bookshelf",
+    "century_journey:furnace",
+    "century_journey:pumpkin",
+    "century_journey:melon"
   ]
 }

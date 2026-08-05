@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:melon",
+  "display_name": "西瓜",
+  "render_mode": "Opaque",
+  "is_solid": true,
+  "light_emission": 0,
+  "hardness": 1.0,
+  "required_tool": null,
+  "effective_tool": "axe",
+  "harvest_level": 0,
+  "tags": ["mineable/axe", "plant"],
+  "sound": {
+    "sound_material": "Wood",
+    "break_volume": 0.85,
+    "place_volume": 0.78,
+    "step_volume": 0.55
+  },
+  "textures": {
+    "top": "textures/blocks/melon_top.png",
+    "bottom": "textures/blocks/melon_top.png",
+    "north": "textures/blocks/melon_side.png",
+    "south": "textures/blocks/melon_side.png",
+    "east": "textures/blocks/melon_side.png",
+    "west": "textures/blocks/melon_side.png"
+  }
+}

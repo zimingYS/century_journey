@@ -5,6 +5,7 @@
 
 use crate::content::biome::BiomeDefinition;
 use crate::content::block::definition::BlockProperty;
+use crate::content::cloud::definition::CloudDefinition;
 use crate::content::item::definition::ItemDefinition;
 use crate::content::loot::table::LootTable;
 use crate::content::recipe::definition::recipe_definition::RecipeDefinition;
@@ -21,8 +22,8 @@ mod loading;
 mod paths;
 
 use checks::{
-    validate_biomes, validate_blocks, validate_items, validate_loot, validate_recipes,
-    validate_tags, validate_textures, validate_tree_species,
+    validate_biomes, validate_blocks, validate_clouds, validate_items, validate_loot,
+    validate_recipes, validate_tags, validate_textures, validate_tree_species,
 };
 use loading::{load, unique_ids};
 use paths::{block_loot_id, inline_tag_id, recipe_id, tag_identity, tag_runtime_id};
@@ -53,6 +54,7 @@ pub struct CompiledContent {
     pub block_loot: Vec<(Identifier, LootTable)>,
     pub tags: Vec<(TagId, TagAction)>,
     pub tree_species: Vec<TreeSpeciesDefinition>,
+    pub clouds: Vec<CloudDefinition>,
 }
 
 #[derive(Resource, Debug, Clone, Default)]
@@ -105,6 +107,7 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
     let mut tags = load::<TagAction>(&files, "definitions/tags", &mut report);
     let mut tree_species =
         load::<TreeSpeciesDefinition>(&files, "definitions/tree_species", &mut report);
+    let mut clouds = load::<CloudDefinition>(&files, "definitions/clouds", &mut report);
 
     let block_ids = unique_ids(
         blocks
@@ -159,6 +162,7 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
     validate_tags(&tags, &block_ids, &item_ids, &biomes, &mut report);
     validate_textures(resolver, &files, &mut report);
     validate_tree_species(&tree_species, &blocks, &block_ids, &mut report);
+    validate_clouds(&clouds, &mut report);
 
     blocks.sort_by(|left, right| {
         left.1
@@ -183,6 +187,13 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
     loot.sort_by(|left, right| left.0.cmp(&right.0));
     tags.sort_by(|left, right| left.0.cmp(&right.0));
     tree_species.sort_by(|left, right| {
+        left.1
+            .identifier
+            .cmp(&right.1.identifier)
+            .then_with(|| left.0.cmp(&right.0))
+    });
+    // 云定义按稳定标识符排序，世界配置可以跨文件系统顺序选择同一云场。
+    clouds.sort_by(|left, right| {
         left.1
             .identifier
             .cmp(&right.1.identifier)
@@ -249,6 +260,7 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
             block_loot,
             tags,
             tree_species: tree_species.into_iter().map(|(_, value)| value).collect(),
+            clouds: clouds.into_iter().map(|(_, value)| value).collect(),
         },
     }
 }
