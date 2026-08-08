@@ -1,6 +1,7 @@
 //! 定义与世界实现解耦的方块行为契约。
 
 use crate::content::block::registry::BlockRegistry;
+use crate::shared::voxel_change::VoxelChangeBuffer;
 use bevy::prelude::*;
 
 /// 定义方块对各种事件的响应。
@@ -8,13 +9,15 @@ use bevy::prelude::*;
 /// 泛型参数 `W` 是 World 访问器类型，
 /// 由 Game 层在实现时提供具体类型（如 `WorldState`），
 /// 从而避免 Content 层直接依赖 Game 层类型。
+#[allow(clippy::too_many_arguments)]
 pub trait BlockBehavior<W>: Send + Sync + 'static {
-    /// 方块被破坏
+    /// 方块被破坏（只读预检 + 推命令；不能阻止破坏）
     fn on_break(
         &self,
         _world_pos: IVec3,
         _block_id: u16,
-        _world_storage: &mut W,
+        _world_storage: &W,
+        _changes: &mut VoxelChangeBuffer,
         _commands: &mut Commands,
     ) {
     }
@@ -25,7 +28,8 @@ pub trait BlockBehavior<W>: Send + Sync + 'static {
         _world_pos: IVec3,
         _block_id: u16,
         _face_normal: IVec3,
-        _world_storage: &mut W,
+        _world_storage: &W,
+        _changes: &mut VoxelChangeBuffer,
         _commands: &mut Commands,
     ) -> bool {
         true
@@ -38,7 +42,8 @@ pub trait BlockBehavior<W>: Send + Sync + 'static {
         _block_id: u16,
         _face_normal: IVec3,
         _interactor: Option<Entity>,
-        _world_storage: &mut W,
+        _world_storage: &W,
+        _changes: &mut VoxelChangeBuffer,
         _commands: &mut Commands,
     ) {
     }
@@ -48,7 +53,8 @@ pub trait BlockBehavior<W>: Send + Sync + 'static {
         &self,
         _world_pos: IVec3,
         _block_id: u16,
-        _world_storage: &mut W,
+        _world_storage: &W,
+        _changes: &mut VoxelChangeBuffer,
         _commands: &mut Commands,
     ) {
     }
@@ -60,7 +66,8 @@ pub trait BlockBehavior<W>: Send + Sync + 'static {
         _block_id: u16,
         _neighbor_pos: IVec3,
         _neighbor_block_id: u16,
-        _world_storage: &mut W,
+        _world_storage: &W,
+        _changes: &mut VoxelChangeBuffer,
         _commands: &mut Commands,
     ) {
     }

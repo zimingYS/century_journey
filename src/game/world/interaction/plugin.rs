@@ -3,6 +3,7 @@
 use super::changes::propagate_block_changes_system;
 use super::pickup::pickup_system;
 use super::support::remove_unsupported_blocks_system;
+use crate::game::block::behavior_dispatch::dispatch_block_behavior_system;
 use crate::game::simulation::SimulationSet;
 use crate::game::world::entity::dropped_item::dropped_item_tick_system;
 use crate::shared::states::AppState;
@@ -20,6 +21,7 @@ impl Plugin for WorldInteractionPlugin {
             FixedUpdate,
             (
                 propagate_block_changes_system,
+                dispatch_block_behavior_system,
                 remove_unsupported_blocks_system,
             )
                 .chain()

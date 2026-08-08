@@ -1,7 +1,6 @@
 //! 执行方块破坏规则，并根据掉落表产生权威掉落实体请求。
 
 use crate::content::block::definition::BlockProperty;
-use crate::content::block::event::BlockChangedEvent;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::ToolData;
 use crate::content::loot::block_registry::BlockLootRegistry;
@@ -12,12 +11,13 @@ use crate::game::gameplay::block_action::{
 };
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
 use crate::game::inventory::item::stack::ItemStack;
-use crate::game::world::block_ops::set_voxel_at_world;
+use crate::game::world::block_ops::get_voxel_at_world;
 use crate::game::world::entity::dropped_item::spawn_dropped_item;
 use crate::game::world::state::WorldState;
 use crate::shared::random::RandomSource;
+use crate::shared::voxel_change::{ChangeSource, VoxelChange, VoxelChangeBuffer};
 use bevy::math::{IVec3, Vec3};
-use bevy::prelude::{Commands, MessageWriter};
+use bevy::prelude::Commands;
 
 /// 执行一次完整破坏事务；只有规则校验和体素写入均成功才返回 `true`。
 /// 破坏事务显式接收规则、随机源、世界和事件出口，避免隐藏跨领域副作用。
@@ -33,7 +33,7 @@ pub fn execute_block_break(
     loot_registry: Option<&BlockLootRegistry>,
     loot_rng: &mut dyn RandomSource,
     world_state: &mut WorldState,
-    changed_blocks: &mut MessageWriter<BlockChangedEvent>,
+    changes: &mut VoxelChangeBuffer,
     commands: &mut Commands,
 ) -> bool {
     if !can_break_block(block_id, gamemode, tag_registry) {
@@ -48,9 +48,14 @@ pub fn execute_block_break(
     }
 
     let behavior = behavior_registry.get_behavior_by_id(block_id, block_registry);
-    behavior.on_break(world_pos, block_id, world_state, commands);
-    if let Some(change) = set_voxel_at_world(world_pos, 0, world_state) {
-        changed_blocks.write(change);
+    behavior.on_break(world_pos, block_id, &*world_state, changes, commands);
+
+    if get_voxel_at_world(world_pos, world_state) != 0 {
+        changes.0.push(VoxelChange {
+            pos: world_pos,
+            block_id: 0,
+            source: ChangeSource::Player,
+        });
     }
 
     if should_drop_block_loot(gamemode, block, active_tool)

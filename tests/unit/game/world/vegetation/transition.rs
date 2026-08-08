@@ -1,6 +1,9 @@
 use super::*;
+use crate::game::world::block_ops::set_voxel_at_world;
 use crate::game::world::chunk::ChunkData;
+use crate::game::world::state::ChunkRuntime;
 use crate::game::world::structure::TreeBlueprintParameters;
+use crate::game::world::voxel_change::apply::apply_changes;
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -68,19 +71,22 @@ fn valid_sapling_is_atomically_replaced_by_the_young_blueprint() {
     prepare_sapling(&mut world, root);
     let (support_tag, tags) = support_tag_registry();
     let young = young_tree(root);
+    let mut runtime = ChunkRuntime::default();
+    let mut buffer = VoxelChangeBuffer::default();
 
-    let changes = try_apply_stage_transition(
+    let ok = try_apply_stage_transition(
         root,
         &support_tag,
         CurrentTreeForm::Sapling(SAPLING_ID),
         &young,
         &tags,
-        &mut world,
+        &world,      // &mut → &
+        &mut buffer, // 新增
         |_| true,
-    )
-    .unwrap();
+    );
+    assert!(ok);
+    apply_changes(&mut world, &mut runtime, &mut buffer);
 
-    assert_eq!(changes.len(), young.voxels().len());
     for voxel in young.voxels() {
         assert_eq!(get_voxel_at_world(voxel.world_pos, &world), voxel.block_id);
     }
@@ -94,27 +100,31 @@ fn blocked_new_space_keeps_the_entire_young_tree_unchanged() {
     let (support_tag, tags) = support_tag_registry();
     let young = young_tree(root);
     let mature = mature_tree(root);
-    try_apply_stage_transition(
+    let mut runtime = ChunkRuntime::default();
+    let mut buffer = VoxelChangeBuffer::default();
+
+    assert!(try_apply_stage_transition(
         root,
         &support_tag,
         CurrentTreeForm::Sapling(SAPLING_ID),
         &young,
         &tags,
-        &mut world,
+        &world,
+        &mut buffer,
         |_| true,
-    )
-    .unwrap();
+    ));
+    apply_changes(&mut world, &mut runtime, &mut buffer); // 先让 young 生效
 
     let young_positions = young
         .voxels()
         .iter()
-        .map(|voxel| voxel.world_pos)
+        .map(|v| v.world_pos)
         .collect::<HashSet<_>>();
     let blocked_position = mature
         .voxels()
         .iter()
-        .map(|voxel| voxel.world_pos)
-        .find(|position| !young_positions.contains(position))
+        .map(|v| v.world_pos)
+        .find(|p| !young_positions.contains(p))
         .unwrap();
     set_voxel_at_world(blocked_position, 12, &mut world).unwrap();
 
@@ -124,11 +134,11 @@ fn blocked_new_space_keeps_the_entire_young_tree_unchanged() {
         CurrentTreeForm::Blueprint(&young),
         &mature,
         &tags,
-        &mut world,
+        &world,
+        &mut buffer,
         |_| true,
     );
-
-    assert!(result.is_none());
+    assert!(!result); // is_none → !result
     assert_eq!(get_voxel_at_world(blocked_position, &world), 12);
     for voxel in young.voxels() {
         assert_eq!(get_voxel_at_world(voxel.world_pos, &world), voxel.block_id);
@@ -143,38 +153,44 @@ fn young_to_mature_keeps_previous_branches_and_adds_the_mature_blueprint() {
     let (support_tag, tags) = support_tag_registry();
     let young = young_tree(root);
     let mature = mature_tree(root);
-    try_apply_stage_transition(
+    let mut runtime = ChunkRuntime::default();
+    let mut buffer = VoxelChangeBuffer::default();
+
+    assert!(try_apply_stage_transition(
         root,
         &support_tag,
         CurrentTreeForm::Sapling(SAPLING_ID),
         &young,
         &tags,
-        &mut world,
+        &world,
+        &mut buffer,
         |_| true,
-    )
-    .unwrap();
+    ));
+    apply_changes(&mut world, &mut runtime, &mut buffer);
+
     let mature_positions = mature
         .voxels()
         .iter()
-        .map(|voxel| voxel.world_pos)
+        .map(|v| v.world_pos)
         .collect::<HashSet<_>>();
     let old_only = young
         .voxels()
         .iter()
-        .find(|voxel| !mature_positions.contains(&voxel.world_pos))
+        .find(|v| !mature_positions.contains(&v.world_pos))
         .copied()
         .unwrap();
 
-    try_apply_stage_transition(
+    assert!(try_apply_stage_transition(
         root,
         &support_tag,
         CurrentTreeForm::Blueprint(&young),
         &mature,
         &tags,
-        &mut world,
+        &world,
+        &mut buffer,
         |_| true,
-    )
-    .unwrap();
+    ));
+    apply_changes(&mut world, &mut runtime, &mut buffer);
 
     assert_eq!(
         get_voxel_at_world(old_only.world_pos, &world),
@@ -191,6 +207,7 @@ fn unloaded_target_chunk_keeps_the_sapling() {
     let mut world = loaded_world(&[IVec3::ZERO]);
     prepare_sapling(&mut world, root);
     let (support_tag, tags) = support_tag_registry();
+    let mut buffer = VoxelChangeBuffer::default();
 
     let result = try_apply_stage_transition(
         root,
@@ -198,11 +215,12 @@ fn unloaded_target_chunk_keeps_the_sapling() {
         CurrentTreeForm::Sapling(SAPLING_ID),
         &young_tree(root),
         &tags,
-        &mut world,
+        &world,
+        &mut buffer,
         |_| true,
     );
-
-    assert!(result.is_none());
+    assert!(!result);
+    assert!(buffer.0.is_empty(), "预检失败不应提交命令");
     assert_eq!(get_voxel_at_world(root, &world), SAPLING_ID);
 }
 
@@ -212,6 +230,7 @@ fn missing_support_keeps_the_sapling() {
     let mut world = loaded_world(&[IVec3::ZERO]);
     set_voxel_at_world(root, SAPLING_ID, &mut world).unwrap();
     let (support_tag, tags) = support_tag_registry();
+    let mut buffer = VoxelChangeBuffer::default();
 
     let result = try_apply_stage_transition(
         root,
@@ -219,10 +238,11 @@ fn missing_support_keeps_the_sapling() {
         CurrentTreeForm::Sapling(SAPLING_ID),
         &young_tree(root),
         &tags,
-        &mut world,
+        &world,
+        &mut buffer,
         |_| true,
     );
 
-    assert!(result.is_none());
+    assert!(!result);
     assert_eq!(get_voxel_at_world(root, &world), SAPLING_ID);
 }
