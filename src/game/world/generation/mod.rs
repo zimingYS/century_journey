@@ -2,6 +2,7 @@
 
 pub mod biome;
 pub mod block_ids;
+pub mod cave;
 pub mod generator;
 pub mod ore;
 pub mod pipeline;

@@ -4,6 +4,7 @@ use crate::content::biome::registry::BiomeRegistry;
 use crate::content::ore_vein::registry::RuntimeOreVein;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::block_ids::GenerationBlockIds;
+use crate::game::world::generation::cave::{DEFAULT_CAVE_PROFILE, apply_caves};
 use crate::game::world::generation::ore;
 use crate::game::world::generation::terrain::climate::{ClimateConfig, ClimateSampler};
 use crate::game::world::generation::terrain::context::ChunkGenContext;
@@ -92,6 +93,13 @@ impl GenerationPipeline {
         let context = self.sample_context(chunk_pos);
         let mut data =
             TerrainGenerator::generate_terrain(&context, block_ids, &self.biome_registry);
+        apply_caves(
+            &mut data,
+            &context,
+            &self.noise_sampler,
+            block_ids.stone,
+            &DEFAULT_CAVE_PROFILE,
+        );
         ore::apply_ores(
             &mut data,
             chunk_pos,
