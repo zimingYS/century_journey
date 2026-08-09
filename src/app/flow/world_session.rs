@@ -186,6 +186,7 @@ pub(super) fn prepare_world_system(pending: Res<PendingWorld>, mut params: Prepa
             *params.save_worker = SaveWorker::default();
             params.load_queue.queue.clear();
             params.save_config.world_name = world_id.to_string();
+            let ore_veins = params.world_generator.pipeline.ore_veins.clone();
             let biomes = params
                 .world_generator
                 .pipeline
@@ -197,6 +198,10 @@ pub(super) fn prepare_world_system(pending: Res<PendingWorld>, mut params: Prepa
                 level_data.generation_version,
                 biomes,
             );
+            params
+                .world_generator
+                .pipeline
+                .replace_ore_veins(ore_veins.as_ref().clone());
             *params.simulation_clock = WorldSimulationClock::from_persisted(
                 level_data.simulation_tick,
                 level_data.game_minute,

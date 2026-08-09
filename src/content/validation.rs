@@ -21,6 +21,8 @@ mod checks;
 mod loading;
 mod paths;
 
+use crate::content::ore_vein::definition::OreVeinDefinition;
+use crate::content::validation::checks::validate_ore_veins;
 use checks::{
     validate_biomes, validate_blocks, validate_clouds, validate_items, validate_loot,
     validate_recipes, validate_tags, validate_textures, validate_tree_species,
@@ -55,6 +57,7 @@ pub struct CompiledContent {
     pub tags: Vec<(TagId, TagAction)>,
     pub tree_species: Vec<TreeSpeciesDefinition>,
     pub clouds: Vec<CloudDefinition>,
+    pub ore_veins: Vec<OreVeinDefinition>,
 }
 
 #[derive(Resource, Debug, Clone, Default)]
@@ -108,6 +111,7 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
     let mut tree_species =
         load::<TreeSpeciesDefinition>(&files, "definitions/tree_species", &mut report);
     let mut clouds = load::<CloudDefinition>(&files, "definitions/clouds", &mut report);
+    let mut ore_veins = load::<OreVeinDefinition>(&files, "definitions/ore_veins", &mut report);
 
     let block_ids = unique_ids(
         blocks
@@ -128,6 +132,13 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
             .iter()
             .map(|(path, species)| (path, species.identifier.to_string())),
         "tree species",
+        &mut report,
+    );
+    unique_ids(
+        ore_veins
+            .iter()
+            .map(|(path, species)| (path, species.identifier.to_string())),
+        "ore veins",
         &mut report,
     );
     let mut item_ids = explicit_item_ids.clone();
@@ -163,6 +174,7 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
     validate_textures(resolver, &files, &mut report);
     validate_tree_species(&tree_species, &blocks, &block_ids, &mut report);
     validate_clouds(&clouds, &mut report);
+    validate_ore_veins(&ore_veins, &block_ids, &mut report);
 
     blocks.sort_by(|left, right| {
         left.1
@@ -194,6 +206,13 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
     });
     // 云定义按稳定标识符排序，世界配置可以跨文件系统顺序选择同一云场。
     clouds.sort_by(|left, right| {
+        left.1
+            .identifier
+            .cmp(&right.1.identifier)
+            .then_with(|| left.0.cmp(&right.0))
+    });
+    // 矿脉定义按稳定标识符排序，生成管线不依赖文件系统遍历顺序。
+    ore_veins.sort_by(|left, right| {
         left.1
             .identifier
             .cmp(&right.1.identifier)
@@ -261,6 +280,7 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
             tags,
             tree_species: tree_species.into_iter().map(|(_, value)| value).collect(),
             clouds: clouds.into_iter().map(|(_, value)| value).collect(),
+            ore_veins: ore_veins.into_iter().map(|(_, value)| value).collect(),
         },
     }
 }

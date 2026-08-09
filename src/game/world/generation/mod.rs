@@ -3,6 +3,7 @@
 pub mod biome;
 pub mod block_ids;
 pub mod generator;
+pub mod ore;
 pub mod pipeline;
 mod plugin;
 mod runtime;

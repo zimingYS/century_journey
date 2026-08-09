@@ -1,8 +1,10 @@
 //! 编排环境采样、地形塑造、生物群系分类和结构放置的生成流水线。
 
 use crate::content::biome::registry::BiomeRegistry;
+use crate::content::ore_vein::registry::RuntimeOreVein;
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::generation::block_ids::GenerationBlockIds;
+use crate::game::world::generation::ore;
 use crate::game::world::generation::terrain::climate::{ClimateConfig, ClimateSampler};
 use crate::game::world::generation::terrain::context::ChunkGenContext;
 use crate::game::world::generation::terrain::generator::TerrainGenerator;
@@ -31,6 +33,7 @@ pub struct GenerationPipeline {
     pub noise_sampler: Arc<NoiseSampler>,
     pub climate_sampler: Arc<ClimateSampler>,
     pub biome_registry: Arc<BiomeRegistry>,
+    pub ore_veins: Arc<Vec<RuntimeOreVein>>,
     pub seed: u32,
     pub generation_version: u32,
 }
@@ -55,6 +58,7 @@ impl GenerationPipeline {
             noise_sampler: Arc::new(NoiseSampler::new(seed)),
             climate_sampler: Arc::new(ClimateSampler::new(seed, ClimateConfig::default())),
             biome_registry: Arc::new(biome_registry),
+            ore_veins: Arc::new(Vec::new()),
             seed,
             generation_version,
         }
@@ -86,7 +90,15 @@ impl GenerationPipeline {
         block_ids: &GenerationBlockIds,
     ) -> (ChunkData, ChunkGenContext) {
         let context = self.sample_context(chunk_pos);
-        let data = TerrainGenerator::generate_terrain(&context, block_ids, &self.biome_registry);
+        let mut data =
+            TerrainGenerator::generate_terrain(&context, block_ids, &self.biome_registry);
+        ore::apply_ores(
+            &mut data,
+            chunk_pos,
+            &self.noise_sampler,
+            block_ids.stone,
+            &self.ore_veins,
+        );
         (data, context)
     }
 
@@ -98,5 +110,10 @@ impl GenerationPipeline {
     /// 替换后续生成任务使用的生物群系注册表快照。
     pub fn replace_biome_registry(&mut self, biome_registry: BiomeRegistry) {
         self.biome_registry = Arc::new(biome_registry);
+    }
+
+    /// 替换后续生成任务使用的矿脉注册表快照。
+    pub fn replace_ore_veins(&mut self, veins: Vec<RuntimeOreVein>) {
+        self.ore_veins = Arc::new(veins);
     }
 }

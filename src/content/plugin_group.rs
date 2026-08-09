@@ -8,6 +8,7 @@ use crate::content::cloud::plugin::CloudContentPlugin;
 use crate::content::item::plugin::ItemContentPlugin;
 use crate::content::lifecycle::ContentLifecyclePlugin;
 use crate::content::loot::LootPlugin;
+use crate::content::ore_vein::plugin::OreVeinContentPlugin;
 use crate::content::recipe::plugin::RecipeContentPlugin;
 use crate::content::tag::plugin::TagContentPlugin;
 use crate::content::vegetation::VegetationContentPlugin;
@@ -28,6 +29,7 @@ impl Plugin for ContentPluginGroup {
             TagContentPlugin,
             RecipeContentPlugin,
             VegetationContentPlugin,
+            OreVeinContentPlugin,
             CloudContentPlugin,
         ));
     }

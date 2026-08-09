@@ -14,6 +14,8 @@ pub struct NoiseSampler {
     pub roughness: Perlin,
     /// 洞穴噪声
     pub cave: Perlin,
+    /// 矿石噪声
+    pub ore: Perlin,
 }
 
 impl NoiseSampler {
@@ -25,6 +27,7 @@ impl NoiseSampler {
             terrain_detail: Perlin::new(seed.wrapping_add(100)),
             roughness: Perlin::new(seed.wrapping_add(200)),
             cave: Perlin::new(seed.wrapping_add(300)),
+            ore: Perlin::new(seed.wrapping_add(400)),
         }
     }
 }
