@@ -11,6 +11,7 @@ pub mod streaming;
 mod structure;
 pub mod time;
 mod vegetation;
+pub mod voxel_change;
 
 pub use plugin::GameWorldPlugin;
 pub(in crate::game) use vegetation::{TreeGrowthStage, TreeInstance};

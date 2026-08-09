@@ -10,6 +10,7 @@ pub mod format;
 pub mod item;
 pub mod lifecycle;
 pub mod loot;
+pub mod ore_vein;
 pub mod plugin_group;
 pub mod recipe;
 pub mod tag;

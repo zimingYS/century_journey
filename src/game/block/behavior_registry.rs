@@ -2,6 +2,7 @@
 
 use crate::content::block::behavior::{BlockBehavior, DefaultBlockBehavior};
 use crate::content::block::registry::BlockRegistry;
+use crate::game::block::behaviors::FallingBlockBehavior;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -55,6 +56,9 @@ pub fn init_behavior_registry_system(mut registry: ResMut<BlockBehaviorRegistry>
     registry
         .behaviors
         .insert("default".to_string(), Box::new(DefaultBlockBehavior));
+    registry
+        .behaviors
+        .insert("falling".to_string(), Box::new(FallingBlockBehavior));
     // FallingBlockBehavior 等未来行为在此注册
     info!("[方块行为] 已注册 {} 个方块行为", registry.behaviors.len());
 }

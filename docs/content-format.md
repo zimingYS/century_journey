@@ -109,3 +109,34 @@ before that API is explicitly versioned.
 云层属于 Client 表现。`CloudWeatherState` 仅提供云量、风速倍率和能见度的有限范围输入；
 当前没有权威天气模拟。以后 Game 层接入粗粒度天气单元时，应通过跨层适配器更新该表现状态，
 不能让云实体、材质或渲染帧时间反向决定降雨、温度、存档或其他世界规则。
+
+## Ore Veins
+
+矿脉定义放在 `assets/definitions/ore_veins/`，把"矿石方块"与"世界生成参数"解耦。
+每份定义必须声明：
+
+- `identifier`：矿脉的稳定标识符；
+- `display_name`：面向玩家和开发工具显示的矿脉名称；
+- `block`：生成时放置的矿石方块；
+- `priority`：检查优先级，数值大者先检查；重叠深度带由高优先级矿脉获胜；
+- `min_y` 与 `max_y`：世界高度带闭区间；
+- `threshold`：3D 噪声阈值，低于阈值出现矿；值越低越稀有；
+- `scale`：噪声世界坐标缩放，越小矿团越大。
+
+示例：
+
+    {
+      "format_version": 1,
+      "identifier": "century_journey:gold",
+      "display_name": "金矿脉",
+      "block": "century_journey:gold_ore",
+      "priority": 3,
+      "min_y": -40,
+      "max_y": 20,
+      "threshold": -0.65,
+      "scale": 0.12
+    }
+
+运行时按 `priority` 从高到低排序后一次性喂给世界生成管线；内容校验保证 `block` 存在且
+不是空气、`min_y <= max_y`、`scale > 0`、`threshold` 落在 `[-1, 1]`。矿脉只替换石头方块，
+同优先级矿脉按 `identifier` 排序以保持确定性。

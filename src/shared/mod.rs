@@ -8,3 +8,4 @@ pub mod random;
 pub mod states;
 pub mod tag;
 pub mod voxel;
+pub mod voxel_change;

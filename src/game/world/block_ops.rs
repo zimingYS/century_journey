@@ -23,10 +23,11 @@ pub fn get_voxel_at_world(world_pos: IVec3, world_state: &WorldState) -> u16 {
         .unwrap_or(0)
 }
 
-/// 在世界坐标处写入方块，并在实际变化时返回权威变更描述。
+/// 同步写入一个方块并返回变更事件（**渐进废弃中**）。
 ///
-/// 生成阶段直接构造 `ChunkData`，不会调用本函数；运行时玩法写入必须消费返回值并发出
-/// `BlockChangedEvent`，以便区块刷新与邻居规则在同一条链路中处理。
+/// 生产调用方已全部迁移到 `VoxelChangeBuffer`（由 `apply_voxel_changes`
+/// 统一应用）。目前仅测试用作 setup 工具；新代码一律走 buffer，
+/// 待测试改造完成后删除本函数。
 pub fn set_voxel_at_world(
     world_pos: IVec3,
     block_id: u16,

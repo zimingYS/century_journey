@@ -2,7 +2,6 @@
 
 use super::runtime::{VegetationRuntime, chunk_is_ready, world_to_chunk_position};
 use super::transition::{CurrentTreeForm, support_is_valid, try_apply_stage_transition};
-use crate::content::block::event::BlockChangedEvent;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::content::vegetation::definition::TreeBlueprintDefinition;
@@ -15,6 +14,7 @@ use crate::game::world::structure::{TreeBlueprint, TreeBlueprintParameters};
 use crate::game::world::time::{GameMinuteElapsed, WorldSimulationClock};
 use crate::game::world::vegetation::{TreeGrowthStage, TreeInstance};
 use crate::shared::random::RandomSource;
+use crate::shared::voxel_change::VoxelChangeBuffer;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
@@ -41,7 +41,7 @@ pub(super) fn advance_tree_lifecycle_system(
     mut minute_events: MessageReader<GameMinuteElapsed>,
     context: TreeGrowthContext,
     mut runtime: ResMut<VegetationRuntime>,
-    mut changed_blocks: MessageWriter<BlockChangedEvent>,
+    mut changes: ResMut<VoxelChangeBuffer>,
 ) {
     if minute_events.read().count() == 0 {
         return;
@@ -148,15 +148,16 @@ pub(super) fn advance_tree_lifecycle_system(
             TreeGrowthStage::Mature => continue,
         };
 
-        let Some(changes) = try_apply_stage_transition(
+        if !try_apply_stage_transition(
             root,
             support_tag,
             current_form,
             &target_blueprint,
             &tag_registry,
-            &mut world_state,
+            &world_state,
+            &mut changes,
             |chunk_position| chunk_is_ready(chunk_position, &chunk_runtime, &chunk_states),
-        ) else {
+        ) {
             defer_instance(
                 &mut world_state,
                 root,
@@ -185,9 +186,6 @@ pub(super) fn advance_tree_lifecycle_system(
             TreeGrowthStage::Mature => unreachable!("成熟树没有生命周期到期任务"),
         }
         mark_tree_instance_modified(&mut world_state, root);
-        for change in changes {
-            changed_blocks.write(change);
-        }
     }
 }
 

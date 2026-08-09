@@ -16,6 +16,7 @@
     "place_volume": 0.75,
     "step_volume": 0.55
   },
+  "behavior_type": "falling",
   "textures": {
     "top": "textures/blocks/gravel.png"
   }

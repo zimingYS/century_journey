@@ -23,7 +23,7 @@ use crate::game::player::identity::{LocalPlayer, Player, PlayerId};
 use crate::game::player::interaction::targeting::TargetVoxel;
 use crate::game::player::physics::components::PlayerCollider;
 use crate::game::simulation::{LOOT_RANDOM_DOMAIN, SimulationRng};
-use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
+use crate::game::world::block_ops::get_voxel_at_world;
 
 use crate::game::world::entity::dropped_item::{
     DroppedItemVelocity, spawn_dropped_item_with_velocity,
@@ -31,6 +31,7 @@ use crate::game::world::entity::dropped_item::{
 use crate::game::world::interaction::execute_block_break;
 use crate::game::world::state::WorldState;
 use crate::game::world::time::WorldSimulationClock;
+use crate::shared::voxel_change::{ChangeSource, VoxelChange, VoxelChangeBuffer};
 use bevy::ecs::system::SystemParam;
 use bevy::math::{IVec3, Vec3};
 use bevy::prelude::{
@@ -81,11 +82,11 @@ pub fn voxel_interaction_system(
     mut inventory_query: Query<&mut InventoryState, With<Player>>,
     gamemode: Res<PlayerGameMode>,
     loot_registry: Option<Res<BlockLootRegistry>>,
-
     mut events: VoxelEventWriters,
     mut break_runtime: BlockBreakRuntime,
     mut commands: Commands,
     mut world_state: ResMut<WorldState>,
+    mut changes: ResMut<VoxelChangeBuffer>,
 ) {
     let Some(reg) = registry else {
         break_runtime.state.clear();
@@ -176,7 +177,7 @@ pub fn voxel_interaction_system(
             loot_registry.as_deref(),
             &mut loot_rng,
             &mut world_state,
-            &mut events.changed_blocks,
+            &mut changes,
             &mut commands,
         );
 
@@ -233,8 +234,9 @@ pub fn voxel_interaction_system(
             hit_pos,
             hit_id,
             ray_result.normal,
-            None,
-            &mut world_state,
+            Some(player_entity),
+            &world_state,
+            &mut changes,
             &mut commands,
         );
 
@@ -287,9 +289,11 @@ pub fn voxel_interaction_system(
         place_pos,
         block_id,
         ray_result.normal,
-        &mut world_state,
+        &world_state,
+        &mut changes,
         &mut commands,
     );
+
     if !allowed {
         return;
     }
@@ -298,10 +302,14 @@ pub fn voxel_interaction_system(
         return;
     }
 
-    let Some(change) = set_voxel_at_world(place_pos, block_id, &mut world_state) else {
+    if get_voxel_at_world(place_pos, &world_state) == block_id {
         return;
-    };
-    events.changed_blocks.write(change);
+    }
+    changes.0.push(VoxelChange {
+        pos: place_pos,
+        block_id,
+        source: ChangeSource::Player,
+    });
 
     events.place_events.write(BlockPlaceEvent {
         world_pos: place_pos,

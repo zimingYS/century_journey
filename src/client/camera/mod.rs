@@ -205,8 +205,10 @@ fn perspective_offset(perspective: CameraPerspective) -> Vec3 {
 fn perspective_rotation(camera: &FpsCamera) -> Quat {
     match camera.perspective {
         CameraPerspective::FirstPerson | CameraPerspective::ThirdPerson => camera.pitch_rotation(),
+        // 第二人称相机绕 Y 掉头 180° 面向玩家，俯仰不再取反：
+        // Ry(π)·Rx(p) 的 forward 为 (0, sin p, cos p)，与第一人称一致（正俯仰 = 视线向上）。
         CameraPerspective::SecondPerson => {
-            Quat::from_rotation_y(std::f32::consts::PI) * Quat::from_rotation_x(-camera.pitch)
+            Quat::from_rotation_y(std::f32::consts::PI) * Quat::from_rotation_x(camera.pitch)
         }
     }
 }

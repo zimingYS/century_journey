@@ -12,6 +12,8 @@ pub struct ChunkRuntime {
     chunk_entities: HashMap<IVec3, Entity>,
     /// 地形阶段交给结构阶段使用的临时生成上下文。
     gen_contexts: HashMap<IVec3, ChunkGenContext>,
+    /// 各区块的权威变更修订号（会话期态，不进存档）。
+    revisions: HashMap<IVec3, u64>,
 }
 
 impl ChunkRuntime {
@@ -47,5 +49,17 @@ impl ChunkRuntime {
     /// 在结构生成结束后清除不再需要的生成上下文。
     pub fn remove_generation_context(&mut self, position: IVec3) -> Option<ChunkGenContext> {
         self.gen_contexts.remove(&position)
+    }
+
+    /// 查询区块修订号；未记录视为 0（从未变更过）。
+    pub fn revision(&self, position: IVec3) -> u64 {
+        self.revisions.get(&position).copied().unwrap_or(0)
+    }
+
+    /// 递增区块修订号并返回新值。
+    pub fn bump_revision(&mut self, position: IVec3) -> u64 {
+        let next = self.revision(position).wrapping_add(1);
+        self.revisions.insert(position, next);
+        next
     }
 }

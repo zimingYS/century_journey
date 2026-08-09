@@ -7,6 +7,7 @@ use super::{
 use crate::content::biome::BiomeRegistry;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
+use crate::content::ore_vein::registry::OreVeinRegistry;
 use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::simulation::SimulationRng;
 use crate::game::world::generation::block_ids::{CachedBlockIds, GenerationBlockIds};
@@ -41,7 +42,11 @@ impl Plugin for WorldGenerationPlugin {
             .add_systems(OnEnter(AppState::InGame), sync_simulation_rng_seed_system)
             .add_systems(
                 OnEnter(AppState::InGame),
-                (sync_world_biomes_system, cache_block_ids_system)
+                (
+                    sync_world_biomes_system,
+                    cache_block_ids_system,
+                    sync_world_ores_system,
+                )
                     .chain()
                     .after(crate::content::tag::plugin::init_tag_registry_system)
                     .in_set(ContentReloadSet::Consumers)
@@ -82,4 +87,12 @@ fn cache_block_ids_system(
     };
 
     commands.insert_resource(CachedBlockIds(block_ids));
+}
+
+fn sync_world_ores_system(
+    registry: Res<OreVeinRegistry>,
+    mut world_generator: ResMut<WorldGenerator>,
+) {
+    let veins = registry.iter().cloned().collect::<Vec<_>>();
+    world_generator.pipeline.replace_ore_veins(veins);
 }

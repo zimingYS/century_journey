@@ -1,15 +1,16 @@
 //! 处理方块支撑关系，移除失去有效支撑的可附着方块。
 
-use crate::content::block::event::{BlockChangedEvent, BlockNeighborChangedEvent};
+use crate::content::block::event::BlockNeighborChangedEvent;
 use crate::content::block::registry::BlockRegistry;
 use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::inventory::item::stack::ItemStack;
-use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
+use crate::game::world::block_ops::get_voxel_at_world;
 use crate::game::world::entity::dropped_item::spawn_dropped_item;
 use crate::game::world::state::WorldState;
 use crate::shared::item_id::ItemId;
 use crate::shared::tag::identifier::TagId;
-use bevy::prelude::{Commands, IVec3, MessageReader, MessageWriter, Res, ResMut, Vec3};
+use crate::shared::voxel_change::{ChangeSource, VoxelChange, VoxelChangeBuffer};
+use bevy::prelude::{Commands, IVec3, MessageReader, Res, ResMut, Vec3};
 
 /// 在支撑方块发生变化后移除失去支撑的方块。
 ///
@@ -17,10 +18,10 @@ use bevy::prelude::{Commands, IVec3, MessageReader, MessageWriter, Res, ResMut, 
 /// 的附着方块可复用同一系统。标签注册表未就绪时不作删除，避免内容重载窗口误删世界状态。
 pub(super) fn remove_unsupported_blocks_system(
     mut neighbor_changes: MessageReader<BlockNeighborChangedEvent>,
-    mut changed_blocks: MessageWriter<BlockChangedEvent>,
     block_registry: Option<Res<BlockRegistry>>,
     tag_registry: Option<Res<RuntimeTagRegistry>>,
-    mut world_state: ResMut<WorldState>,
+    mut changes: ResMut<VoxelChangeBuffer>,
+    world_state: Res<WorldState>,
     mut commands: Commands,
 ) {
     let (Some(block_registry), Some(tag_registry)) = (block_registry, tag_registry) else {
@@ -47,9 +48,13 @@ pub(super) fn remove_unsupported_blocks_system(
         }
 
         let item_id = ItemId::new(block.identifier.clone());
-        if let Some(change) = set_voxel_at_world(neighbor_change.neighbor_pos, 0, &mut world_state)
-        {
-            changed_blocks.write(change);
+        if get_voxel_at_world(neighbor_change.neighbor_pos, &world_state) != 0 {
+            changes.0.push(VoxelChange {
+                pos: neighbor_change.neighbor_pos,
+                block_id: 0,
+                source: ChangeSource::Player,
+            });
+
             spawn_dropped_item(
                 &mut commands,
                 neighbor_change.neighbor_pos.as_vec3() + Vec3::splat(0.5),

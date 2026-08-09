@@ -1,12 +1,12 @@
 //! 对树木阶段体素执行完整预检与原子替换，避免受阻生长留下半棵树。
 
 use super::runtime::world_to_chunk_position;
-use crate::content::block::event::BlockChangedEvent;
 use crate::content::tag::runtime::RuntimeTagRegistry;
-use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
+use crate::game::world::block_ops::get_voxel_at_world;
 use crate::game::world::state::WorldState;
 use crate::game::world::structure::TreeBlueprint;
 use crate::shared::tag::identifier::TagId;
+use crate::shared::voxel_change::{ChangeSource, VoxelChange, VoxelChangeBuffer};
 use bevy::prelude::IVec3;
 use std::collections::HashMap;
 
@@ -36,20 +36,22 @@ pub(super) fn support_is_valid(
         )
 }
 
-/// 完整校验目标蓝图后一次性扩展树体素，并返回实际发生的方块变化。
+/// 尝试把当前形态原子替换为目标蓝图（预检 + 推命令，不直接写世界）。
 ///
-/// 旧阶段中不再属于目标蓝图的枝叶会原样保留，避免在没有体素来源标记时执行破坏性清理。
-/// 目标位置只接受空气或当前阶段预期方块；所有检查在第一次写入前完成，因此区块缺失、
-/// 支撑失效或任一位置受阻都不会产生部分结果。
+/// 参数较多（8 个）但都是原子操作的必需输入：根位置、支撑 tag、当前形态、
+/// 目标蓝图、tag 注册表、只读世界（预检）、命令缓冲、区块就绪回调。
+/// 打包成结构体会降低可读性，故保留直传参数（最小豁免）。
+#[allow(clippy::too_many_arguments)]
 pub(super) fn try_apply_stage_transition(
     root: IVec3,
     support_tag: &TagId,
     current_form: CurrentTreeForm<'_>,
     target_blueprint: &TreeBlueprint,
     tag_registry: &RuntimeTagRegistry,
-    world_state: &mut WorldState,
+    world_state: &WorldState,
+    changes: &mut VoxelChangeBuffer,
     mut chunk_is_ready: impl FnMut(IVec3) -> bool,
-) -> Option<Vec<BlockChangedEvent>> {
+) -> bool {
     if !support_is_valid(
         root,
         support_tag,
@@ -57,7 +59,7 @@ pub(super) fn try_apply_stage_transition(
         world_state,
         &mut chunk_is_ready,
     ) {
-        return None;
+        return false;
     }
 
     let current = current_voxels(root, current_form);
@@ -67,7 +69,7 @@ pub(super) fn try_apply_stage_transition(
         .map(|voxel| (voxel.world_pos, voxel.block_id))
         .collect::<HashMap<_, _>>();
     if !current.contains_key(&root) || !target.contains_key(&root) {
-        return None;
+        return false;
     }
 
     let mut positions = target.keys().copied().collect::<Vec<_>>();
@@ -76,25 +78,28 @@ pub(super) fn try_apply_stage_transition(
     for &position in &positions {
         let chunk_position = world_to_chunk_position(position);
         if !world_state.contains_chunk(chunk_position) || !chunk_is_ready(chunk_position) {
-            return None;
+            return false;
         }
         let actual = get_voxel_at_world(position, world_state);
         match current.get(&position) {
-            Some(&expected) if position == root && actual != expected => return None,
-            Some(&expected) if actual != 0 && actual != expected => return None,
-            None if actual != 0 => return None,
+            Some(&expected) if position == root && actual != expected => return false,
+            Some(&expected) if actual != 0 && actual != expected => return false,
+            None if actual != 0 => return false,
             _ => {}
         }
     }
 
-    let mut changes = Vec::with_capacity(positions.len());
     for position in positions {
         let desired = target[&position];
-        if let Some(change) = set_voxel_at_world(position, desired, world_state) {
-            changes.push(change);
+        if get_voxel_at_world(position, world_state) != desired {
+            changes.0.push(VoxelChange {
+                pos: position,
+                block_id: desired,
+                source: ChangeSource::Vegetation,
+            });
         }
     }
-    Some(changes)
+    true
 }
 
 fn current_voxels(root: IVec3, form: CurrentTreeForm<'_>) -> HashMap<IVec3, u16> {
