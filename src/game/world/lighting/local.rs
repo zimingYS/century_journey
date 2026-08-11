@@ -10,7 +10,7 @@ use bevy::prelude::*;
 use super::chunk_light::ChunkLight;
 use super::local_queue::LocalLightingQueue;
 use super::rebuild::{BlockLightSource, LightingWorldSnapshot, rebuild_loaded_lighting};
-use super::{CachedLightInfo, LightingRebuildTracker, WorldLighting};
+use super::{CachedLightInfo, LightingRebuildTracker, WorldLighting, light_dependent_mesh_chunks};
 use crate::content::block::definition::BlockLightDef;
 use crate::content::block::event::BlockChangedEvent;
 use crate::engine::task::{TaskManager, TaskResult};
@@ -21,9 +21,13 @@ use crate::game::world::streaming::{PlayerChunkCache, WorldStreamingConfig};
 use crate::shared::voxel::CHUNK_SIZE;
 
 /// 普通流送任务一次最多处理的核心水平列数。
-const LOCAL_TARGET_COLUMN_BATCH_SIZE: usize = 2;
+const LOCAL_TARGET_COLUMN_BATCH_SIZE: usize = 8;
+/// 玩家交互一次最多合并的水平列数，覆盖常用一至两圈传播半径。
+const LOCAL_INTERACTION_COLUMN_BATCH_LIMIT: usize = 25;
 /// 可见区块发现阶段保留的最大候选数，避免每个固定步扫描完整窗口。
-const LOCAL_DISCOVERY_QUEUE_LIMIT: usize = 64;
+const LOCAL_DISCOVERY_QUEUE_LIMIT: usize = 128;
+/// 普通光照任务允许进入的任务池积压倍数；通道单飞保证不会无界增长。
+const LOCAL_TASK_BACKLOG_FACTOR: usize = 2;
 
 struct LocalLightingBuildResult {
     session_id: u64,
@@ -118,14 +122,16 @@ pub(super) fn schedule_local_lighting_rebuild(
         return;
     }
     let interaction = queue.interaction_pending;
-    if !interaction && task.pending_count() >= task.worker_count().max(1) {
+    if !interaction
+        && task.pending_count()
+            >= task
+                .worker_count()
+                .max(1)
+                .saturating_mul(LOCAL_TASK_BACKLOG_FACTOR)
+    {
         return;
     }
-    let column_limit = if interaction {
-        1
-    } else {
-        LOCAL_TARGET_COLUMN_BATCH_SIZE
-    };
+    let column_limit = local_column_batch_size(interaction, dependency_halo);
     let mut targets = Vec::new();
     for (chunk_x, chunk_z) in queue.pop_columns(column_limit) {
         let mut column_targets = world
@@ -305,8 +311,9 @@ pub(super) fn receive_local_lighting_results(
         lighting.revision = lighting.revision.wrapping_add(1);
     }
 
+    let remesh = light_dependent_mesh_chunks(&affected);
     for (components, mut state) in &mut chunk_query {
-        if !affected.contains(&components.position) {
+        if !remesh.contains(&components.position) {
             continue;
         }
         runtime.bump_revision(components.position);
@@ -416,6 +423,16 @@ fn dependency_columns(targets: &[IVec3], halo: i32) -> HashSet<(i32, i32)> {
         }
     }
     columns
+}
+
+fn local_column_batch_size(interaction: bool, dependency_halo: i32) -> usize {
+    if !interaction {
+        return LOCAL_TARGET_COLUMN_BATCH_SIZE;
+    }
+    let diameter = dependency_halo.max(0) as usize * 2 + 1;
+    diameter
+        .saturating_mul(diameter)
+        .clamp(1, LOCAL_INTERACTION_COLUMN_BATCH_LIMIT)
 }
 
 fn neighborhood_generation_ready(

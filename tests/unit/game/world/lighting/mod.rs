@@ -31,6 +31,38 @@ fn changed_light_chunks_only_returns_actual_differences() {
 }
 
 #[test]
+fn changed_light_invalidates_neighbor_boundary_meshes() {
+    let changed = HashSet::from([IVec3::new(3, 4, 5)]);
+    let affected = light_dependent_mesh_chunks(&changed);
+
+    assert_eq!(affected.len(), 7);
+    assert!(affected.contains(&IVec3::new(4, 4, 5)));
+    assert!(affected.contains(&IVec3::new(3, 3, 5)));
+}
+
+#[test]
+fn world_light_lookup_handles_negative_chunk_coordinates() {
+    let mut lighting = WorldLighting::default();
+    let mut light = ChunkLight::default();
+    light.set(
+        15,
+        2,
+        3,
+        LightCell {
+            sky: Default::default(),
+            block: crate::game::world::lighting::chunk_light::LightRgb { r: 9, g: 4, b: 1 },
+        },
+    );
+    light.mark_initialized();
+    lighting
+        .chunk_lights
+        .insert(IVec3::new(-1, 0, 0), Arc::new(light));
+
+    let sampled = lighting.light_cell_at_world(IVec3::new(-1, 2, 3)).unwrap();
+    assert_eq!(sampled.block.r, 9);
+}
+
+#[test]
 fn streaming_changes_are_coalesced_until_the_world_is_stable() {
     let signature = vec![(IVec3::ZERO, 1)];
     let mut tracker = LightingRebuildTracker::default();

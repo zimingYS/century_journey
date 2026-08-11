@@ -22,13 +22,30 @@ fn light_to_color_uses_sky_as_white_fallback() {
         light_to_color(cell(rgb(15, 15, 15), rgb(0, 0, 0))),
         [1.0, 1.0, 1.0, 1.0]
     );
-    // 洞穴无光：近黑。
+    // 洞穴无光：保持昏暗，但不能把纹理乘成纯黑。
     let dark = light_to_color(cell(rgb(0, 0, 0), rgb(0, 0, 0)));
-    assert_eq!(dark, [0.0, 0.0, 0.0, 1.0]);
+    assert_eq!(
+        dark,
+        [
+            MIN_DARK_SURFACE_LIGHT,
+            MIN_DARK_SURFACE_LIGHT,
+            MIN_DARK_SURFACE_LIGHT,
+            1.0,
+        ]
+    );
     // 洞穴火把：暖色保留。
     let torch = light_to_color(cell(rgb(0, 0, 0), rgb(15, 9, 4)));
     assert_eq!(torch[0], 1.0);
     assert!(torch[1] > torch[2], "暖白光应 R > B");
+}
+
+#[test]
+fn perceptual_curve_lifts_distance_without_changing_hue() {
+    let color = light_rgb_to_color(rgb(8, 4, 2));
+
+    assert!(color[0] > 8.0 / 15.0, "中光级应比线性映射更清晰");
+    assert!((color[0] / color[1] - 2.0).abs() < 0.001);
+    assert!((color[1] / color[2] - 2.0).abs() < 0.001);
 }
 
 #[test]

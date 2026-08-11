@@ -16,11 +16,12 @@ use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::simulation::SimulationSet;
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
 use crate::game::world::generation::generator::WorldGenerator;
-use crate::game::world::lighting::chunk_light::ChunkLight;
+use crate::game::world::lighting::chunk_light::{ChunkLight, LightCell};
 use crate::game::world::lighting::rebuild::{
     BlockLightSource, GameLightInfo, LightingWorldSnapshot, rebuild_loaded_lighting,
 };
 use crate::game::world::state::{ChunkRuntime, WorldState};
+use crate::shared::voxel::CHUNK_SIZE;
 
 pub mod chunk_light;
 mod local;
@@ -46,6 +47,24 @@ impl WorldLighting {
         self.chunk_snapshots
             .get(&position)
             .is_some_and(|snapshot| Arc::ptr_eq(snapshot, data))
+    }
+
+    /// 读取整数世界坐标处已初始化的天空光和方块光。
+    pub fn light_cell_at_world(&self, position: IVec3) -> Option<LightCell> {
+        let chunk_position = IVec3::new(
+            position.x.div_euclid(CHUNK_SIZE as i32),
+            position.y.div_euclid(CHUNK_SIZE as i32),
+            position.z.div_euclid(CHUNK_SIZE as i32),
+        );
+        let local = IVec3::new(
+            position.x.rem_euclid(CHUNK_SIZE as i32),
+            position.y.rem_euclid(CHUNK_SIZE as i32),
+            position.z.rem_euclid(CHUNK_SIZE as i32),
+        );
+        self.chunk_lights
+            .get(&chunk_position)
+            .filter(|light| light.is_initialized())
+            .map(|light| light.get(local.x as usize, local.y as usize, local.z as usize))
     }
 }
 
@@ -275,13 +294,14 @@ fn receive_lighting_results(
         .map(|(position, light)| (position, Arc::new(light)))
         .collect::<HashMap<_, _>>();
     let affected = changed_light_chunks(&lighting.chunk_lights, &lights);
+    let remesh = light_dependent_mesh_chunks(&affected);
     let retired_lights = std::mem::replace(&mut lighting.chunk_lights, lights);
     lighting.sources = sources;
     lighting.revision = lighting.revision.wrapping_add(1);
     lighting.chunk_snapshots = snapshot.into_chunks();
 
     for (components, mut state) in &mut chunk_query {
-        if !affected.contains(&components.position) {
+        if !remesh.contains(&components.position) {
             continue;
         }
         runtime.bump_revision(components.position);
@@ -376,6 +396,24 @@ fn changed_light_chunks(
             },
         )
         .collect()
+}
+
+/// 光数组变化还会影响六个邻居烘焙的边界面，因此这些网格必须一起失效。
+pub(super) fn light_dependent_mesh_chunks(changed: &HashSet<IVec3>) -> HashSet<IVec3> {
+    const NEIGHBORS: [IVec3; 6] = [
+        IVec3::X,
+        IVec3::NEG_X,
+        IVec3::Y,
+        IVec3::NEG_Y,
+        IVec3::Z,
+        IVec3::NEG_Z,
+    ];
+    let mut affected = HashSet::with_capacity(changed.len().saturating_mul(7));
+    for position in changed {
+        affected.insert(*position);
+        affected.extend(NEIGHBORS.map(|offset| *position + offset));
+    }
+    affected
 }
 
 #[cfg(test)]

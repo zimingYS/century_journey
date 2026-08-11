@@ -31,6 +31,14 @@ fn dependency_columns_expand_for_long_range_content() {
 }
 
 #[test]
+fn interaction_batches_the_complete_common_light_halo() {
+    assert_eq!(local_column_batch_size(false, 2), 8);
+    assert_eq!(local_column_batch_size(true, 1), 9);
+    assert_eq!(local_column_batch_size(true, 2), 25);
+    assert_eq!(local_column_batch_size(true, 4), 25);
+}
+
+#[test]
 fn long_range_edit_enqueues_the_second_chunk_ring() {
     let mut world = WorldState::default();
     for x in -2..=2 {

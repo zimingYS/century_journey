@@ -14,8 +14,8 @@ const MAX_ACTIVE_POINT_LIGHTS: usize = 24;
 const MAX_SHADOWED_POINT_LIGHTS: usize = 6;
 /// 超出该距离的实体点光不会改善当前画面，直接由体素光场承担低频照明。
 const MAX_POINT_LIGHT_DISTANCE: f32 = 40.0;
-/// 满光级方块映射到 Bevy 点光的流明数。
-const MAX_BLOCK_LIGHT_LUMENS: f32 = 1_800.0;
+/// 满光级方块映射到 Bevy 点光的玩法标定流明数。
+const MAX_BLOCK_LIGHT_LUMENS: f32 = 16_384.0;
 
 /// 标记由方块光表现池创建的 Bevy 点光实体。
 #[derive(Component)]
@@ -121,7 +121,7 @@ fn point_light(source: BlockLightSource, shadows_enabled: bool) -> PointLight {
             source.light.color[1],
             source.light.color[2],
         ),
-        intensity: MAX_BLOCK_LIGHT_LUMENS * strength * strength,
+        intensity: MAX_BLOCK_LIGHT_LUMENS * strength,
         range: source.light.range.max(1) as f32 + 0.5,
         radius: 0.12,
         shadow_maps_enabled: shadows_enabled,

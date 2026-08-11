@@ -23,6 +23,15 @@ fn point_light_preserves_color_range_and_shadow_choice() {
 }
 
 #[test]
+fn point_light_scales_low_emission_linearly() {
+    let mut source = source();
+    source.light.emission = 5;
+    let light = point_light(source, false);
+
+    assert!((light.intensity - MAX_BLOCK_LIGHT_LUMENS / 3.0).abs() < f32::EPSILON);
+}
+
+#[test]
 fn source_center_uses_voxel_center() {
     assert_eq!(source_center(source()), Vec3::new(1.5, 2.5, 3.5));
 }
