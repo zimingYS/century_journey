@@ -110,6 +110,38 @@ before that API is explicitly versioned.
 当前没有权威天气模拟。以后 Game 层接入粗粒度天气单元时，应通过跨层适配器更新该表现状态，
 不能让云实体、材质或渲染帧时间反向决定降雨、温度、存档或其他世界规则。
 
+## Block Lighting
+
+方块定义可以用 `light` 声明 RGB 光源：
+
+    {
+      "light": {
+        "emission": 15,
+        "color": [1.0, 0.62, 0.28],
+        "range": 14,
+        "casts_shadow": true
+      }
+    }
+
+- `emission` 是 0 至 15 的体素光级；0 表示不发光；
+- `color` 是三个 0 至 1 的线性 RGB 通道，不允许发光时全为 0；
+- `range` 是 1 至 32 格的独立传播半径；强度会在该半径内线性衰减并量化到 4bit，低强度光也能到达声明边界；
+- `casts_shadow` 控制客户端映射出的 Bevy 点光是否使用阴影贴图。体素光传播不受客户端点光数量预算影响。
+
+旧字段 `light_emission` 只用于兼容已有内容，新定义不得与 `light` 同时声明。
+
+光传播与碰撞是独立语义。可透光方块必须显式声明 `light_transmission`，其中 0 表示完全阻断、
+1 表示白光完全透过。需要滤色时改用 `light_filter: [r, g, b]`，不要同时声明非零
+`light_transmission`。例如红色染色玻璃可使用：
+
+    {
+      "light_filter": [0.90, 0.08, 0.05]
+    }
+
+天空光和方块光都会沿路径逐通道过滤，不同光源在每个体素按 RGB 通道合成。空气必须显式保持
+`light_transmission: 1.0`；铁栅栏等带裁切空隙的模型也应允许体素光通过，近处的精细栅栏投影
+由启用阴影的 Bevy 点光与实际裁切网格共同产生。
+
 ## Ore Veins
 
 矿脉定义放在 `assets/definitions/ore_veins/`，把"矿石方块"与"世界生成参数"解耦。

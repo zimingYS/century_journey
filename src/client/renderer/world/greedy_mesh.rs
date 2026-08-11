@@ -1,14 +1,18 @@
 //! 使用贪心合并生成区块表面，并单独处理透明和交叉平面方块。
 
+use crate::client::renderer::lighting::bake::{
+    light_rgb_to_color, light_to_color, sample_light_at,
+};
 use crate::content::block::definition::RenderMode;
 use crate::content::block::model::generate_cross_vertices;
 use crate::game::world::chunk::ChunkData;
+use crate::game::world::lighting::chunk_light::{ChunkLight, LightRgb};
 use crate::shared::voxel::CHUNK_SIZE;
 use bevy::prelude::*;
 use std::sync::Arc;
 
 /// 面掩码中表示当前位置没有可生成表面的哨兵值。
-const FACE_NONE: u32 = u32::MAX;
+const FACE_NONE: u64 = u64::MAX;
 /// 水面相对完整方块顶面的下沉距离。
 const WATER_SURFACE_INSET: f32 = 0.12;
 
@@ -18,9 +22,13 @@ use super::{BlockInfoSnapshot, DIRECTIONS, MeshBufferData, MeshBuildInput};
 pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResult {
     let MeshBuildInput {
         chunk_pos,
+        request_entity,
+        request_id,
         current_data,
         neighbors,
         block_info,
+        light,
+        neighbor_lights,
     } = input;
 
     let mut opaque_buf = MeshBufferData::new();
@@ -28,7 +36,7 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
     let mut water_buf = MeshBufferData::new();
 
     let cs = CHUNK_SIZE;
-    let mut mask = [[0u32; 16]; 16];
+    let mut mask = [[FACE_NONE; 16]; 16];
 
     for (face_idx, (dir, _)) in DIRECTIONS.iter().copied().enumerate() {
         let (depth_axis, mx_axis, my_axis) = match face_idx {
@@ -90,7 +98,12 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
                         }
                     };
 
-                    *face_key = texture_layer * 4 + buffer_idx as u32 + 1;
+                    let world_pos =
+                        chunk_pos * CHUNK_SIZE as i32 + IVec3::new(x as i32, y as i32, z as i32);
+                    let surface_light =
+                        sample_light_at(world_pos + dir, chunk_pos, &light, &neighbor_lights)
+                            .combined();
+                    *face_key = encode_face_key(texture_layer, buffer_idx, surface_light);
                 }
             }
 
@@ -109,10 +122,19 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
         }
     }
 
-    append_cross_models(chunk_pos, &current_data, &block_info, &mut cutout_buf);
+    append_cross_models(
+        chunk_pos,
+        &current_data,
+        &block_info,
+        &light,
+        &neighbor_lights,
+        &mut cutout_buf,
+    );
 
     super::channel::MeshBuildResult {
         chunk_pos,
+        request_entity,
+        request_id,
         opaque: opaque_buf,
         cutout: cutout_buf,
         water: water_buf,
@@ -145,7 +167,7 @@ fn greedy_merge_pass(
     depth_axis: usize,
     mx_axis: usize,
     my_axis: usize,
-    mask: &mut [[u32; 16]; 16],
+    mask: &mut [[u64; 16]; 16],
     block_info: &BlockInfoSnapshot,
     opaque_buf: &mut MeshBufferData,
     cutout_buf: &mut MeshBufferData,
@@ -162,9 +184,7 @@ fn greedy_merge_pass(
                 continue;
             }
 
-            let decoded = face_key - 1;
-            let texture_layer = decoded / 4;
-            let buffer_idx = (decoded % 4) as u8;
+            let (texture_layer, buffer_idx, surface_light) = decode_face_key(face_key);
 
             // 向右扩展宽度
             let mut width = 1;
@@ -202,12 +222,14 @@ fn greedy_merge_pass(
             }
             let (_, normal) = DIRECTIONS[face_idx];
 
+            let color = light_rgb_to_color(surface_light);
+
             let buf = match buffer_idx {
                 2 => &mut *water_buf,
                 1 => &mut *cutout_buf,
                 _ => &mut *opaque_buf,
             };
-            buf.append_face(&positions, normal, &uvs);
+            buf.append_face(&positions, normal, &uvs, color);
 
             for dy in 0..height {
                 for dx in 0..width {
@@ -218,6 +240,30 @@ fn greedy_merge_pass(
             mx += width;
         }
     }
+}
+
+/// 把材质通道与量化光色写入贪心掩码；光级不同的相邻面不会被错误合并。
+#[inline]
+fn encode_face_key(texture_layer: u32, buffer_idx: u8, light: LightRgb) -> u64 {
+    ((texture_layer as u64) << 14)
+        | ((buffer_idx as u64 & 0x3) << 12)
+        | ((light.r as u64 & 0xF) << 8)
+        | ((light.g as u64 & 0xF) << 4)
+        | (light.b as u64 & 0xF)
+}
+
+/// 从贪心掩码恢复纹理、材质通道和顶点光色。
+#[inline]
+fn decode_face_key(key: u64) -> (u32, u8, LightRgb) {
+    (
+        (key >> 14) as u32,
+        ((key >> 12) & 0x3) as u8,
+        LightRgb {
+            r: ((key >> 8) & 0xF) as u8,
+            g: ((key >> 4) & 0xF) as u8,
+            b: (key & 0xF) as u8,
+        },
+    )
 }
 
 fn inset_water_surface(positions: &mut [[f32; 3]; 4], face_idx: usize) {
@@ -405,6 +451,8 @@ fn append_cross_models(
     chunk_pos: IVec3,
     current_data: &ChunkData,
     block_info: &BlockInfoSnapshot,
+    light: &Option<Arc<ChunkLight>>,
+    neighbor_lights: &[Option<Arc<ChunkLight>>; 6],
     cutout_buf: &mut MeshBufferData,
 ) {
     for y in 0..CHUNK_SIZE {
@@ -424,6 +472,14 @@ fn append_cross_models(
                     .uses_random_model_rotation(voxel_id)
                     .then(|| cross_rotation_from_world_position(world_position));
 
+                // 十字方块按自身位置采样光级。
+                let color = light_to_color(sample_light_at(
+                    world_position,
+                    chunk_pos,
+                    light,
+                    neighbor_lights,
+                ));
+
                 for mut vertices in generate_cross_vertices(x as f32, y as f32, z as f32) {
                     if let Some(rotation) = rotation {
                         let block_center =
@@ -432,7 +488,7 @@ fn append_cross_models(
                     }
 
                     let normal = calculate_face_normal(&vertices);
-                    cutout_buf.append_face(&vertices, normal, &uvs);
+                    cutout_buf.append_face(&vertices, normal, &uvs, color);
                 }
             }
         }

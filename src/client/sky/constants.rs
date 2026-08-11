@@ -37,9 +37,13 @@ pub const MIN_MOON_ILLUMINANCE: f32 = 0.05;
 pub const NIGHT_EXPOSURE_EV100: f32 = 5.5;
 
 /// 白天和深夜的全局环境光亮度。
-pub const DAY_AMBIENT_BRIGHTNESS: f32 = 180.0;
+///
+/// 顶点光色采用乘法衰减系数（露天=1.0、洞穴无光≈0），洞穴纯黑由
+/// 顶点色自动保证，不受本值影响；本值只权衡露天背光面可见性与
+/// 洞穴火把区域的氛围亮度。
+pub const DAY_AMBIENT_BRIGHTNESS: f32 = 45.0;
 /// 夜间环境光的最低亮度，避免无光源区域完全不可见。
-pub const NIGHT_AMBIENT_BRIGHTNESS: f32 = 30.0;
+pub const NIGHT_AMBIENT_BRIGHTNESS: f32 = 6.0;
 
 /// 夜间VolumetricFog环境光强度
 pub const NIGHT_FOG_AMBIENT: f32 = 0.09;

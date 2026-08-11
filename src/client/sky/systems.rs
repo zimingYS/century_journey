@@ -190,6 +190,7 @@ pub fn atmosphere_system(
         // 太阳高度淡出
         sun_fade = ((-sun_forward_y + 0.12) / 1.12).clamp(0.0, 1.0);
         sun_light.illuminance = sun_fade * DAY_SUN_ILLUMINANCE;
+        sun_light.shadow_maps_enabled = sun_fade > 0.02;
 
         // 日出/日落时太阳光颜色偏暖
         let twilight = time_of_day.twilight_factor();
@@ -210,6 +211,7 @@ pub fn atmosphere_system(
         let moon_fade = ((-moon_forward_y + 0.12) / 1.12).clamp(0.0, 1.0);
         moon_light.illuminance =
             MIN_MOON_ILLUMINANCE + moon_fade * (MAX_MOON_ILLUMINANCE - MIN_MOON_ILLUMINANCE);
+        moon_light.shadow_maps_enabled = moon_fade > 0.02 && sun_fade < 0.18;
     }
 
     let night_factor = time_of_day.night_factor();

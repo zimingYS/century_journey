@@ -24,11 +24,69 @@ pub(in crate::content::validation) fn validate_blocks(
                 .errors
                 .push(format!("{path}:light_emission: must be <= 15"));
         }
+        if block.light.is_some() && block.light_emission > 0 {
+            report.errors.push(format!(
+                "{path}:light: cannot be combined with legacy light_emission"
+            ));
+        }
+        if let Some(light) = &block.light {
+            if light.emission > 15 {
+                report
+                    .errors
+                    .push(format!("{path}:light.emission: must be <= 15"));
+            }
+            if light.range == 0 || light.range > 32 {
+                report
+                    .errors
+                    .push(format!("{path}:light.range: must be within 1..=32"));
+            }
+            if light
+                .color
+                .iter()
+                .any(|c| !c.is_finite() || !(0.0..=1.0).contains(c))
+            {
+                report.errors.push(format!(
+                    "{path}:light.color: must be finite and within 0..=1"
+                ));
+            }
+            if light.emission > 0 && light.color.iter().all(|channel| *channel == 0.0) {
+                report.errors.push(format!(
+                    "{path}:light.color: emitting light must have at least one non-zero channel"
+                ));
+            }
+            if light.emission == 0 && light.casts_shadow {
+                report.errors.push(format!(
+                    "{path}:light.casts_shadow: cannot be true when emission is zero"
+                ));
+            }
+        }
+        if let Some(filter) = &block.light_filter
+            && filter
+                .iter()
+                .any(|c| !c.is_finite() || !(0.0..=1.0).contains(c))
+        {
+            report.errors.push(format!(
+                "{path}:light_filter: must be finite and within 0..=1"
+            ));
+        }
         if !block.light_transmission.is_finite() || !(0.0..=1.0).contains(&block.light_transmission)
         {
             report.errors.push(format!(
                 "{path}:light_transmission: must be finite and within 0..=1"
             ));
+        }
+        if block.light_filter.is_some() && block.light_transmission != 0.0 {
+            report.errors.push(format!(
+                "{path}:light_filter: do not combine RGB filtering with light_transmission"
+            ));
+        }
+        if block.identifier == "century_journey:air" {
+            let filter = block.light_filter.unwrap_or([block.light_transmission; 3]);
+            if filter != [1.0; 3] {
+                report.errors.push(format!(
+                    "{path}:light_transmission: air must transmit all RGB channels"
+                ));
+            }
         }
         for face in 0..6 {
             let texture = block.textures.get_face_texture(face);

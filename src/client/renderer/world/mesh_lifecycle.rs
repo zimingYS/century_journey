@@ -6,14 +6,19 @@ use super::{
 };
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 
+use crate::content::block::event::BlockChangedEvent;
 use crate::content::block::registry::BlockRegistry;
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
+use crate::game::world::lighting::WorldLighting;
+use crate::game::world::lighting::chunk_light::ChunkLight;
 use crate::game::world::state::ChunkRuntime;
 use crate::game::world::state::WorldState;
 use crate::game::world::streaming::PlayerChunkCache;
 use crate::game::world::streaming::WorldStreamingConfig;
+use crate::shared::voxel::CHUNK_SIZE;
 use bevy::prelude::*;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
@@ -22,6 +27,114 @@ use std::time::Instant;
 const MAX_MESH_TASKS_PER_FRAME: u32 = 16;
 /// 单帧最多接收的客户端网格构建结果数。
 const MAX_MESH_RECEIVE_PER_FRAME: usize = 16;
+
+#[derive(Clone, Copy)]
+struct ActiveMeshRequest {
+    entity: Entity,
+    request_id: u64,
+}
+
+/// 每个区块最后一次网格请求的身份，用于严格拒绝乱序和跨实体旧结果。
+#[derive(Resource, Default)]
+pub struct MeshRequestTracker {
+    next_request_id: u64,
+    active: HashMap<IVec3, ActiveMeshRequest>,
+}
+
+impl MeshRequestTracker {
+    fn begin(&mut self, position: IVec3, entity: Entity) -> u64 {
+        self.next_request_id = self.next_request_id.wrapping_add(1).max(1);
+        let request_id = self.next_request_id;
+        self.active
+            .insert(position, ActiveMeshRequest { entity, request_id });
+        request_id
+    }
+
+    fn is_current(&self, position: IVec3, entity: Entity, request_id: u64) -> bool {
+        self.active
+            .get(&position)
+            .is_some_and(|active| active.entity == entity && active.request_id == request_id)
+    }
+
+    fn finish(&mut self, position: IVec3, entity: Entity, request_id: u64) {
+        if self.is_current(position, entity, request_id) {
+            self.active.remove(&position);
+        }
+    }
+
+    fn retain_runtime_entities(&mut self, runtime: &ChunkRuntime) {
+        self.active
+            .retain(|position, active| runtime.chunk_entity(*position) == Some(active.entity));
+    }
+}
+
+/// 玩家方块编辑产生的高优先级网格目标；保持顺序并自动去重。
+#[derive(Resource, Default)]
+pub struct PriorityMeshQueue {
+    ordered: VecDeque<IVec3>,
+    contained: HashSet<IVec3>,
+}
+
+impl PriorityMeshQueue {
+    fn prioritize(&mut self, position: IVec3) {
+        if self.contained.contains(&position) {
+            self.ordered.retain(|queued| *queued != position);
+        } else {
+            self.contained.insert(position);
+        }
+        self.ordered.push_front(position);
+    }
+
+    fn pop_front(&mut self) -> Option<IVec3> {
+        let position = self.ordered.pop_front()?;
+        self.contained.remove(&position);
+        Some(position)
+    }
+
+    fn enqueue(&mut self, position: IVec3) {
+        if self.contained.insert(position) {
+            self.ordered.push_back(position);
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.ordered.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.ordered.is_empty()
+    }
+
+    fn clear(&mut self) {
+        self.ordered.clear();
+        self.contained.clear();
+    }
+}
+
+enum MeshSpawnAttempt {
+    Spawned,
+    Retry,
+    Drop,
+}
+
+/// 注册网格生命周期所需的请求版本和交互优先队列。
+pub fn register_mesh_lifecycle_resources(app: &mut App) {
+    app.init_resource::<MeshRequestTracker>()
+        .init_resource::<PriorityMeshQueue>();
+}
+
+/// 把方块编辑涉及的本区块和边界邻居加入交互优先队列。
+pub fn collect_priority_mesh_rebuilds(
+    mut changes: MessageReader<BlockChangedEvent>,
+    mut queue: ResMut<PriorityMeshQueue>,
+) {
+    for change in changes.read() {
+        let affected = affected_mesh_chunks(change.world_pos);
+        for position in affected.into_iter().rev() {
+            queue.prioritize(position);
+        }
+    }
+}
 
 /// 内容注册表变化时重建后台网格任务使用的属性快照。
 pub fn rebuild_block_info_snapshot(
@@ -46,6 +159,9 @@ pub fn spawn_mesh_build_tasks(
     streaming_config: Res<WorldStreamingConfig>,
     mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
     chunk_runtime: Res<ChunkRuntime>,
+    mut request_tracker: ResMut<MeshRequestTracker>,
+    mut priority_queue: ResMut<PriorityMeshQueue>,
+    world_lighting: Option<Res<WorldLighting>>,
 ) {
     if registry.is_none() {
         return;
@@ -56,64 +172,199 @@ pub fn spawn_mesh_build_tasks(
 
     let block_info = cached_block_info.0.clone();
     let mut spawned = 0u32;
-    let max_in_flight = (task.worker_count().max(1) * 2).clamp(2, 8);
+    let worker_budget = task.worker_count().max(1);
+    let max_in_flight = worker_budget.clamp(2, 8);
+    request_tracker.retain_runtime_entities(&chunk_runtime);
 
-    for &current_chunk_pos in player_cache.ordered_chunks() {
+    let urgent_attempts = priority_queue.len();
+    for _ in 0..urgent_attempts {
         if spawned >= MAX_MESH_TASKS_PER_FRAME
             || channel.in_flight.load(Ordering::Relaxed) >= max_in_flight
+            || task.pending_count() > worker_budget
         {
             break;
         }
-        if !streaming_config.should_mesh_chunk(player_chunk_pos, current_chunk_pos) {
-            continue;
+        let Some(position) = priority_queue.pop_front() else {
+            break;
+        };
+        match spawn_mesh_for_position(
+            position,
+            player_chunk_pos,
+            &channel,
+            &world_state,
+            &block_info,
+            &task,
+            &streaming_config,
+            &mut chunk_query,
+            &chunk_runtime,
+            world_lighting.as_deref(),
+            &mut request_tracker,
+        ) {
+            MeshSpawnAttempt::Spawned => spawned += 1,
+            MeshSpawnAttempt::Retry => priority_queue.enqueue(position),
+            MeshSpawnAttempt::Drop => {}
         }
-        let Some(chunk_entity) = chunk_runtime.chunk_entity(current_chunk_pos) else {
-            continue;
-        };
-        let Ok((chunk_components, mut state)) = chunk_query.get_mut(chunk_entity) else {
-            continue;
-        };
-        if chunk_components.position != current_chunk_pos || *state != ChunkState::StructureReady {
-            continue;
+    }
+
+    let background_budget = if priority_queue.is_empty() {
+        worker_budget
+    } else {
+        worker_budget.saturating_sub(1).max(1)
+    };
+    for &position in player_cache.ordered_chunks() {
+        if spawned >= MAX_MESH_TASKS_PER_FRAME
+            || channel.in_flight.load(Ordering::Relaxed) >= max_in_flight
+            || task.pending_count() >= background_budget
+        {
+            break;
         }
-
-        let neighbors_ready = DIRECTIONS
-            .iter()
-            .all(|(dir, _)| world_state.contains_chunk(current_chunk_pos + *dir));
-        if !neighbors_ready {
-            continue;
+        if matches!(
+            spawn_mesh_for_position(
+                position,
+                player_chunk_pos,
+                &channel,
+                &world_state,
+                &block_info,
+                &task,
+                &streaming_config,
+                &mut chunk_query,
+                &chunk_runtime,
+                world_lighting.as_deref(),
+                &mut request_tracker,
+            ),
+            MeshSpawnAttempt::Spawned
+        ) {
+            spawned += 1;
         }
-
-        let Some(current_chunk_data) = world_state.chunk(current_chunk_pos) else {
-            continue;
-        };
-
-        let current_data = Arc::clone(current_chunk_data);
-        let neighbors: [Option<Arc<ChunkData>>; 6] =
-            DIRECTIONS.map(|(dir, _)| world_state.chunk(current_chunk_pos + dir).map(Arc::clone));
-
-        let sender = channel.sender.clone();
-        let in_flight = Arc::clone(&channel.in_flight);
-        let input = MeshBuildInput {
-            chunk_pos: current_chunk_pos,
-            current_data,
-            neighbors,
-            block_info: block_info.clone(),
-        };
-
-        channel.in_flight.fetch_add(1, Ordering::Relaxed);
-        task.spawn_cpu(move || {
-            let result = build_greedy_mesh(input);
-            if sender.send(result).is_err() {
-                in_flight.fetch_sub(1, Ordering::Relaxed);
-            }
-            TaskResult::Success
-        });
-
-        *state = ChunkState::GeneratingMesh;
-        spawned += 1;
     }
 }
+
+// 调度边界必须同时校验流式、实体、光照和任务版本状态，拆成参数对象会模糊借用范围。
+#[allow(clippy::too_many_arguments)]
+fn spawn_mesh_for_position(
+    position: IVec3,
+    player_chunk: IVec3,
+    channel: &MeshBuildChannel,
+    world: &WorldState,
+    block_info: &BlockInfoSnapshot,
+    task: &TaskManager,
+    streaming: &WorldStreamingConfig,
+    chunk_query: &mut Query<(&ChunkComponents, &mut ChunkState)>,
+    runtime: &ChunkRuntime,
+    lighting: Option<&WorldLighting>,
+    requests: &mut MeshRequestTracker,
+) -> MeshSpawnAttempt {
+    if !streaming.should_mesh_chunk(player_chunk, position) {
+        return MeshSpawnAttempt::Drop;
+    }
+    let Some(chunk_entity) = runtime.chunk_entity(position) else {
+        return MeshSpawnAttempt::Drop;
+    };
+    let Ok((components, mut state)) = chunk_query.get_mut(chunk_entity) else {
+        return MeshSpawnAttempt::Drop;
+    };
+    if components.position != position {
+        return MeshSpawnAttempt::Drop;
+    }
+    if *state != ChunkState::StructureReady {
+        return MeshSpawnAttempt::Retry;
+    }
+    let Some(current_chunk_data) = world.chunk(position) else {
+        return MeshSpawnAttempt::Retry;
+    };
+    if !voxel_neighbors_ready(world, position) {
+        return MeshSpawnAttempt::Retry;
+    }
+
+    let current_data = Arc::clone(current_chunk_data);
+    let neighbors: [Option<Arc<ChunkData>>; 6] =
+        DIRECTIONS.map(|(direction, _)| world.chunk(position + direction).map(Arc::clone));
+    let light = current_light_snapshot(lighting, position);
+    let neighbor_lights =
+        DIRECTIONS.map(|(direction, _)| current_light_snapshot(lighting, position + direction));
+    let request_id = requests.begin(position, chunk_entity);
+    let sender = channel.sender.clone();
+    let in_flight = Arc::clone(&channel.in_flight);
+    let input = MeshBuildInput {
+        chunk_pos: position,
+        request_entity: chunk_entity,
+        request_id,
+        current_data,
+        neighbors,
+        block_info: block_info.clone(),
+        light,
+        neighbor_lights,
+    };
+
+    channel.in_flight.fetch_add(1, Ordering::Relaxed);
+    task.spawn_cpu(move || {
+        let result = build_greedy_mesh(input);
+        if sender.send(result).is_err() {
+            in_flight.fetch_sub(1, Ordering::Relaxed);
+        }
+        TaskResult::Success
+    });
+    *state = ChunkState::GeneratingMesh;
+    MeshSpawnAttempt::Spawned
+}
+
+fn voxel_neighbors_ready(world: &WorldState, chunk_pos: IVec3) -> bool {
+    DIRECTIONS
+        .iter()
+        .all(|(direction, _)| world.contains_chunk(chunk_pos + *direction))
+}
+
+fn current_light_snapshot(
+    lighting: Option<&WorldLighting>,
+    position: IVec3,
+) -> Option<Arc<ChunkLight>> {
+    let lighting = lighting?;
+    lighting
+        .chunk_lights
+        .get(&position)
+        .filter(|light| light.is_initialized())
+        .cloned()
+}
+
+fn affected_mesh_chunks(world_pos: IVec3) -> Vec<IVec3> {
+    let chunk = IVec3::new(
+        world_pos.x.div_euclid(CHUNK_SIZE as i32),
+        world_pos.y.div_euclid(CHUNK_SIZE as i32),
+        world_pos.z.div_euclid(CHUNK_SIZE as i32),
+    );
+    let local = IVec3::new(
+        world_pos.x.rem_euclid(CHUNK_SIZE as i32),
+        world_pos.y.rem_euclid(CHUNK_SIZE as i32),
+        world_pos.z.rem_euclid(CHUNK_SIZE as i32),
+    );
+    let mut affected = vec![chunk];
+    let max = CHUNK_SIZE as i32 - 1;
+    for (axis, negative, positive) in [
+        (local.x, IVec3::NEG_X, IVec3::X),
+        (local.y, IVec3::NEG_Y, IVec3::Y),
+        (local.z, IVec3::NEG_Z, IVec3::Z),
+    ] {
+        if axis == 0 {
+            affected.push(chunk + negative);
+        } else if axis == max {
+            affected.push(chunk + positive);
+        }
+    }
+    affected
+}
+
+/// 离开世界时清空交互队列和飞行中请求身份；旧结果会因身份缺失被拒绝。
+pub fn clear_mesh_lifecycle(
+    mut queue: ResMut<PriorityMeshQueue>,
+    mut requests: ResMut<MeshRequestTracker>,
+) {
+    queue.clear();
+    requests.active.clear();
+}
+
+#[cfg(test)]
+#[path = "../../../../tests/unit/client/renderer/world/mesh_lifecycle.rs"]
+mod tests;
 
 /// 在渲染主线程接收网格结果并更新区块表现实体。
 pub fn receive_mesh_results(
@@ -123,6 +374,7 @@ pub fn receive_mesh_results(
     render_assets: Option<Res<BlockRenderAssets>>,
     mut chunk_query: Query<(&ChunkComponents, &mut ChunkState)>,
     chunk_runtime: Res<ChunkRuntime>,
+    mut request_tracker: ResMut<MeshRequestTracker>,
 ) {
     let Some(render_assets) = render_assets else {
         return;
@@ -147,13 +399,20 @@ pub fn receive_mesh_results(
         channel.in_flight.fetch_sub(1, Ordering::Relaxed);
         received += 1;
 
-        let Some(chunk_entity) = chunk_runtime.chunk_entity(result.chunk_pos) else {
+        if !request_tracker.is_current(result.chunk_pos, result.request_entity, result.request_id) {
             continue;
-        };
+        }
+        let chunk_entity = result.request_entity;
+        if chunk_runtime.chunk_entity(result.chunk_pos) != Some(chunk_entity) {
+            request_tracker.finish(result.chunk_pos, chunk_entity, result.request_id);
+            continue;
+        }
         let Ok((_components, mut state)) = chunk_query.get_mut(chunk_entity) else {
+            request_tracker.finish(result.chunk_pos, chunk_entity, result.request_id);
             continue;
         };
         if *state != ChunkState::GeneratingMesh {
+            request_tracker.finish(result.chunk_pos, chunk_entity, result.request_id);
             continue;
         }
 
@@ -199,7 +458,7 @@ pub fn receive_mesh_results(
         }
 
         if !result.water.is_empty() {
-            let water_mesh = meshes.add(result.water.build_mesh());
+            let water_mesh = meshes.add(result.water.build_mesh_plain());
             let base_child = commands
                 .spawn((
                     Mesh3d(water_mesh.clone()),
@@ -225,5 +484,6 @@ pub fn receive_mesh_results(
         }
 
         *state = ChunkState::Rendered;
+        request_tracker.finish(result.chunk_pos, chunk_entity, result.request_id);
     }
 }

@@ -19,6 +19,8 @@ pub struct MeshBufferData {
     pub positions: Vec<[f32; 3]>,
     pub normals: Vec<[f32; 3]>,
     pub uvs: Vec<[f32; 2]>,
+    /// 顶点光色（RGBA，乘法衰减系数语义），烘焙自权威光级数组。
+    pub colors: Vec<[f32; 4]>,
     pub indices: Vec<u32>,
 }
 
@@ -40,6 +42,7 @@ impl MeshBufferData {
             positions: Vec::with_capacity(estimated_faces * 4),
             normals: Vec::with_capacity(estimated_faces * 4),
             uvs: Vec::with_capacity(estimated_faces * 4),
+            colors: Vec::with_capacity(estimated_faces * 4),
             indices: Vec::with_capacity(estimated_faces * 6),
         }
     }
@@ -55,11 +58,13 @@ impl MeshBufferData {
         face_vertices: &[[f32; 3]; 4],
         normal: Vec3,
         uvs: &[[f32; 2]; 4],
+        color: [f32; 4],
     ) {
         let start_idx = self.positions.len() as u32;
         self.positions.extend_from_slice(face_vertices);
         for _ in 0..4 {
             self.normals.push([normal.x, normal.y, normal.z]);
+            self.colors.push(color);
         }
         self.uvs.extend_from_slice(uvs);
         self.indices.extend_from_slice(&[
@@ -72,8 +77,20 @@ impl MeshBufferData {
         ]);
     }
 
-    /// 从缓冲区生成 Bevy Mesh
-    pub fn build_mesh(mut self) -> Mesh {
+    /// 从缓冲区生成带顶点光色的 Bevy Mesh。
+    pub fn build_mesh(self) -> Mesh {
+        self.build_mesh_impl(true)
+    }
+
+    /// 从缓冲区生成不带顶点光色的 Bevy Mesh。
+    ///
+    /// 供自定义着色（如水面）的通道使用：顶点色会触发 PBR 的
+    /// `VERTEX_COLORS` 着色器变体，而自定义材质可能不支持该变体。
+    pub fn build_mesh_plain(self) -> Mesh {
+        self.build_mesh_impl(false)
+    }
+
+    fn build_mesh_impl(mut self, with_color: bool) -> Mesh {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
@@ -84,6 +101,9 @@ impl MeshBufferData {
         );
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, std::mem::take(&mut self.normals));
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, std::mem::take(&mut self.uvs));
+        if with_color {
+            mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, std::mem::take(&mut self.colors));
+        }
         mesh.insert_indices(Indices::U32(std::mem::take(&mut self.indices)));
         mesh
     }

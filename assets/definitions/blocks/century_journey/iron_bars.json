@@ -1,0 +1,21 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:iron_bars",
+  "display_name": "铁栅栏",
+  "render_mode": "Cutout",
+  "is_solid": false,
+  "hardness": 5.0,
+  "required_tool": "pickaxe",
+  "harvest_level": 1,
+  "light_transmission": 1.0,
+  "tags": ["transparent_light", "mineable/pickaxe"],
+  "sound": {
+    "sound_material": "Metal",
+    "break_volume": 0.9,
+    "place_volume": 0.7,
+    "step_volume": 0.5
+  },
+  "textures": {
+    "top": "textures/blocks/iron_bars.png"
+  }
+}

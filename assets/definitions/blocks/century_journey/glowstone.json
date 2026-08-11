@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:glowstone",
+  "display_name": "萤石",
+  "render_mode": "Opaque",
+  "is_solid": true,
+  "hardness": 0.3,
+  "required_tool": null,
+  "harvest_level": 0,
+  "light": {
+    "emission": 15,
+    "color": [0.92, 0.95, 1.0],
+    "range": 12,
+    "casts_shadow": false
+  },
+  "tags": ["light_source", "mineable/pickaxe"],
+  "sound": {
+    "sound_material": "Glass",
+    "break_volume": 0.5,
+    "place_volume": 0.4,
+    "step_volume": 0.3
+  },
+  "textures": {
+    "top": "textures/blocks/glowstone.png"
+  }
+}

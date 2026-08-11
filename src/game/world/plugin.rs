@@ -3,7 +3,7 @@
 use crate::game::simulation::SimulationSet;
 use crate::game::world::state;
 use crate::game::world::voxel_change::apply::apply_voxel_changes;
-use crate::game::world::{entity, generation, interaction, streaming, time, vegetation};
+use crate::game::world::{entity, generation, interaction, lighting, streaming, time, vegetation};
 use crate::shared::voxel_change::VoxelChangeBuffer;
 use bevy::app::{App, Plugin, Startup};
 use bevy::prelude::{FixedUpdate, IntoScheduleConfigs};
@@ -31,6 +31,7 @@ impl Plugin for GameWorldPlugin {
                 vegetation::VegetationPlugin,
                 entity::EntityPlugin,
                 interaction::WorldInteractionPlugin,
+                lighting::LightingPlugin,
             ));
     }
 }
