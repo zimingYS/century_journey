@@ -5,6 +5,7 @@ use crate::app::flow::GameSettings;
 use crate::client::presentation::TimeOfDay;
 use crate::client::sky::components::*;
 use crate::client::sky::texture;
+use crate::game::world::lighting::WorldLighting;
 use crate::shared::voxel::CHUNK_SIZE;
 use bevy::camera::{Exposure, visibility::RenderLayers};
 use bevy::light::atmosphere::ScatteringMedium;
@@ -159,6 +160,7 @@ pub fn setup_sky_system(
 pub fn atmosphere_system(
     time_of_day: Res<TimeOfDay>,
     settings: Res<GameSettings>,
+    lighting: Option<Res<WorldLighting>>,
     mut ambient_light: ResMut<GlobalAmbientLight>,
     mut sun_query: Query<(&mut Transform, &mut DirectionalLight), (With<Sun>, Without<Moon>)>,
     mut moon_query: Query<(&mut Transform, &mut DirectionalLight), (With<Moon>, Without<Sun>)>,
@@ -168,6 +170,7 @@ pub fn atmosphere_system(
             Option<&mut VolumetricFog>,
             Option<&mut DistanceFog>,
             Option<&mut AtmosphereEnvironmentMapLight>,
+            &GlobalTransform,
         ),
         With<crate::client::camera::FpsCamera>,
     >,
@@ -176,6 +179,13 @@ pub fn atmosphere_system(
     let sun_angle = ((time_of_day.current_time + 6.0) / 24.0) * TAU;
     // 月亮与太阳永远保持 180 度正对立
     let moon_angle = sun_angle + std::f32::consts::PI;
+    let celestial_visibility = camera_query
+        .iter_mut()
+        .next()
+        .map(|(_, _, _, _, transform)| {
+            celestial_visibility_at(lighting.as_deref(), transform.translation())
+        })
+        .unwrap_or(1.0);
 
     let mut current_sun_y = 0.0;
     let mut sun_fade = 0.0;
@@ -189,7 +199,8 @@ pub fn atmosphere_system(
 
         // 太阳高度淡出
         sun_fade = ((-sun_forward_y + 0.12) / 1.12).clamp(0.0, 1.0);
-        sun_light.illuminance = sun_fade * DAY_SUN_ILLUMINANCE;
+        sun_light.illuminance = sun_fade * celestial_visibility * DAY_SUN_ILLUMINANCE;
+        sun_light.shadow_maps_enabled = sun_fade > 0.02 && celestial_visibility > 0.05;
 
         // 日出/日落时太阳光颜色偏暖
         let twilight = time_of_day.twilight_factor();
@@ -208,8 +219,10 @@ pub fn atmosphere_system(
 
         let moon_forward_y = moon_transform.forward().y;
         let moon_fade = ((-moon_forward_y + 0.12) / 1.12).clamp(0.0, 1.0);
-        moon_light.illuminance =
-            MIN_MOON_ILLUMINANCE + moon_fade * (MAX_MOON_ILLUMINANCE - MIN_MOON_ILLUMINANCE);
+        moon_light.illuminance = celestial_visibility
+            * (MIN_MOON_ILLUMINANCE + moon_fade * (MAX_MOON_ILLUMINANCE - MIN_MOON_ILLUMINANCE));
+        moon_light.shadow_maps_enabled =
+            moon_fade > 0.02 && sun_fade < 0.18 && celestial_visibility > 0.05;
     }
 
     let night_factor = time_of_day.night_factor();
@@ -231,8 +244,9 @@ pub fn atmosphere_system(
     let fog_start = (view_distance * 0.48).clamp(52.0, 180.0);
     let fog_end = (view_distance * 1.45).clamp(160.0, 560.0);
 
-    for (mut exposure, volumetric_fog, distance_fog, environment_light) in &mut camera_query {
-        exposure.ev100 = visibility_exposure_ev100(sun_fade, current_sun_y, night_factor);
+    for (mut exposure, volumetric_fog, distance_fog, environment_light, _) in &mut camera_query {
+        exposure.ev100 =
+            visibility_exposure_ev100(sun_fade * celestial_visibility, current_sun_y, night_factor);
 
         // 体积雾环境光联动
         if let Some(mut vol_fog) = volumetric_fog {
@@ -274,6 +288,21 @@ pub fn atmosphere_system(
             environment_light.intensity = 0.70 + 1.10 * day_mix;
         }
     }
+}
+
+fn celestial_visibility_at(lighting: Option<&WorldLighting>, position: Vec3) -> f32 {
+    let Some(lighting) = lighting else {
+        return 1.0;
+    };
+    let voxel = IVec3::new(
+        position.x.floor() as i32,
+        position.y.floor() as i32,
+        position.z.floor() as i32,
+    );
+    let Some(cell) = lighting.light_cell_at_world(voxel) else {
+        return 1.0;
+    };
+    f32::from(cell.sky.r.max(cell.sky.g).max(cell.sky.b)) / 15.0
 }
 
 fn visibility_exposure_ev100(sun_fade: f32, sun_y: f32, night_factor: f32) -> f32 {

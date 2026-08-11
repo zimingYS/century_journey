@@ -12,5 +12,6 @@ pub use channel::{
 pub use greedy_mesh::build_greedy_mesh;
 pub use mesh_buffer::{DIRECTIONS, MeshBufferData};
 pub use mesh_lifecycle::{
-    rebuild_block_info_snapshot, receive_mesh_results, spawn_mesh_build_tasks,
+    clear_mesh_lifecycle, collect_priority_mesh_rebuilds, rebuild_block_info_snapshot,
+    receive_mesh_results, register_mesh_lifecycle_resources, spawn_mesh_build_tasks,
 };

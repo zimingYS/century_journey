@@ -56,9 +56,13 @@ fn water_voxel_builds_a_visible_water_mesh_channel() {
     chunk.set_voxel(8, 8, 8, water_id);
     let result = build_greedy_mesh(MeshBuildInput {
         chunk_pos: IVec3::ZERO,
+        request_entity: Entity::PLACEHOLDER,
+        request_id: 1,
         current_data: Arc::new(chunk),
         neighbors: std::array::from_fn(|_| None),
         block_info,
+        light: None,
+        neighbor_lights: std::array::from_fn(|_| None),
     });
 
     assert!(!result.water.is_empty());

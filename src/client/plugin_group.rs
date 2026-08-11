@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use crate::client::effect::ClientEffectPlugin;
 use crate::client::input::ClientInputPlugin;
 use crate::client::interpolation::ClientInterpolationPlugin;
+use crate::client::light_check::LightCheckPlugin;
 use crate::client::particle::ClientParticlePlugin;
 use crate::client::player::ClientPlayerPlugin;
 use crate::client::presentation::ClientPresentationPlugin;
@@ -35,6 +36,7 @@ impl Plugin for ClientPluginGroup {
             ClientSoundPlugin,
             ClientParticlePlugin,
             ClientEffectPlugin,
+            LightCheckPlugin,
         ));
     }
 }

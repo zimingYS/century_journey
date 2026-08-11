@@ -7,6 +7,7 @@ use crate::shared::states::app_state::AppState;
 
 pub(crate) mod constants;
 pub mod item;
+pub mod lighting;
 pub mod tex_atlas;
 pub mod world;
 
@@ -16,7 +17,9 @@ pub struct ClientRenderingPlugin;
 impl Plugin for ClientRenderingPlugin {
     /// 注册客户端渲染资源和运行时系统。
     fn build(&self, app: &mut App) {
-        app.init_resource::<item::cache::ItemModelCache>()
+        world::register_mesh_lifecycle_resources(app);
+        app.add_plugins(lighting::VoxelLightingPlugin)
+            .init_resource::<item::cache::ItemModelCache>()
             .init_resource::<item::gui_icon_cache::GuiItemIconCache>()
             .init_resource::<world::MeshBuildChannel>()
             .init_resource::<world::CachedBlockInfo>()
@@ -44,12 +47,14 @@ impl Plugin for ClientRenderingPlugin {
             .add_systems(
                 Update,
                 (
+                    world::collect_priority_mesh_rebuilds,
                     world::spawn_mesh_build_tasks
                         .after(crate::game::world::generation::receive_structure_results),
                     world::receive_mesh_results,
                 )
                     .chain()
                     .run_if(in_state(AppState::InGame)),
-            );
+            )
+            .add_systems(OnExit(AppState::InGame), world::clear_mesh_lifecycle);
     }
 }

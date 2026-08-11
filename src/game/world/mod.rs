@@ -5,6 +5,7 @@ pub mod chunk;
 pub mod entity;
 pub mod generation;
 pub mod interaction;
+pub mod lighting;
 mod plugin;
 pub mod state;
 pub mod streaming;

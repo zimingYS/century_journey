@@ -13,6 +13,7 @@ pub mod camera;
 pub mod effect;
 pub mod input;
 pub mod interpolation;
+pub mod light_check;
 pub mod particle;
 pub mod performance;
 pub mod player;

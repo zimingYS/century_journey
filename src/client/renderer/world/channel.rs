@@ -5,6 +5,7 @@ use crate::content::block::definition::RenderMode;
 use crate::content::block::model::BlockModel;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::world::chunk::ChunkData;
+use crate::game::world::lighting::chunk_light::ChunkLight;
 use bevy::prelude::*;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex, mpsc};
@@ -12,6 +13,10 @@ use std::sync::{Arc, Mutex, mpsc};
 /// 后台网格任务返回的三种渲染通道。
 pub struct MeshBuildResult {
     pub chunk_pos: IVec3,
+    /// 派发任务时对应的区块实体，用于拒绝卸载后同坐标新实体收到旧结果。
+    pub request_entity: Entity,
+    /// 单调递增的区块网格请求编号，用于拒绝同一实体上的乱序旧结果。
+    pub request_id: u64,
     pub opaque: MeshBufferData,
     pub cutout: MeshBufferData,
     pub water: MeshBufferData,
@@ -137,7 +142,15 @@ pub struct CachedBlockInfo(pub BlockInfoSnapshot);
 /// 发送到后台网格任务的只读区块数据。
 pub struct MeshBuildInput {
     pub chunk_pos: IVec3,
+    /// 派发任务时对应的区块实体。
+    pub request_entity: Entity,
+    /// 本次区块网格请求的唯一编号。
+    pub request_id: u64,
     pub current_data: Arc<ChunkData>,
     pub neighbors: [Option<Arc<ChunkData>>; 6],
     pub block_info: BlockInfoSnapshot,
+    /// 本区块光级快照（异步线程内只读，不允许访问 ECS）。
+    pub light: Option<Arc<ChunkLight>>,
+    /// 邻居光级快照（跨区块边界采样用）。
+    pub neighbor_lights: [Option<Arc<ChunkLight>>; 6],
 }
