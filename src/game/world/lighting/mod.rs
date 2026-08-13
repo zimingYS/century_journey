@@ -251,8 +251,13 @@ fn schedule_lighting_rebuild(
     channel.in_flight.fetch_add(1, Ordering::Relaxed);
     task.spawn_cpu(move || {
         let started = Instant::now();
+        // 全局校正覆盖整个已加载窗口，所有列都重灌直射天光。
+        let dirty_columns = snapshot
+            .chunks()
+            .map(|(position, _)| (position.x, position.z))
+            .collect::<HashSet<_>>();
         let mut lights = HashMap::new();
-        let sources = rebuild_loaded_lighting(&snapshot, &info, &mut lights, true);
+        let sources = rebuild_loaded_lighting(&snapshot, &info, &mut lights, &dirty_columns);
         let result = sender.send(LightingBuildResult {
             session_id,
             content_revision,

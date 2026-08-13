@@ -32,7 +32,7 @@ fn dependency_columns_expand_for_long_range_content() {
 
 #[test]
 fn interaction_batches_the_complete_common_light_halo() {
-    assert_eq!(local_column_batch_size(false, 2), 8);
+    assert_eq!(local_column_batch_size(false, 2), LOCAL_TARGET_COLUMN_BATCH_SIZE);
     assert_eq!(local_column_batch_size(true, 1), 9);
     assert_eq!(local_column_batch_size(true, 2), 25);
     assert_eq!(local_column_batch_size(true, 4), 25);

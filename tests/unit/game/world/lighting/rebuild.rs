@@ -59,10 +59,19 @@ fn set_block(state: &mut WorldState, position: IVec3, id: u16) {
     data.set_voxel(local.x as usize, local.y as usize, local.z as usize, id);
 }
 
+/// 等价旧的 `sky_dirty=true`：快照内所有水平列都标记为需要重灌天光。
+fn all_sky_dirty_columns(snapshot: &LightingWorldSnapshot) -> HashSet<(i32, i32)> {
+    snapshot
+        .chunks()
+        .map(|(position, _)| (position.x, position.z))
+        .collect()
+}
+
 fn rebuild(world: &WorldState, info: &GameLightInfo) -> HashMap<IVec3, ChunkLight> {
     let mut lights = HashMap::new();
     let snapshot = LightingWorldSnapshot::from_world(world);
-    rebuild_loaded_lighting(&snapshot, info, &mut lights, true);
+    let dirty = all_sky_dirty_columns(&snapshot);
+    rebuild_loaded_lighting(&snapshot, info, &mut lights, &dirty);
     lights
 }
 
@@ -220,16 +229,50 @@ fn block_only_rebuild_preserves_sky_and_refreshes_block_light() {
     set_block(&mut world, source_pos, 2);
     let snapshot = LightingWorldSnapshot::from_world(&world);
     let mut lights = HashMap::new();
-    rebuild_loaded_lighting(&snapshot, &test_info(), &mut lights, true);
+    let dirty = all_sky_dirty_columns(&snapshot);
+    rebuild_loaded_lighting(&snapshot, &test_info(), &mut lights, &dirty);
     let sky_before = light_at(&lights, source_pos + IVec3::Y).sky;
     assert!(!light_at(&lights, source_pos + IVec3::X).block.is_dark());
 
     set_block(&mut world, source_pos, 0);
     let snapshot = LightingWorldSnapshot::from_world(&world);
-    rebuild_loaded_lighting(&snapshot, &test_info(), &mut lights, false);
+    rebuild_loaded_lighting(&snapshot, &test_info(), &mut lights, &HashSet::new());
 
     assert_eq!(light_at(&lights, source_pos + IVec3::Y).sky, sky_before);
     assert!(light_at(&lights, source_pos + IVec3::X).block.is_dark());
+}
+
+#[test]
+fn clean_column_keeps_previous_sky_when_neighbor_column_is_dirty() {
+    let mut world = state_with_air_chunk();
+    world.insert_chunk(IVec3::X, Arc::new(ChunkData::new()));
+    // X 列顶部整层石头：直射天光全挡，y=14 只能靠 ZERO 列水平扩散。
+    for z in 0..CHUNK_SIZE {
+        for x in 0..CHUNK_SIZE {
+            set_block(&mut world, IVec3::new(16 + x as i32, 15, z as i32), 1);
+        }
+    }
+    let snapshot = LightingWorldSnapshot::from_world(&world);
+    let mut lights = HashMap::new();
+    let dirty_all = all_sky_dirty_columns(&snapshot);
+    rebuild_loaded_lighting(&snapshot, &test_info(), &mut lights, &dirty_all);
+    // X 列边界格从 ZERO 满光水平扩散获得约 14 级天光。
+    let x_sky_before = light_at(&lights, IVec3::new(16, 14, 8)).sky;
+    assert!(x_sky_before.r >= 12);
+
+    // 现在 ZERO 列顶部也加石头（天空通路变化），只重灌 ZERO 列。
+    for z in 0..CHUNK_SIZE {
+        for x in 0..CHUNK_SIZE {
+            set_block(&mut world, IVec3::new(x as i32, 15, z as i32), 1);
+        }
+    }
+    let snapshot = LightingWorldSnapshot::from_world(&world);
+    let dirty_zero = [(0, 0)].into_iter().collect::<HashSet<_>>();
+    rebuild_loaded_lighting(&snapshot, &test_info(), &mut lights, &dirty_zero);
+
+    // X 列是 clean 列：天光必须原样保留；若被误 reset，会按新 ZERO 的暗种子
+    // 重灌成 0，从而暴露回归。
+    assert_eq!(light_at(&lights, IVec3::new(16, 14, 8)).sky, x_sky_before);
 }
 
 #[test]
