@@ -24,7 +24,6 @@ use crate::shared::voxel::CHUNK_SIZE;
 #[derive(Clone)]
 pub struct LightingWorldSnapshot {
     chunks: HashMap<IVec3, Arc<ChunkData>>,
-    signature: Vec<(IVec3, usize)>,
     terrain_pipeline: Option<GenerationPipeline>,
 }
 
@@ -35,10 +34,8 @@ impl LightingWorldSnapshot {
             .chunks()
             .map(|(position, data)| (position, Arc::clone(data)))
             .collect::<HashMap<_, _>>();
-        let signature = signature_for_chunks(&chunks);
         Self {
             chunks,
-            signature,
             terrain_pipeline: None,
         }
     }
@@ -60,10 +57,8 @@ impl LightingWorldSnapshot {
             .filter(|(position, _)| columns.contains(&(position.x, position.z)))
             .map(|(position, data)| (position, Arc::clone(data)))
             .collect::<HashMap<_, _>>();
-        let signature = signature_for_chunks(&chunks);
         Self {
             chunks,
-            signature,
             terrain_pipeline: None,
         }
     }
@@ -77,11 +72,6 @@ impl LightingWorldSnapshot {
         let mut snapshot = Self::from_columns(world, columns);
         snapshot.terrain_pipeline = Some(terrain_pipeline.clone());
         snapshot
-    }
-
-    /// 返回坐标与区块快照身份组成的稳定签名。
-    pub fn signature(&self) -> &[(IVec3, usize)] {
-        &self.signature
     }
 
     /// 交还任务持有的区块快照，供已提交光场判断数据是否仍然匹配。
@@ -120,18 +110,10 @@ impl LightingWorldSnapshot {
         self.chunks.get(&position)
     }
 
-    fn chunks(&self) -> impl Iterator<Item = (IVec3, &Arc<ChunkData>)> {
+    /// 遍历任务快照中的区块，供局部调度复用已有天空光并构造传播目标。
+    pub(super) fn chunks(&self) -> impl Iterator<Item = (IVec3, &Arc<ChunkData>)> {
         self.chunks.iter().map(|(position, data)| (*position, data))
     }
-}
-
-fn signature_for_chunks(chunks: &HashMap<IVec3, Arc<ChunkData>>) -> Vec<(IVec3, usize)> {
-    let mut signature = chunks
-        .iter()
-        .map(|(position, data)| (*position, Arc::as_ptr(data) as usize))
-        .collect::<Vec<_>>();
-    signature.sort_by_key(|(position, _)| (position.x, position.y, position.z));
-    signature
 }
 
 /// 六方向单位偏移；顺序固定以保证传播测试和调试结果稳定。
@@ -237,14 +219,17 @@ pub fn voxel_at(world: &LightingWorldSnapshot, pos: IVec3) -> u16 {
         .unwrap_or(0)
 }
 
-/// 整体重建当前已加载窗口的天空光、方块光与光源索引。
+/// 重建当前已加载窗口的天空光、方块光与光源索引。
 ///
 /// 返回值按世界坐标排序，客户端据此选择有限数量的 Bevy 实体光源；函数本身
-/// 不创建表现实体，也不依赖相机或渲染帧。
+/// 不创建表现实体，也不依赖相机或渲染帧。`sky_dirty` 为 `false` 时保留调用者
+/// 预先放入 `lights` 的天空光，只清除并重建方块光；这条路径只适用于已确认没有
+/// 改变天空通路的方块编辑。
 pub fn rebuild_loaded_lighting(
     world: &LightingWorldSnapshot,
     info: &GameLightInfo,
     lights: &mut HashMap<IVec3, ChunkLight>,
+    sky_dirty: bool,
 ) -> Vec<BlockLightSource> {
     let mut chunk_positions = world
         .chunks()
@@ -254,11 +239,18 @@ pub fn rebuild_loaded_lighting(
     let loaded = chunk_positions.iter().copied().collect::<HashSet<_>>();
     lights.retain(|position, _| loaded.contains(position));
     for position in &chunk_positions {
-        lights.entry(*position).or_default().reset();
+        let light = lights.entry(*position).or_default();
+        if sky_dirty {
+            light.reset();
+        } else {
+            light.reset_block();
+        }
     }
 
-    initialize_vertical_sky(world, info, lights, &chunk_positions);
-    spread_sky_light(world, info, lights, &chunk_positions);
+    if sky_dirty {
+        initialize_vertical_sky(world, info, lights, &chunk_positions);
+        spread_sky_light(world, info, lights, &chunk_positions);
+    }
 
     let sources = collect_sources(world, info, &chunk_positions);
     for source in &sources {
@@ -477,14 +469,22 @@ fn block_level_at_distance(
 ) -> LightRgb {
     let denominator = u16::from(range.max(1)) + 1;
     let remaining = denominator.saturating_sub(u16::from(distance));
-    let cap = |value: u8| {
-        let scaled = u16::from(value) * remaining;
-        scaled.div_ceil(denominator) as u8
-    };
+    let source_peak = source.r.max(source.g).max(source.b);
+    let peak_cap = (u16::from(source_peak) * remaining).div_ceil(denominator) as u8;
+    limit_light_peak(filtered, peak_cap)
+}
+
+/// 按当前滤色后的色相等比限制峰值，避免低光级逐通道向上取整变成白、青色边缘。
+fn limit_light_peak(light: LightRgb, peak_cap: u8) -> LightRgb {
+    let peak = light.r.max(light.g).max(light.b);
+    if peak == 0 || peak <= peak_cap {
+        return light;
+    }
+    let scale = |value: u8| u16::from(value) * u16::from(peak_cap) / u16::from(peak);
     LightRgb {
-        r: filtered.r.min(cap(source.r)),
-        g: filtered.g.min(cap(source.g)),
-        b: filtered.b.min(cap(source.b)),
+        r: scale(light.r) as u8,
+        g: scale(light.g) as u8,
+        b: scale(light.b) as u8,
     }
 }
 

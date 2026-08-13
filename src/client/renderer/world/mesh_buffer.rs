@@ -21,6 +21,8 @@ pub struct MeshBufferData {
     pub uvs: Vec<[f32; 2]>,
     /// 顶点光色（RGBA，乘法衰减系数语义），烘焙自权威光级数组。
     pub colors: Vec<[f32; 4]>,
+    /// 第二组 UV 中的 12bit 方块 RGB 光级，供区块材质生成稳定远景照明。
+    pub block_light_uvs: Vec<[f32; 2]>,
     pub indices: Vec<u32>,
 }
 
@@ -43,6 +45,7 @@ impl MeshBufferData {
             normals: Vec::with_capacity(estimated_faces * 4),
             uvs: Vec::with_capacity(estimated_faces * 4),
             colors: Vec::with_capacity(estimated_faces * 4),
+            block_light_uvs: Vec::with_capacity(estimated_faces * 4),
             indices: Vec::with_capacity(estimated_faces * 6),
         }
     }
@@ -59,12 +62,14 @@ impl MeshBufferData {
         normal: Vec3,
         uvs: &[[f32; 2]; 4],
         color: [f32; 4],
+        block_light_uv: [f32; 2],
     ) {
         let start_idx = self.positions.len() as u32;
         self.positions.extend_from_slice(face_vertices);
         for _ in 0..4 {
             self.normals.push([normal.x, normal.y, normal.z]);
             self.colors.push(color);
+            self.block_light_uvs.push(block_light_uv);
         }
         self.uvs.extend_from_slice(uvs);
         self.indices.extend_from_slice(&[
@@ -77,7 +82,7 @@ impl MeshBufferData {
         ]);
     }
 
-    /// 从缓冲区生成带顶点光色的 Bevy Mesh。
+    /// 从缓冲区生成带合成顶点光色与独立方块光级的 Bevy Mesh。
     pub fn build_mesh(self) -> Mesh {
         self.build_mesh_impl(true)
     }
@@ -90,7 +95,7 @@ impl MeshBufferData {
         self.build_mesh_impl(false)
     }
 
-    fn build_mesh_impl(mut self, with_color: bool) -> Mesh {
+    fn build_mesh_impl(mut self, with_voxel_lighting: bool) -> Mesh {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
@@ -101,8 +106,12 @@ impl MeshBufferData {
         );
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, std::mem::take(&mut self.normals));
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, std::mem::take(&mut self.uvs));
-        if with_color {
+        if with_voxel_lighting {
             mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, std::mem::take(&mut self.colors));
+            mesh.insert_attribute(
+                Mesh::ATTRIBUTE_UV_1,
+                std::mem::take(&mut self.block_light_uvs),
+            );
         }
         mesh.insert_indices(Indices::U32(std::mem::take(&mut self.indices)));
         mesh

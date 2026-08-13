@@ -149,6 +149,18 @@ impl ChunkLight {
         self.fingerprint = 0;
     }
 
+    /// 只清除方块光并保留天空光，供不改变天光通路的交互编辑快速重建。
+    ///
+    /// 方块编辑仍需让整个区块回到未初始化状态，避免网格在新的方块光提交前
+    /// 读取旧摘要；天空光高 12 bit 保留为局部重建的稳定种子。
+    pub fn reset_block(&mut self) {
+        for value in self.packed.iter_mut() {
+            *value &= 0x00FF_F000;
+        }
+        self.initialized = false;
+        self.fingerprint = 0;
+    }
+
     /// 标记本区块完成一次完整传播，并缓存主线程差异判断使用的摘要。
     pub fn mark_initialized(&mut self) {
         // FNV-1a 足以作为变化摘要；完整数组仍保留为权威数据，不参与每次提交比较。

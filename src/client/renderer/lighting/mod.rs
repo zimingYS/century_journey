@@ -9,6 +9,7 @@ use bevy::prelude::*;
 use crate::shared::states::AppState;
 
 pub mod bake;
+pub(crate) mod material;
 mod point_lights;
 
 /// 组装客户端体素光烘焙和实体投影光源。
@@ -16,7 +17,8 @@ pub struct VoxelLightingPlugin;
 
 impl Plugin for VoxelLightingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<point_lights::BlockPointLightCache>()
+        app.add_plugins(MaterialPlugin::<material::VoxelMaterial>::default())
+            .init_resource::<point_lights::BlockPointLightCache>()
             .add_systems(
                 Update,
                 point_lights::sync_block_point_lights.run_if(in_state(AppState::InGame)),

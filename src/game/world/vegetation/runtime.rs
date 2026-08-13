@@ -108,7 +108,7 @@ pub(super) fn chunk_is_ready(
     };
     chunk_states
         .get(entity)
-        .is_ok_and(|state| matches!(state, ChunkState::StructureReady | ChunkState::Rendered))
+        .is_ok_and(|state| state.has_completed_structure())
 }
 
 /// 把世界方块坐标转换为所属区块坐标。

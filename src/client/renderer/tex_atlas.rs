@@ -1,6 +1,7 @@
 //! 从内容纹理构建方块图集，并提供运行时纹理索引映射。
 
 use crate::client::renderer::constants::{BLOCK_ATLAS_TILES_PER_ROW, TILE_SIZE};
+use crate::client::renderer::lighting::material::{VoxelMaterial, VoxelMaterialExtension};
 use crate::client::water::{WaterMaterial, WaterMaterialExtension};
 use crate::content::block::definition::RenderMode;
 use crate::content::block::registry::BlockRegistry;
@@ -8,6 +9,7 @@ use crate::engine::asset::AssetFiles;
 use crate::engine::asset::manager::AssetManager;
 use bevy::asset::{Assets, RenderAssetUsages};
 use bevy::color::Color;
+use bevy::ecs::system::SystemParam;
 use bevy::image::{Image, ImageSampler, TextureAtlasLayout};
 use bevy::log::error;
 use bevy::material::AlphaMode;
@@ -24,10 +26,20 @@ pub struct BlockRenderAssets {
     opaque_material: Handle<StandardMaterial>,
     cutout_material: Handle<StandardMaterial>,
     transparent_material: Handle<StandardMaterial>,
+    voxel_opaque_material: Handle<VoxelMaterial>,
+    voxel_cutout_material: Handle<VoxelMaterial>,
     /// 水面可见性基线材质：不依赖扩展着色器，保证水体始终可见。
     water_base_material: Handle<StandardMaterial>,
     /// 叠加在基线之上的动态水面效果材质。
     water_effect_material: Handle<WaterMaterial>,
+}
+
+/// 聚合方块图集初始化所需的三类材质资产池。
+#[derive(SystemParam)]
+pub(crate) struct BlockMaterialAssetParams<'w> {
+    standard: ResMut<'w, Assets<StandardMaterial>>,
+    voxel: ResMut<'w, Assets<VoxelMaterial>>,
+    water: ResMut<'w, Assets<WaterMaterial>>,
 }
 
 impl BlockRenderAssets {
@@ -65,6 +77,16 @@ impl BlockRenderAssets {
         &self.transparent_material
     }
 
+    /// 返回携带独立方块光的世界不透明区块材质。
+    pub(crate) fn voxel_opaque_material(&self) -> &Handle<VoxelMaterial> {
+        &self.voxel_opaque_material
+    }
+
+    /// 返回携带独立方块光的世界透明裁切区块材质。
+    pub(crate) fn voxel_cutout_material(&self) -> &Handle<VoxelMaterial> {
+        &self.voxel_cutout_material
+    }
+
     /// 返回不依赖扩展着色器的水面可见性基线材质。
     pub fn water_base_material(&self) -> &Handle<StandardMaterial> {
         &self.water_base_material
@@ -77,32 +99,38 @@ impl BlockRenderAssets {
 }
 
 /// 在内容注册表就绪后构建并插入方块渲染资产资源。
-pub fn init_block_render_assets_system(
+pub(crate) fn init_block_render_assets_system(
     mut commands: Commands,
     registry: Res<BlockRegistry>,
     mut images: ResMut<Assets<Image>>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut water_materials: ResMut<Assets<WaterMaterial>>,
+    materials: BlockMaterialAssetParams,
     asset: Res<AssetManager>,
 ) {
+    let BlockMaterialAssetParams {
+        mut standard,
+        mut voxel,
+        mut water,
+    } = materials;
     let render_assets = build_texture_atlas(
         &registry,
         &mut images,
         &mut layouts,
-        &mut materials,
-        &mut water_materials,
+        &mut standard,
+        &mut voxel,
+        &mut water,
         &asset,
     );
     commands.insert_resource(render_assets);
 }
 
 /// 从方块注册表引用的纹理构建图集、布局及三类共享材质。
-pub fn build_texture_atlas(
+pub(crate) fn build_texture_atlas(
     registry: &BlockRegistry,
     images: &mut Assets<Image>,
     layouts: &mut Assets<TextureAtlasLayout>,
     materials: &mut Assets<StandardMaterial>,
+    voxel_materials: &mut Assets<VoxelMaterial>,
     water_materials: &mut Assets<WaterMaterial>,
     asset: &AssetManager,
 ) -> BlockRenderAssets {
@@ -184,18 +212,28 @@ pub fn build_texture_atlas(
         None,
     ));
 
-    let opaque_material = materials.add(StandardMaterial {
+    let opaque_base = StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
         perceptual_roughness: 0.85,
         ..default()
+    };
+    let voxel_opaque_material = voxel_materials.add(VoxelMaterial {
+        base: opaque_base.clone(),
+        extension: VoxelMaterialExtension::default(),
     });
+    let opaque_material = materials.add(opaque_base);
 
-    let cutout_material = materials.add(StandardMaterial {
+    let cutout_base = StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
         perceptual_roughness: 0.85,
         alpha_mode: AlphaMode::Mask(0.5),
         ..default()
+    };
+    let voxel_cutout_material = voxel_materials.add(VoxelMaterial {
+        base: cutout_base.clone(),
+        extension: VoxelMaterialExtension::default(),
     });
+    let cutout_material = materials.add(cutout_base);
 
     let transparent_material = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
@@ -287,6 +325,8 @@ pub fn build_texture_atlas(
         opaque_material,
         cutout_material,
         transparent_material,
+        voxel_opaque_material,
+        voxel_cutout_material,
         water_base_material,
         water_effect_material,
     }

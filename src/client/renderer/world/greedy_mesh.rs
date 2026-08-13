@@ -1,7 +1,7 @@
 //! 使用贪心合并生成区块表面，并单独处理透明和交叉平面方块。
 
 use crate::client::renderer::lighting::bake::{
-    light_rgb_to_color, light_to_color, sample_light_at,
+    block_light_to_uv, light_rgb_to_color, light_to_color, sample_light_at,
 };
 use crate::content::block::definition::RenderMode;
 use crate::content::block::model::generate_cross_vertices;
@@ -101,9 +101,13 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
                     let world_pos =
                         chunk_pos * CHUNK_SIZE as i32 + IVec3::new(x as i32, y as i32, z as i32);
                     let surface_light =
-                        sample_light_at(world_pos + dir, chunk_pos, &light, &neighbor_lights)
-                            .combined();
-                    *face_key = encode_face_key(texture_layer, buffer_idx, surface_light);
+                        sample_light_at(world_pos + dir, chunk_pos, &light, &neighbor_lights);
+                    *face_key = encode_face_key(
+                        texture_layer,
+                        buffer_idx,
+                        surface_light.combined(),
+                        surface_light.block,
+                    );
                 }
             }
 
@@ -184,7 +188,7 @@ fn greedy_merge_pass(
                 continue;
             }
 
-            let (texture_layer, buffer_idx, surface_light) = decode_face_key(face_key);
+            let (texture_layer, buffer_idx, surface_light, block_light) = decode_face_key(face_key);
 
             // 向右扩展宽度
             let mut width = 1;
@@ -223,13 +227,14 @@ fn greedy_merge_pass(
             let (_, normal) = DIRECTIONS[face_idx];
 
             let color = light_rgb_to_color(surface_light);
+            let block_light_uv = block_light_to_uv(block_light);
 
             let buf = match buffer_idx {
                 2 => &mut *water_buf,
                 1 => &mut *cutout_buf,
                 _ => &mut *opaque_buf,
             };
-            buf.append_face(&positions, normal, &uvs, color);
+            buf.append_face(&positions, normal, &uvs, color, block_light_uv);
 
             for dy in 0..height {
                 for dx in 0..width {
@@ -244,26 +249,41 @@ fn greedy_merge_pass(
 
 /// 把材质通道与量化光色写入贪心掩码；光级不同的相邻面不会被错误合并。
 #[inline]
-fn encode_face_key(texture_layer: u32, buffer_idx: u8, light: LightRgb) -> u64 {
-    ((texture_layer as u64) << 14)
-        | ((buffer_idx as u64 & 0x3) << 12)
-        | ((light.r as u64 & 0xF) << 8)
-        | ((light.g as u64 & 0xF) << 4)
-        | (light.b as u64 & 0xF)
+fn encode_face_key(
+    texture_layer: u32,
+    buffer_idx: u8,
+    combined_light: LightRgb,
+    block_light: LightRgb,
+) -> u64 {
+    ((texture_layer as u64) << 26)
+        | ((buffer_idx as u64 & 0x3) << 24)
+        | (pack_light_rgb(combined_light) << 12)
+        | pack_light_rgb(block_light)
 }
 
-/// 从贪心掩码恢复纹理、材质通道和顶点光色。
+/// 从贪心掩码恢复纹理、材质通道、合成光色和独立方块光色。
 #[inline]
-fn decode_face_key(key: u64) -> (u32, u8, LightRgb) {
+fn decode_face_key(key: u64) -> (u32, u8, LightRgb, LightRgb) {
     (
-        (key >> 14) as u32,
-        ((key >> 12) & 0x3) as u8,
-        LightRgb {
-            r: ((key >> 8) & 0xF) as u8,
-            g: ((key >> 4) & 0xF) as u8,
-            b: (key & 0xF) as u8,
-        },
+        (key >> 26) as u32,
+        ((key >> 24) & 0x3) as u8,
+        unpack_light_rgb((key >> 12) & 0xFFF),
+        unpack_light_rgb(key & 0xFFF),
     )
+}
+
+#[inline]
+fn pack_light_rgb(light: LightRgb) -> u64 {
+    ((light.r as u64 & 0xF) << 8) | ((light.g as u64 & 0xF) << 4) | (light.b as u64 & 0xF)
+}
+
+#[inline]
+fn unpack_light_rgb(packed: u64) -> LightRgb {
+    LightRgb {
+        r: ((packed >> 8) & 0xF) as u8,
+        g: ((packed >> 4) & 0xF) as u8,
+        b: (packed & 0xF) as u8,
+    }
 }
 
 fn inset_water_surface(positions: &mut [[f32; 3]; 4], face_idx: usize) {
@@ -473,12 +493,9 @@ fn append_cross_models(
                     .then(|| cross_rotation_from_world_position(world_position));
 
                 // 十字方块按自身位置采样光级。
-                let color = light_to_color(sample_light_at(
-                    world_position,
-                    chunk_pos,
-                    light,
-                    neighbor_lights,
-                ));
+                let light_cell = sample_light_at(world_position, chunk_pos, light, neighbor_lights);
+                let color = light_to_color(light_cell);
+                let block_light_uv = block_light_to_uv(light_cell.block);
 
                 for mut vertices in generate_cross_vertices(x as f32, y as f32, z as f32) {
                     if let Some(rotation) = rotation {
@@ -488,7 +505,7 @@ fn append_cross_models(
                     }
 
                     let normal = calculate_face_normal(&vertices);
-                    cutout_buf.append_face(&vertices, normal, &uvs, color);
+                    cutout_buf.append_face(&vertices, normal, &uvs, color, block_light_uv);
                 }
             }
         }

@@ -22,6 +22,8 @@ pub(in crate::game) struct WorldChunkSnapshot {
 pub struct WorldState {
     /// 当前流送窗口内已加载的权威区块快照。
     loaded_chunks: HashMap<IVec3, Arc<ChunkData>>,
+    /// 已加载体素快照的单调修订号，供后台系统用 O(1) 判断全窗口输入是否变化。
+    snapshot_revision: u64,
     /// 区块最后修改的 Unix 时间秒数，供增量保存判断使用。
     chunk_modified_times: HashMap<IVec3, f64>,
     /// 结构越过区块边界时等待目标区块加载的确定性延迟写入。
@@ -38,7 +40,9 @@ impl WorldState {
 
     /// 取得可替换的区块快照。
     pub fn chunk_mut(&mut self, position: IVec3) -> Option<&mut Arc<ChunkData>> {
-        self.loaded_chunks.get_mut(&position)
+        let chunk = self.loaded_chunks.get_mut(&position)?;
+        self.snapshot_revision = self.snapshot_revision.wrapping_add(1);
+        Some(chunk)
     }
 
     /// 判断指定区块是否已加载。
@@ -49,6 +53,7 @@ impl WorldState {
     /// 写入或替换一个已加载区块的权威快照。
     pub fn insert_chunk(&mut self, position: IVec3, data: Arc<ChunkData>) {
         self.loaded_chunks.insert(position, data);
+        self.snapshot_revision = self.snapshot_revision.wrapping_add(1);
     }
 
     /// 恢复磁盘区块及其根区块树实例；校验失败时不替换原有数据。
@@ -61,12 +66,14 @@ impl WorldState {
         self.tree_instances
             .replace_chunk(position, tree_instances)?;
         self.loaded_chunks.insert(position, data);
+        self.snapshot_revision = self.snapshot_revision.wrapping_add(1);
         Ok(())
     }
 
     /// 移除区块并同时返回体素与根区块树实例，供卸载保存流程使用。
     pub(in crate::game) fn remove_chunk(&mut self, position: IVec3) -> Option<WorldChunkSnapshot> {
         let data = self.loaded_chunks.remove(&position)?;
+        self.snapshot_revision = self.snapshot_revision.wrapping_add(1);
         let tree_instances = self.tree_instances.take_chunk(position);
         Some(WorldChunkSnapshot {
             data,
@@ -77,6 +84,11 @@ impl WorldState {
     /// 返回当前已加载区块数量，供客户端统计使用。
     pub fn loaded_chunk_count(&self) -> usize {
         self.loaded_chunks.len()
+    }
+
+    /// 返回已加载体素快照的当前修订号。
+    pub fn snapshot_revision(&self) -> u64 {
+        self.snapshot_revision
     }
 
     /// 遍历所有已加载区块的权威快照，供全量存档等批处理流程读取。

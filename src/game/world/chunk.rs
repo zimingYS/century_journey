@@ -67,7 +67,7 @@ impl ChunkData {
     }
 }
 
-/// 区块生成、结构和渲染任务的唯一生命周期阶段。
+/// 区块生成、光照和渲染任务的唯一生命周期阶段。
 /// `GenerationPipeline` 只执行纯生成步骤，不再维护第二套阶段状态。
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChunkState {
@@ -83,8 +83,26 @@ pub enum ChunkState {
     GeneratingStructure,
     /// 结构生成完毕
     StructureReady,
+    /// 结构数据已稳定，正在等待或计算与当前快照匹配的体素光。
+    LightingPending,
+    /// 体素光与当前权威区块快照一致，可以生成最终网格。
+    LightingReady,
     /// 正在计算3D顶点
     GeneratingMesh,
     /// 正在渲染
     Rendered,
+}
+
+impl ChunkState {
+    /// 判断区块是否已经越过所有会修改基础结构的生成阶段。
+    pub const fn has_completed_structure(self) -> bool {
+        matches!(
+            self,
+            Self::StructureReady
+                | Self::LightingPending
+                | Self::LightingReady
+                | Self::GeneratingMesh
+                | Self::Rendered
+        )
+    }
 }

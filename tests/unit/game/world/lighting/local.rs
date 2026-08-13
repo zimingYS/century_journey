@@ -46,7 +46,7 @@ fn long_range_edit_enqueues_the_second_chunk_ring() {
     }
     let mut queue = LocalLightingQueue::default();
 
-    enqueue_block_change_targets(&world, IVec3::ZERO, 2, &mut queue);
+    enqueue_block_change_targets(&world, IVec3::ZERO, 2, false, &mut queue);
 
     assert_eq!(queue.pop_columns(5).len(), 5);
 }

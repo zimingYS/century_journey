@@ -166,9 +166,9 @@ pub fn receive_structure_results(
             }
             if let Some(entity) = chunk_runtime.chunk_entity(pos)
                 && let Ok((_, mut state)) = chunk_query.get_mut(entity)
-                && matches!(*state, ChunkState::Rendered | ChunkState::GeneratingMesh)
+                && state.has_completed_structure()
             {
-                *state = ChunkState::StructureReady;
+                *state = ChunkState::LightingPending;
             }
         }
         for (pos, writes) in result.pending_writes {
@@ -183,7 +183,7 @@ pub fn receive_structure_results(
             && chunk_components.position == result.chunk_pos
             && *chunk_state == ChunkState::GeneratingStructure
         {
-            *chunk_state = ChunkState::StructureReady;
+            *chunk_state = ChunkState::LightingPending;
         }
     }
 }

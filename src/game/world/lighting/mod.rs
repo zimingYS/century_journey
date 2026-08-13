@@ -44,9 +44,13 @@ pub struct WorldLighting {
 impl WorldLighting {
     /// 判断指定光数组是否对应当前权威区块快照。
     pub fn is_chunk_light_current(&self, position: IVec3, data: &Arc<ChunkData>) -> bool {
-        self.chunk_snapshots
+        self.chunk_lights
             .get(&position)
-            .is_some_and(|snapshot| Arc::ptr_eq(snapshot, data))
+            .is_some_and(|light| light.is_initialized())
+            && self
+                .chunk_snapshots
+                .get(&position)
+                .is_some_and(|snapshot| Arc::ptr_eq(snapshot, data))
     }
 
     /// 读取整数世界坐标处已初始化的天空光和方块光。
@@ -78,20 +82,22 @@ pub struct CachedLightInfo {
 /// 区块流送输入稳定后再做低频全局校正，交互和可见区块由局部任务先处理。
 #[derive(Resource, Default)]
 struct LightingRebuildTracker {
-    observed_world: Vec<(IVec3, usize)>,
+    observed_world_revision: u64,
     observed_content_revision: u64,
     stable_ticks: u8,
     pending: bool,
     urgent: bool,
+    task_defer_ticks: u16,
     session_id: u64,
 }
 
 impl LightingRebuildTracker {
-    fn observe(&mut self, world_signature: Vec<(IVec3, usize)>, content_revision: u64) {
-        if self.observed_world != world_signature {
-            self.observed_world = world_signature;
+    fn observe(&mut self, world_revision: u64, content_revision: u64) {
+        if self.observed_world_revision != world_revision {
+            self.observed_world_revision = world_revision;
             self.stable_ticks = 0;
             self.pending = true;
+            self.task_defer_ticks = 0;
         } else if self.pending {
             self.stable_ticks = self.stable_ticks.saturating_add(1);
         }
@@ -100,6 +106,7 @@ impl LightingRebuildTracker {
             self.observed_content_revision = content_revision;
             self.pending = true;
             self.urgent = true;
+            self.task_defer_ticks = 0;
         }
     }
 
@@ -109,10 +116,26 @@ impl LightingRebuildTracker {
             && (self.urgent || self.stable_ticks >= WORLD_REBUILD_STABLE_TICKS)
     }
 
+    /// 判断任务池积压是否已经达到全局校正的最大延期界限。
+    fn task_backlog_expired(&self) -> bool {
+        self.task_defer_ticks >= WORLD_REBUILD_MAX_TASK_DEFER_TICKS
+    }
+
+    /// 记录任务池积压，并在达到上限后允许一次全局校正进入共享执行器。
+    fn should_defer_for_task_backlog(&mut self, pending_tasks: usize) -> bool {
+        if pending_tasks == 0 {
+            self.task_defer_ticks = 0;
+            return false;
+        }
+        self.task_defer_ticks = self.task_defer_ticks.saturating_add(1);
+        !self.task_backlog_expired()
+    }
+
     fn mark_dispatched(&mut self) {
         self.pending = false;
         self.urgent = false;
         self.stable_ticks = 0;
+        self.task_defer_ticks = 0;
     }
 }
 
@@ -120,6 +143,7 @@ impl LightingRebuildTracker {
 struct LightingBuildResult {
     session_id: u64,
     content_revision: u64,
+    world_revision: u64,
     snapshot: LightingWorldSnapshot,
     lights: HashMap<IVec3, ChunkLight>,
     sources: Vec<BlockLightSource>,
@@ -147,6 +171,8 @@ impl Default for LightingBuildChannel {
 
 /// 连续一秒没有新快照后才做全局校正；交互区域由局部任务即时处理。
 const WORLD_REBUILD_STABLE_TICKS: u8 = 20;
+/// 任务池持续繁忙时，全局校正最多再延迟约四秒，避免远区块永久没有最终光场。
+const WORLD_REBUILD_MAX_TASK_DEFER_TICKS: u16 = 80;
 
 /// 组装权威光照数据与固定步传播系统。
 pub struct LightingPlugin;
@@ -165,6 +191,7 @@ impl Plugin for LightingPlugin {
                     local::prune_unloaded_lighting,
                     local::receive_local_lighting_results,
                     receive_lighting_results,
+                    local::queue_pending_chunk_lighting,
                     local::sync_changed_block_sources,
                     local::schedule_local_lighting_rebuild,
                     schedule_lighting_rebuild,
@@ -200,12 +227,11 @@ fn schedule_lighting_rebuild(
     channel: Res<LightingBuildChannel>,
     task: Res<TaskManager>,
 ) {
-    let world_signature = current_world_signature(&world_state);
-    tracker.observe(world_signature, cached.revision);
+    tracker.observe(world_state.snapshot_revision(), cached.revision);
     if !tracker.ready_to_dispatch(channel.in_flight.load(Ordering::Relaxed)) {
         return;
     }
-    if task.pending_count() != 0 {
+    if tracker.should_defer_for_task_backlog(task.pending_count()) {
         return;
     }
 
@@ -216,6 +242,7 @@ fn schedule_lighting_rebuild(
     };
     let info = cached.info.clone();
     let content_revision = cached.revision;
+    let world_revision = world_state.snapshot_revision();
     let session_id = tracker.session_id;
     let sender = channel.sender.clone();
     let in_flight = Arc::clone(&channel.in_flight);
@@ -225,10 +252,11 @@ fn schedule_lighting_rebuild(
     task.spawn_cpu(move || {
         let started = Instant::now();
         let mut lights = HashMap::new();
-        let sources = rebuild_loaded_lighting(&snapshot, &info, &mut lights);
+        let sources = rebuild_loaded_lighting(&snapshot, &info, &mut lights, true);
         let result = sender.send(LightingBuildResult {
             session_id,
             content_revision,
+            world_revision,
             snapshot,
             lights,
             sources,
@@ -266,8 +294,7 @@ fn receive_lighting_results(
     };
     channel.in_flight.fetch_sub(1, Ordering::Relaxed);
 
-    let current_signature = current_world_signature(&world_state);
-    if !lighting_result_is_current(&result, &tracker, &cached, &current_signature) {
+    if !lighting_result_is_current(&result, &tracker, &cached, &world_state) {
         tracker.pending = true;
         tracker.urgent |= result.content_revision != cached.revision;
         let elapsed = result.elapsed;
@@ -301,12 +328,28 @@ fn receive_lighting_results(
     lighting.chunk_snapshots = snapshot.into_chunks();
 
     for (components, mut state) in &mut chunk_query {
-        if !remesh.contains(&components.position) {
+        let position = components.position;
+        let needs_remesh = remesh.contains(&position);
+        let light_is_current = world_state
+            .chunk(position)
+            .is_some_and(|data| lighting.is_chunk_light_current(position, data));
+        if !needs_remesh
+            && !matches!(
+                *state,
+                ChunkState::StructureReady | ChunkState::LightingPending
+            )
+        {
             continue;
         }
-        runtime.bump_revision(components.position);
-        if matches!(*state, ChunkState::GeneratingMesh | ChunkState::Rendered) {
-            *state = ChunkState::StructureReady;
+        if needs_remesh {
+            runtime.bump_revision(position);
+        }
+        if state.has_completed_structure() {
+            *state = if light_is_current {
+                ChunkState::LightingReady
+            } else {
+                ChunkState::LightingPending
+            };
         }
     }
 
@@ -327,11 +370,11 @@ fn lighting_result_is_current(
     result: &LightingBuildResult,
     tracker: &LightingRebuildTracker,
     cached: &CachedLightInfo,
-    current_signature: &[(IVec3, usize)],
+    world: &WorldState,
 ) -> bool {
     result.session_id == tracker.session_id
         && result.content_revision == cached.revision
-        && result.snapshot.signature() == current_signature
+        && result.world_revision == world.snapshot_revision()
 }
 
 /// 离开世界时清除可重建光场，确保相同区块坐标的新会话不会复用旧快照。
@@ -366,15 +409,6 @@ fn clear_world_lighting(
             TaskResult::Success
         });
     }
-}
-
-fn current_world_signature(world: &WorldState) -> Vec<(IVec3, usize)> {
-    let mut signature = world
-        .chunks()
-        .map(|(position, data)| (position, Arc::as_ptr(data) as usize))
-        .collect::<Vec<_>>();
-    signature.sort_by_key(|(position, _)| (position.x, position.y, position.z));
-    signature
 }
 
 fn changed_light_chunks(

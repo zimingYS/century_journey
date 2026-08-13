@@ -55,6 +55,19 @@ pub fn light_to_color(cell: LightCell) -> [f32; 4] {
     light_rgb_to_color(cell.combined())
 }
 
+/// 把独立方块 RGB 光级编码到第二组顶点 UV。
+///
+/// 4bit RGB 共占 12bit，`f32` 能无损保存该整数；第二分量保留为零，供区块材质在
+/// GPU 中恢复方块光颜色。天空光仍由顶点色携带，两者不能提前合并，否则远景材质
+/// 无法区分自然光和需要自发光补偿的方块光。
+#[inline]
+pub fn block_light_to_uv(light: LightRgb) -> [f32; 2] {
+    let packed = ((u16::from(light.r) & 0xF) << 8)
+        | ((u16::from(light.g) & 0xF) << 4)
+        | (u16::from(light.b) & 0xF);
+    [f32::from(packed), 0.0]
+}
+
 /// 把已经合并的 4bit RGB 光级转换为线性顶点光色。
 ///
 /// 曲线只由最亮通道决定增益，随后等比缩放 RGB，避免对每个通道分别提亮后

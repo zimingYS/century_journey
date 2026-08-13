@@ -49,6 +49,12 @@ fn perceptual_curve_lifts_distance_without_changing_hue() {
 }
 
 #[test]
+fn block_light_uv_keeps_all_twelve_rgb_bits() {
+    assert_eq!(block_light_to_uv(rgb(15, 9, 4)), [0xF94 as f32, 0.0]);
+    assert_eq!(block_light_to_uv(rgb(0, 0, 0)), [0.0, 0.0]);
+}
+
+#[test]
 fn sample_light_at_falls_back_to_neighbor_chunk() {
     let chunk_pos = IVec3::ZERO;
     let mut own = ChunkLight::default();

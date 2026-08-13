@@ -86,3 +86,29 @@ fn fingerprint_is_stable_and_invalidated_by_writes() {
     first.mark_initialized();
     assert_ne!(first.fingerprint(), second.fingerprint());
 }
+
+#[test]
+fn reset_block_preserves_sky_and_clears_block_channels() {
+    let mut light = ChunkLight::default();
+    light.set(
+        1,
+        2,
+        3,
+        LightCell {
+            sky: LightRgb { r: 15, g: 9, b: 4 },
+            block: LightRgb { r: 12, g: 7, b: 3 },
+        },
+    );
+    light.mark_initialized();
+
+    light.reset_block();
+
+    assert_eq!(
+        light.get(1, 2, 3),
+        LightCell {
+            sky: LightRgb { r: 15, g: 9, b: 4 },
+            block: LightRgb::default(),
+        }
+    );
+    assert!(!light.is_initialized());
+}

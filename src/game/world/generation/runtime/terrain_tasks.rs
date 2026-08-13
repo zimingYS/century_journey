@@ -62,7 +62,7 @@ pub fn spawn_terrain_gen_tasks(
         }
 
         if world_state.contains_chunk(chunk_pos) {
-            *chunk_state = ChunkState::StructureReady;
+            *chunk_state = ChunkState::LightingPending;
             continue;
         }
 
@@ -167,7 +167,7 @@ pub fn receive_terrain_results(
                 *chunk_data,
                 tree_instances,
                 None,
-                ChunkState::StructureReady,
+                ChunkState::LightingPending,
             ),
             TerrainGenOutcome::Generated {
                 chunk_data,
