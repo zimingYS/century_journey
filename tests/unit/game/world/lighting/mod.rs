@@ -63,17 +63,37 @@ fn world_light_lookup_handles_negative_chunk_coordinates() {
 }
 
 #[test]
+fn current_light_requires_initialized_data_and_matching_snapshot() {
+    let position = IVec3::ZERO;
+    let data = Arc::new(ChunkData::new());
+    let mut lighting = WorldLighting::default();
+    lighting.chunk_snapshots.insert(position, Arc::clone(&data));
+    lighting
+        .chunk_lights
+        .insert(position, Arc::new(ChunkLight::default()));
+    assert!(!lighting.is_chunk_light_current(position, &data));
+
+    let mut initialized = ChunkLight::default();
+    initialized.mark_initialized();
+    lighting
+        .chunk_lights
+        .insert(position, Arc::new(initialized));
+    assert!(lighting.is_chunk_light_current(position, &data));
+    assert!(!lighting.is_chunk_light_current(position, &Arc::new(ChunkData::new())));
+}
+
+#[test]
 fn streaming_changes_are_coalesced_until_the_world_is_stable() {
-    let signature = vec![(IVec3::ZERO, 1)];
+    let revision = 1;
     let mut tracker = LightingRebuildTracker::default();
 
-    tracker.observe(signature.clone(), 0);
+    tracker.observe(revision, 0);
     assert!(!tracker.ready_to_dispatch(0));
     for _ in 1..WORLD_REBUILD_STABLE_TICKS {
-        tracker.observe(signature.clone(), 0);
+        tracker.observe(revision, 0);
         assert!(!tracker.ready_to_dispatch(0));
     }
-    tracker.observe(signature, 0);
+    tracker.observe(revision, 0);
 
     assert!(tracker.ready_to_dispatch(0));
     assert!(!tracker.ready_to_dispatch(1));
@@ -83,9 +103,25 @@ fn streaming_changes_are_coalesced_until_the_world_is_stable() {
 fn content_changes_bypass_the_streaming_stability_delay() {
     let mut tracker = LightingRebuildTracker::default();
 
-    tracker.observe(Vec::new(), 1);
+    tracker.observe(0, 1);
 
     assert!(tracker.ready_to_dispatch(0));
+}
+
+#[test]
+fn global_rebuild_task_backlog_has_a_bounded_deferral() {
+    let mut tracker = LightingRebuildTracker {
+        pending: true,
+        stable_ticks: WORLD_REBUILD_STABLE_TICKS,
+        ..default()
+    };
+    for _ in 1..WORLD_REBUILD_MAX_TASK_DEFER_TICKS {
+        assert!(tracker.should_defer_for_task_backlog(1));
+    }
+
+    assert!(!tracker.should_defer_for_task_backlog(1));
+    assert!(!tracker.should_defer_for_task_backlog(0));
+    assert_eq!(tracker.task_defer_ticks, 0);
 }
 
 #[test]
@@ -104,24 +140,19 @@ fn result_is_rejected_after_the_authoritative_chunk_changes() {
     let result = LightingBuildResult {
         session_id: 4,
         content_revision: 7,
+        world_revision: world.snapshot_revision(),
         snapshot,
         lights: HashMap::new(),
         sources: Vec::new(),
         elapsed: Duration::ZERO,
     };
     assert!(lighting_result_is_current(
-        &result,
-        &tracker,
-        &cached,
-        &current_world_signature(&world),
+        &result, &tracker, &cached, &world,
     ));
 
     Arc::make_mut(world.chunk_mut(IVec3::ZERO).unwrap()).set_voxel(0, 0, 0, 1);
 
     assert!(!lighting_result_is_current(
-        &result,
-        &tracker,
-        &cached,
-        &current_world_signature(&world),
+        &result, &tracker, &cached, &world,
     ));
 }

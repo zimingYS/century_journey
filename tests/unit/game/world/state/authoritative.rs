@@ -27,3 +27,15 @@ fn unload_and_restore_keep_voxels_and_tree_instances_together() {
         .unwrap();
     assert_eq!(world.tree_instance(tree.root()), Some(&tree));
 }
+
+#[test]
+fn snapshot_revision_changes_when_chunk_identity_changes() {
+    let mut world = WorldState::default();
+    let initial = world.snapshot_revision();
+    world.insert_chunk(IVec3::ZERO, Arc::new(ChunkData::new()));
+    assert_ne!(world.snapshot_revision(), initial);
+
+    let before_mutation = world.snapshot_revision();
+    let _ = world.chunk_mut(IVec3::ZERO);
+    assert_ne!(world.snapshot_revision(), before_mutation);
+}

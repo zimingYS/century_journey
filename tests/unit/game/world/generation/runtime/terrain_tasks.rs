@@ -79,7 +79,7 @@ fn restored_snapshot_skips_natural_structure_generation() {
 
     assert_eq!(
         *app.world().entity(entity).get::<ChunkState>().unwrap(),
-        ChunkState::StructureReady
+        ChunkState::LightingPending
     );
     assert_eq!(
         app.world()

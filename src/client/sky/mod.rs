@@ -14,7 +14,8 @@ pub struct SkyPlugin;
 
 impl Plugin for SkyPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (systems::setup_sky_system,))
+        app.init_resource::<systems::CelestialVisibilityState>()
+            .add_systems(Startup, (systems::setup_sky_system,))
             .add_systems(
                 Update,
                 (
@@ -23,6 +24,10 @@ impl Plugin for SkyPlugin {
                     systems::stars_visibility_system,
                 )
                     .run_if(in_state(AppState::InGame)),
+            )
+            .add_systems(
+                OnExit(AppState::InGame),
+                systems::reset_celestial_visibility_system,
             );
     }
 }

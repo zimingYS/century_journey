@@ -62,7 +62,7 @@ fn set_block(state: &mut WorldState, position: IVec3, id: u16) {
 fn rebuild(world: &WorldState, info: &GameLightInfo) -> HashMap<IVec3, ChunkLight> {
     let mut lights = HashMap::new();
     let snapshot = LightingWorldSnapshot::from_world(world);
-    rebuild_loaded_lighting(&snapshot, info, &mut lights);
+    rebuild_loaded_lighting(&snapshot, info, &mut lights, true);
     lights
 }
 
@@ -100,6 +100,24 @@ fn block_light_falls_off_and_respects_range() {
     assert_eq!(light_at(&lights, source_pos).block.r, 15);
     assert_eq!(light_at(&lights, source_pos + IVec3::X * 2).block.r, 5);
     assert_eq!(light_at(&lights, source_pos + IVec3::X * 3).block.r, 0);
+}
+
+#[test]
+fn warm_light_edge_does_not_gain_green_or_blue_channels() {
+    let source = LightRgb::from_emission(15, [1.0, 0.62, 0.28]);
+    let edge = block_level_at_distance(source, source, 14, 14);
+
+    assert_eq!(edge.r, 1);
+    assert_eq!(edge.g, 0);
+    assert_eq!(edge.b, 0);
+}
+
+#[test]
+fn distance_limit_preserves_a_filtered_light_hue() {
+    let filtered = LightRgb { r: 0, g: 12, b: 6 };
+    let limited = limit_light_peak(filtered, 4);
+
+    assert_eq!(limited, LightRgb { r: 0, g: 4, b: 2 });
 }
 
 #[test]
@@ -193,6 +211,25 @@ fn red_glass_filters_vertical_sky_light() {
     assert!(filtered.r > 0);
     assert_eq!(filtered.g, 0);
     assert_eq!(filtered.b, 0);
+}
+
+#[test]
+fn block_only_rebuild_preserves_sky_and_refreshes_block_light() {
+    let mut world = state_with_air_chunk();
+    let source_pos = IVec3::new(8, 8, 8);
+    set_block(&mut world, source_pos, 2);
+    let snapshot = LightingWorldSnapshot::from_world(&world);
+    let mut lights = HashMap::new();
+    rebuild_loaded_lighting(&snapshot, &test_info(), &mut lights, true);
+    let sky_before = light_at(&lights, source_pos + IVec3::Y).sky;
+    assert!(!light_at(&lights, source_pos + IVec3::X).block.is_dark());
+
+    set_block(&mut world, source_pos, 0);
+    let snapshot = LightingWorldSnapshot::from_world(&world);
+    rebuild_loaded_lighting(&snapshot, &test_info(), &mut lights, false);
+
+    assert_eq!(light_at(&lights, source_pos + IVec3::Y).sky, sky_before);
+    assert!(light_at(&lights, source_pos + IVec3::X).block.is_dark());
 }
 
 #[test]

@@ -4,6 +4,7 @@ use super::{
     BlockInfoSnapshot, CachedBlockInfo, DIRECTIONS, MeshBuildChannel, MeshBuildInput,
     build_greedy_mesh,
 };
+use crate::client::renderer::lighting::material::VoxelMaterial;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 
 use crate::content::block::event::BlockChangedEvent;
@@ -266,22 +267,32 @@ fn spawn_mesh_for_position(
     if components.position != position {
         return MeshSpawnAttempt::Drop;
     }
-    if *state != ChunkState::StructureReady {
+    if *state != ChunkState::LightingReady {
         return MeshSpawnAttempt::Retry;
     }
     let Some(current_chunk_data) = world.chunk(position) else {
         return MeshSpawnAttempt::Retry;
     };
+    let Some(lighting) = lighting else {
+        return MeshSpawnAttempt::Retry;
+    };
+    if !lighting.is_chunk_light_current(position, current_chunk_data) {
+        *state = ChunkState::LightingPending;
+        return MeshSpawnAttempt::Retry;
+    }
     if !voxel_neighbors_ready(world, position) {
+        return MeshSpawnAttempt::Retry;
+    }
+    if !visible_neighbor_lights_ready(lighting, world, streaming, player_chunk, position) {
         return MeshSpawnAttempt::Retry;
     }
 
     let current_data = Arc::clone(current_chunk_data);
     let neighbors: [Option<Arc<ChunkData>>; 6] =
         DIRECTIONS.map(|(direction, _)| world.chunk(position + direction).map(Arc::clone));
-    let light = current_light_snapshot(lighting, position);
-    let neighbor_lights =
-        DIRECTIONS.map(|(direction, _)| current_light_snapshot(lighting, position + direction));
+    let light = current_light_snapshot(Some(lighting), position);
+    let neighbor_lights = DIRECTIONS
+        .map(|(direction, _)| current_light_snapshot(Some(lighting), position + direction));
     let request_id = requests.begin(position, chunk_entity);
     let sender = channel.sender.clone();
     let in_flight = Arc::clone(&channel.in_flight);
@@ -312,6 +323,25 @@ fn voxel_neighbors_ready(world: &WorldState, chunk_pos: IVec3) -> bool {
     DIRECTIONS
         .iter()
         .all(|(direction, _)| world.contains_chunk(chunk_pos + *direction))
+}
+
+/// 可见窗口内部的邻居光照必须先与权威体素快照同步，外圈数据邻居仅用于封边。
+fn visible_neighbor_lights_ready(
+    lighting: &WorldLighting,
+    world: &WorldState,
+    streaming: &WorldStreamingConfig,
+    player_chunk: IVec3,
+    position: IVec3,
+) -> bool {
+    DIRECTIONS.iter().all(|(direction, _)| {
+        let neighbor = position + *direction;
+        if !streaming.should_mesh_chunk(player_chunk, neighbor) {
+            return true;
+        }
+        world
+            .chunk(neighbor)
+            .is_some_and(|data| lighting.is_chunk_light_current(neighbor, data))
+    })
 }
 
 fn current_light_snapshot(
@@ -379,8 +409,8 @@ pub fn receive_mesh_results(
     let Some(render_assets) = render_assets else {
         return;
     };
-    let opaque_mat = render_assets.opaque_material().clone();
-    let cutout_mat = render_assets.cutout_material().clone();
+    let opaque_mat = render_assets.voxel_opaque_material().clone();
+    let cutout_mat = render_assets.voxel_cutout_material().clone();
     let water_base_mat = render_assets.water_base_material().clone();
     let water_effect_mat = render_assets.water_effect_material().clone();
 
@@ -421,7 +451,8 @@ pub fn receive_mesh_results(
             .queue_silenced(|mut entity: EntityWorldMut| {
                 entity
                     .remove::<Mesh3d>()
-                    .remove::<MeshMaterial3d<StandardMaterial>>();
+                    .remove::<MeshMaterial3d<StandardMaterial>>()
+                    .remove::<MeshMaterial3d<VoxelMaterial>>();
             });
         commands
             .entity(chunk_entity)

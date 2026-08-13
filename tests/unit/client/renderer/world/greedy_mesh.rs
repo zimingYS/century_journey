@@ -1,4 +1,52 @@
 use super::*;
+use bevy::mesh::VertexAttributeValues;
+
+#[test]
+fn world_mesh_uploads_block_light_in_second_uv_channel() {
+    let encoded = block_light_to_uv(LightRgb { r: 15, g: 9, b: 4 });
+    let mut buffer = MeshBufferData::new();
+    buffer.append_face(
+        &[
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ],
+        Vec3::Z,
+        &[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
+        [1.0; 4],
+        encoded,
+    );
+
+    let mesh = buffer.build_mesh();
+    let Some(VertexAttributeValues::Float32x2(values)) = mesh.attribute(Mesh::ATTRIBUTE_UV_1)
+    else {
+        panic!("世界区块网格必须上传第二组 UV 方块光数据");
+    };
+    assert_eq!(values.as_slice(), &[encoded; 4]);
+}
+
+#[test]
+fn face_key_round_trips_combined_and_block_light() {
+    let combined = LightRgb { r: 15, g: 9, b: 4 };
+    let block = LightRgb { r: 12, g: 7, b: 2 };
+    let key = encode_face_key(1234, 1, combined, block);
+
+    assert_eq!(decode_face_key(key), (1234, 1, combined, block));
+}
+
+#[test]
+fn face_key_distinguishes_sky_light_from_equal_block_light() {
+    let combined = LightRgb {
+        r: 10,
+        g: 10,
+        b: 10,
+    };
+    let sky_only = encode_face_key(3, 0, combined, LightRgb::default());
+    let block_only = encode_face_key(3, 0, combined, combined);
+
+    assert_ne!(sky_only, block_only);
+}
 
 #[test]
 fn water_top_is_lower_than_adjacent_solid_blocks() {

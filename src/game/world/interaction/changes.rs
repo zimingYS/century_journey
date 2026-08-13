@@ -88,7 +88,7 @@ fn mark_changed_chunks_dirty(
 
     for (_, components, mut state) in chunk_query.iter_mut() {
         if dirty_chunks.contains(&components.position) {
-            *state = ChunkState::StructureReady;
+            *state = ChunkState::LightingPending;
         }
     }
 }
