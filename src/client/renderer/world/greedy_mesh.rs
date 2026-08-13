@@ -1,5 +1,6 @@
 //! 使用贪心合并生成区块表面，并单独处理透明和交叉平面方块。
 
+use crate::client::renderer::constants::WATER_SURFACE_INSET;
 use crate::client::renderer::lighting::bake::{
     block_light_to_uv, light_rgb_to_color, light_to_color, sample_light_at,
 };
@@ -13,9 +14,6 @@ use std::sync::Arc;
 
 /// 面掩码中表示当前位置没有可生成表面的哨兵值。
 const FACE_NONE: u64 = u64::MAX;
-/// 水面相对完整方块顶面的下沉距离。
-const WATER_SURFACE_INSET: f32 = 0.12;
-
 use super::{BlockInfoSnapshot, DIRECTIONS, MeshBufferData, MeshBuildInput};
 
 /// 构建贪心网格

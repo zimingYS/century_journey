@@ -12,6 +12,7 @@ use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::game::simulation::SimulationRng;
 use crate::game::world::generation::block_ids::{CachedBlockIds, GenerationBlockIds};
 use crate::game::world::generation::generator::WorldGenerator;
+use crate::game::world::generation::pipeline::{GenerationPipeline, TerrainSurfaceSampler};
 use crate::game::world::streaming::manage_chunks_system;
 use crate::shared::states::AppState;
 use bevy::prelude::*;
@@ -25,6 +26,11 @@ pub(in crate::game::world) struct WorldGenerationPlugin;
 impl Plugin for WorldGenerationPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(WorldGenerator::new(12345, BiomeRegistry::default()))
+            .init_resource::<CachedBlockIds>()
+            .insert_resource(TerrainSurfaceSampler::pending(
+                GenerationPipeline::new(12345, BiomeRegistry::default()),
+                GenerationBlockIds::default(),
+            ))
             .init_resource::<TerrainGenChannel>()
             .init_resource::<StructureGenChannel>()
             .add_systems(
@@ -46,6 +52,7 @@ impl Plugin for WorldGenerationPlugin {
                     sync_world_biomes_system,
                     cache_block_ids_system,
                     sync_world_ores_system,
+                    sync_terrain_surface_sampler_system,
                 )
                     .chain()
                     .after(crate::content::tag::plugin::init_tag_registry_system)
@@ -77,7 +84,7 @@ fn sync_world_biomes_system(
 fn cache_block_ids_system(
     registry: Res<BlockRegistry>,
     tag_registry: Option<Res<RuntimeTagRegistry>>,
-    mut commands: Commands,
+    mut cached: ResMut<CachedBlockIds>,
 ) {
     let block_ids = if let Some(tag_registry) = tag_registry {
         GenerationBlockIds::from_registry(&registry, &tag_registry)
@@ -86,7 +93,7 @@ fn cache_block_ids_system(
         GenerationBlockIds::from_registry(&registry, &RuntimeTagRegistry::default())
     };
 
-    commands.insert_resource(CachedBlockIds(block_ids));
+    cached.0 = block_ids;
 }
 
 fn sync_world_ores_system(
@@ -95,4 +102,18 @@ fn sync_world_ores_system(
 ) {
     let veins = registry.iter().cloned().collect::<Vec<_>>();
     world_generator.pipeline.replace_ore_veins(veins);
+}
+
+/// 在世界生成器和方块 ID 快照都刷新后重建 Client 可调用的只读采样服务。
+///
+/// 服务是确定性表现数据的唯一跨层出口；Client 不需要也不允许读取生成管线内部字段。
+fn sync_terrain_surface_sampler_system(
+    world_generator: Res<WorldGenerator>,
+    cached_block_ids: Res<CachedBlockIds>,
+    mut sampler: ResMut<TerrainSurfaceSampler>,
+) {
+    *sampler = TerrainSurfaceSampler::from_generation_state(
+        world_generator.pipeline.clone(),
+        cached_block_ids.0.clone(),
+    );
 }

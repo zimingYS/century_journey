@@ -8,7 +8,7 @@ use bevy::prelude::Resource;
 use std::collections::HashSet;
 
 /// 生成地形主要使用的方块缓存
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct GenerationBlockIds {
     pub air: u16,
     pub grass: u16,
@@ -113,5 +113,5 @@ impl GenerationBlockIds {
 }
 
 /// 缓存方块ID资源，避免每帧重建
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Default)]
 pub struct CachedBlockIds(pub GenerationBlockIds);
