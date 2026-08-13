@@ -10,8 +10,6 @@ use crate::game::world::state::WorldState;
 pub(super) const LOCAL_LIGHTING_STARVATION_TICKS: u16 = 40;
 /// 玩家编辑最后一次入队后等待的固定步数；短窗口用于合并连续挖掘，不能参与普通流送等待。
 pub(super) const LOCAL_LIGHTING_EDIT_MERGE_TICKS: u8 = 2;
-/// 连续编辑最多合并这么多固定步，防止持续挖掘不断重置短窗口而永不派发。
-const LOCAL_LIGHTING_EDIT_MAX_WAIT_TICKS: u16 = 4;
 
 /// 一次取出的水平列及其最长等待时间。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -110,15 +108,12 @@ impl LocalLightingQueue {
 
     /// 推进编辑合并窗口；返回 `true` 表示本固定步仍应等待更多编辑。
     pub(super) fn wait_for_edit_merge(&mut self) -> bool {
-        if self.edit_merge_ticks == 0 {
+        // 交互目标必须在本固定步争取任务槽；普通流送仍可利用短窗口合并重复目标。
+        if self.has_priority_target() {
+            self.edit_merge_ticks = 0;
             return false;
         }
-        if self.priority_targets.iter().any(|position| {
-            self.waited_ticks
-                .get(position)
-                .is_some_and(|waited| *waited >= LOCAL_LIGHTING_EDIT_MAX_WAIT_TICKS)
-        }) {
-            self.edit_merge_ticks = 0;
+        if self.edit_merge_ticks == 0 {
             return false;
         }
         self.edit_merge_ticks -= 1;

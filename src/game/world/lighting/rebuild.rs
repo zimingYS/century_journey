@@ -231,6 +231,36 @@ pub fn rebuild_loaded_lighting(
     lights: &mut HashMap<IVec3, ChunkLight>,
     sky_dirty_columns: &HashSet<(i32, i32)>,
 ) -> Vec<BlockLightSource> {
+    rebuild_loaded_lighting_impl(world, info, lights, sky_dirty_columns, None)
+}
+
+/// 使用已由权威世界增量维护的光源候选重建局部光场，避免交互任务扫描全部体素。
+///
+/// 候选仍会依据任务快照中的当前方块重新解析，过期、越界或已移除的条目不会传播；
+/// 调用方只有在快照内每个区块都建立过光源索引时才能使用此入口。
+pub(super) fn rebuild_loaded_lighting_from_source_index(
+    world: &LightingWorldSnapshot,
+    info: &GameLightInfo,
+    lights: &mut HashMap<IVec3, ChunkLight>,
+    sky_dirty_columns: &HashSet<(i32, i32)>,
+    indexed_sources: &[BlockLightSource],
+) -> Vec<BlockLightSource> {
+    rebuild_loaded_lighting_impl(
+        world,
+        info,
+        lights,
+        sky_dirty_columns,
+        Some(indexed_sources),
+    )
+}
+
+fn rebuild_loaded_lighting_impl(
+    world: &LightingWorldSnapshot,
+    info: &GameLightInfo,
+    lights: &mut HashMap<IVec3, ChunkLight>,
+    sky_dirty_columns: &HashSet<(i32, i32)>,
+    indexed_sources: Option<&[BlockLightSource]>,
+) -> Vec<BlockLightSource> {
     let mut chunk_positions = world
         .chunks()
         .map(|(position, _)| position)
@@ -252,7 +282,10 @@ pub fn rebuild_loaded_lighting(
         spread_sky_light(world, info, lights, &chunk_positions, sky_dirty_columns);
     }
 
-    let sources = collect_sources(world, info, &chunk_positions);
+    let sources = indexed_sources.map_or_else(
+        || collect_sources(world, info, &chunk_positions),
+        |sources| collect_indexed_sources(world, info, sources),
+    );
     for source in &sources {
         propagate_block_source(world, info, lights, *source);
     }
@@ -260,6 +293,29 @@ pub fn rebuild_loaded_lighting(
     for light in lights.values_mut() {
         light.mark_initialized();
     }
+    sources
+}
+
+/// 根据任务快照校验持久索引，并用当前内容定义刷新光源参数。
+fn collect_indexed_sources(
+    world: &LightingWorldSnapshot,
+    info: &GameLightInfo,
+    indexed_sources: &[BlockLightSource],
+) -> Vec<BlockLightSource> {
+    let mut sources = indexed_sources
+        .iter()
+        .filter_map(|source| {
+            info.prop(voxel_at(world, source.world_pos))
+                .light
+                .filter(|light| light.emission > 0)
+                .map(|light| BlockLightSource {
+                    world_pos: source.world_pos,
+                    light,
+                })
+        })
+        .collect::<Vec<_>>();
+    sources.sort_by_key(|source| (source.world_pos.x, source.world_pos.y, source.world_pos.z));
+    sources.dedup_by_key(|source| source.world_pos);
     sources
 }
 

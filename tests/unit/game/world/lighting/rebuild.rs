@@ -243,6 +243,42 @@ fn block_only_rebuild_preserves_sky_and_refreshes_block_light() {
 }
 
 #[test]
+fn indexed_sources_match_scanned_sources_for_local_rebuild() {
+    let mut world = state_with_air_chunk();
+    let red_position = IVec3::new(4, 8, 8);
+    let green_position = IVec3::new(12, 8, 8);
+    set_block(&mut world, red_position, 4);
+    set_block(&mut world, green_position, 5);
+    let info = test_info();
+    let snapshot = LightingWorldSnapshot::from_world(&world);
+    let dirty = all_sky_dirty_columns(&snapshot);
+    let mut scanned_lights = HashMap::new();
+    let scanned_sources = rebuild_loaded_lighting(&snapshot, &info, &mut scanned_lights, &dirty);
+
+    let mut indexed_lights = HashMap::new();
+    let indexed_sources = rebuild_loaded_lighting_from_source_index(
+        &snapshot,
+        &info,
+        &mut indexed_lights,
+        &dirty,
+        &scanned_sources,
+    );
+
+    assert_eq!(indexed_sources, scanned_sources);
+    for y in 0..CHUNK_SIZE {
+        for z in 0..CHUNK_SIZE {
+            for x in 0..CHUNK_SIZE {
+                let position = IVec3::new(x as i32, y as i32, z as i32);
+                assert_eq!(
+                    light_at(&indexed_lights, position),
+                    light_at(&scanned_lights, position),
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn clean_column_keeps_previous_sky_when_neighbor_column_is_dirty() {
     let mut world = state_with_air_chunk();
     world.insert_chunk(IVec3::X, Arc::new(ChunkData::new()));

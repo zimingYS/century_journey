@@ -11,6 +11,7 @@ use super::chunk_light::ChunkLight;
 use super::local_queue::LocalLightingQueue;
 use super::rebuild::{
     BlockLightSource, GameLightInfo, LightingWorldSnapshot, rebuild_loaded_lighting,
+    rebuild_loaded_lighting_from_source_index,
 };
 use super::{CachedLightInfo, LightingRebuildTracker, WorldLighting, light_dependent_mesh_chunks};
 use crate::content::block::definition::BlockLightDef;
@@ -151,10 +152,12 @@ pub(super) fn schedule_local_lighting_rebuild(
     task: Res<TaskManager>,
 ) {
     let mut edit_sky_dirty_columns = HashSet::<(i32, i32)>::new();
+    let mut edited_chunks = HashSet::<IVec3>::new();
     let dependency_halo = cached.info.block_light_chunk_halo();
     let mut received_edit = false;
     for change in changed_blocks.read() {
         let sky_dirty = edit_affects_sky(&cached.info, &lighting, &world, change);
+        edited_chunks.insert(world_to_chunk(change.world_pos));
 
         if sky_dirty {
             let (cx, _cy, cz) = (
@@ -186,10 +189,10 @@ pub(super) fn schedule_local_lighting_rebuild(
     if queue.wait_for_edit_merge() {
         return;
     }
-    if channel.in_flight.load(Ordering::Relaxed) >= LOCAL_LIGHTING_MAX_IN_FLIGHT {
+    let interaction = queue.has_priority_target();
+    if !local_lighting_slot_available(channel.in_flight.load(Ordering::Relaxed), interaction) {
         return;
     }
-    let interaction = queue.has_priority_target();
     let starvation_dispatch = queue.has_starved_target();
     if !interaction
         && !starvation_dispatch
@@ -284,6 +287,29 @@ pub(super) fn schedule_local_lighting_rebuild(
     sky_dirty_columns.extend(edit_sky_dirty_columns);
     sky_dirty_columns.extend(selected_sky_dirty_columns);
     sky_dirty |= !sky_dirty_columns.is_empty();
+    // 已有初始化光场意味着该区块的持久光源索引已随上次提交建立；当前编辑又在本系统
+    // 之前由 sync_changed_block_sources 同步，因此交互任务无需重新扫描全部体素找光源。
+    let source_index_complete = any_interaction
+        && snapshot.chunks().all(|(position, data)| {
+            let initialized = lighting
+                .chunk_lights
+                .get(&position)
+                .is_some_and(|light| light.is_initialized());
+            initialized
+                && (edited_chunks.contains(&position)
+                    || lighting.is_chunk_light_current(position, data))
+        });
+    let indexed_sources = source_index_complete.then(|| {
+        lighting
+            .sources
+            .iter()
+            .copied()
+            .filter(|source| {
+                let chunk = world_to_chunk(source.world_pos);
+                columns.contains(&(chunk.x, chunk.z))
+            })
+            .collect::<Vec<_>>()
+    });
     let sender = channel.sender.clone();
     let in_flight = Arc::clone(&channel.in_flight);
     let info = cached.info.clone();
@@ -313,7 +339,17 @@ pub(super) fn schedule_local_lighting_rebuild(
             .into_iter()
             .map(|(position, light)| (position, (*light).clone()))
             .collect::<HashMap<_, _>>();
-        let sources = rebuild_loaded_lighting(&snapshot, &info, &mut lights, &sky_dirty_columns);
+        let sources = if let Some(indexed_sources) = indexed_sources {
+            rebuild_loaded_lighting_from_source_index(
+                &snapshot,
+                &info,
+                &mut lights,
+                &sky_dirty_columns,
+                &indexed_sources,
+            )
+        } else {
+            rebuild_loaded_lighting(&snapshot, &info, &mut lights, &sky_dirty_columns)
+        };
         let sent = sender.send(LocalLightingBuildResult {
             session_id,
             content_revision,
@@ -649,6 +685,12 @@ fn local_column_batch_size(interaction: bool, dependency_halo: i32) -> usize {
     diameter
         .saturating_mul(diameter)
         .clamp(1, LOCAL_INTERACTION_COLUMN_BATCH_LIMIT)
+}
+
+/// 普通局部任务受固定并发上限约束；交互可临时多占一个槽，但不能无界超发。
+fn local_lighting_slot_available(in_flight: usize, interaction: bool) -> bool {
+    let limit = LOCAL_LIGHTING_MAX_IN_FLIGHT + usize::from(interaction);
+    in_flight < limit
 }
 
 fn neighborhood_generation_ready(

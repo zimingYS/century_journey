@@ -32,10 +32,29 @@ fn dependency_columns_expand_for_long_range_content() {
 
 #[test]
 fn interaction_batches_the_complete_common_light_halo() {
-    assert_eq!(local_column_batch_size(false, 2), LOCAL_TARGET_COLUMN_BATCH_SIZE);
+    assert_eq!(
+        local_column_batch_size(false, 2),
+        LOCAL_TARGET_COLUMN_BATCH_SIZE
+    );
     assert_eq!(local_column_batch_size(true, 1), 9);
     assert_eq!(local_column_batch_size(true, 2), 25);
     assert_eq!(local_column_batch_size(true, 4), 25);
+}
+
+#[test]
+fn interaction_can_use_one_extra_local_lighting_slot() {
+    assert!(local_lighting_slot_available(
+        LOCAL_LIGHTING_MAX_IN_FLIGHT,
+        true,
+    ));
+    assert!(!local_lighting_slot_available(
+        LOCAL_LIGHTING_MAX_IN_FLIGHT,
+        false,
+    ));
+    assert!(!local_lighting_slot_available(
+        LOCAL_LIGHTING_MAX_IN_FLIGHT + 1,
+        true,
+    ));
 }
 
 #[test]

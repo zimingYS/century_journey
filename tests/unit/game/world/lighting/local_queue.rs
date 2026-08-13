@@ -84,6 +84,15 @@ fn edit_merge_window_waits_two_fixed_ticks_after_last_change() {
 }
 
 #[test]
+fn interaction_target_bypasses_the_edit_merge_window() {
+    let mut queue = LocalLightingQueue::default();
+    queue.prioritize_edit(IVec3::ZERO, false);
+    queue.restart_edit_merge_window();
+
+    assert!(!queue.wait_for_edit_merge());
+}
+
+#[test]
 fn column_preserves_sky_dirty_from_any_edit_target() {
     let mut queue = LocalLightingQueue::default();
     queue.prioritize_edit(IVec3::new(2, 0, 3), false);
@@ -93,16 +102,15 @@ fn column_preserves_sky_dirty_from_any_edit_target() {
 }
 
 #[test]
-fn continuous_edits_cannot_starve_dispatch_forever() {
+fn continuous_edits_remain_immediately_dispatchable() {
     let mut queue = LocalLightingQueue::default();
-    queue.prioritize_edit(IVec3::ZERO, false);
 
-    for _ in 0..LOCAL_LIGHTING_EDIT_MAX_WAIT_TICKS {
+    for _ in 0..8 {
+        queue.prioritize_edit(IVec3::ZERO, false);
         queue.restart_edit_merge_window();
         queue.age();
+        assert!(!queue.wait_for_edit_merge());
     }
-
-    assert!(!queue.wait_for_edit_merge());
 }
 
 #[test]
