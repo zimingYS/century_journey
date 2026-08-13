@@ -31,8 +31,10 @@ const LOCAL_INTERACTION_COLUMN_BATCH_LIMIT: usize = 25;
 const LOCAL_DISCOVERY_QUEUE_LIMIT: usize = 512;
 /// 普通光照任务允许进入的任务池积压倍数；通道有限并发保证不会无界增长。
 const LOCAL_TASK_BACKLOG_FACTOR: usize = 2;
-/// 局部光照任务允许的最大并发数；列集由 pop_columns 从队列移除，天然不相交。
-const LOCAL_LIGHTING_MAX_IN_FLIGHT: usize = 2;
+/// 局部光照任务允许的最小基础并发数；列集由 pop_columns 从队列移除，天然不相交。
+const LOCAL_LIGHTING_MIN_IN_FLIGHT: usize = 2;
+/// 局部光照任务允许的最大基础并发数；上限保证与网格、全局重建共享线程池时不过度超发。
+const LOCAL_LIGHTING_MAX_IN_FLIGHT: usize = 3;
 
 struct LocalLightingBuildResult {
     session_id: u64,
@@ -152,12 +154,10 @@ pub(super) fn schedule_local_lighting_rebuild(
     task: Res<TaskManager>,
 ) {
     let mut edit_sky_dirty_columns = HashSet::<(i32, i32)>::new();
-    let mut edited_chunks = HashSet::<IVec3>::new();
     let dependency_halo = cached.info.block_light_chunk_halo();
     let mut received_edit = false;
     for change in changed_blocks.read() {
         let sky_dirty = edit_affects_sky(&cached.info, &lighting, &world, change);
-        edited_chunks.insert(world_to_chunk(change.world_pos));
 
         if sky_dirty {
             let (cx, _cy, cz) = (
@@ -190,7 +190,11 @@ pub(super) fn schedule_local_lighting_rebuild(
         return;
     }
     let interaction = queue.has_priority_target();
-    if !local_lighting_slot_available(channel.in_flight.load(Ordering::Relaxed), interaction) {
+    if !local_lighting_slot_available(
+        channel.in_flight.load(Ordering::Relaxed),
+        interaction,
+        task.worker_count(),
+    ) {
         return;
     }
     let starvation_dispatch = queue.has_starved_target();
@@ -287,19 +291,25 @@ pub(super) fn schedule_local_lighting_rebuild(
     sky_dirty_columns.extend(edit_sky_dirty_columns);
     sky_dirty_columns.extend(selected_sky_dirty_columns);
     sky_dirty |= !sky_dirty_columns.is_empty();
-    // 已有初始化光场意味着该区块的持久光源索引已随上次提交建立；当前编辑又在本系统
-    // 之前由 sync_changed_block_sources 同步，因此交互任务无需重新扫描全部体素找光源。
-    let source_index_complete = any_interaction
-        && snapshot.chunks().all(|(position, data)| {
-            let initialized = lighting
+    // 已就绪区块的发光方块索引由权威世界增量维护（sync_changed_block_sources 与提交
+    // 路径共同更新），流送与交互任务都可复用，避免每批任务重复遍历已就绪邻域体素；
+    // 只有尚未建立索引的新加载区块需要全量扫描。索引项会在任务内按快照重新校验。
+    let previously_lit = snapshot
+        .chunks()
+        .filter(|(position, _)| {
+            lighting
                 .chunk_lights
-                .get(&position)
-                .is_some_and(|light| light.is_initialized());
-            initialized
-                && (edited_chunks.contains(&position)
-                    || lighting.is_chunk_light_current(position, data))
-        });
-    let indexed_sources = source_index_complete.then(|| {
+                .get(position)
+                .is_some_and(|light| light.is_initialized())
+        })
+        .map(|(position, _)| position)
+        .collect::<HashSet<_>>();
+    let scan_positions = snapshot
+        .chunks()
+        .filter(|(position, _)| !previously_lit.contains(position))
+        .map(|(position, _)| position)
+        .collect::<Vec<_>>();
+    let indexed_sources = (!previously_lit.is_empty()).then(|| {
         lighting
             .sources
             .iter()
@@ -346,6 +356,7 @@ pub(super) fn schedule_local_lighting_rebuild(
                 &mut lights,
                 &sky_dirty_columns,
                 &indexed_sources,
+                &scan_positions,
             )
         } else {
             rebuild_loaded_lighting(&snapshot, &info, &mut lights, &sky_dirty_columns)
@@ -688,8 +699,15 @@ fn local_column_batch_size(interaction: bool, dependency_halo: i32) -> usize {
 }
 
 /// 普通局部任务受固定并发上限约束；交互可临时多占一个槽，但不能无界超发。
-fn local_lighting_slot_available(in_flight: usize, interaction: bool) -> bool {
-    let limit = LOCAL_LIGHTING_MAX_IN_FLIGHT + usize::from(interaction);
+///
+/// 基础并发随工作线程数在 [`LOCAL_LIGHTING_MIN_IN_FLIGHT`] 与
+/// [`LOCAL_LIGHTING_MAX_IN_FLIGHT`] 之间伸缩：区块流送阶段网格任务仍被光照闸门阻塞，
+/// 线程空闲时可并行处理更多不相交列集，从而缩短区块进入 `LightingReady` 的时间。
+fn local_lighting_slot_available(in_flight: usize, interaction: bool, worker_count: usize) -> bool {
+    let base_limit = worker_count
+        .saturating_sub(2)
+        .clamp(LOCAL_LIGHTING_MIN_IN_FLIGHT, LOCAL_LIGHTING_MAX_IN_FLIGHT);
+    let limit = base_limit + usize::from(interaction);
     in_flight < limit
 }
 
