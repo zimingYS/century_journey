@@ -42,18 +42,38 @@ fn interaction_batches_the_complete_common_light_halo() {
 }
 
 #[test]
-fn interaction_can_use_one_extra_local_lighting_slot() {
+fn interaction_and_worker_count_shape_local_lighting_concurrency() {
+    // 线程充足时基础并发取上限，交互可再多占一个槽。
     assert!(local_lighting_slot_available(
         LOCAL_LIGHTING_MAX_IN_FLIGHT,
         true,
+        8
     ));
     assert!(!local_lighting_slot_available(
         LOCAL_LIGHTING_MAX_IN_FLIGHT,
         false,
+        8
     ));
     assert!(!local_lighting_slot_available(
         LOCAL_LIGHTING_MAX_IN_FLIGHT + 1,
         true,
+        8
+    ));
+    // 线程不足时基础并发退回下限。
+    assert!(local_lighting_slot_available(
+        LOCAL_LIGHTING_MIN_IN_FLIGHT,
+        true,
+        2
+    ));
+    assert!(!local_lighting_slot_available(
+        LOCAL_LIGHTING_MIN_IN_FLIGHT,
+        false,
+        2
+    ));
+    assert!(!local_lighting_slot_available(
+        LOCAL_LIGHTING_MIN_IN_FLIGHT + 1,
+        true,
+        2
     ));
 }
 

@@ -262,6 +262,7 @@ fn indexed_sources_match_scanned_sources_for_local_rebuild() {
         &mut indexed_lights,
         &dirty,
         &scanned_sources,
+        &[],
     );
 
     assert_eq!(indexed_sources, scanned_sources);
@@ -273,6 +274,53 @@ fn indexed_sources_match_scanned_sources_for_local_rebuild() {
                     light_at(&indexed_lights, position),
                     light_at(&scanned_lights, position),
                 );
+            }
+        }
+    }
+}
+
+#[test]
+fn partial_index_matches_full_scan_for_mixed_old_and_new_chunks() {
+    let mut world = state_with_air_chunk();
+    world.insert_chunk(IVec3::X, Arc::new(ChunkData::new()));
+    set_block(&mut world, IVec3::new(4, 8, 8), 4);
+    set_block(&mut world, IVec3::new(20, 8, 8), 5);
+    let info = test_info();
+    let snapshot = LightingWorldSnapshot::from_world(&world);
+    let dirty = all_sky_dirty_columns(&snapshot);
+    let mut scanned_lights = HashMap::new();
+    let scanned_sources = rebuild_loaded_lighting(&snapshot, &info, &mut scanned_lights, &dirty);
+
+    // 只有 ZERO 区块已建立光源索引；X 区块是本批新加载、需要全量扫描。
+    let indexed_sources = scanned_sources
+        .iter()
+        .copied()
+        .filter(|source| split_world(source.world_pos).0 == IVec3::ZERO)
+        .collect::<Vec<_>>();
+    let scan_positions = [IVec3::X];
+
+    let mut partial_lights = HashMap::new();
+    let partial_sources = rebuild_loaded_lighting_from_source_index(
+        &snapshot,
+        &info,
+        &mut partial_lights,
+        &dirty,
+        &indexed_sources,
+        &scan_positions,
+    );
+
+    assert_eq!(partial_sources, scanned_sources);
+    for chunk in [IVec3::ZERO, IVec3::X] {
+        for y in 0..CHUNK_SIZE {
+            for z in 0..CHUNK_SIZE {
+                for x in 0..CHUNK_SIZE {
+                    let position =
+                        chunk * CHUNK_SIZE as i32 + IVec3::new(x as i32, y as i32, z as i32);
+                    assert_eq!(
+                        light_at(&partial_lights, position),
+                        light_at(&scanned_lights, position),
+                    );
+                }
             }
         }
     }

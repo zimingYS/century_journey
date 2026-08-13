@@ -3,10 +3,12 @@
 use super::constants::*;
 use crate::app::flow::GameSettings;
 use crate::client::presentation::TimeOfDay;
+use crate::client::renderer::distant::DistantTerrainConfig;
 use crate::client::sky::components::*;
 use crate::client::sky::texture;
 use crate::game::player::identity::LocalPlayer;
 use crate::game::world::lighting::WorldLighting;
+use crate::game::world::streaming::WorldStreamingConfig;
 use crate::shared::voxel::CHUNK_SIZE;
 use bevy::camera::{Exposure, visibility::RenderLayers};
 use bevy::ecs::system::SystemParam;
@@ -112,6 +114,8 @@ pub(crate) struct AtmosphereInputs<'w> {
     real_time: Res<'w, Time<Real>>,
     time_of_day: Res<'w, TimeOfDay>,
     settings: Res<'w, GameSettings>,
+    distant_terrain: Option<Res<'w, DistantTerrainConfig>>,
+    streaming: Option<Res<'w, WorldStreamingConfig>>,
     lighting: Option<Res<'w, WorldLighting>>,
 }
 
@@ -282,6 +286,8 @@ pub(crate) fn atmosphere_system(
         real_time,
         time_of_day,
         settings,
+        distant_terrain,
+        streaming,
         lighting,
     } = inputs;
     // 太阳当前弧度角 (0.0 到 2π)
@@ -361,9 +367,17 @@ pub(crate) fn atmosphere_system(
 
     let twilight = time_of_day.twilight_factor();
     let twilight_glow = (4.0 * twilight * (1.0 - twilight)).clamp(0.0, 1.0);
-    let view_distance = settings.render_distance.max(4) as f32 * CHUNK_SIZE as f32;
-    let fog_start = (view_distance * 0.48).clamp(52.0, 180.0);
-    let fog_end = (view_distance * 1.45).clamp(160.0, 560.0);
+    let near_radius_chunks = streaming
+        .as_deref()
+        .map(|streaming| streaming.mesh_horizontal_radius)
+        .unwrap_or(settings.render_distance as i32)
+        .max(1);
+    let near_view_distance = near_radius_chunks.max(4) as f32 * CHUNK_SIZE as f32;
+    let distant_fog_distance = distant_terrain
+        .as_deref()
+        .map(|config| config.fog_distance_blocks(near_radius_chunks))
+        .unwrap_or(near_view_distance * 1.45);
+    let (fog_start, fog_end) = distant_fog_range(near_view_distance, distant_fog_distance);
 
     for (mut exposure, volumetric_fog, distance_fog, environment_light) in &mut camera_query {
         // 封闭洞穴必须采用暗处曝光，否则白天的露天 EV 会把火把压到近乎不可见。
@@ -411,6 +425,15 @@ pub(crate) fn atmosphere_system(
             environment_light.intensity = 0.70 + 1.10 * day_mix;
         }
     }
+}
+
+/// 让雾效在近景区块外平缓接管，并在远景真实方块 LOD 的外缘前完成遮蔽。
+fn distant_fog_range(near_view_distance: f32, distant_view_distance: f32) -> (f32, f32) {
+    let near_view_distance = near_view_distance.max(CHUNK_SIZE as f32);
+    let distant_view_distance = distant_view_distance.max(near_view_distance + 64.0);
+    let fog_start = (near_view_distance * 1.15).max(52.0);
+    let fog_end = (distant_view_distance * 0.94).max(fog_start + 64.0);
+    (fog_start, fog_end)
 }
 
 fn celestial_visibility_at(lighting: Option<&WorldLighting>, position: Vec3) -> Option<f32> {

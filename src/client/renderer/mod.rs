@@ -6,6 +6,7 @@ use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
 use crate::shared::states::app_state::AppState;
 
 pub(crate) mod constants;
+pub(crate) mod distant;
 pub mod item;
 pub mod lighting;
 pub mod tex_atlas;
@@ -23,6 +24,9 @@ impl Plugin for ClientRenderingPlugin {
             .init_resource::<item::gui_icon_cache::GuiItemIconCache>()
             .init_resource::<world::MeshBuildChannel>()
             .init_resource::<world::CachedBlockInfo>()
+            .init_resource::<distant::DistantTerrainConfig>()
+            .init_resource::<distant::DistantTerrainRuntime>()
+            .init_resource::<distant::DistantTerrainBuildChannel>()
             .add_systems(
                 OnEnter(AppState::InGame),
                 tex_atlas::init_block_render_assets_system
@@ -55,6 +59,30 @@ impl Plugin for ClientRenderingPlugin {
                     .chain()
                     .run_if(in_state(AppState::InGame)),
             )
-            .add_systems(OnExit(AppState::InGame), world::clear_mesh_lifecycle);
+            .add_systems(
+                Update,
+                (
+                    distant::sync_distant_terrain_plan_system.after(world::spawn_mesh_build_tasks),
+                    distant::spawn_distant_terrain_tasks_system,
+                    distant::receive_distant_terrain_results_system,
+                    distant::sync_distant_terrain_camera_range_system,
+                )
+                    .chain()
+                    .run_if(in_state(AppState::InGame)),
+            )
+            .add_systems(
+                OnEnter(AppState::InGame),
+                distant::initialize_distant_terrain_system
+                    .after(tex_atlas::init_block_render_assets_system),
+            )
+            .add_systems(OnExit(AppState::InGame), world::clear_mesh_lifecycle)
+            .add_systems(
+                OnEnter(AppState::WorldLoading),
+                distant::clear_distant_terrain_system,
+            )
+            .add_systems(
+                OnEnter(AppState::MainMenu),
+                distant::clear_distant_terrain_system,
+            );
     }
 }

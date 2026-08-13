@@ -231,19 +231,21 @@ pub fn rebuild_loaded_lighting(
     lights: &mut HashMap<IVec3, ChunkLight>,
     sky_dirty_columns: &HashSet<(i32, i32)>,
 ) -> Vec<BlockLightSource> {
-    rebuild_loaded_lighting_impl(world, info, lights, sky_dirty_columns, None)
+    rebuild_loaded_lighting_impl(world, info, lights, sky_dirty_columns, None, None)
 }
 
-/// 使用已由权威世界增量维护的光源候选重建局部光场，避免交互任务扫描全部体素。
+/// 复用持久光源索引并为尚未建立索引的区块执行全量扫描的混合重建。
 ///
-/// 候选仍会依据任务快照中的当前方块重新解析，过期、越界或已移除的条目不会传播；
-/// 调用方只有在快照内每个区块都建立过光源索引时才能使用此入口。
+/// 已就绪区块的发光方块已由权威世界增量维护进 `indexed_sources`（方块事件与提交路径
+/// 共同更新），流送和交互任务都无需重复遍历这些区块；只有 `scan_positions` 列出的
+/// 新加载区块需要全量扫描。索引项仍会依据任务快照重新解析，过期条目不会传播。
 pub(super) fn rebuild_loaded_lighting_from_source_index(
     world: &LightingWorldSnapshot,
     info: &GameLightInfo,
     lights: &mut HashMap<IVec3, ChunkLight>,
     sky_dirty_columns: &HashSet<(i32, i32)>,
     indexed_sources: &[BlockLightSource],
+    scan_positions: &[IVec3],
 ) -> Vec<BlockLightSource> {
     rebuild_loaded_lighting_impl(
         world,
@@ -251,6 +253,7 @@ pub(super) fn rebuild_loaded_lighting_from_source_index(
         lights,
         sky_dirty_columns,
         Some(indexed_sources),
+        Some(scan_positions),
     )
 }
 
@@ -260,6 +263,7 @@ fn rebuild_loaded_lighting_impl(
     lights: &mut HashMap<IVec3, ChunkLight>,
     sky_dirty_columns: &HashSet<(i32, i32)>,
     indexed_sources: Option<&[BlockLightSource]>,
+    scan_positions: Option<&[IVec3]>,
 ) -> Vec<BlockLightSource> {
     let mut chunk_positions = world
         .chunks()
@@ -282,10 +286,18 @@ fn rebuild_loaded_lighting_impl(
         spread_sky_light(world, info, lights, &chunk_positions, sky_dirty_columns);
     }
 
-    let sources = indexed_sources.map_or_else(
-        || collect_sources(world, info, &chunk_positions),
-        |sources| collect_indexed_sources(world, info, sources),
-    );
+    let sources = match (indexed_sources, scan_positions) {
+        (None, _) => collect_sources(world, info, &chunk_positions),
+        (Some(indexed), None) => collect_indexed_sources(world, info, indexed),
+        (Some(indexed), Some(scan)) => {
+            let mut sources = collect_indexed_sources(world, info, indexed);
+            sources.extend(collect_sources(world, info, scan));
+            sources
+                .sort_by_key(|source| (source.world_pos.x, source.world_pos.y, source.world_pos.z));
+            sources.dedup_by_key(|source| source.world_pos);
+            sources
+        }
+    };
     for source in &sources {
         propagate_block_source(world, info, lights, *source);
     }

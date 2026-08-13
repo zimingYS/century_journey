@@ -144,3 +144,12 @@ fn shadow_map_gate_has_opening_and_closing_hysteresis() {
     assert!(!state.update_shadow_maps(0.2, true));
     assert!(!state.update_shadow_maps(1.0, false));
 }
+
+#[test]
+fn distant_fog_finishes_before_the_lod_boundary() {
+    let (start, end) = distant_fog_range(128.0, 640.0);
+
+    assert!(start > 128.0);
+    assert!(end > start);
+    assert!(end < 640.0);
+}
