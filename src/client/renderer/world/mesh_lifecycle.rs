@@ -191,6 +191,7 @@ pub fn spawn_mesh_build_tasks(
         match spawn_mesh_for_position(
             position,
             player_chunk_pos,
+            true,
             &channel,
             &world_state,
             &block_info,
@@ -223,6 +224,7 @@ pub fn spawn_mesh_build_tasks(
             spawn_mesh_for_position(
                 position,
                 player_chunk_pos,
+                false,
                 &channel,
                 &world_state,
                 &block_info,
@@ -245,6 +247,7 @@ pub fn spawn_mesh_build_tasks(
 fn spawn_mesh_for_position(
     position: IVec3,
     player_chunk: IVec3,
+    allow_pending_neighbor_light: bool,
     channel: &MeshBuildChannel,
     world: &WorldState,
     block_info: &BlockInfoSnapshot,
@@ -283,7 +286,14 @@ fn spawn_mesh_for_position(
     if !voxel_neighbors_ready(world, position) {
         return MeshSpawnAttempt::Retry;
     }
-    if !visible_neighbor_lights_ready(lighting, world, streaming, player_chunk, position) {
+    if !neighbor_lights_allow_mesh(
+        allow_pending_neighbor_light,
+        lighting,
+        world,
+        streaming,
+        player_chunk,
+        position,
+    ) {
         return MeshSpawnAttempt::Retry;
     }
 
@@ -342,6 +352,19 @@ fn visible_neighbor_lights_ready(
             .chunk(neighbor)
             .is_some_and(|data| lighting.is_chunk_light_current(neighbor, data))
     })
+}
+
+/// 编辑网格允许用中性临时光先渲染；后台流送仍等待可见邻居的权威光照。
+fn neighbor_lights_allow_mesh(
+    allow_pending_neighbor_light: bool,
+    lighting: &WorldLighting,
+    world: &WorldState,
+    streaming: &WorldStreamingConfig,
+    player_chunk: IVec3,
+    position: IVec3,
+) -> bool {
+    allow_pending_neighbor_light
+        || visible_neighbor_lights_ready(lighting, world, streaming, player_chunk, position)
 }
 
 fn current_light_snapshot(

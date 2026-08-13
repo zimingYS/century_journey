@@ -11,6 +11,7 @@ use super::chunk_light::ChunkLight;
 use super::local_queue::LocalLightingQueue;
 use super::rebuild::{
     BlockLightSource, GameLightInfo, LightingWorldSnapshot, rebuild_loaded_lighting,
+    rebuild_loaded_lighting_from_source_index,
 };
 use super::{CachedLightInfo, LightingRebuildTracker, WorldLighting, light_dependent_mesh_chunks};
 use crate::content::block::definition::BlockLightDef;
@@ -23,13 +24,15 @@ use crate::game::world::streaming::{PlayerChunkCache, WorldStreamingConfig};
 use crate::shared::voxel::CHUNK_SIZE;
 
 /// 普通流送任务一次最多处理的核心水平列数。
-const LOCAL_TARGET_COLUMN_BATCH_SIZE: usize = 8;
+const LOCAL_TARGET_COLUMN_BATCH_SIZE: usize = 24;
 /// 玩家交互一次最多合并的水平列数，覆盖常用一至两圈传播半径。
 const LOCAL_INTERACTION_COLUMN_BATCH_LIMIT: usize = 25;
 /// 可见区块发现阶段保留的最大候选数，避免每个固定步扫描完整窗口。
-const LOCAL_DISCOVERY_QUEUE_LIMIT: usize = 128;
-/// 普通光照任务允许进入的任务池积压倍数；通道单飞保证不会无界增长。
+const LOCAL_DISCOVERY_QUEUE_LIMIT: usize = 512;
+/// 普通光照任务允许进入的任务池积压倍数；通道有限并发保证不会无界增长。
 const LOCAL_TASK_BACKLOG_FACTOR: usize = 2;
+/// 局部光照任务允许的最大并发数；列集由 pop_columns 从队列移除，天然不相交。
+const LOCAL_LIGHTING_MAX_IN_FLIGHT: usize = 2;
 
 struct LocalLightingBuildResult {
     session_id: u64,
@@ -45,7 +48,7 @@ struct LocalLightingBuildResult {
     elapsed: Duration,
 }
 
-/// 局部光照任务通道；限制为单飞任务，连续编辑通过目标队列合并。
+/// 局部光照任务通道；限制为少量并发任务，连续编辑通过目标队列合并。
 #[derive(Resource)]
 pub(super) struct LocalLightingBuildChannel {
     sender: mpsc::Sender<LocalLightingBuildResult>,
@@ -148,10 +151,27 @@ pub(super) fn schedule_local_lighting_rebuild(
     chunk_states: Query<&ChunkState>,
     task: Res<TaskManager>,
 ) {
+    let mut edit_sky_dirty_columns = HashSet::<(i32, i32)>::new();
+    let mut edited_chunks = HashSet::<IVec3>::new();
     let dependency_halo = cached.info.block_light_chunk_halo();
     let mut received_edit = false;
     for change in changed_blocks.read() {
         let sky_dirty = edit_affects_sky(&cached.info, &lighting, &world, change);
+        edited_chunks.insert(world_to_chunk(change.world_pos));
+
+        if sky_dirty {
+            let (cx, _cy, cz) = (
+                change.world_pos.x.div_euclid(CHUNK_SIZE as i32),
+                0,
+                change.world_pos.z.div_euclid(CHUNK_SIZE as i32),
+            );
+            for x in cx - 1..=cx + 1 {
+                for z in cz - 1..=cz + 1 {
+                    edit_sky_dirty_columns.insert((x, z));
+                }
+            }
+        }
+
         enqueue_block_change_targets(
             &world,
             change.world_pos,
@@ -169,10 +189,10 @@ pub(super) fn schedule_local_lighting_rebuild(
     if queue.wait_for_edit_merge() {
         return;
     }
-    if channel.in_flight.load(Ordering::Relaxed) != 0 {
+    let interaction = queue.has_priority_target();
+    if !local_lighting_slot_available(channel.in_flight.load(Ordering::Relaxed), interaction) {
         return;
     }
-    let interaction = queue.has_priority_target();
     let starvation_dispatch = queue.has_starved_target();
     if !interaction
         && !starvation_dispatch
@@ -189,6 +209,9 @@ pub(super) fn schedule_local_lighting_rebuild(
     let mut sky_dirty = false;
     let mut any_interaction = false;
     let mut waited_ticks = 0;
+    // 队列中带天光重建标记的列（含 requeue 目标），必须并入本轮脏列集合，
+    // 否则已初始化列会因保留旧天光而残留邻域变化前的光。
+    let mut selected_sky_dirty_columns = HashSet::<(i32, i32)>::new();
     for selected in queue.pop_columns(column_limit) {
         let (chunk_x, chunk_z) = selected.column;
         let mut column_targets = world
@@ -202,6 +225,9 @@ pub(super) fn schedule_local_lighting_rebuild(
                 chunk_generation_ready(*position, &chunk_runtime, &chunk_states)
             });
             sky_dirty |= selected.sky_dirty;
+            if selected.sky_dirty {
+                selected_sky_dirty_columns.insert((chunk_x, chunk_z));
+            }
             any_interaction |= selected.priority;
             waited_ticks = waited_ticks.max(selected.waited_ticks);
             targets.extend(column_targets);
@@ -216,6 +242,9 @@ pub(super) fn schedule_local_lighting_rebuild(
             )
         }) {
             sky_dirty |= selected.sky_dirty;
+            if selected.sky_dirty {
+                selected_sky_dirty_columns.insert((chunk_x, chunk_z));
+            }
             any_interaction |= selected.priority;
             waited_ticks = waited_ticks.max(selected.waited_ticks);
             targets.extend(column_targets);
@@ -243,28 +272,62 @@ pub(super) fn schedule_local_lighting_rebuild(
             &world_generator.pipeline,
         )
     };
-    sky_dirty |= snapshot.chunks().any(|(position, _)| {
-        lighting
+    // 只有未初始化天空光或玩家编辑改变天空通路的列需要重灌天光；
+    // 已就绪列在任务内保留原有天空光，避免批内一个新区块拖垮整批。
+    let mut sky_dirty_columns = HashSet::new();
+    for (position, _) in snapshot.chunks() {
+        if lighting
             .chunk_lights
             .get(&position)
             .is_none_or(|light| !light.is_initialized())
+        {
+            sky_dirty_columns.insert((position.x, position.z));
+        }
+    }
+    sky_dirty_columns.extend(edit_sky_dirty_columns);
+    sky_dirty_columns.extend(selected_sky_dirty_columns);
+    sky_dirty |= !sky_dirty_columns.is_empty();
+    // 已有初始化光场意味着该区块的持久光源索引已随上次提交建立；当前编辑又在本系统
+    // 之前由 sync_changed_block_sources 同步，因此交互任务无需重新扫描全部体素找光源。
+    let source_index_complete = any_interaction
+        && snapshot.chunks().all(|(position, data)| {
+            let initialized = lighting
+                .chunk_lights
+                .get(&position)
+                .is_some_and(|light| light.is_initialized());
+            initialized
+                && (edited_chunks.contains(&position)
+                    || lighting.is_chunk_light_current(position, data))
+        });
+    let indexed_sources = source_index_complete.then(|| {
+        lighting
+            .sources
+            .iter()
+            .copied()
+            .filter(|source| {
+                let chunk = world_to_chunk(source.world_pos);
+                columns.contains(&(chunk.x, chunk.z))
+            })
+            .collect::<Vec<_>>()
     });
     let sender = channel.sender.clone();
     let in_flight = Arc::clone(&channel.in_flight);
     let info = cached.info.clone();
-    let previous_lights = if sky_dirty {
-        HashMap::new()
-    } else {
-        snapshot
-            .chunks()
-            .filter_map(|(position, _)| {
-                lighting
-                    .chunk_lights
-                    .get(&position)
-                    .map(|light| (position, Arc::clone(light)))
-            })
-            .collect::<HashMap<_, Arc<ChunkLight>>>()
-    };
+    // 始终保留已就绪列的天空光，只有脏列从空开始重灌；
+    // 未就绪列在任务内由 reset 兜底，previous 缺失不会丢失正确性。
+    let previous_lights = snapshot
+        .chunks()
+        .filter_map(|(position, _)| {
+            if sky_dirty_columns.contains(&(position.x, position.z)) {
+                return None;
+            }
+            lighting
+                .chunk_lights
+                .get(&position)
+                .filter(|light| light.is_initialized())
+                .map(|light| (position, Arc::clone(light)))
+        })
+        .collect::<HashMap<_, Arc<ChunkLight>>>();
     let content_revision = cached.revision;
     let session_id = tracker.session_id;
 
@@ -276,7 +339,17 @@ pub(super) fn schedule_local_lighting_rebuild(
             .into_iter()
             .map(|(position, light)| (position, (*light).clone()))
             .collect::<HashMap<_, _>>();
-        let sources = rebuild_loaded_lighting(&snapshot, &info, &mut lights, sky_dirty);
+        let sources = if let Some(indexed_sources) = indexed_sources {
+            rebuild_loaded_lighting_from_source_index(
+                &snapshot,
+                &info,
+                &mut lights,
+                &sky_dirty_columns,
+                &indexed_sources,
+            )
+        } else {
+            rebuild_loaded_lighting(&snapshot, &info, &mut lights, &sky_dirty_columns)
+        };
         let sent = sender.send(LocalLightingBuildResult {
             session_id,
             content_revision,
@@ -612,6 +685,12 @@ fn local_column_batch_size(interaction: bool, dependency_halo: i32) -> usize {
     diameter
         .saturating_mul(diameter)
         .clamp(1, LOCAL_INTERACTION_COLUMN_BATCH_LIMIT)
+}
+
+/// 普通局部任务受固定并发上限约束；交互可临时多占一个槽，但不能无界超发。
+fn local_lighting_slot_available(in_flight: usize, interaction: bool) -> bool {
+    let limit = LOCAL_LIGHTING_MAX_IN_FLIGHT + usize::from(interaction);
+    in_flight < limit
 }
 
 fn neighborhood_generation_ready(

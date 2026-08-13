@@ -25,6 +25,29 @@ fn missing_voxel_neighbor_still_defers_boundary_mesh() {
 }
 
 #[test]
+fn priority_mesh_allows_pending_visible_neighbor_lighting() {
+    let center = IVec3::ZERO;
+    let mut world = WorldState::default();
+    world.insert_chunk(center, Arc::new(ChunkData::new()));
+    for (direction, _) in DIRECTIONS {
+        world.insert_chunk(center + direction, Arc::new(ChunkData::new()));
+    }
+    let lighting = WorldLighting::default();
+    let streaming = WorldStreamingConfig::default();
+
+    assert!(voxel_neighbors_ready(&world, center));
+    assert!(!visible_neighbor_lights_ready(
+        &lighting, &world, &streaming, center, center,
+    ));
+    assert!(neighbor_lights_allow_mesh(
+        true, &lighting, &world, &streaming, center, center,
+    ));
+    assert!(!neighbor_lights_allow_mesh(
+        false, &lighting, &world, &streaming, center, center,
+    ));
+}
+
+#[test]
 fn absent_lighting_uses_the_mesh_fallback_instead_of_blocking() {
     let center = IVec3::ZERO;
 

@@ -222,14 +222,44 @@ pub fn voxel_at(world: &LightingWorldSnapshot, pos: IVec3) -> u16 {
 /// 重建当前已加载窗口的天空光、方块光与光源索引。
 ///
 /// 返回值按世界坐标排序，客户端据此选择有限数量的 Bevy 实体光源；函数本身
-/// 不创建表现实体，也不依赖相机或渲染帧。`sky_dirty` 为 `false` 时保留调用者
-/// 预先放入 `lights` 的天空光，只清除并重建方块光；这条路径只适用于已确认没有
-/// 改变天空通路的方块编辑。
+/// 不创建表现实体，也不依赖相机或渲染帧。`sky_dirty_columns` 列出需要重灌
+/// 直射天光的水平列；其余列保留调用者预先放入 `lights` 的天空光，只清除并
+/// 重建方块光，适用于已确认没有改变天空通路的区域。
 pub fn rebuild_loaded_lighting(
     world: &LightingWorldSnapshot,
     info: &GameLightInfo,
     lights: &mut HashMap<IVec3, ChunkLight>,
-    sky_dirty: bool,
+    sky_dirty_columns: &HashSet<(i32, i32)>,
+) -> Vec<BlockLightSource> {
+    rebuild_loaded_lighting_impl(world, info, lights, sky_dirty_columns, None)
+}
+
+/// 使用已由权威世界增量维护的光源候选重建局部光场，避免交互任务扫描全部体素。
+///
+/// 候选仍会依据任务快照中的当前方块重新解析，过期、越界或已移除的条目不会传播；
+/// 调用方只有在快照内每个区块都建立过光源索引时才能使用此入口。
+pub(super) fn rebuild_loaded_lighting_from_source_index(
+    world: &LightingWorldSnapshot,
+    info: &GameLightInfo,
+    lights: &mut HashMap<IVec3, ChunkLight>,
+    sky_dirty_columns: &HashSet<(i32, i32)>,
+    indexed_sources: &[BlockLightSource],
+) -> Vec<BlockLightSource> {
+    rebuild_loaded_lighting_impl(
+        world,
+        info,
+        lights,
+        sky_dirty_columns,
+        Some(indexed_sources),
+    )
+}
+
+fn rebuild_loaded_lighting_impl(
+    world: &LightingWorldSnapshot,
+    info: &GameLightInfo,
+    lights: &mut HashMap<IVec3, ChunkLight>,
+    sky_dirty_columns: &HashSet<(i32, i32)>,
+    indexed_sources: Option<&[BlockLightSource]>,
 ) -> Vec<BlockLightSource> {
     let mut chunk_positions = world
         .chunks()
@@ -240,19 +270,22 @@ pub fn rebuild_loaded_lighting(
     lights.retain(|position, _| loaded.contains(position));
     for position in &chunk_positions {
         let light = lights.entry(*position).or_default();
-        if sky_dirty {
+        if sky_dirty_columns.contains(&(position.x, position.z)) {
             light.reset();
         } else {
             light.reset_block();
         }
     }
 
-    if sky_dirty {
-        initialize_vertical_sky(world, info, lights, &chunk_positions);
-        spread_sky_light(world, info, lights, &chunk_positions);
+    if !sky_dirty_columns.is_empty() {
+        initialize_vertical_sky(world, info, lights, &chunk_positions, sky_dirty_columns);
+        spread_sky_light(world, info, lights, &chunk_positions, sky_dirty_columns);
     }
 
-    let sources = collect_sources(world, info, &chunk_positions);
+    let sources = indexed_sources.map_or_else(
+        || collect_sources(world, info, &chunk_positions),
+        |sources| collect_indexed_sources(world, info, sources),
+    );
     for source in &sources {
         propagate_block_source(world, info, lights, *source);
     }
@@ -263,15 +296,42 @@ pub fn rebuild_loaded_lighting(
     sources
 }
 
+/// 根据任务快照校验持久索引，并用当前内容定义刷新光源参数。
+fn collect_indexed_sources(
+    world: &LightingWorldSnapshot,
+    info: &GameLightInfo,
+    indexed_sources: &[BlockLightSource],
+) -> Vec<BlockLightSource> {
+    let mut sources = indexed_sources
+        .iter()
+        .filter_map(|source| {
+            info.prop(voxel_at(world, source.world_pos))
+                .light
+                .filter(|light| light.emission > 0)
+                .map(|light| BlockLightSource {
+                    world_pos: source.world_pos,
+                    light,
+                })
+        })
+        .collect::<Vec<_>>();
+    sources.sort_by_key(|source| (source.world_pos.x, source.world_pos.y, source.world_pos.z));
+    sources.dedup_by_key(|source| source.world_pos);
+    sources
+}
+
 /// 按水平区块列从高到低灌入不随垂直距离衰减的直射天空光。
 fn initialize_vertical_sky(
     world: &LightingWorldSnapshot,
     info: &GameLightInfo,
     lights: &mut HashMap<IVec3, ChunkLight>,
     chunk_positions: &[IVec3],
+    sky_dirty_columns: &HashSet<(i32, i32)>,
 ) {
     let mut columns = BTreeMap::<(i32, i32), Vec<i32>>::new();
     for position in chunk_positions {
+        if !sky_dirty_columns.contains(&(position.x, position.z)) {
+            continue;
+        }
         columns
             .entry((position.x, position.z))
             .or_default()
@@ -330,9 +390,25 @@ fn spread_sky_light(
     info: &GameLightInfo,
     lights: &mut HashMap<IVec3, ChunkLight>,
     chunk_positions: &[IVec3],
+    sky_dirty_columns: &HashSet<(i32, i32)>,
 ) {
+    // 种子列覆盖脏列本身及其水平 8 邻居：新加载列需要从相邻已就绪列
+    // 接收天光扩散（洞口过渡），而脏列自身直射被挡时也必须能从邻居取光。
+    let mut seed_columns = HashSet::with_capacity(sky_dirty_columns.len().saturating_mul(9));
+    for &(chunk_x, chunk_z) in sky_dirty_columns {
+        for x in chunk_x - 1..=chunk_x + 1 {
+            for z in chunk_z - 1..=chunk_z + 1 {
+                seed_columns.insert((x, z));
+            }
+        }
+    }
+
     let mut queue = VecDeque::new();
     for chunk_pos in chunk_positions {
+        if !seed_columns.contains(&(chunk_pos.x, chunk_pos.z)) {
+            continue;
+        }
+
         let base = *chunk_pos * CHUNK_SIZE as i32;
         let light = lights.get(chunk_pos).expect("已加载区块必须先创建光数组");
         for local_y in 0..CHUNK_SIZE {
@@ -431,8 +507,6 @@ fn propagate_block_source(
         return;
     }
 
-    let mut reached = HashMap::<IVec3, LightRgb>::new();
-    reached.insert(source.world_pos, source_level);
     let mut queue = VecDeque::from([(source.world_pos, source_level, 0u8)]);
     max_assign_block(lights, source.world_pos, source_level);
 
@@ -451,12 +525,9 @@ fn propagate_block_source(
             if next_level.is_dark() {
                 continue;
             }
-            let entry = reached.entry(next_position).or_default();
-            if !entry.max_assign(next_level) {
-                continue;
+            if max_assign_block(lights, next_position, next_level) {
+                queue.push_back((next_position, next_level, distance + 1));
             }
-            max_assign_block(lights, next_position, *entry);
-            queue.push_back((next_position, *entry, distance + 1));
         }
     }
 }
