@@ -110,6 +110,13 @@ impl LightingWorldSnapshot {
         self.chunks.get(&position)
     }
 
+    /// 判断指定区块是否在快照中。供远景 LOD 判定"该位置真实区块是否加载"，
+    /// 玩家跨区块或垂直飞行导致已加载区块卸载时由远景兜底，避免真空带。
+    #[inline]
+    pub fn contains_chunk(&self, position: IVec3) -> bool {
+        self.chunks.contains_key(&position)
+    }
+
     /// 遍历任务快照中的区块，供局部调度复用已有天空光并构造传播目标。
     pub(super) fn chunks(&self) -> impl Iterator<Item = (IVec3, &Arc<ChunkData>)> {
         self.chunks.iter().map(|(position, data)| (*position, data))

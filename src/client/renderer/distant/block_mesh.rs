@@ -12,6 +12,7 @@ use crate::client::renderer::world::{BlockInfoSnapshot, MeshBufferData};
 use crate::game::world::generation::pipeline::{
     ResolvedTerrainSurfaceSample, TerrainSurfaceSampler,
 };
+use crate::game::world::lighting::rebuild::LightingWorldSnapshot;
 use crate::shared::voxel::CHUNK_SIZE;
 use bevy::prelude::*;
 
@@ -30,10 +31,12 @@ pub(super) struct DistantTerrainBlockMeshData {
 
 /// 生成一块与真实区块数据同源的低分辨率方块柱网格。
 ///
-/// 采样点位于粗单元中心；真实近景区块圆盘内的单元整格裁掉，避免 LOD 几何穿入
-/// 近景网格。相邻单元只在高度较高的一侧生成侧壁，且每个侧壁按真实地层分层贴图。
+/// 采样点位于粗单元中心；该 Y 层（`spec.player_chunk_y`）真实区块未加载的单元由远景
+/// 接管渲染，避免玩家跨区块或垂直飞行时出现真空带。相邻单元只在高度较高的一侧
+/// 生成侧壁，且每个侧壁按真实地层分层贴图。
 pub(super) fn build_distant_block_mesh(
     sampler: &TerrainSurfaceSampler,
+    world: &LightingWorldSnapshot,
     block_info: &BlockInfoSnapshot,
     spec: DistantTerrainTileSpec,
 ) -> DistantTerrainBlockMeshData {
@@ -60,7 +63,7 @@ pub(super) fn build_distant_block_mesh(
         for x in 0..grid {
             let index = (z + 1) * padded + x + 1;
             let current = samples[index];
-            if !cell_in_lod_ring(spec, x as isize, z as isize) {
+            if !cell_in_lod_ring(world, spec, x as isize, z as isize) {
                 continue;
             }
 
@@ -108,7 +111,7 @@ pub(super) fn build_distant_block_mesh(
                 let neighbor_cell_x = x as isize + dx;
                 let neighbor_cell_z = z as isize + dz;
                 let neighbor_in_same_ring =
-                    cell_in_lod_ring(spec, neighbor_cell_x, neighbor_cell_z);
+                    cell_in_lod_ring(world, spec, neighbor_cell_x, neighbor_cell_z);
                 let neighbor_in_any_ring =
                     cell_in_any_lod_ring(spec, neighbor_cell_x, neighbor_cell_z);
                 let transition_wall = if spec.key.lod_level == 0 {

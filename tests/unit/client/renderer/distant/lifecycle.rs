@@ -49,12 +49,12 @@ fn clearing_a_plan_removes_pending_identity_state() {
     runtime.ordered_plan.push(DistantTerrainTileSpec {
         key,
         sample_step_blocks: 4,
-        inner_radius_chunks: 8,
         outer_radius_chunks: 16,
         lod_inner_radius_chunks: 8,
         lod_outer_radius_chunks: 16,
         player_chunk_x: 0,
         player_chunk_z: 0,
+        player_chunk_y: 0,
         coverage_mask: [0; 4],
     });
     runtime.begin_request(key);

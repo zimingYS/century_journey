@@ -1,9 +1,11 @@
 use super::*;
+use crate::game::world::state::WorldState;
 
 #[test]
 fn plan_contains_unique_tiles_across_multiple_lod_rings() {
     let config = DistantTerrainConfig::default();
-    let plan = build_distant_terrain_plan(IVec3::ZERO, 8, &config);
+    let world = WorldState::default();
+    let plan = build_distant_terrain_plan(&world, IVec3::ZERO, 8, &config);
     let unique = plan.iter().map(|spec| spec.key).collect::<HashSet<_>>();
 
     assert_eq!(unique.len(), plan.len());
@@ -17,8 +19,9 @@ fn plan_contains_unique_tiles_across_multiple_lod_rings() {
 #[test]
 fn plan_changes_stably_when_player_crosses_a_chunk_boundary() {
     let config = DistantTerrainConfig::default();
-    let previous = build_distant_terrain_plan(IVec3::ZERO, 8, &config);
-    let next = build_distant_terrain_plan(IVec3::X, 8, &config);
+    let world = WorldState::default();
+    let previous = build_distant_terrain_plan(&world, IVec3::ZERO, 8, &config);
+    let next = build_distant_terrain_plan(&world, IVec3::X, 8, &config);
 
     let previous_keys = previous.iter().map(|spec| spec.key).collect::<HashSet<_>>();
     let next_keys = next.iter().map(|spec| spec.key).collect::<HashSet<_>>();
@@ -32,7 +35,8 @@ fn plan_changes_stably_when_player_crosses_a_chunk_boundary() {
 #[test]
 fn plan_keeps_tile_origins_aligned_for_negative_world_coordinates() {
     let config = DistantTerrainConfig::default();
-    let plan = build_distant_terrain_plan(IVec3::new(-17, 0, -33), 8, &config);
+    let world = WorldState::default();
+    let plan = build_distant_terrain_plan(&world, IVec3::new(-17, 0, -33), 8, &config);
 
     assert!(!plan.is_empty());
     assert!(plan.iter().all(|spec| {
@@ -42,20 +46,20 @@ fn plan_keeps_tile_origins_aligned_for_negative_world_coordinates() {
 }
 
 #[test]
-fn coverage_mask_changes_while_tile_key_stays_stable() {
+fn tile_key_stays_stable_when_player_crosses_a_chunk_boundary() {
+    // 让出条件改为"该 Y 层真实区块是否加载"后，coverage_mask 完全由 WorldState 决定：
+    // 空 WorldState 下跨区块不会改变 coverage_mask。核心不变量是 key 稳定（瓦片身份不随玩家
+    // 移动变化），即使 coverage_mask 变化也只触发原地重建，不会销毁瓦片。
     let config = DistantTerrainConfig::default();
-    let previous = build_distant_terrain_plan(IVec3::ZERO, 8, &config);
-    let next = build_distant_terrain_plan(IVec3::X, 8, &config);
+    let world = WorldState::default();
+    let previous = build_distant_terrain_plan(&world, IVec3::ZERO, 8, &config);
+    let next = build_distant_terrain_plan(&world, IVec3::X, 8, &config);
 
-    // 跨区块移动后，近景圆盘平移会让部分瓦片的覆盖位图变化，但瓦片键只由世界
-    // 坐标构成，必须保持稳定——这是避免远景瓦片被销毁重建的关键不变量。
-    let mut found_changed_mask_with_stable_key = false;
-    for spec in &next {
-        if let Some(previous_spec) = previous.iter().find(|p| p.key == spec.key)
-            && previous_spec.coverage_mask != spec.coverage_mask
-        {
-            found_changed_mask_with_stable_key = true;
-        }
-    }
-    assert!(found_changed_mask_with_stable_key);
+    let previous_keys: HashSet<_> = previous.iter().map(|spec| spec.key).collect();
+    let next_keys: HashSet<_> = next.iter().map(|spec| spec.key).collect();
+    let common_keys: Vec<_> = previous_keys.intersection(&next_keys).copied().collect();
+    assert!(
+        !common_keys.is_empty(),
+        "跨区块后共同 key 必须非空（瓦片身份不随玩家移动销毁）"
+    );
 }
