@@ -447,11 +447,22 @@ fn spread_sky_light(
     while let Some((position, level)) = queue.pop_front() {
         for direction in DIRECTIONS {
             let next_position = position + direction;
-            let next_level = level.attenuated(info.prop(voxel_at(world, next_position)).filter);
+            // 预分割一次，热路径内合并"体素读取 + 光数组定位 + 写入"，
+            // 避免每个方向重复做区块坐标分割与哈希定位。
+            let (chunk_pos, local) = split_world(next_position);
+            let voxel_id = world.chunk(chunk_pos).map_or(0, |data| {
+                data.get_voxel(local.x as usize, local.y as usize, local.z as usize)
+            });
+            let next_level = level.attenuated(info.prop(voxel_id).filter);
             if next_level.is_dark() {
                 continue;
             }
-            if max_assign_sky(lights, next_position, next_level) {
+            let Some(light_chunk) = lights.get_mut(&chunk_pos) else {
+                continue;
+            };
+            let mut cell = light_chunk.get(local.x as usize, local.y as usize, local.z as usize);
+            if cell.sky.max_assign(next_level) {
+                light_chunk.set(local.x as usize, local.y as usize, local.z as usize, cell);
                 queue.push_back((next_position, next_level));
             }
         }
@@ -466,13 +477,46 @@ fn can_spread_sky(
     position: IVec3,
     level: LightRgb,
 ) -> bool {
-    DIRECTIONS.into_iter().any(|direction| {
+    // 预分割当前格：绝大多数邻居位于同一区块，可直接按局部坐标读取；
+    // 只有跨区块边界的邻居才需要重新分割与哈希定位。
+    let (chunk_pos, local) = split_world(position);
+    let Some(chunk) = lights.get(&chunk_pos) else {
+        return false;
+    };
+    for direction in DIRECTIONS {
         let next_position = position + direction;
+        let neighbor_local = local + direction;
+        let in_chunk = (0..CHUNK_SIZE as i32).contains(&neighbor_local.x)
+            && (0..CHUNK_SIZE as i32).contains(&neighbor_local.y)
+            && (0..CHUNK_SIZE as i32).contains(&neighbor_local.z);
+        let neighbor_sky = if in_chunk {
+            chunk
+                .get(
+                    neighbor_local.x as usize,
+                    neighbor_local.y as usize,
+                    neighbor_local.z as usize,
+                )
+                .sky
+        } else {
+            let Some(cell) = light_cell_at(lights, next_position) else {
+                continue;
+            };
+            cell.sky
+        };
+        // 快速负过滤：邻居天光已逐通道不低于当前级，衰减后只会更低、不可能被改善，
+        // 直接跳过体素与滤色查询，避免为整片露天内部格做冗余衰减计算。
+        if neighbor_sky.r >= level.r && neighbor_sky.g >= level.g && neighbor_sky.b >= level.b {
+            continue;
+        }
         let next_level = level.attenuated(info.prop(voxel_at(world, next_position)).filter);
-        light_cell_at(lights, next_position).is_some_and(|cell| {
-            next_level.r > cell.sky.r || next_level.g > cell.sky.g || next_level.b > cell.sky.b
-        })
-    })
+        if next_level.r > neighbor_sky.r
+            || next_level.g > neighbor_sky.g
+            || next_level.b > neighbor_sky.b
+        {
+            return true;
+        }
+    }
+    false
 }
 
 fn light_cell_at(lights: &HashMap<IVec3, ChunkLight>, position: IVec3) -> Option<LightCell> {
@@ -535,16 +579,24 @@ fn propagate_block_source(
         }
         for direction in DIRECTIONS {
             let next_position = position + direction;
-            if !contains_light_cell(lights, next_position) {
+            // 预分割一次，热路径内合并"存在性检查 + 体素读取 + 光写入"，
+            // 避免每个方向重复做区块坐标分割与哈希定位。
+            let (chunk_pos, local) = split_world(next_position);
+            let Some(light_chunk) = lights.get_mut(&chunk_pos) else {
                 continue;
-            }
-            let filtered = level.filtered(info.prop(voxel_at(world, next_position)).filter);
+            };
+            let voxel_id = world.chunk(chunk_pos).map_or(0, |data| {
+                data.get_voxel(local.x as usize, local.y as usize, local.z as usize)
+            });
+            let filtered = level.filtered(info.prop(voxel_id).filter);
             let next_level =
                 block_level_at_distance(filtered, source_level, distance + 1, source.light.range);
             if next_level.is_dark() {
                 continue;
             }
-            if max_assign_block(lights, next_position, next_level) {
+            let mut cell = light_chunk.get(local.x as usize, local.y as usize, local.z as usize);
+            if cell.block.max_assign(next_level) {
+                light_chunk.set(local.x as usize, local.y as usize, local.z as usize, cell);
                 queue.push_back((next_position, next_level, distance + 1));
             }
         }
@@ -576,20 +628,6 @@ fn limit_light_peak(light: LightRgb, peak_cap: u8) -> LightRgb {
         g: scale(light.g) as u8,
         b: scale(light.b) as u8,
     }
-}
-
-#[inline]
-fn contains_light_cell(lights: &HashMap<IVec3, ChunkLight>, position: IVec3) -> bool {
-    lights.contains_key(&split_world(position).0)
-}
-
-#[inline]
-fn max_assign_sky(
-    lights: &mut HashMap<IVec3, ChunkLight>,
-    position: IVec3,
-    value: LightRgb,
-) -> bool {
-    update_cell(lights, position, |cell| cell.sky.max_assign(value))
 }
 
 #[inline]

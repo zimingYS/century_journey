@@ -370,6 +370,44 @@ fn source_crosses_initialized_chunk_boundary() {
 }
 
 #[test]
+fn can_spread_sky_skips_full_neighbors_and_keeps_dark_boundary() {
+    let world = state_with_air_chunk();
+    let info = test_info();
+    let snapshot = LightingWorldSnapshot::from_world(&world);
+    let mut lights = HashMap::new();
+    let dirty = all_sky_dirty_columns(&snapshot);
+    rebuild_loaded_lighting(&snapshot, &info, &mut lights, &dirty);
+
+    // 全空气区块内所有格天空光满值，内部格的六个邻居同样满值，负过滤应判定无需扩散。
+    let full = LightRgb {
+        r: 15,
+        g: 15,
+        b: 15,
+    };
+    assert!(!can_spread_sky(
+        &snapshot,
+        &info,
+        &lights,
+        IVec3::new(8, 8, 8),
+        full
+    ));
+
+    // 把上方邻居置为暗格后，(8,8,8) 成为有暗邻居的边界格，必须保留为扩散种子。
+    let mut boundary = lights.clone();
+    boundary
+        .get_mut(&IVec3::ZERO)
+        .expect("重建后必须存在该区块光数组")
+        .set(8, 9, 8, LightCell::default());
+    assert!(can_spread_sky(
+        &snapshot,
+        &info,
+        &boundary,
+        IVec3::new(8, 8, 8),
+        full
+    ));
+}
+
+#[test]
 fn local_snapshot_rejects_changed_or_new_neighborhood_chunks() {
     let target = IVec3::ZERO;
     let neighbor = IVec3::X;
