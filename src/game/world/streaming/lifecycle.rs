@@ -8,6 +8,7 @@ use crate::game::world::chunk::{ChunkComponents, ChunkState};
 use crate::game::world::state::ChunkRuntime;
 use crate::game::world::state::WorldState;
 use crate::game::world::streaming::cache::PlayerChunkCache;
+use crate::game::world::voxel_change::provenance::VoxelProvenance;
 use crate::shared::voxel::CHUNK_SIZE;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::{Commands, Entity, EntityWorldMut, Query, Res, ResMut, Transform, With};
@@ -26,6 +27,7 @@ pub fn manage_chunks_system(
     mut player_cache: ResMut<PlayerChunkCache>,
     mut chunk_runtime: ResMut<ChunkRuntime>,
     mut world_state: ResMut<WorldState>,
+    mut provenance: ResMut<VoxelProvenance>,
     chunk_query: Query<(Entity, &ChunkComponents)>,
     player_query: Query<&Transform, With<Player>>,
     save_config: Res<SaveConfig>,
@@ -96,6 +98,7 @@ pub fn manage_chunks_system(
 
         chunk_runtime.remove_generation_context(pos);
         chunk_runtime.remove_chunk_entity(pos);
+        provenance.remove_chunk(pos);
         world_state.clear_chunk_modified(pos);
         commands
             .entity(entity)

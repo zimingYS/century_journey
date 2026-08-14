@@ -3,6 +3,7 @@
 use crate::game::simulation::SimulationSet;
 use crate::game::world::state;
 use crate::game::world::voxel_change::apply::apply_voxel_changes;
+use crate::game::world::voxel_change::provenance::VoxelProvenance;
 use crate::game::world::{entity, generation, interaction, lighting, streaming, time, vegetation};
 use crate::shared::voxel_change::VoxelChangeBuffer;
 use bevy::app::{App, Plugin, Startup};
@@ -18,6 +19,7 @@ impl Plugin for GameWorldPlugin {
         app.init_resource::<VoxelChangeBuffer>()
             .init_resource::<state::WorldState>()
             .init_resource::<state::ChunkRuntime>()
+            .init_resource::<VoxelProvenance>()
             .init_resource::<crate::game::block::BlockBehaviorRegistry>()
             .add_systems(
                 FixedUpdate,
