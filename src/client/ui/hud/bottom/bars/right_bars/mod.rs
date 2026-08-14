@@ -4,3 +4,4 @@
 //! 本模块仅负责子组件的生成与同步。
 
 pub mod hunger_bar;
+pub mod thirst_bar;

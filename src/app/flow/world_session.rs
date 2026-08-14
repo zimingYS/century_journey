@@ -17,6 +17,7 @@ use crate::game::player::lifecycle::components::RespawnPoint;
 use crate::game::player::movement::components::PlayerAim;
 use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::Hunger;
+use crate::game::player::survival::thirst::Thirst;
 use crate::game::save::player::{
     PlayerSaveManager, player_backup_available, player_save_path, read_player_data, save_player_now,
 };
@@ -242,6 +243,8 @@ pub(super) struct SaveQuitParams<'w, 's> {
     simulation_clock: Res<'w, WorldSimulationClock>,
     save_queue: ResMut<'w, SaveQueue>,
     save_worker: ResMut<'w, SaveWorker>,
+    // 玩家存档元组六元素已超 Clippy type_complexity 阈值；共享类型别名会增加模块耦合，这里仅做局部豁免。
+    #[allow(clippy::type_complexity)]
     player_query: Query<
         'w,
         's,
@@ -249,6 +252,7 @@ pub(super) struct SaveQuitParams<'w, 's> {
             &'static Transform,
             &'static Health,
             &'static Hunger,
+            &'static Thirst,
             &'static RespawnPoint,
             &'static PlayerAim,
         ),
@@ -283,7 +287,7 @@ pub(super) fn save_and_quit_system(
     let spawn = params
         .player_query
         .single()
-        .map(|(transform, _, _, _, _)| transform.translation)
+        .map(|(transform, _, _, _, _, _)| transform.translation)
         .unwrap_or(Vec3::ZERO);
     if let Err(error) = flush_save_queue(
         &params.save_config.world_name,

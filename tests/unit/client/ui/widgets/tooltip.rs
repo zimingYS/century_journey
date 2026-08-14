@@ -16,6 +16,7 @@ fn tool_tooltip_includes_category_attributes_and_durability() {
         placeable_block: None,
         tool: Some(ToolData::new(ToolType::Pickaxe, ToolTier::Iron, 250, 6.0)),
         food: None,
+        drink: None,
         held_renderer: HeldRenderDefinition::default(),
         animations: AnimationConfig::default(),
     };

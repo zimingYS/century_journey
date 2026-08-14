@@ -30,6 +30,7 @@ pub fn load_player_on_enter_system(
             &mut Transform,
             &mut crate::game::player::survival::health::Health,
             &mut crate::game::player::survival::hunger::Hunger,
+            &mut crate::game::player::survival::thirst::Thirst,
             &mut RespawnPoint,
             &mut PlayerLifecycle,
             &mut PlayerVelocity,
@@ -66,6 +67,7 @@ pub fn load_player_on_enter_system(
         mut transform,
         mut health,
         mut hunger,
+        mut thirst,
         mut respawn_point,
         mut lifecycle,
         mut velocity,
@@ -87,6 +89,7 @@ pub fn load_player_on_enter_system(
         };
         hunger.current = save_data.hunger.clamp(0.0, hunger.max);
         hunger.saturation = save_data.saturation.clamp(0.0, hunger.current);
+        thirst.current = save_data.thirst.clamp(0.0, thirst.max);
         aim.pitch = save_data.camera_pitch();
         *lifecycle = PlayerLifecycle::default();
         *velocity = PlayerVelocity::default();

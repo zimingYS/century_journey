@@ -25,6 +25,7 @@ fn reload_keeps_inventory_durability_stats_and_respawn_point() {
         13.5,
         7.25,
         3.0,
+        20.0,
         Vec3::new(8.0, 71.0, 4.0),
     );
     let restored = data.restore_inventory();
@@ -75,6 +76,7 @@ fn item_runtime_ids_are_remapped_by_unique_identifier() {
         20.0,
         20.0,
         5.0,
+        20.0,
         Vec3::ZERO,
     );
     assert_eq!(data.hotbar[0].runtime_id, Some(1));

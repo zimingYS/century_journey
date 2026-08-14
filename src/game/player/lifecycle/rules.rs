@@ -12,6 +12,7 @@ use crate::game::player::survival::environment::EnvironmentExposure;
 use crate::game::player::survival::events::DamageSource;
 use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::{FoodUseState, Hunger};
+use crate::game::player::survival::thirst::Thirst;
 use crate::game::world::entity::dropped_item::{
     DroppedItemVelocity, spawn_dropped_item_with_velocity,
 };
@@ -119,6 +120,7 @@ pub fn respawn_request_system(
             &mut Transform,
             &mut Health,
             &mut Hunger,
+            &mut Thirst,
             &mut PlayerLifecycle,
             &RespawnPoint,
             &mut PlayerVelocity,
@@ -134,6 +136,7 @@ pub fn respawn_request_system(
             mut transform,
             mut health,
             mut hunger,
+            mut thirst,
             mut lifecycle,
             respawn,
             mut velocity,
@@ -150,6 +153,7 @@ pub fn respawn_request_system(
         transform.translation = respawn.0;
         *health = Health::default();
         *hunger = Hunger::default();
+        *thirst = Thirst::default();
         *velocity = PlayerVelocity::default();
         *gravity = PlayerGravity::default();
         *exposure = EnvironmentExposure::default();

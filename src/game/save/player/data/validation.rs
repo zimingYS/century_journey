@@ -65,6 +65,12 @@ pub(in crate::game) fn validate_player_data(data: &PlayerSaveData) -> PlayerSave
     } else {
         data.saturation = data.saturation.clamp(0.0, data.hunger);
     }
+    if !data.thirst.is_finite() {
+        data.thirst = 20.0;
+        repaired = true;
+    } else {
+        data.thirst = data.thirst.clamp(0.0, 20.0);
+    }
     if data.respawn_point.iter().any(|value| !value.is_finite()) {
         data.respawn_point = model::default_respawn_point();
         repaired = true;

@@ -48,6 +48,12 @@ pub struct HudStatusIconAssets {
     hunger_half: Handle<Image>,
     /// 空饥饿值图标。
     hunger_empty: Handle<Image>,
+    /// 满饮水值图标。
+    thirst_full: Handle<Image>,
+    /// 半饮水值图标。
+    thirst_half: Handle<Image>,
+    /// 空饮水值图标。
+    thirst_empty: Handle<Image>,
 }
 
 impl HudStatusIconAssets {
@@ -66,6 +72,15 @@ impl HudStatusIconAssets {
             StatusIconSegment::Full => self.hunger_full.clone(),
             StatusIconSegment::Half => self.hunger_half.clone(),
             StatusIconSegment::Empty => self.hunger_empty.clone(),
+        }
+    }
+
+    /// 根据饮水格状态取得对应图片。
+    pub fn thirst_icon(&self, segment: StatusIconSegment) -> Handle<Image> {
+        match segment {
+            StatusIconSegment::Full => self.thirst_full.clone(),
+            StatusIconSegment::Half => self.thirst_half.clone(),
+            StatusIconSegment::Empty => self.thirst_empty.clone(),
         }
     }
 }
@@ -106,6 +121,15 @@ pub fn load_hud_status_icon_assets_system(
         .handle;
     icons.hunger_empty = asset_manager
         .texture(&asset_id("textures/ui/hud/hunger_empty"), &asset_server)
+        .handle;
+    icons.thirst_full = asset_manager
+        .texture(&asset_id("textures/ui/hud/thirst_full"), &asset_server)
+        .handle;
+    icons.thirst_half = asset_manager
+        .texture(&asset_id("textures/ui/hud/thirst_half"), &asset_server)
+        .handle;
+    icons.thirst_empty = asset_manager
+        .texture(&asset_id("textures/ui/hud/thirst_empty"), &asset_server)
         .handle;
 }
 

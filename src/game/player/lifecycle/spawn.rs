@@ -15,6 +15,7 @@ use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::FoodUseState;
 use crate::game::player::survival::hunger::Hunger;
 use crate::game::player::survival::protection::Defense;
+use crate::game::player::survival::thirst::{DrinkUseState, Thirst};
 use crate::game::simulation::SimulationTransformHistory;
 use bevy::prelude::*;
 
@@ -52,8 +53,10 @@ pub fn spawn_authoritative_player_system(
             PlayerVelocity::default(),
             PlayerFlight::default(),
             FoodUseState::default(),
+            DrinkUseState::default(),
             Health::default(),
             Hunger::default(),
+            Thirst::default(),
             Defense::default(),
             player_transform,
         ))

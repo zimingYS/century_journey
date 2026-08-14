@@ -63,6 +63,8 @@ pub struct PlayerSaveData {
     #[serde(alias = "food_level")]
     pub hunger: f32,
     pub saturation: f32,
+    #[serde(default, alias = "water_level")]
+    pub thirst: f32,
     pub respawn_point: [f32; 3],
     pub hotbar_active: usize,
     #[serde(with = "serde_arrays")]
@@ -89,6 +91,7 @@ impl Default for PlayerSaveData {
             health: 20.0,
             hunger: 20.0,
             saturation: default_saturation(),
+            thirst: 20.0,
             respawn_point: default_respawn_point(),
             hotbar_active: 0,
             hotbar: std::array::from_fn(|_| SaveItemStack::air()),
@@ -143,6 +146,7 @@ impl PlayerSaveData {
         health: f32,
         hunger: f32,
         saturation: f32,
+        thirst: f32,
         respawn_point: Vec3,
     ) -> Self {
         let hotbar = std::array::from_fn(|i| {
@@ -179,6 +183,7 @@ impl PlayerSaveData {
             health,
             hunger,
             saturation,
+            thirst,
             respawn_point: respawn_point.to_array(),
             hotbar_active: inventory.hotbar.active_index,
             hotbar,

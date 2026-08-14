@@ -9,6 +9,9 @@ use crate::client::ui::hud::bottom::bars::left_bars::health_bar::{
 use crate::client::ui::hud::bottom::bars::right_bars::hunger_bar::{
     hunger_bar_sync_system, spawn_hunger_bar,
 };
+use crate::client::ui::hud::bottom::bars::right_bars::thirst_bar::{
+    spawn_thirst_bar, thirst_bar_sync_system,
+};
 use crate::client::ui::hud::bottom::bars::{
     HudStatusIconAssets, load_hud_status_icon_assets_system, spawn_bars_hud_system,
 };
@@ -102,7 +105,7 @@ impl Plugin for HudPlugin {
         )
         .add_systems(
             OnEnter(AppState::InGame),
-            (spawn_hunger_bar,)
+            (spawn_thirst_bar, spawn_hunger_bar)
                 .after(spawn_bars_hud_system)
                 .in_set(ContentReloadSet::Consumers)
                 .run_if(content_reload_requested),
@@ -115,6 +118,7 @@ impl Plugin for HudPlugin {
                 health_bar_sync_system,
                 armor_bar_sync_system,
                 hunger_bar_sync_system,
+                thirst_bar_sync_system,
             ),
         );
     }

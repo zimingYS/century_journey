@@ -13,17 +13,34 @@ use crate::game::player::lifecycle::RespawnPoint;
 use crate::game::player::movement::components::PlayerAim;
 use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::Hunger;
+use crate::game::player::survival::thirst::Thirst;
 use crate::game::save::SaveConfig;
 use crate::game::save::player::io::write_player_data;
 use crate::game::save::player::runtime::manager::PlayerSaveManager;
 use crate::game::save::player::{PlayerSaveData, player_save_path};
+
+/// 玩家存档收集所需的权威组件查询元组；多个保存入口与收集函数共享该类型，
+/// 避免在 `Query` 泛型中重复声明元组并超出 Clippy 的复杂类型阈值。
+type PlayerSaveQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static Transform,
+        &'static Health,
+        &'static Hunger,
+        &'static Thirst,
+        &'static RespawnPoint,
+        &'static PlayerAim,
+    ),
+    With<Player>,
+>;
 
 fn perform_save(
     world_name: &str,
     gamemode: &PlayerGameMode,
     inventory: &InventoryState,
     item_registry: &ItemRegistry,
-    player_query: &Query<(&Transform, &Health, &Hunger, &RespawnPoint, &PlayerAim), With<Player>>,
+    player_query: &PlayerSaveQuery<'_, '_>,
     save_manager: &mut PlayerSaveManager,
     time: &Time,
 ) {
@@ -52,7 +69,7 @@ pub fn save_player_now(
     gamemode: &PlayerGameMode,
     inventory: &InventoryState,
     item_registry: &ItemRegistry,
-    player_query: &Query<(&Transform, &Health, &Hunger, &RespawnPoint, &PlayerAim), With<Player>>,
+    player_query: &PlayerSaveQuery<'_, '_>,
     save_manager: &mut PlayerSaveManager,
     time: &Time,
 ) -> prelude::Result<(), String> {
@@ -78,7 +95,7 @@ pub fn auto_save_player_system(
     gamemode: Res<PlayerGameMode>,
     inventory: LocalInventory,
     item_registry: Res<ItemRegistry>,
-    player_query: Query<(&Transform, &Health, &Hunger, &RespawnPoint, &PlayerAim), With<Player>>,
+    player_query: PlayerSaveQuery<'_, '_>,
     mut save_manager: ResMut<PlayerSaveManager>,
 ) {
     if !save_manager.tick(time.delta_secs()) {
@@ -104,7 +121,7 @@ pub fn save_on_exit_system(
     gamemode: Res<PlayerGameMode>,
     inventory: LocalInventory,
     item_registry: Res<ItemRegistry>,
-    player_query: Query<(&Transform, &Health, &Hunger, &RespawnPoint, &PlayerAim), With<Player>>,
+    player_query: PlayerSaveQuery<'_, '_>,
     mut save_manager: ResMut<PlayerSaveManager>,
     time: Res<Time>,
 ) {
@@ -128,16 +145,17 @@ fn collect_player_save_data(
     gamemode: &PlayerGameMode,
     inventory: &InventoryState,
     item_registry: &ItemRegistry,
-    player_query: &Query<(&Transform, &Health, &Hunger, &RespawnPoint, &PlayerAim), With<Player>>,
+    player_query: &PlayerSaveQuery<'_, '_>,
 ) -> (PlayerSaveData, Vec3) {
-    let (transform, health, hunger, saturation, respawn_point, pitch) = player_query
+    let (transform, health, hunger, saturation, thirst, respawn_point, pitch) = player_query
         .single()
-        .map(|(transform, health, hunger, respawn, aim)| {
+        .map(|(transform, health, hunger, thirst, respawn, aim)| {
             (
                 *transform,
                 health.current,
                 hunger.current,
                 hunger.saturation,
+                thirst.current,
                 respawn.0,
                 aim.pitch,
             )
@@ -147,6 +165,7 @@ fn collect_player_save_data(
             20.0,
             20.0,
             5.0,
+            20.0,
             Vec3::new(0.0, 70.0, 0.0),
             0.0,
         ));
@@ -161,6 +180,7 @@ fn collect_player_save_data(
         health,
         hunger,
         saturation,
+        thirst,
         respawn_point,
     );
     (data, transform.translation)

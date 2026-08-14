@@ -14,13 +14,17 @@ impl Plugin for PlayerSurvivalPlugin {
         app.add_message::<survival::events::DamageEvent>()
             .add_message::<survival::events::HealEvent>()
             .add_message::<survival::events::FoodConsumedEvent>()
+            .add_message::<survival::events::DrinkConsumedEvent>()
             .add_systems(
                 FixedUpdate,
                 (
                     survival::hunger::use_food_system,
+                    survival::thirst::use_drink_system,
                     survival::hunger::action_cost_system,
+                    survival::thirst::thirst_drain_system,
                     survival::hunger::natural_regeneration_system,
                     survival::hunger::starvation_damage_system,
+                    survival::thirst::dehydration_damage_system,
                     survival::protection::armor_calculation_system,
                     survival::environment::environment_damage_system,
                 )

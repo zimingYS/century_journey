@@ -68,6 +68,10 @@ pub struct ItemDefinition {
     #[serde(default)]
     pub food: Option<FoodData>,
 
+    /// 饮品数据；存在时该物品可以通过"使用"恢复口渴值。
+    #[serde(default)]
+    pub drink: Option<DrinkData>,
+
     /// 手持渲染配置 (用于第一人称 ViewModel)
     #[serde(default)]
     pub held_renderer: HeldRenderDefinition,
@@ -96,6 +100,7 @@ impl ItemDefinition {
             placeable_block: Some(identifier.clone()),
             tool: None,
             food: None,
+            drink: None,
             held_renderer: HeldRenderDefinition::Block,
             animations: AnimationConfig::default(),
         }
@@ -113,6 +118,11 @@ impl ItemDefinition {
     /// 获取食物属性。
     pub fn food_data(&self) -> Option<&FoodData> {
         self.food.as_ref()
+    }
+
+    /// 获取饮品属性。
+    pub fn drink_data(&self) -> Option<&DrinkData> {
+        self.drink.as_ref()
     }
 
     /// 是否为可放置的方块
@@ -137,4 +147,11 @@ pub struct FoodData {
     /// 恢复的饱和度，饱和度会优先承担行动消耗。
     #[serde(default)]
     pub saturation: f32,
+}
+
+/// 饮品的生存属性。
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct DrinkData {
+    /// 恢复的口渴值。
+    pub thirst: f32,
 }
