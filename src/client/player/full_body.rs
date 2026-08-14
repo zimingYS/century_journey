@@ -1,5 +1,6 @@
 //! 根据本地视角控制玩家全身模型和头部的可见性。
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use crate::client::player::model::rig::PlayerRigEntities;
@@ -13,7 +14,7 @@ use crate::content::item::model::ItemModelRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::state::LocalInventory;
 use crate::game::player::identity::LocalPlayer;
-use crate::game::player::survival::events::FoodConsumedEvent;
+use crate::game::player::survival::events::{DrinkConsumedEvent, FoodConsumedEvent};
 use crate::shared::identifier::Identifier;
 use crate::shared::item_id::ItemId;
 
@@ -32,11 +33,18 @@ pub struct FullBodyHeldItemRenderState {
 #[derive(Component)]
 struct RigHeldItemEntity;
 
-/// 进食会先扣除背包物品；这里暂存被消耗的食物，保证最后一份食物也能完整显示动画。
+/// 进食或饮水会先扣除背包物品；这里暂存被消耗的消耗品，保证最后一份也能完整显示动画。
 #[derive(Default)]
 struct ConsumedFoodVisual {
     item: Option<ItemId>,
     remaining_seconds: f32,
+}
+
+/// 进食与饮水的消耗事件读取器；打包成单一系统参数，避免超出 Bevy 系统参数数量上限。
+#[derive(SystemParam)]
+struct ConsumedItemReaders<'w, 's> {
+    food: MessageReader<'w, 's, FoodConsumedEvent>,
+    drink: MessageReader<'w, 's, DrinkConsumedEvent>,
 }
 
 /// 真实第一人称渲染插件。
@@ -71,14 +79,20 @@ fn sync_full_body_held_item_system(
     mut render_state: ResMut<FullBodyHeldItemRenderState>,
     mut item_model_cache: ResMut<ItemModelCache>,
     rig_query: Query<(Entity, &PlayerRigEntities), With<LocalPlayer>>,
-    mut consumed_reader: MessageReader<FoodConsumedEvent>,
+    mut readers: ConsumedItemReaders,
     mut consumed_visual: Local<ConsumedFoodVisual>,
 ) {
     let Ok((player, rig)) = rig_query.single() else {
         return;
     };
 
-    for event in consumed_reader.read() {
+    for event in readers.food.read() {
+        if event.player == player {
+            consumed_visual.item = Some(event.item.clone());
+            consumed_visual.remaining_seconds = FOOD_USE_VISUAL_SECONDS;
+        }
+    }
+    for event in readers.drink.read() {
         if event.player == player {
             consumed_visual.item = Some(event.item.clone());
             consumed_visual.remaining_seconds = FOOD_USE_VISUAL_SECONDS;

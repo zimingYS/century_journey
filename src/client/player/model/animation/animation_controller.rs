@@ -17,9 +17,10 @@ use crate::game::player::identity::LocalPlayer;
 use crate::game::player::lifecycle::events::DeathEvent;
 use crate::game::player::movement::components::PlayerVelocity;
 use crate::game::player::physics::components::PlayerGravity;
-use crate::game::player::survival::events::{DamageEvent, FoodConsumedEvent};
+use crate::game::player::survival::events::{DamageEvent, DrinkConsumedEvent, FoodConsumedEvent};
 use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::FoodUseState;
+use crate::game::player::survival::thirst::DrinkUseState;
 
 use super::*;
 #[derive(SystemParam)]
@@ -37,6 +38,7 @@ pub struct AnimationControllerInput<'w, 's> {
     place_events: MessageReader<'w, 's, BlockPlaceEvent>,
     interact_events: MessageReader<'w, 's, BlockInteractEvent>,
     food_events: MessageReader<'w, 's, FoodConsumedEvent>,
+    drink_events: MessageReader<'w, 's, DrinkConsumedEvent>,
 }
 
 /// 当前帧从权威事件和输入采样得到的动画行为信号。
@@ -82,6 +84,7 @@ pub fn player_animation_controller_system(
             &PlayerVelocity,
             &Health,
             &FoodUseState,
+            &DrinkUseState,
             &mut PlayerAnimationState,
         ),
         With<LocalPlayer>,
@@ -112,10 +115,15 @@ pub fn player_animation_controller_system(
         .read()
         .filter_map(|event| event.interactor)
         .collect();
-    let consumed: HashSet<Entity> = input.food_events.read().map(|event| event.player).collect();
+    let consumed: HashSet<Entity> = input
+        .food_events
+        .read()
+        .map(|event| event.player)
+        .chain(input.drink_events.read().map(|event| event.player))
+        .collect();
     let holding_item = !input.inventory.hotbar.active_stack().is_empty();
 
-    for (entity, gravity, velocity, health, food_use, mut state) in &mut query {
+    for (entity, gravity, velocity, health, food_use, drink_use, mut state) in &mut query {
         update_motion_parameters(
             &mut state,
             velocity.horizontal.length(),
@@ -153,7 +161,10 @@ pub fn player_animation_controller_system(
             hurt: damaged.contains(&entity),
             mining: input.actions.pressed(PlayerAction::BreakBlock) && input.break_progress.visible,
             placed: placed.contains(&entity),
-            used: food_use.is_active() || used.contains(&entity) || consumed.contains(&entity),
+            used: food_use.is_active()
+                || drink_use.is_active()
+                || used.contains(&entity)
+                || consumed.contains(&entity),
             attacked: input.actions.just_pressed(PlayerAction::Attack)
                 && !input.break_progress.visible,
         };
