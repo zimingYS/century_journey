@@ -50,6 +50,7 @@ fn damage_death_drop_and_respawn_form_a_state_machine() {
             PlayerGravity::default(),
             EnvironmentExposure::default(),
             FoodUseState::default(),
+            Thirst::default(),
             inventory,
         ))
         .id();
