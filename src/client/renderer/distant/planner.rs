@@ -10,16 +10,15 @@ pub(super) const DISTANT_TILE_GRID_CELLS: usize = 16;
 
 /// 能唯一标识一个远景真实方块 LOD 瓦片的稳定键。
 ///
-/// 瓦片跨度属于键的一部分，避免玩家修改近景视距后旧任务把不同采样精度的结果
-/// 错误提交到同一位置；覆盖位图则保证玩家移动后旧的近景让出边界不会复用。
+/// 键只包含瓦片的世界坐标与采样密度，不随玩家移动变化。覆盖位图是玩家近景圆盘
+/// 的裁剪结果，作为构建输入保存在 `DistantTerrainTileSpec` 中；玩家跨区块时原地
+/// 更新网格而非重建瓦片实体。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(super) struct DistantTerrainTileKey {
     pub(super) lod_level: u8,
     pub(super) origin_chunk_x: i32,
     pub(super) origin_chunk_z: i32,
     pub(super) span_chunks: i32,
-    /// 16x16 粗单元是否保留绘制，按行打包成四个 u64。
-    pub(super) coverage_mask: [u64; 4],
 }
 
 /// 单个远景瓦片的几何范围、采样间距和真实区块裁剪参数。
@@ -35,6 +34,9 @@ pub(super) struct DistantTerrainTileSpec {
     pub(super) lod_outer_radius_chunks: i32,
     pub(super) player_chunk_x: i32,
     pub(super) player_chunk_z: i32,
+    /// 16x16 粗单元是否保留绘制，按行打包成四个 u64；随玩家近景圆盘移动而变化，
+    /// 但只影响网格构建，不参与瓦片稳定键。
+    pub(super) coverage_mask: [u64; 4],
 }
 
 impl DistantTerrainTileSpec {
@@ -91,7 +93,6 @@ pub(super) fn build_distant_terrain_plan(
                         origin_chunk_x,
                         origin_chunk_z,
                         span_chunks: span,
-                        coverage_mask: [0; 4],
                     },
                     // 步长与瓦片跨度保持 16 个粗单元；4/8 方块步长都能整除区块边长，
                     // 每个粗单元因此准确归属于一个真实区块。
@@ -102,8 +103,9 @@ pub(super) fn build_distant_terrain_plan(
                     lod_outer_radius_chunks: far_radius_chunks,
                     player_chunk_x: player_chunk.x,
                     player_chunk_z: player_chunk.z,
+                    coverage_mask: [0; 4],
                 };
-                spec.key.coverage_mask = coverage_mask(spec);
+                spec.coverage_mask = coverage_mask(spec);
                 let key = spec.key;
                 debug_assert!(keys.insert(key));
                 plan.push(spec);

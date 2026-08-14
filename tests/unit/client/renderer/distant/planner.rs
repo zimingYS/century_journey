@@ -38,3 +38,22 @@ fn plan_keeps_tile_origins_aligned_for_negative_world_coordinates() {
             && spec.key.origin_chunk_z.rem_euclid(spec.key.span_chunks) == 0
     }));
 }
+
+#[test]
+fn coverage_mask_changes_while_tile_key_stays_stable() {
+    let config = DistantTerrainConfig::default();
+    let previous = build_distant_terrain_plan(IVec3::ZERO, 8, &config);
+    let next = build_distant_terrain_plan(IVec3::X, 8, &config);
+
+    // 跨区块移动后，近景圆盘平移会让部分瓦片的覆盖位图变化，但瓦片键只由世界
+    // 坐标构成，必须保持稳定——这是避免远景瓦片被销毁重建的关键不变量。
+    let mut found_changed_mask_with_stable_key = false;
+    for spec in &next {
+        if let Some(previous_spec) = previous.iter().find(|p| p.key == spec.key) {
+            if previous_spec.coverage_mask != spec.coverage_mask {
+                found_changed_mask_with_stable_key = true;
+            }
+        }
+    }
+    assert!(found_changed_mask_with_stable_key);
+}

@@ -43,6 +43,9 @@ pub(crate) struct DistantTerrainRuntime {
     ordered_plan: Vec<DistantTerrainTileSpec>,
     active_requests: HashMap<DistantTerrainTileKey, u64>,
     tile_entities: HashMap<DistantTerrainTileKey, Entity>,
+    /// 每个已构建瓦片当前使用的覆盖位图；玩家移动导致位图变化时原地更新网格，
+    /// 而不是销毁并重建瓦片实体。
+    tile_masks: HashMap<DistantTerrainTileKey, [u64; 4]>,
     last_player_chunk: Option<IVec3>,
     last_near_radius_chunks: Option<i32>,
     last_config: Option<DistantTerrainConfig>,
@@ -66,6 +69,7 @@ impl DistantTerrainRuntime {
         self.expected_keys.clear();
         self.ordered_plan.clear();
         self.active_requests.clear();
+        self.tile_masks.clear();
         self.last_player_chunk = None;
         self.last_near_radius_chunks = None;
         self.last_config = None;
@@ -136,6 +140,7 @@ pub(crate) fn sync_distant_terrain_plan_system(
         .collect::<Vec<_>>();
     for key in removed_keys {
         runtime.active_requests.remove(&key);
+        runtime.tile_masks.remove(&key);
         if let Some(entity) = runtime.tile_entities.remove(&key) {
             commands
                 .entity(entity)
@@ -176,14 +181,20 @@ pub(crate) fn spawn_distant_terrain_tasks_system(
             break;
         }
         if !runtime.expected_keys.contains(&spec.key)
-            || runtime.tile_entities.contains_key(&spec.key)
             || runtime.active_requests.contains_key(&spec.key)
+        {
+            continue;
+        }
+        // 已有实体且覆盖位图未变化时无需重建；位图变化则原地更新网格而非销毁瓦片。
+        if runtime.tile_entities.contains_key(&spec.key)
+            && runtime.tile_masks.get(&spec.key) == Some(&spec.coverage_mask)
         {
             continue;
         }
 
         let request_id = runtime.begin_request(spec.key);
         let session_generation = runtime.session_generation;
+        let coverage_mask = spec.coverage_mask;
         let sampler = sampler.clone();
         let block_info = block_info.0.clone();
         let sender = channel.sender.clone();
@@ -194,6 +205,7 @@ pub(crate) fn spawn_distant_terrain_tasks_system(
                 session_generation,
                 request_id,
                 key: spec.key,
+                coverage_mask,
                 mesh: build_distant_block_mesh(&sampler, &block_info, spec),
             };
             if sender.send(result).is_err() {
@@ -233,6 +245,7 @@ pub(crate) fn receive_distant_terrain_results_system(
             continue;
         }
         runtime.active_requests.remove(&result.key);
+        runtime.tile_masks.insert(result.key, result.coverage_mask);
         if let Some(previous) = runtime.tile_entities.remove(&result.key) {
             commands
                 .entity(previous)

@@ -14,6 +14,8 @@ pub(super) struct DistantTerrainBuildResult {
     pub(super) request_id: u64,
     /// 目标远景瓦片键。
     pub(super) key: DistantTerrainTileKey,
+    /// 构建该网格时使用的覆盖位图；玩家移动后位图变化时据此判断是否原地更新。
+    pub(super) coverage_mask: [u64; 4],
     /// 不持有 ECS 或 GPU 资产的纯网格数据。
     pub(super) mesh: DistantTerrainBlockMeshData,
 }

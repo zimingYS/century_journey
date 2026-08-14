@@ -7,7 +7,6 @@ fn test_spec() -> DistantTerrainTileSpec {
             origin_chunk_x: 0,
             origin_chunk_z: 0,
             span_chunks: 4,
-            coverage_mask: [0; 4],
         },
         sample_step_blocks: 4,
         inner_radius_chunks: 2,
@@ -16,6 +15,7 @@ fn test_spec() -> DistantTerrainTileSpec {
         lod_outer_radius_chunks: 8,
         player_chunk_x: 0,
         player_chunk_z: 0,
+        coverage_mask: [0; 4],
     }
 }
 
