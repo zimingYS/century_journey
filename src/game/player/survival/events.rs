@@ -32,6 +32,13 @@ pub struct FoodConsumedEvent {
     pub item: ItemId,
 }
 
+/// 饮品已经实际消耗并恢复口渴值。
+#[derive(Message, Debug, Clone)]
+pub struct DrinkConsumedEvent {
+    pub player: Entity,
+    pub item: ItemId,
+}
+
 /// 受到伤害的来源
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DamageSource {
@@ -39,6 +46,8 @@ pub enum DamageSource {
     Fall,
     /// 饥饿
     Starvation,
+    /// 脱水
+    Dehydration,
     /// 溺水
     Drowning,
     /// 火焰
@@ -55,6 +64,7 @@ impl DamageSource {
         match self {
             Self::Fall => "从高处坠落",
             Self::Starvation => "饥饿",
+            Self::Dehydration => "脱水",
             Self::Drowning => "溺水",
             Self::Fire => "火焰",
             Self::Entity(_) => "实体攻击",

@@ -1,0 +1,15 @@
+{
+  "format_version": 1,
+  "identifier": "century_journey:water_bottle",
+  "display_name": "水瓶",
+  "category": "consumable",
+  "max_stack": 1,
+  "tags": ["drink"],
+  "icon": {
+    "type": "texture",
+    "value": "century_journey:water_bottle"
+  },
+  "drink": {
+    "thirst": 8.0
+  }
+}
