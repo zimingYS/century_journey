@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn plan_contains_unique_tiles_in_both_lod_rings() {
+fn plan_contains_unique_tiles_across_multiple_lod_rings() {
     let config = DistantTerrainConfig::default();
     let plan = build_distant_terrain_plan(IVec3::ZERO, 8, &config);
     let unique = plan.iter().map(|spec| spec.key).collect::<HashSet<_>>();
@@ -9,6 +9,8 @@ fn plan_contains_unique_tiles_in_both_lod_rings() {
     assert_eq!(unique.len(), plan.len());
     assert!(plan.iter().any(|spec| spec.key.lod_level == 0));
     assert!(plan.iter().any(|spec| spec.key.lod_level == 1));
+    // 远景扩展到 256 区块后应包含更粗糙的外环。
+    assert!(plan.iter().any(|spec| spec.key.lod_level >= 2));
     assert!(plan.iter().all(|spec| spec.sample_step_blocks > 0));
 }
 
@@ -49,10 +51,10 @@ fn coverage_mask_changes_while_tile_key_stays_stable() {
     // 坐标构成，必须保持稳定——这是避免远景瓦片被销毁重建的关键不变量。
     let mut found_changed_mask_with_stable_key = false;
     for spec in &next {
-        if let Some(previous_spec) = previous.iter().find(|p| p.key == spec.key) {
-            if previous_spec.coverage_mask != spec.coverage_mask {
-                found_changed_mask_with_stable_key = true;
-            }
+        if let Some(previous_spec) = previous.iter().find(|p| p.key == spec.key)
+            && previous_spec.coverage_mask != spec.coverage_mask
+        {
+            found_changed_mask_with_stable_key = true;
         }
     }
     assert!(found_changed_mask_with_stable_key);

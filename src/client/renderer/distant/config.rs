@@ -6,10 +6,12 @@ use bevy::prelude::Resource;
 /// 远景真实方块 LOD 的客户端表现配置。
 ///
 /// 半径按当前真实区块网格半径自动缩放，而不是扩张 `WorldStreamingConfig` 的权威
-/// 数据窗口；这使远景不会额外占用区块存档、生成或体素光的预算。
+/// 数据窗口；这使远景不会额外占用区块存档、生成或体素光的预算。远景视野远大于
+/// 近景，并按距离分多级环逐环降低采样密度，与真实区块数据同源却近乎恒定瓦片数。
 #[derive(Resource, Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DistantTerrainConfig {
-    /// 远景最远半径相对近景网格半径的固定倍率。
+    /// 远景最远半径相对近景网格半径的固定倍率；32 倍让默认 8 区块近景覆盖到
+    /// 256 区块的远景视野。
     distance_scale: u32,
     /// 即使近景渲染距离较小时也保留的最小远景半径，单位为区块。
     minimum_radius_chunks: i32,
@@ -20,9 +22,9 @@ pub(crate) struct DistantTerrainConfig {
 impl Default for DistantTerrainConfig {
     fn default() -> Self {
         Self {
-            distance_scale: 4,
+            distance_scale: 32,
             minimum_radius_chunks: 16,
-            maximum_radius_chunks: 64,
+            maximum_radius_chunks: 256,
         }
     }
 }
@@ -41,7 +43,11 @@ impl DistantTerrainConfig {
     /// 瓦片跨度，因此这里保守预留该距离，避免远景在雾效开始前被相机裁切。
     pub(crate) fn view_distance_blocks(&self, near_radius_chunks: i32) -> f32 {
         let far_radius = self.far_radius_chunks(near_radius_chunks);
-        let far_tile_span = near_tile_span_chunks(near_radius_chunks).saturating_mul(2);
+        let far_tile_span = self
+            .rings(near_radius_chunks)
+            .last()
+            .map(|ring| ring.tile_span_chunks)
+            .unwrap_or_else(|| near_tile_span_chunks(near_radius_chunks));
         (far_radius
             .saturating_add(far_tile_span.saturating_mul(2))
             .saturating_mul(CHUNK_SIZE as i32)) as f32
@@ -53,29 +59,30 @@ impl DistantTerrainConfig {
             .saturating_mul(CHUNK_SIZE as i32) as f32
     }
 
-    /// 根据近景半径生成两个采样密度递减的远景环。
-    pub(super) fn rings(&self, near_radius_chunks: i32) -> [DistantTerrainRing; 2] {
-        let near_radius_chunks = near_radius_chunks.max(1);
-        let far_radius_chunks = self.far_radius_chunks(near_radius_chunks);
-        let transition_radius_chunks = near_radius_chunks
-            .saturating_mul(2)
-            .clamp(near_radius_chunks.saturating_add(1), far_radius_chunks);
-        let near_span_chunks = near_tile_span_chunks(near_radius_chunks);
-
-        [
-            DistantTerrainRing {
-                lod_level: 0,
-                inner_radius_chunks: near_radius_chunks,
-                outer_radius_chunks: transition_radius_chunks,
-                tile_span_chunks: near_span_chunks,
-            },
-            DistantTerrainRing {
-                lod_level: 1,
-                inner_radius_chunks: transition_radius_chunks,
-                outer_radius_chunks: far_radius_chunks,
-                tile_span_chunks: near_span_chunks.saturating_mul(2),
-            },
-        ]
+    /// 根据近景半径生成采样密度随距离递减的远景环序列。
+    ///
+    /// 每往外一环，半径与瓦片跨度同时翻倍：瓦片数量保持稳定，但每个粗单元覆盖
+    /// 的体素列越来越多，越远的远景用越少的采样表达，从而在超远视野下节省开销。
+    pub(super) fn rings(&self, near_radius_chunks: i32) -> Vec<DistantTerrainRing> {
+        let near = near_radius_chunks.max(1);
+        let far = self.far_radius_chunks(near);
+        let mut rings = Vec::new();
+        let mut inner = near;
+        let mut span = near_tile_span_chunks(near);
+        let mut lod_level = 0_u8;
+        while inner < far {
+            let outer = inner.saturating_mul(2).min(far);
+            rings.push(DistantTerrainRing {
+                lod_level,
+                inner_radius_chunks: inner,
+                outer_radius_chunks: outer,
+                tile_span_chunks: span,
+            });
+            inner = outer;
+            span = span.saturating_mul(2);
+            lod_level += 1;
+        }
+        rings
     }
 }
 
