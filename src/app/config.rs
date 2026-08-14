@@ -66,13 +66,13 @@ pub struct RenderConfig {
 impl Default for RenderConfig {
     fn default() -> Self {
         Self {
-            render_distance: 8,
-            mesh_distance: 8,
-            data_vertical_radius_above: 2,
-            data_vertical_radius_below: 3,
+            render_distance: 16,
+            mesh_distance: 16,
+            data_vertical_radius_above: 4,
+            data_vertical_radius_below: 4,
             shadow_distance: 8,
             msaa: true,
-            hdr: false,
+            hdr: true,
         }
     }
 }

@@ -63,6 +63,7 @@ impl Plugin for ClientRenderingPlugin {
                 Update,
                 (
                     distant::sync_distant_terrain_plan_system.after(world::spawn_mesh_build_tasks),
+                    distant::tick_distant_terrain_expiry_system,
                     distant::spawn_distant_terrain_tasks_system,
                     distant::receive_distant_terrain_results_system,
                     distant::sync_distant_terrain_camera_range_system,

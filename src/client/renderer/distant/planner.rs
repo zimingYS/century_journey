@@ -1,6 +1,8 @@
 //! 将玩家附近的远景圆环转换为可异步构建的稳定瓦片计划。
 
 use super::config::DistantTerrainConfig;
+use crate::game::world::lighting::rebuild::LightingWorldSnapshot;
+use crate::game::world::state::WorldState;
 use crate::shared::voxel::CHUNK_SIZE;
 use bevy::math::IVec3;
 use std::collections::HashSet;
@@ -10,16 +12,15 @@ pub(super) const DISTANT_TILE_GRID_CELLS: usize = 16;
 
 /// 能唯一标识一个远景真实方块 LOD 瓦片的稳定键。
 ///
-/// 瓦片跨度属于键的一部分，避免玩家修改近景视距后旧任务把不同采样精度的结果
-/// 错误提交到同一位置；覆盖位图则保证玩家移动后旧的近景让出边界不会复用。
+/// 键只包含瓦片的世界坐标与采样密度，不随玩家移动变化。覆盖位图是玩家近景圆盘
+/// 的裁剪结果，作为构建输入保存在 `DistantTerrainTileSpec` 中；玩家跨区块时原地
+/// 更新网格而非重建瓦片实体。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(super) struct DistantTerrainTileKey {
     pub(super) lod_level: u8,
     pub(super) origin_chunk_x: i32,
     pub(super) origin_chunk_z: i32,
     pub(super) span_chunks: i32,
-    /// 16x16 粗单元是否保留绘制，按行打包成四个 u64。
-    pub(super) coverage_mask: [u64; 4],
 }
 
 /// 单个远景瓦片的几何范围、采样间距和真实区块裁剪参数。
@@ -27,14 +28,18 @@ pub(super) struct DistantTerrainTileKey {
 pub(super) struct DistantTerrainTileSpec {
     pub(super) key: DistantTerrainTileKey,
     pub(super) sample_step_blocks: i32,
-    /// 本瓦片所属 LOD 环的内外区块半径；网格会按真实区块圆盘逐单元裁剪。
-    pub(super) inner_radius_chunks: i32,
     pub(super) outer_radius_chunks: i32,
     /// 所有远景环共用的可见范围，用于在不同采样密度之间生成单侧过渡墙。
     pub(super) lod_inner_radius_chunks: i32,
     pub(super) lod_outer_radius_chunks: i32,
     pub(super) player_chunk_x: i32,
     pub(super) player_chunk_z: i32,
+    /// 瓦片生成时的玩家所在区块 Y；用于 `cell_in_lod_ring` 让出条件——玩家飞行导致
+    /// 旧 Y 的真实区块卸载时，远景 LOD 仍渲染该 Y 覆盖脚下区域（兜底）。
+    pub(super) player_chunk_y: i32,
+    /// 16x16 粗单元是否保留绘制，按行打包成四个 u64；随玩家近景圆盘移动而变化，
+    /// 但只影响网格构建，不参与瓦片稳定键。
+    pub(super) coverage_mask: [u64; 4],
 }
 
 impl DistantTerrainTileSpec {
@@ -51,6 +56,7 @@ impl DistantTerrainTileSpec {
 
 /// 构建从近景网格边界延伸到远处的稳定真实方块 LOD 瓦片计划。
 pub(super) fn build_distant_terrain_plan(
+    world: &WorldState,
     player_chunk: IVec3,
     near_radius_chunks: i32,
     config: &DistantTerrainConfig,
@@ -58,6 +64,9 @@ pub(super) fn build_distant_terrain_plan(
     let mut plan = Vec::new();
     let mut keys = HashSet::new();
     let far_radius_chunks = config.far_radius_chunks(near_radius_chunks);
+    // 一次性把 WorldState 克隆到远景专用快照，避免 plan 内逐单元重新查询；
+    // 让出条件（cell_in_lod_ring）通过快照的 contains_chunk 判断"该 Y 层真实区块是否加载"。
+    let snapshot = LightingWorldSnapshot::from_world(world);
 
     for ring in config.rings(near_radius_chunks) {
         if ring.outer_radius_chunks <= ring.inner_radius_chunks {
@@ -91,19 +100,19 @@ pub(super) fn build_distant_terrain_plan(
                         origin_chunk_x,
                         origin_chunk_z,
                         span_chunks: span,
-                        coverage_mask: [0; 4],
                     },
                     // 步长与瓦片跨度保持 16 个粗单元；4/8 方块步长都能整除区块边长，
                     // 每个粗单元因此准确归属于一个真实区块。
                     sample_step_blocks: span,
-                    inner_radius_chunks: ring.inner_radius_chunks,
                     outer_radius_chunks: ring.outer_radius_chunks,
                     lod_inner_radius_chunks: near_radius_chunks,
                     lod_outer_radius_chunks: far_radius_chunks,
                     player_chunk_x: player_chunk.x,
                     player_chunk_z: player_chunk.z,
+                    player_chunk_y: player_chunk.y,
+                    coverage_mask: [0; 4],
                 };
-                spec.key.coverage_mask = coverage_mask(spec);
+                spec.coverage_mask = coverage_mask(&snapshot, spec);
                 let key = spec.key;
                 debug_assert!(keys.insert(key));
                 plan.push(spec);
@@ -204,13 +213,18 @@ fn squared_components(x: i32, z: i32) -> i64 {
 
 /// 判断一个粗单元是否需要由远景 LOD 绘制。
 ///
-/// 单元覆盖的所有真实区块都在近景圆盘内时整格让出；只要覆盖外环中的任意区块，
-/// 就保留该格。这个边界规则与网格采样共用，避免瓦片重建时出现不同的裁剪结果。
-pub(super) fn cell_in_lod_ring(spec: DistantTerrainTileSpec, cell_x: isize, cell_z: isize) -> bool {
+/// 单元覆盖的所有真实区块都在该 Y 层（`spec.player_chunk_y`）已加载时整格让出，由
+/// 真实区块绘制；只要覆盖区块中任一未加载（玩家跨区块、垂直飞行导致已加载区块卸载），
+/// 远景就接管渲染，避免出现真空带。边界规则与网格采样共用，保证瓦片重建时裁剪结果一致。
+pub(super) fn cell_in_lod_ring(
+    world: &LightingWorldSnapshot,
+    spec: DistantTerrainTileSpec,
+    cell_x: isize,
+    cell_z: isize,
+) -> bool {
     let step = spec.sample_step_blocks.max(1);
     let min_x = spec.origin_world_x() + cell_x as i32 * step;
     let min_z = spec.origin_world_z() + cell_z as i32 * step;
-    let inner = i64::from(spec.inner_radius_chunks.max(0));
     let outer = i64::from(spec.outer_radius_chunks.max(0));
     let max_x = min_x + step - 1;
     let max_z = min_z + step - 1;
@@ -220,18 +234,25 @@ pub(super) fn cell_in_lod_ring(spec: DistantTerrainTileSpec, cell_x: isize, cell
     let last_chunk_z = max_z.div_euclid(CHUNK_SIZE as i32);
 
     let mut touches_outer_ring = false;
+    let mut all_loaded = true;
     for chunk_x in first_chunk_x..=last_chunk_x {
         for chunk_z in first_chunk_z..=last_chunk_z {
             let dx = i64::from(chunk_x - spec.player_chunk_x);
             let dz = i64::from(chunk_z - spec.player_chunk_z);
             let distance_sq = dx * dx + dz * dz;
-            if distance_sq <= inner * inner {
-                return false;
+            if distance_sq > outer * outer {
+                continue;
             }
-            touches_outer_ring |= distance_sq <= outer * outer;
+            touches_outer_ring = true;
+            if !world.contains_chunk(IVec3::new(chunk_x, spec.player_chunk_y, chunk_z)) {
+                all_loaded = false;
+            }
         }
     }
-    touches_outer_ring
+    if !touches_outer_ring {
+        return false;
+    }
+    !all_loaded
 }
 
 /// 判断粗单元是否在整个远景可见范围内，供两个不同 LOD 环的接缝生成过渡墙。
@@ -296,11 +317,11 @@ pub(super) fn cell_touches_near_region(
     false
 }
 
-fn coverage_mask(spec: DistantTerrainTileSpec) -> [u64; 4] {
+fn coverage_mask(world: &LightingWorldSnapshot, spec: DistantTerrainTileSpec) -> [u64; 4] {
     let mut mask = [0_u64; 4];
     for cell_z in 0..DISTANT_TILE_GRID_CELLS {
         for cell_x in 0..DISTANT_TILE_GRID_CELLS {
-            if !cell_in_lod_ring(spec, cell_x as isize, cell_z as isize) {
+            if !cell_in_lod_ring(world, spec, cell_x as isize, cell_z as isize) {
                 continue;
             }
             let bit = cell_z * DISTANT_TILE_GRID_CELLS + cell_x;

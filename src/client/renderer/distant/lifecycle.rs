@@ -9,6 +9,7 @@ use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::renderer::world::CachedBlockInfo;
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::world::generation::pipeline::TerrainSurfaceSampler;
+use crate::game::world::state::WorldState;
 use crate::game::world::streaming::{PlayerChunkCache, WorldStreamingConfig};
 use bevy::light::{NotShadowCaster, NotShadowReceiver};
 use bevy::pbr::AtmosphereSettings;
@@ -23,6 +24,9 @@ use std::sync::atomic::Ordering;
 const MAX_DISTANT_TERRAIN_TASKS_PER_FRAME: usize = 2;
 /// 单帧最多接收并上传的远景方块网格数，避免大量任务同时完成时造成渲染帧尖峰。
 const MAX_DISTANT_TERRAIN_RESULTS_PER_FRAME: usize = 4;
+/// 已离开当前计划的远景瓦片在重新 despawn 之前保留的固定步数：玩家跨区块后新位置
+/// 的真实区块通常在 1 秒内流送就绪，保留期内瓦片仍渲染覆盖旧区域，避免边缘出现真空。
+const DISTANT_TERRAIN_EXPIRY_TICKS: u32 = 20;
 
 /// 已上传远景方块 LOD 瓦片的 ECS 标记。
 ///
@@ -43,9 +47,23 @@ pub(crate) struct DistantTerrainRuntime {
     ordered_plan: Vec<DistantTerrainTileSpec>,
     active_requests: HashMap<DistantTerrainTileKey, u64>,
     tile_entities: HashMap<DistantTerrainTileKey, Entity>,
+    /// 每个已构建瓦片当前使用的覆盖位图；玩家移动导致位图变化时原地更新网格，
+    /// 而不是销毁并重建瓦片实体。
+    tile_masks: HashMap<DistantTerrainTileKey, [u64; 4]>,
+    /// 等待延迟卸载的远景瓦片：玩家跨区块后已离开计划的瓦片先移到这里保留一段时间，
+    /// 避免新位置真实区块还在流送时出现远景真空带；保留期内若新计划重新覆盖该键
+    /// 则直接复活（移回 `tile_entities`）。
+    expiring: HashMap<DistantTerrainTileKey, ExpiringDistantTile>,
     last_player_chunk: Option<IVec3>,
     last_near_radius_chunks: Option<i32>,
     last_config: Option<DistantTerrainConfig>,
+}
+
+/// 延迟卸载阶段保留的远景瓦片。
+struct ExpiringDistantTile {
+    entity: Entity,
+    /// 距 despawn 还剩的固定步数；每步减 1，归零时销毁实体并从 `expiring` 移除。
+    ticks_remaining: u32,
 }
 
 impl DistantTerrainRuntime {
@@ -66,6 +84,8 @@ impl DistantTerrainRuntime {
         self.expected_keys.clear();
         self.ordered_plan.clear();
         self.active_requests.clear();
+        self.tile_masks.clear();
+        self.expiring.clear();
         self.last_player_chunk = None;
         self.last_near_radius_chunks = None;
         self.last_config = None;
@@ -99,6 +119,7 @@ pub(crate) fn sync_distant_terrain_plan_system(
     streaming: Res<WorldStreamingConfig>,
     config: Res<DistantTerrainConfig>,
     sampler: Res<TerrainSurfaceSampler>,
+    world_state: Res<WorldState>,
     mut runtime: ResMut<DistantTerrainRuntime>,
 ) {
     let Some(player_chunk) = player_cache.player_chunk_pos() else {
@@ -124,7 +145,8 @@ pub(crate) fn sync_distant_terrain_plan_system(
         runtime.advance_session();
     }
 
-    let ordered_plan = build_distant_terrain_plan(player_chunk, near_radius_chunks, &config);
+    let ordered_plan =
+        build_distant_terrain_plan(&world_state, player_chunk, near_radius_chunks, &config);
     let expected_keys = ordered_plan
         .iter()
         .map(|spec| spec.key)
@@ -136,11 +158,25 @@ pub(crate) fn sync_distant_terrain_plan_system(
         .collect::<Vec<_>>();
     for key in removed_keys {
         runtime.active_requests.remove(&key);
+        runtime.tile_masks.remove(&key);
         if let Some(entity) = runtime.tile_entities.remove(&key) {
-            commands
-                .entity(entity)
-                .despawn_related::<Children>()
-                .despawn();
+            // 玩家跨区块后，已离开计划的瓦片先延迟卸载：在保留期内旧网格仍渲染覆盖
+            // 原区域，等待新位置真实区块流送就绪，避免远景与近景之间出现真空带；保留期
+            // 内若新计划重新覆盖该键则直接复活（移回 tile_entities）。
+            runtime.expiring.insert(
+                key,
+                ExpiringDistantTile {
+                    entity,
+                    ticks_remaining: DISTANT_TERRAIN_EXPIRY_TICKS,
+                },
+            );
+        }
+    }
+    // 复活：新计划中需要但当前在 expiring 里的键，复用其可见实体，省去新位置
+    // 真实区块尚未流送完成时的边缘真空。
+    for spec in &ordered_plan {
+        if let Some(exp) = runtime.expiring.remove(&spec.key) {
+            runtime.tile_entities.insert(spec.key, exp.entity);
         }
     }
 
@@ -156,6 +192,7 @@ pub(crate) fn spawn_distant_terrain_tasks_system(
     channel: Res<DistantTerrainBuildChannel>,
     sampler: Res<TerrainSurfaceSampler>,
     block_info: Res<CachedBlockInfo>,
+    world_state: Res<WorldState>,
     task: Res<TaskManager>,
     mut runtime: ResMut<DistantTerrainRuntime>,
 ) {
@@ -166,6 +203,11 @@ pub(crate) fn spawn_distant_terrain_tasks_system(
     let worker_count = task.worker_count().max(1);
     let max_in_flight = worker_count.saturating_sub(1).clamp(1, 2);
     let planned_specs = runtime.ordered_plan.clone();
+    // 一次性克隆世界快照供整批任务共享；瓦片让出判定（cell_in_lod_ring）依据真实
+    // 区块加载状态，玩家跨区块或飞行卸载时由远景兜底。
+    let snapshot = Arc::new(
+        crate::game::world::lighting::rebuild::LightingWorldSnapshot::from_world(&world_state),
+    );
     let mut spawned = 0usize;
 
     for spec in planned_specs {
@@ -176,16 +218,23 @@ pub(crate) fn spawn_distant_terrain_tasks_system(
             break;
         }
         if !runtime.expected_keys.contains(&spec.key)
-            || runtime.tile_entities.contains_key(&spec.key)
             || runtime.active_requests.contains_key(&spec.key)
+        {
+            continue;
+        }
+        // 已有实体且覆盖位图未变化时无需重建；位图变化则原地更新网格而非销毁瓦片。
+        if runtime.tile_entities.contains_key(&spec.key)
+            && runtime.tile_masks.get(&spec.key) == Some(&spec.coverage_mask)
         {
             continue;
         }
 
         let request_id = runtime.begin_request(spec.key);
         let session_generation = runtime.session_generation;
+        let coverage_mask = spec.coverage_mask;
         let sampler = sampler.clone();
         let block_info = block_info.0.clone();
+        let task_snapshot = Arc::clone(&snapshot);
         let sender = channel.sender.clone();
         let in_flight = Arc::clone(&channel.in_flight);
         channel.in_flight.fetch_add(1, Ordering::Relaxed);
@@ -194,7 +243,8 @@ pub(crate) fn spawn_distant_terrain_tasks_system(
                 session_generation,
                 request_id,
                 key: spec.key,
-                mesh: build_distant_block_mesh(&sampler, &block_info, spec),
+                coverage_mask,
+                mesh: build_distant_block_mesh(&sampler, &task_snapshot, &block_info, spec),
             };
             if sender.send(result).is_err() {
                 in_flight.fetch_sub(1, Ordering::Relaxed);
@@ -233,6 +283,7 @@ pub(crate) fn receive_distant_terrain_results_system(
             continue;
         }
         runtime.active_requests.remove(&result.key);
+        runtime.tile_masks.insert(result.key, result.coverage_mask);
         if let Some(previous) = runtime.tile_entities.remove(&result.key) {
             commands
                 .entity(previous)
@@ -323,7 +374,45 @@ pub(crate) fn clear_distant_terrain_system(
             .despawn_related::<Children>()
             .despawn();
     }
+    for exp_entity in runtime.expiring.values().map(|exp| exp.entity) {
+        commands
+            .entity(exp_entity)
+            .despawn_related::<Children>()
+            .despawn();
+    }
     runtime.advance_session();
+}
+
+/// 每固定步推进延迟卸载倒计时：保留期结束后真正销毁远景瓦片。
+///
+/// 与 `sync_distant_terrain_plan_system` 协作：玩家跨区块时旧瓦片先移到 `expiring`
+/// 保留 1 秒，期间新计划若重新覆盖该键则移回 `tile_entities`；保留期满仍无人覆盖时
+/// 才真正 despawn，避免远景与近景之间出现真空带，也防止旧瓦片永远占内存。
+pub(crate) fn tick_distant_terrain_expiry_system(
+    mut commands: Commands,
+    mut runtime: ResMut<DistantTerrainRuntime>,
+) {
+    if runtime.expiring.is_empty() {
+        return;
+    }
+    let expired_keys: Vec<DistantTerrainTileKey> = runtime
+        .expiring
+        .iter_mut()
+        .map(|(key, exp)| {
+            let next = exp.ticks_remaining.saturating_sub(1);
+            exp.ticks_remaining = next;
+            (key, next)
+        })
+        .filter_map(|(key, ticks)| (ticks == 0).then_some(*key))
+        .collect();
+    for key in expired_keys {
+        if let Some(exp) = runtime.expiring.remove(&key) {
+            commands
+                .entity(exp.entity)
+                .despawn_related::<Children>()
+                .despawn();
+        }
+    }
 }
 
 #[cfg(test)]

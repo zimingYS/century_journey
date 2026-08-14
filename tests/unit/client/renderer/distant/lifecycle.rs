@@ -6,7 +6,6 @@ fn test_key() -> DistantTerrainTileKey {
         origin_chunk_x: 8,
         origin_chunk_z: -4,
         span_chunks: 4,
-        coverage_mask: [0; 4],
     }
 }
 
@@ -19,6 +18,7 @@ fn test_result(
         session_generation,
         request_id,
         key,
+        coverage_mask: [0; 4],
         mesh: super::super::block_mesh::DistantTerrainBlockMeshData {
             opaque: crate::client::renderer::world::MeshBufferData::default(),
             water: crate::client::renderer::world::MeshBufferData::default(),
@@ -49,20 +49,23 @@ fn clearing_a_plan_removes_pending_identity_state() {
     runtime.ordered_plan.push(DistantTerrainTileSpec {
         key,
         sample_step_blocks: 4,
-        inner_radius_chunks: 8,
         outer_radius_chunks: 16,
         lod_inner_radius_chunks: 8,
         lod_outer_radius_chunks: 16,
         player_chunk_x: 0,
         player_chunk_z: 0,
+        player_chunk_y: 0,
+        coverage_mask: [0; 4],
     });
     runtime.begin_request(key);
+    runtime.tile_masks.insert(key, [0; 4]);
 
     runtime.clear_plan();
 
     assert!(runtime.expected_keys.is_empty());
     assert!(runtime.ordered_plan.is_empty());
     assert!(runtime.active_requests.is_empty());
+    assert!(runtime.tile_masks.is_empty());
 }
 
 #[test]

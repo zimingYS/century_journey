@@ -15,4 +15,5 @@ pub(crate) use lifecycle::{
     DistantTerrainRuntime, clear_distant_terrain_system, initialize_distant_terrain_system,
     receive_distant_terrain_results_system, spawn_distant_terrain_tasks_system,
     sync_distant_terrain_camera_range_system, sync_distant_terrain_plan_system,
+    tick_distant_terrain_expiry_system,
 };
