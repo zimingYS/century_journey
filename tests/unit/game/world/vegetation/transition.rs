@@ -4,6 +4,7 @@ use crate::game::world::chunk::ChunkData;
 use crate::game::world::state::ChunkRuntime;
 use crate::game::world::structure::TreeBlueprintParameters;
 use crate::game::world::voxel_change::apply::apply_changes;
+use crate::game::world::voxel_change::provenance::VoxelProvenance;
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -85,7 +86,12 @@ fn valid_sapling_is_atomically_replaced_by_the_young_blueprint() {
         |_| true,
     );
     assert!(ok);
-    apply_changes(&mut world, &mut runtime, &mut buffer);
+    apply_changes(
+        &mut world,
+        &mut runtime,
+        &mut VoxelProvenance::default(),
+        &mut buffer,
+    );
 
     for voxel in young.voxels() {
         assert_eq!(get_voxel_at_world(voxel.world_pos, &world), voxel.block_id);
@@ -113,7 +119,12 @@ fn blocked_new_space_keeps_the_entire_young_tree_unchanged() {
         &mut buffer,
         |_| true,
     ));
-    apply_changes(&mut world, &mut runtime, &mut buffer); // 先让 young 生效
+    apply_changes(
+        &mut world,
+        &mut runtime,
+        &mut VoxelProvenance::default(),
+        &mut buffer,
+    ); // 先让 young 生效
 
     let young_positions = young
         .voxels()
@@ -166,7 +177,12 @@ fn young_to_mature_keeps_previous_branches_and_adds_the_mature_blueprint() {
         &mut buffer,
         |_| true,
     ));
-    apply_changes(&mut world, &mut runtime, &mut buffer);
+    apply_changes(
+        &mut world,
+        &mut runtime,
+        &mut VoxelProvenance::default(),
+        &mut buffer,
+    );
 
     let mature_positions = mature
         .voxels()
@@ -190,7 +206,12 @@ fn young_to_mature_keeps_previous_branches_and_adds_the_mature_blueprint() {
         &mut buffer,
         |_| true,
     ));
-    apply_changes(&mut world, &mut runtime, &mut buffer);
+    apply_changes(
+        &mut world,
+        &mut runtime,
+        &mut VoxelProvenance::default(),
+        &mut buffer,
+    );
 
     assert_eq!(
         get_voxel_at_world(old_only.world_pos, &world),

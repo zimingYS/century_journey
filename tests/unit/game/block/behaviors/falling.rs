@@ -3,6 +3,7 @@ use crate::game::world::block_ops::{get_voxel_at_world, set_voxel_at_world};
 use crate::game::world::chunk::ChunkData;
 use crate::game::world::state::{ChunkRuntime, WorldState};
 use crate::game::world::voxel_change::apply::apply_changes;
+use crate::game::world::voxel_change::provenance::VoxelProvenance;
 use crate::shared::voxel_change::VoxelChangeBuffer;
 use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{Commands, IVec3, World};
@@ -43,7 +44,12 @@ fn below_becoming_air_triggers_fall() {
     );
 
     assert_eq!(buffer.0.len(), 2, "应推 2 条命令：原位清空 + 下方写入");
-    apply_changes(&mut world, &mut runtime, &mut buffer);
+    apply_changes(
+        &mut world,
+        &mut runtime,
+        &mut VoxelProvenance::default(),
+        &mut buffer,
+    );
     assert_eq!(get_voxel_at_world(IVec3::new(1, 2, 1), &world), 0);
     assert_eq!(get_voxel_at_world(IVec3::new(1, 1, 1), &world), SAND);
 }
@@ -141,7 +147,12 @@ fn placed_in_air_falls_on_change() {
     );
 
     assert_eq!(buffer.0.len(), 2);
-    apply_changes(&mut world, &mut runtime, &mut buffer);
+    apply_changes(
+        &mut world,
+        &mut runtime,
+        &mut VoxelProvenance::default(),
+        &mut buffer,
+    );
     assert_eq!(get_voxel_at_world(IVec3::new(1, 3, 1), &world), 0);
     assert_eq!(get_voxel_at_world(IVec3::new(1, 2, 1), &world), SAND);
 }
@@ -180,7 +191,12 @@ fn sand_column_settles_after_repeated_steps() {
                 );
             }
         }
-        apply_changes(&mut world, &mut runtime, &mut buffer);
+        apply_changes(
+            &mut world,
+            &mut runtime,
+            &mut VoxelProvenance::default(),
+            &mut buffer,
+        );
     }
 
     // 沙柱整体下移到 (1,2,3)

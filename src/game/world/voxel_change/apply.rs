@@ -5,6 +5,7 @@
 use crate::content::block::event::BlockChangedEvent;
 use crate::game::world::state::ChunkRuntime;
 use crate::game::world::state::WorldState;
+use crate::game::world::voxel_change::provenance::VoxelProvenance;
 use crate::shared::voxel::CHUNK_SIZE;
 use crate::shared::voxel_change::{VoxelChange, VoxelChangeBuffer};
 use bevy::prelude::*;
@@ -15,9 +16,11 @@ use std::sync::Arc;
 ///
 /// 按区块分组减少哈希查找；逐格递增修订号；`old == new` 跳过（不 bump 不返回）；
 /// 区块未加载跳过；提交顺序 = 应用顺序（确定性）；应用后清空缓冲。
+/// 每次实际变更同时把来源写入 [`VoxelProvenance`]。
 pub fn apply_changes(
     world_state: &mut WorldState,
     runtime: &mut ChunkRuntime,
+    provenance: &mut VoxelProvenance,
     buffer: &mut VoxelChangeBuffer,
 ) -> Vec<BlockChangedEvent> {
     let mut applied = Vec::new();
@@ -59,6 +62,7 @@ pub fn apply_changes(
                 change.block_id,
             );
             runtime.bump_revision(chunk_pos);
+            provenance.record(change.pos, change.source);
             applied.push(BlockChangedEvent {
                 world_pos: change.pos,
                 old_block_id,
@@ -69,14 +73,15 @@ pub fn apply_changes(
     applied
 }
 
-/// 固定步系统：应用缓冲并把变化转成事件。
+/// 固定步系统：应用缓冲、记录来源并把变化转成事件。
 pub fn apply_voxel_changes(
     mut buffer: ResMut<VoxelChangeBuffer>,
     mut world_state: ResMut<WorldState>,
     mut runtime: ResMut<ChunkRuntime>,
+    mut provenance: ResMut<VoxelProvenance>,
     mut changed_blocks: MessageWriter<BlockChangedEvent>,
 ) {
-    for change in apply_changes(&mut world_state, &mut runtime, &mut buffer) {
+    for change in apply_changes(&mut world_state, &mut runtime, &mut provenance, &mut buffer) {
         changed_blocks.write(change);
     }
 }
