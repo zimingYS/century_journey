@@ -68,6 +68,7 @@ fn extreme_heat_accelerates_thirst_and_deals_damage() {
             precipitation: 0.0,
             fog_density: 0.0,
             temperature_c: 50.0,
+            humidity: 0.5,
         })
         .init_resource::<PlayerGameMode>()
         .init_resource::<DamageCount>()
@@ -104,6 +105,7 @@ fn extreme_cold_accelerates_hunger_and_deals_damage() {
             precipitation: 0.0,
             fog_density: 0.0,
             temperature_c: -10.0,
+            humidity: 0.5,
         })
         .init_resource::<PlayerGameMode>()
         .init_resource::<DamageCount>()
