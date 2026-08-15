@@ -15,6 +15,7 @@ use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::FoodUseState;
 use crate::game::player::survival::hunger::Hunger;
 use crate::game::player::survival::protection::Defense;
+use crate::game::player::survival::temperature::TemperatureExposure;
 use crate::game::player::survival::thirst::{DrinkUseState, Thirst};
 use crate::game::simulation::SimulationTransformHistory;
 use bevy::prelude::*;
@@ -66,6 +67,7 @@ pub fn spawn_authoritative_player_system(
         PlayerLifecycle::default(),
         RespawnPoint::default(),
         EnvironmentExposure::default(),
+        TemperatureExposure::default(),
         SimulationTransformHistory::new(player_transform),
         PlayerId::LOCAL,
         InventoryState::default(),

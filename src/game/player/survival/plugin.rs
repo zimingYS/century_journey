@@ -25,6 +25,7 @@ impl Plugin for PlayerSurvivalPlugin {
                     survival::hunger::natural_regeneration_system,
                     survival::hunger::starvation_damage_system,
                     survival::thirst::dehydration_damage_system,
+                    survival::temperature::temperature_survival_system,
                     survival::protection::armor_calculation_system,
                     survival::environment::environment_damage_system,
                 )

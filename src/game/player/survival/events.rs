@@ -52,6 +52,10 @@ pub enum DamageSource {
     Drowning,
     /// 火焰
     Fire,
+    /// 过热
+    Overheating,
+    /// 失温
+    Hypothermia,
     /// 实体
     Entity(Entity),
     /// 其他通用
@@ -67,6 +71,8 @@ impl DamageSource {
             Self::Dehydration => "脱水",
             Self::Drowning => "溺水",
             Self::Fire => "火焰",
+            Self::Overheating => "过热",
+            Self::Hypothermia => "失温",
             Self::Entity(_) => "实体攻击",
             Self::Generic => "环境伤害",
         }
