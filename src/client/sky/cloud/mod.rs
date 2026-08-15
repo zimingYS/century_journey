@@ -7,6 +7,7 @@ mod components;
 mod constants;
 mod systems;
 mod texture;
+mod weather_adapter;
 
 use bevy::prelude::*;
 
@@ -28,10 +29,12 @@ impl Plugin for CloudPlugin {
             .add_systems(
                 Update,
                 (
+                    weather_adapter::sync_weather_to_cloud_system,
                     systems::cloud_drift_system,
                     systems::cloud_tint_system,
                     systems::cloud_patch_system,
                 )
+                    .chain()
                     .run_if(in_state(AppState::InGame)),
             );
     }
