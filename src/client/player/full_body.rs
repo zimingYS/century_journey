@@ -47,6 +47,12 @@ struct ConsumedItemReaders<'w, 's> {
     drink: MessageReader<'w, 's, DrinkConsumedEvent>,
 }
 
+/// 本地玩家 rig 查询；打包成单一系统参数，避免超出 Bevy 系统参数数量上限。
+#[derive(SystemParam)]
+struct LocalPlayerRigView<'w, 's> {
+    rig: Query<'w, 's, (Entity, &'static PlayerRigEntities), With<LocalPlayer>>,
+}
+
 /// 真实第一人称渲染插件。
 ///
 /// 它不再生成独立 ViewModel，而是把本地玩家快捷栏物品挂到真实 PlayerRig 的 HeldItemAnchor 上。
@@ -78,11 +84,11 @@ fn sync_full_body_held_item_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut render_state: ResMut<FullBodyHeldItemRenderState>,
     mut item_model_cache: ResMut<ItemModelCache>,
-    rig_query: Query<(Entity, &PlayerRigEntities), With<LocalPlayer>>,
+    view: LocalPlayerRigView,
     mut readers: ConsumedItemReaders,
     mut consumed_visual: Local<ConsumedFoodVisual>,
 ) {
-    let Ok((player, rig)) = rig_query.single() else {
+    let Ok((player, rig)) = view.rig.single() else {
         return;
     };
 
@@ -142,11 +148,18 @@ fn sync_full_body_held_item_system(
     };
 
     let item_key = item_identifier.to_string();
+    // 第一人称和第三人称统一把物品挂在真实右手上（MC 真实第一人称：第一人称通过
+    // 抬手让手持工具进入视野，物品模型与第三人称完全一致，不再单独挂相机）。
+    let (context, parent) = (
+        ItemDisplayContext::ThirdPersonRightHand,
+        Some(rig.held_item),
+    );
+
     let Some(spawned) = ItemRenderer::spawn_item_entity(
         &mut commands,
         &item,
-        ItemDisplayContext::ThirdPersonRightHand,
-        Some(rig.held_item),
+        context,
+        parent,
         format!("RigHeldItem_{item_key}"),
         &mut render_context,
     ) else {

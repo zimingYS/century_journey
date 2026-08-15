@@ -2,22 +2,33 @@
 
 use bevy::prelude::*;
 
+use crate::client::camera::FpsCamera;
 use crate::client::player::model::animation::{
     PlayerAnimationState, PlayerBehaviorState, PlayerLocomotionState,
 };
 use crate::client::player::model::rig::{PlayerRigEntities, held_item_grip_transform};
 use crate::game::player::identity::Player;
+use crate::game::player::physics::components::PlayerCollider;
 
 /// 将分层动画状态转换成骨架姿态。
 ///
 /// 这里仅写关节 Transform，不修改移动、伤害或交互状态。
+///
+/// 玩家模型以 `armature=false` 导出，所有移动状态（Idle/Walk/Run/Jump/Fall）和上半身
+/// 行为（Mining/Placing/Using/Attacking/Hurt/Death）统一走程序化姿态，没有骨骼动画
+/// 播放器参与，因此无需在 Walk/Run/Fall 时跳过。
 pub fn apply_player_rig_animation_system(
     state_query: Query<(&PlayerAnimationState, &PlayerRigEntities), With<Player>>,
+    camera_query: Query<&FpsCamera>,
     mut transform_query: Query<&mut Transform>,
 ) {
+    let first_person = camera_query
+        .iter()
+        .next()
+        .is_none_or(|camera| camera.is_first_person());
     for (state, rig) in &state_query {
         let lower = blended_lower_pose(state);
-        let upper = blended_upper_pose(state);
+        let upper = blended_upper_pose(state, first_person);
         let root = rig_motion_pose(state);
 
         set_pose(
@@ -248,8 +259,8 @@ impl UpperBodyPose {
     }
 }
 
-fn blended_upper_pose(state: &PlayerAnimationState) -> UpperBodyPose {
-    let base = base_upper_pose(state);
+fn blended_upper_pose(state: &PlayerAnimationState, first_person: bool) -> UpperBodyPose {
+    let base = base_upper_pose(state, first_person);
     let previous = behavior_pose(
         state.upper_body.previous,
         state.previous_behavior_progress,
@@ -264,7 +275,7 @@ fn blended_upper_pose(state: &PlayerAnimationState) -> UpperBodyPose {
     base.blend(transitioned, state.upper_body.weight)
 }
 
-fn base_upper_pose(state: &PlayerAnimationState) -> UpperBodyPose {
+fn base_upper_pose(state: &PlayerAnimationState, first_person: bool) -> UpperBodyPose {
     let move_amplitude = match state.lower_body.current {
         PlayerLocomotionState::Walk => 0.22,
         PlayerLocomotionState::Run => 0.36,
@@ -286,16 +297,32 @@ fn base_upper_pose(state: &PlayerAnimationState) -> UpperBodyPose {
     ) * Quat::from_rotation_y(-body_yaw * 0.45);
 
     if state.parameters.holding_item {
-        UpperBodyPose {
-            body,
-            head,
-            upper_arm_r: arm_rotation(0.68 + swing * 0.16, -0.30),
-            upper_arm_l: arm_rotation(0.10 - swing * 0.86, 0.07),
-            forearm_r: arm_rotation(0.44 + swing * 0.06, -0.10),
-            forearm_l: arm_rotation(0.14 - swing * 0.18, 0.03),
-            hand_r: Quat::from_rotation_x(0.10),
-            hand_l: Quat::from_rotation_x(0.04),
-            death_weight: 0.0,
+        if first_person {
+            // 第一人称抬手：右臂抬到屏幕右下角，让手持工具稳定进入视野。
+            // 身体/头网格在第一人称下被隐藏，姿态仅影响手臂和手持物。
+            UpperBodyPose {
+                body,
+                head,
+                upper_arm_r: arm_rotation(1.15, -0.18),
+                upper_arm_l: arm_rotation(0.15, 0.12),
+                forearm_r: arm_rotation(0.25, -0.08),
+                forearm_l: arm_rotation(0.12, 0.05),
+                hand_r: Quat::from_rotation_x(0.05),
+                hand_l: Quat::from_rotation_x(0.04),
+                death_weight: 0.0,
+            }
+        } else {
+            UpperBodyPose {
+                body,
+                head,
+                upper_arm_r: arm_rotation(0.68 + swing * 0.16, -0.30),
+                upper_arm_l: arm_rotation(0.10 - swing * 0.86, 0.07),
+                forearm_r: arm_rotation(0.44 + swing * 0.06, -0.10),
+                forearm_l: arm_rotation(0.14 - swing * 0.18, 0.03),
+                hand_r: Quat::from_rotation_x(0.10),
+                hand_l: Quat::from_rotation_x(0.04),
+                death_weight: 0.0,
+            }
         }
     } else {
         UpperBodyPose {
@@ -415,6 +442,26 @@ fn lerp(from: f32, to: f32, amount: f32) -> f32 {
 fn smoothstep(value: f32) -> f32 {
     let value = value.clamp(0.0, 1.0);
     value * value * (3.0 - 2.0 * value)
+}
+
+/// 兜底：每帧强制把 `rig_root.translation.y` 设为 `feet_offset`（碰撞箱半高取负），
+/// 让模型脚底始终贴地。`WorldAssetRoot` 异步加载 scene 时可能覆盖 rig_root 的
+/// Transform，`apply_player_rig_animation_system` 也会写 `rig.root.translation`
+/// （body 起伏会动到 y 分量）。本系统在 PostUpdate chain 末尾执行，覆盖动画系统的
+/// y 偏移，确保脚底永远在 player 位置正下方；同时保留 x/z 的身体起伏效果。
+///
+/// 必须放在 `apply_player_rig_animation_system` **之后**运行（chain 末位），
+/// 才能覆盖动画系统写入的 y 偏移。
+pub fn enforce_feet_offset_system(
+    rig_query: Query<(&PlayerRigEntities, Option<&PlayerCollider>), With<Player>>,
+    mut transform_query: Query<&mut Transform>,
+) {
+    for (rig, collider) in &rig_query {
+        let feet_offset = collider.map(|c| -c.half_extents.y).unwrap_or(-0.9);
+        if let Ok(mut transform) = transform_query.get_mut(rig.root) {
+            transform.translation.y = feet_offset;
+        }
+    }
 }
 
 #[cfg(test)]

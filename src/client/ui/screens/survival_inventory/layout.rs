@@ -3,7 +3,6 @@
 use bevy::prelude::*;
 
 use super::preview::spawn_player_preview;
-use crate::client::player::model::config::PlayerModelConfig;
 use crate::client::ui::components::{
     CompactBackpackButton, SortBackpackButton, SurvivalAccessoryPanel, SurvivalDefenseText,
     SurvivalEquipmentPanel, SurvivalHealthText, SurvivalHotbarPanel, SurvivalHungerText,
@@ -31,21 +30,19 @@ const SURVIVAL_OVERLAY_Z: i32 = 1000;
 #[allow(clippy::too_many_arguments)]
 pub fn spawn_survival_inventory_system(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     theme: Res<UiTheme>,
     ui_font: Res<UiFont>,
     accessory_definitions: Res<AccessorySlotDefinitions>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    player_model_config: Res<PlayerModelConfig>,
 ) {
-    let preview_image = spawn_player_preview(
-        &mut commands,
-        &mut images,
-        &mut meshes,
-        &mut materials,
-        &player_model_config,
-    );
+    // 所有玩家共用 player.glb，不再需要 ProgramModeConfig / StandardMaterial 资源；
+    // 这里保留 ui_font / theme / accessory_definitions 等回调上下文参数，
+    // 调用方未来如果要按风格切换预览可以接回去。
+    let _ = (&theme, &ui_font, &accessory_definitions);
+    let preview_image =
+        spawn_player_preview(&mut commands, &asset_server, &mut images, &mut meshes);
 
     commands
         .spawn((
