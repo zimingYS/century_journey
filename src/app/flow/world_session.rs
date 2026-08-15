@@ -26,6 +26,7 @@ use crate::game::save::world::runtime::world_save::save_entire_world;
 use crate::game::save::{LoadQueue, SaveConfig, SaveQueue, SaveWorker, flush_save_queue};
 use crate::game::world::chunk::ChunkComponents;
 use crate::game::world::generation::generator::WorldGenerator;
+use crate::game::world::generation::terrain::climate::{ClimateConfig, ClimateSampler};
 use crate::game::world::generation::{StructureGenChannel, TerrainGenChannel};
 use crate::game::world::state::{ChunkRuntime, WorldState};
 use crate::game::world::streaming::PlayerChunkCache;
@@ -99,6 +100,7 @@ pub(super) struct PrepareWorldParams<'w, 's> {
     commands: Commands<'w, 's>,
     save_config: ResMut<'w, SaveConfig>,
     world_generator: ResMut<'w, WorldGenerator>,
+    climate_sampler: ResMut<'w, ClimateSampler>,
     simulation_clock: ResMut<'w, WorldSimulationClock>,
     world_state: ResMut<'w, WorldState>,
     chunk_runtime: ResMut<'w, ChunkRuntime>,
@@ -199,6 +201,8 @@ pub(super) fn prepare_world_system(pending: Res<PendingWorld>, mut params: Prepa
                 level_data.generation_version,
                 biomes,
             );
+            *params.climate_sampler =
+                ClimateSampler::new(level_data.seed as u32, ClimateConfig::default());
             params
                 .world_generator
                 .pipeline

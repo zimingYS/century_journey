@@ -13,6 +13,7 @@ use crate::game::simulation::SimulationRng;
 use crate::game::world::generation::block_ids::{CachedBlockIds, GenerationBlockIds};
 use crate::game::world::generation::generator::WorldGenerator;
 use crate::game::world::generation::pipeline::{GenerationPipeline, TerrainSurfaceSampler};
+use crate::game::world::generation::terrain::climate::{ClimateConfig, ClimateSampler};
 use crate::game::world::streaming::manage_chunks_system;
 use crate::shared::states::AppState;
 use bevy::prelude::*;
@@ -26,6 +27,7 @@ pub(in crate::game::world) struct WorldGenerationPlugin;
 impl Plugin for WorldGenerationPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(WorldGenerator::new(12345, BiomeRegistry::default()))
+            .insert_resource(ClimateSampler::new(12345, ClimateConfig::default()))
             .init_resource::<CachedBlockIds>()
             .insert_resource(TerrainSurfaceSampler::pending(
                 GenerationPipeline::new(12345, BiomeRegistry::default()),
