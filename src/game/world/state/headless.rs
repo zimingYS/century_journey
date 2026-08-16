@@ -1,7 +1,6 @@
 //! 为测试和服务端式运行组装不依赖客户端渲染的世界状态。
 
-use crate::game::world::state::authoritative::WorldState;
-use crate::game::world::state::chunk_runtime::ChunkRuntime;
+use crate::game::world::state::plugin::WorldStatePlugin;
 use bevy::app::{App, Plugin};
 use bevy::prelude::{Fixed, Time};
 
@@ -10,8 +9,7 @@ pub struct HeadlessWorldPlugin;
 
 impl Plugin for HeadlessWorldPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<WorldState>()
-            .init_resource::<ChunkRuntime>()
+        app.add_plugins(WorldStatePlugin)
             .init_resource::<crate::game::block::BlockBehaviorRegistry>()
             .insert_resource(Time::<Fixed>::from_hz(
                 crate::game::world::time::SIMULATION_TICKS_PER_SECOND as f64,

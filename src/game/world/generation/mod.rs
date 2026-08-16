@@ -9,6 +9,7 @@ pub mod pipeline;
 mod plugin;
 mod runtime;
 pub mod structure;
+mod sync;
 pub mod terrain;
 
 pub(in crate::game::world) use plugin::WorldGenerationPlugin;

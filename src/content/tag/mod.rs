@@ -5,5 +5,7 @@ pub mod definition;
 pub mod loader;
 pub mod plugin;
 pub mod runtime;
+mod systems;
 
 pub use plugin::TagContentPlugin;
+pub(crate) use systems::init_tag_registry_system;

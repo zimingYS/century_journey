@@ -1,15 +1,15 @@
 //! 注册世界生成通道与任务系统，并声明生成阶段的调度顺序。
 
+use super::sync::{
+    cache_block_ids_system, sync_simulation_rng_seed_system, sync_terrain_surface_sampler_system,
+    sync_world_biomes_system, sync_world_ores_system,
+};
 use super::{
     StructureGenChannel, TerrainGenChannel, generate_structures_system, receive_structure_results,
     receive_terrain_results, spawn_terrain_gen_tasks,
 };
 use crate::content::biome::BiomeRegistry;
-use crate::content::block::registry::BlockRegistry;
 use crate::content::lifecycle::{ContentReloadSet, content_reload_requested};
-use crate::content::ore_vein::registry::OreVeinRegistry;
-use crate::content::tag::runtime::RuntimeTagRegistry;
-use crate::game::simulation::SimulationRng;
 use crate::game::world::generation::block_ids::{CachedBlockIds, GenerationBlockIds};
 use crate::game::world::generation::generator::WorldGenerator;
 use crate::game::world::generation::pipeline::{GenerationPipeline, TerrainSurfaceSampler};
@@ -57,65 +57,9 @@ impl Plugin for WorldGenerationPlugin {
                     sync_terrain_surface_sampler_system,
                 )
                     .chain()
-                    .after(crate::content::tag::plugin::init_tag_registry_system)
+                    .after(crate::content::tag::init_tag_registry_system)
                     .in_set(ContentReloadSet::Consumers)
                     .run_if(content_reload_requested),
             );
     }
-}
-
-fn sync_simulation_rng_seed_system(
-    world_generator: Res<WorldGenerator>,
-    mut simulation_rng: ResMut<SimulationRng>,
-) {
-    simulation_rng.set_world_seed(world_generator.seed as u64);
-}
-
-fn sync_world_biomes_system(
-    registry: Res<BiomeRegistry>,
-    mut world_generator: ResMut<WorldGenerator>,
-) {
-    if registry.is_empty() {
-        log::error!("[世界] 生物群系注册表为空，跳过世界生成器刷新");
-        return;
-    }
-
-    world_generator.set_biome_registry(registry.clone());
-}
-
-fn cache_block_ids_system(
-    registry: Res<BlockRegistry>,
-    tag_registry: Option<Res<RuntimeTagRegistry>>,
-    mut cached: ResMut<CachedBlockIds>,
-) {
-    let block_ids = if let Some(tag_registry) = tag_registry {
-        GenerationBlockIds::from_registry(&registry, &tag_registry)
-    } else {
-        log::warn!("[世界] RuntimeTagRegistry 尚未初始化，使用空标签");
-        GenerationBlockIds::from_registry(&registry, &RuntimeTagRegistry::default())
-    };
-
-    cached.0 = block_ids;
-}
-
-fn sync_world_ores_system(
-    registry: Res<OreVeinRegistry>,
-    mut world_generator: ResMut<WorldGenerator>,
-) {
-    let veins = registry.iter().cloned().collect::<Vec<_>>();
-    world_generator.pipeline.replace_ore_veins(veins);
-}
-
-/// 在世界生成器和方块 ID 快照都刷新后重建 Client 可调用的只读采样服务。
-///
-/// 服务是确定性表现数据的唯一跨层出口；Client 不需要也不允许读取生成管线内部字段。
-fn sync_terrain_surface_sampler_system(
-    world_generator: Res<WorldGenerator>,
-    cached_block_ids: Res<CachedBlockIds>,
-    mut sampler: ResMut<TerrainSurfaceSampler>,
-) {
-    *sampler = TerrainSurfaceSampler::from_generation_state(
-        world_generator.pipeline.clone(),
-        cached_block_ids.0.clone(),
-    );
 }

@@ -1,5 +1,19 @@
-use super::*;
+use super::WorldLighting;
+use super::resources::{
+    CachedLightInfo, LightingBuildResult, LightingRebuildTracker,
+    WORLD_REBUILD_MAX_TASK_DEFER_TICKS, WORLD_REBUILD_STABLE_TICKS,
+};
+use super::systems::{
+    changed_light_chunks, light_dependent_mesh_chunks, lighting_result_is_current,
+};
+use crate::game::world::chunk::ChunkData;
+use crate::game::world::lighting::chunk_light::{ChunkLight, LightCell};
+use crate::game::world::lighting::rebuild::LightingWorldSnapshot;
+use crate::game::world::state::WorldState;
+use bevy::math::IVec3;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::time::Duration;
 
 #[test]
 fn changed_light_chunks_only_returns_actual_differences() {
@@ -113,7 +127,7 @@ fn global_rebuild_task_backlog_has_a_bounded_deferral() {
     let mut tracker = LightingRebuildTracker {
         pending: true,
         stable_ticks: WORLD_REBUILD_STABLE_TICKS,
-        ..default()
+        ..Default::default()
     };
     for _ in 1..WORLD_REBUILD_MAX_TASK_DEFER_TICKS {
         assert!(tracker.should_defer_for_task_backlog(1));
@@ -131,11 +145,11 @@ fn result_is_rejected_after_the_authoritative_chunk_changes() {
     let snapshot = LightingWorldSnapshot::from_world(&world);
     let tracker = LightingRebuildTracker {
         session_id: 4,
-        ..default()
+        ..Default::default()
     };
     let cached = CachedLightInfo {
         revision: 7,
-        ..default()
+        ..Default::default()
     };
     let result = LightingBuildResult {
         session_id: 4,

@@ -8,6 +8,7 @@ use crate::game::player::lifecycle::PlayerLifecycle;
 use crate::game::player::movement::components::{PlayerMovement, PlayerVelocity};
 use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
 use crate::game::world::chunk::ChunkData;
+use crate::game::world::state::{ChunkRuntime, WorldState};
 use crate::game::world::time::WorldSimulationClock;
 use bevy::math::IVec3;
 use bevy::prelude::{FixedUpdate, MinimalPlugins, Query, Transform, With};

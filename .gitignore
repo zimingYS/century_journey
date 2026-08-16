@@ -8,3 +8,4 @@
 .env.*
 !.env.example
 /docs/PROJECT_HANDOVER_LEARNING_PLAN.md
+/tools/

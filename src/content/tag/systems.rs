@@ -1,0 +1,63 @@
+//! 标签编译与运行时发布系统。
+
+use bevy::prelude::*;
+
+use crate::content::block::registry::BlockRegistry;
+use crate::content::item::ItemRegistry;
+use crate::content::tag::compiler::TagRegistryCompiler;
+use crate::content::validation::ContentCompilation;
+
+/// 按内容覆盖顺序编译并发布运行时标签索引。
+pub(crate) fn init_tag_registry_system(
+    mut commands: Commands,
+    compilation: Res<ContentCompilation>,
+    block_registry: Res<BlockRegistry>,
+    item_registry: Option<Res<ItemRegistry>>,
+) {
+    // 1. 创建 Compiler
+    let mut compiler = TagRegistryCompiler::new();
+
+    // 2. 收集 default_tags (BlockProperty.tags)
+    compiler.collect_from_blocks(&block_registry);
+
+    // 3. 收集 default_tags (ItemDefinition.tags)
+    if let Some(ref ir) = item_registry {
+        compiler.collect_from_items(ir);
+    }
+
+    // 4. 加载 TagActions 并应用
+    let actions = &compilation.content.tags;
+    let mut applied = 0usize;
+    for (tag_id, action) in actions {
+        compiler.apply_action(tag_id.clone(), action);
+        applied += 1;
+    }
+    if applied > 0 {
+        log::info!("[标签系统] 已加载 {} 个标签定义", applied);
+    }
+
+    // 5. 展开 Tag 引用
+    compiler.resolve_references();
+
+    // 6. 检测未解析引用
+    let unresolved = compiler.detect_unresolved();
+    if !unresolved.is_empty() {
+        log::warn!("[标签系统] {} 个标签引用未解析", unresolved.len());
+        for (from, to) in &unresolved {
+            log::warn!("  {} → {} (目标不存在)", from.to_full(), to.to_full());
+        }
+    }
+
+    // 7. 构建 Runtime
+    let (block_runtime, item_index) = compiler.build_runtime(&block_registry);
+
+    log::info!(
+        "[标签系统] 编译完成: {} 个方块标签, {} 个物品标签",
+        block_runtime.total_tags(),
+        item_index.total_tags()
+    );
+
+    // 8. 插入 Resource
+    commands.insert_resource(block_runtime);
+    commands.insert_resource(item_index);
+}

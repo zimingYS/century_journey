@@ -1,4 +1,7 @@
-use super::*;
+use super::systems::advance_particle_motion;
+use super::types::FeedbackParticle;
+use bevy::math::Vec3;
+use bevy::prelude::Transform;
 
 fn simulate_particle(fps: u32) -> (Vec3, Vec3) {
     let mut particle = FeedbackParticle {
