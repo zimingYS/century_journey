@@ -102,7 +102,9 @@ fn locomotion_phase_is_stable_across_render_rates() {
         let delta = 1.0 / fps as f32;
 
         for _ in 0..fps {
-            update_motion_parameters(&mut state, 10.0, &gravity, true, delta, &config, &actions);
+            update_motion_parameters(
+                &mut state, 10.0, &gravity, true, false, delta, &config, &actions,
+            );
         }
         state
     }

@@ -111,33 +111,72 @@ pub(super) fn toggle_perspective_system(
     }
 }
 
-/// 同步摄像机位置
+/// 同步摄像机位置。
+///
+/// 第二/第三人称采用**球面轨道（spherical orbit）**：mouse Y 改变球面纬度，
+/// camera 沿球面绕玩家移动（pitch↑ 抬高 + 水平距离收缩），camera 始终看向玩家，
+/// 实现"绕玩家上下扫描"——而非在原地俯仰。
 pub(super) fn camera_perspective_sync_system(
     mut camera_query: Query<(&FpsCamera, &mut Transform), With<Camera3d>>,
 ) {
     for (fps_camera, mut camera_transform) in camera_query.iter_mut() {
-        camera_transform.translation = perspective_offset(fps_camera.perspective);
+        camera_transform.translation = perspective_offset(fps_camera.perspective, fps_camera.pitch);
         camera_transform.rotation = perspective_rotation(fps_camera);
     }
 }
 
 /// 返回指定视角对应的相机局部偏移。
-pub(super) fn perspective_offset(perspective: CameraPerspective) -> Vec3 {
+///
+/// 第一人称保持眼睛位置不变（FPS 标准行为）。第二/第三人称按球面轨道：
+/// pitch=0 时水平距离 4.5m，pitch 升高则高度 +r·sin(p)，水平距离 r·cos(p) 收缩。
+pub(super) fn perspective_offset(perspective: CameraPerspective, pitch: f32) -> Vec3 {
     match perspective {
         CameraPerspective::FirstPerson => Vec3::new(0.0, 0.78, -0.18),
-        CameraPerspective::SecondPerson => Vec3::new(0.0, 0.62, -4.5),
-        CameraPerspective::ThirdPerson => Vec3::new(0.0, 0.62, 4.5),
+        CameraPerspective::ThirdPerson => {
+            let r = 4.5;
+            Vec3::new(0.0, 0.62 + r * pitch.sin(), r * pitch.cos())
+        }
+        CameraPerspective::SecondPerson => {
+            let r = 4.5;
+            Vec3::new(0.0, 0.62 + r * pitch.sin(), -r * pitch.cos())
+        }
     }
 }
 
 /// 返回指定视角对应的相机局部旋转。
+///
+/// 第二/第三人称 spherical orbit：rotation 让 camera 的 forward（-Z）指向
+/// `-offset`（presentation_root 局部原点即玩家），保持看向玩家。
 pub(super) fn perspective_rotation(camera: &FpsCamera) -> Quat {
     match camera.perspective {
-        CameraPerspective::FirstPerson | CameraPerspective::ThirdPerson => camera.pitch_rotation(),
-        // 第二人称相机绕 Y 掉头 180° 面向玩家，俯仰不再取反：
-        // Ry(π)·Rx(p) 的 forward 为 (0, sin p, cos p)，与第一人称一致（正俯仰 = 视线向上）。
-        CameraPerspective::SecondPerson => {
-            Quat::from_rotation_y(std::f32::consts::PI) * Quat::from_rotation_x(camera.pitch)
-        }
+        CameraPerspective::FirstPerson => camera.pitch_rotation(),
+        CameraPerspective::SecondPerson => look_at_player_quat(perspective_offset(
+            CameraPerspective::SecondPerson,
+            camera.pitch,
+        )),
+        CameraPerspective::ThirdPerson => look_at_player_quat(perspective_offset(
+            CameraPerspective::ThirdPerson,
+            camera.pitch,
+        )),
     }
+}
+
+/// 返回让 camera 的 forward（Vec3::NEG_Z）指向玩家方向的 Quat。
+///
+/// 用于球面轨道的第二/第三人称：camera 始终看向 presentation_root（玩家）。
+/// offset 是相机相对 presentation_root 的位置，所以相机 forward 应为 `-offset`。
+/// 与 Bevy `Transform::look_to` 同构：以世界 +Y 为参考上方向重建正交基，
+/// 保证相机地平线保持水平——`from_rotation_arc` 的最短弧在相机几乎背对 -Z
+/// （第二人称相机位于玩家前方、forward 接近 +Z）时会产生 ~180° 翻转（画面上下颠倒）。
+/// 若 offset 长度为零（理论上不会发生，因为 r>0），返回 identity 避免除零。
+fn look_at_player_quat(offset: Vec3) -> Quat {
+    // 相机 +Z 轴（back）指向相机身后，即 offset 方向。
+    let back = offset.normalize_or_zero();
+    if back == Vec3::ZERO {
+        return Quat::IDENTITY;
+    }
+    // up × back 得相机右方向；back ∥ Y（垂直看向玩家）时叉积退化，任取正交方向。
+    let right = Vec3::Y.cross(back).try_normalize().unwrap_or(Vec3::X);
+    let up = back.cross(right);
+    Quat::from_mat3(&Mat3::from_cols(right, up, back))
 }

@@ -1,5 +1,6 @@
 //! 管理区块网格任务的派发、接收、实体更新和卸载生命周期。
 
+use super::tint::SeasonState;
 use super::{
     BlockInfoSnapshot, CachedBlockInfo, DIRECTIONS, MeshBuildChannel, MeshBuildInput,
     build_greedy_mesh,
@@ -11,6 +12,7 @@ use crate::content::block::event::BlockChangedEvent;
 use crate::content::block::registry::BlockRegistry;
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
+use crate::game::world::generation::pipeline::TerrainSurfaceSampler;
 use crate::game::world::lighting::WorldLighting;
 use crate::game::world::lighting::chunk_light::ChunkLight;
 use crate::game::world::state::ChunkRuntime;
@@ -163,6 +165,8 @@ pub fn spawn_mesh_build_tasks(
     mut request_tracker: ResMut<MeshRequestTracker>,
     mut priority_queue: ResMut<PriorityMeshQueue>,
     world_lighting: Option<Res<WorldLighting>>,
+    season_state: Res<SeasonState>,
+    tint_sampler: Res<TerrainSurfaceSampler>,
 ) {
     if registry.is_none() {
         return;
@@ -200,6 +204,8 @@ pub fn spawn_mesh_build_tasks(
             &mut chunk_query,
             &chunk_runtime,
             world_lighting.as_deref(),
+            season_state.last_seen,
+            &tint_sampler,
             &mut request_tracker,
         ) {
             MeshSpawnAttempt::Spawned => spawned += 1,
@@ -233,6 +239,8 @@ pub fn spawn_mesh_build_tasks(
                 &mut chunk_query,
                 &chunk_runtime,
                 world_lighting.as_deref(),
+                season_state.last_seen,
+                &tint_sampler,
                 &mut request_tracker,
             ),
             MeshSpawnAttempt::Spawned
@@ -256,6 +264,8 @@ fn spawn_mesh_for_position(
     chunk_query: &mut Query<(&ChunkComponents, &mut ChunkState)>,
     runtime: &ChunkRuntime,
     lighting: Option<&WorldLighting>,
+    season: crate::game::world::time::Season,
+    tint_sampler: &TerrainSurfaceSampler,
     requests: &mut MeshRequestTracker,
 ) -> MeshSpawnAttempt {
     if !streaming.should_mesh_chunk(player_chunk, position) {
@@ -315,6 +325,8 @@ fn spawn_mesh_for_position(
         block_info: block_info.clone(),
         light,
         neighbor_lights,
+        season,
+        tint_sampler: tint_sampler.clone(),
     };
 
     channel.in_flight.fetch_add(1, Ordering::Relaxed);
@@ -434,6 +446,7 @@ pub fn receive_mesh_results(
     };
     let opaque_mat = render_assets.voxel_opaque_material().clone();
     let cutout_mat = render_assets.voxel_cutout_material().clone();
+    let transparent_mat = render_assets.transparent_material().clone();
     let water_base_mat = render_assets.water_base_material().clone();
     let water_effect_mat = render_assets.water_effect_material().clone();
 
@@ -499,6 +512,26 @@ pub fn receive_mesh_results(
             let child = commands
                 .spawn((
                     Mesh3d(cutout_mesh),
+                    MeshMaterial3d(mat),
+                    Transform::IDENTITY,
+                    Visibility::default(),
+                ))
+                .id();
+            commands
+                .entity(chunk_entity)
+                .queue_silenced(move |mut entity: EntityWorldMut| {
+                    entity.add_child(child);
+                });
+        }
+
+        if !result.transparent.is_empty() {
+            // 半透明方块（玻璃）独立通道：带顶点光色，使用 Blend 材质，
+            // 与不透明/裁切通道分离，保证 alpha 混合正确。
+            let transparent_mesh = meshes.add(result.transparent.build_mesh());
+            let mat = transparent_mat.clone();
+            let child = commands
+                .spawn((
+                    Mesh3d(transparent_mesh),
                     MeshMaterial3d(mat),
                     Transform::IDENTITY,
                     Visibility::default(),

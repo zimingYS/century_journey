@@ -1,16 +1,18 @@
 //! 定义后台区块网格任务向渲染主线程回传结果的通道。
 
 use super::mesh_buffer::MeshBufferData;
-use crate::content::block::definition::RenderMode;
+use crate::content::block::definition::{BlockTint, RenderMode};
 use crate::content::block::model::BlockModel;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::world::chunk::ChunkData;
+use crate::game::world::generation::pipeline::TerrainSurfaceSampler;
 use crate::game::world::lighting::chunk_light::ChunkLight;
+use crate::game::world::time::Season;
 use bevy::prelude::*;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex, mpsc};
 
-/// 后台网格任务返回的三种渲染通道。
+/// 后台网格任务返回的四种渲染通道。
 pub struct MeshBuildResult {
     pub chunk_pos: IVec3,
     /// 派发任务时对应的区块实体，用于拒绝卸载后同坐标新实体收到旧结果。
@@ -20,6 +22,8 @@ pub struct MeshBuildResult {
     pub opaque: MeshBufferData,
     pub cutout: MeshBufferData,
     pub water: MeshBufferData,
+    /// 半透明方块（如玻璃）通道：使用 `AlphaMode::Blend` 材质，与不透明通道分离。
+    pub transparent: MeshBufferData,
 }
 
 /// Client 层的区块网格任务通道。
@@ -57,6 +61,8 @@ pub struct BlockInfoSnapshot {
     mesh_kinds: Vec<BlockMeshKind>,
     pub model_random_rotations: Vec<bool>,
     pub texture_layers: Box<[u32]>,
+    /// 每个方块 ID 的环境着色类型（None = 不着色）。
+    pub tint_kinds: Vec<Option<BlockTint>>,
     pub water_id: u16,
     pub total_layers: u32,
     pub max_id: u16,
@@ -78,6 +84,7 @@ impl BlockInfoSnapshot {
         let mut render_modes = vec![RenderMode::Opaque; (max_id + 1) as usize];
         let mut mesh_kinds = vec![BlockMeshKind::Cube; (max_id + 1) as usize];
         let mut model_random_rotations = vec![false; (max_id + 1) as usize];
+        let mut tint_kinds = vec![None; (max_id + 1) as usize];
 
         for (&id, property) in registry.iter_properties() {
             is_solid[id as usize] = property.is_solid;
@@ -87,6 +94,7 @@ impl BlockInfoSnapshot {
                 _ => BlockMeshKind::Cube,
             };
             model_random_rotations[id as usize] = property.model.random_rotation;
+            tint_kinds[id as usize] = property.tint;
         }
 
         let layer_count = (max_id as usize + 1) * 6;
@@ -104,6 +112,7 @@ impl BlockInfoSnapshot {
             mesh_kinds,
             model_random_rotations,
             texture_layers,
+            tint_kinds,
             water_id,
             total_layers,
             max_id,
@@ -153,4 +162,8 @@ pub struct MeshBuildInput {
     pub light: Option<Arc<ChunkLight>>,
     /// 邻居光级快照（跨区块边界采样用）。
     pub neighbor_lights: [Option<Arc<ChunkLight>>; 6],
+    /// 派发任务时的权威季节，用于环境着色。
+    pub season: Season,
+    /// 可跨线程克隆的气候采样服务，用于按世界坐标计算生物群系着色。
+    pub tint_sampler: TerrainSurfaceSampler,
 }

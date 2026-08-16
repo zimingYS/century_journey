@@ -1,4 +1,7 @@
 //! 定义可混合的玩家骨架姿态及其局部变换采样规则。
+//!
+//! walk/run/fall 的姿态数据来自 Blockbench 模型动画（[`model_anim_data`]），
+//! 程序化动画按 `locomotion_phase` 采样关键帧，使游戏内姿态与模型自带动画一致。
 
 use bevy::prelude::*;
 
@@ -6,17 +9,28 @@ use crate::client::camera::FpsCamera;
 use crate::client::player::model::animation::{
     PlayerAnimationState, PlayerBehaviorState, PlayerLocomotionState,
 };
+use crate::client::player::model::model_anim_data as anim_data;
 use crate::client::player::model::rig::{PlayerRigEntities, held_item_grip_transform};
 use crate::game::player::identity::Player;
 use crate::game::player::physics::components::PlayerCollider;
+
+/// 把归一化后的运动相位（[0,1)）映射到模型动画关键帧采样时间。
+fn normalized_phase(phase: f32) -> f32 {
+    phase.rem_euclid(std::f32::consts::TAU) / std::f32::consts::TAU
+}
+
+/// 从纯绕 X 轴的四元数提取旋转角（模型腿部/上臂数据均为绕 X 摆腿/摆臂）。
+fn x_rotation(quat: Quat) -> f32 {
+    2.0 * quat.x.atan2(quat.w)
+}
 
 /// 将分层动画状态转换成骨架姿态。
 ///
 /// 这里仅写关节 Transform，不修改移动、伤害或交互状态。
 ///
 /// 玩家模型以 `armature=false` 导出，所有移动状态（Idle/Walk/Run/Jump/Fall）和上半身
-/// 行为（Mining/Placing/Using/Attacking/Hurt/Death）统一走程序化姿态，没有骨骼动画
-/// 播放器参与，因此无需在 Walk/Run/Fall 时跳过。
+/// 行为（Mining/Placing/Using/Attacking/Hurt/Death）统一走程序化姿态；其中 Walk/Run/Fall
+/// 的姿态数据来自模型自带动画关键帧（见 [`crate::client::player::model::model_anim_data`]）。
 pub fn apply_player_rig_animation_system(
     state_query: Query<(&PlayerAnimationState, &PlayerRigEntities), With<Player>>,
     camera_query: Query<&FpsCamera>,
@@ -65,16 +79,15 @@ pub fn apply_player_rig_animation_system(
             rig.calf_l,
             Quat::from_rotation_x(lerp(lower.calf_l, 0.20, upper.death_weight)),
         );
-        set_rotation(
-            &mut transform_query,
-            rig.foot_r,
-            Quat::from_rotation_x(lerp(lower.foot_r, -0.10, upper.death_weight)),
-        );
-        set_rotation(
-            &mut transform_query,
-            rig.foot_l,
-            Quat::from_rotation_x(lerp(lower.foot_l, 0.08, upper.death_weight)),
-        );
+
+        // 身体/头部随模型动画上下起伏（walk/run），其余状态回到初始高度 1.5。
+        let body_y = body_bob_y(state);
+        if let Ok(mut transform) = transform_query.get_mut(rig.body_joint) {
+            transform.translation.y = body_y;
+        }
+        if let Ok(mut transform) = transform_query.get_mut(rig.head_joint) {
+            transform.translation.y = body_y;
+        }
 
         if let Ok(mut transform) = transform_query.get_mut(rig.held_item) {
             *transform = held_item_feedback_transform(state);
@@ -127,8 +140,6 @@ struct LowerBodyPose {
     thigh_l: f32,
     calf_r: f32,
     calf_l: f32,
-    foot_r: f32,
-    foot_l: f32,
 }
 
 impl LowerBodyPose {
@@ -138,8 +149,6 @@ impl LowerBodyPose {
             thigh_l: lerp(self.thigh_l, other.thigh_l, amount),
             calf_r: lerp(self.calf_r, other.calf_r, amount),
             calf_l: lerp(self.calf_l, other.calf_l, amount),
-            foot_r: lerp(self.foot_r, other.foot_r, amount),
-            foot_l: lerp(self.foot_l, other.foot_l, amount),
         }
     }
 }
@@ -152,43 +161,50 @@ fn blended_lower_pose(state: &PlayerAnimationState) -> LowerBodyPose {
 }
 
 fn lower_pose(state: PlayerLocomotionState, phase: f32) -> LowerBodyPose {
+    let time = normalized_phase(phase);
     match state {
         PlayerLocomotionState::Idle => LowerBodyPose::default(),
-        PlayerLocomotionState::Walk | PlayerLocomotionState::Run => {
-            let amplitude = if state == PlayerLocomotionState::Run {
-                0.68
-            } else {
-                0.42
-            };
-            let swing = phase.sin() * amplitude;
-            let right_knee = (-swing).max(0.0) * 0.58;
-            let left_knee = swing.max(0.0) * 0.58;
-            LowerBodyPose {
-                thigh_r: -swing,
-                thigh_l: swing,
-                calf_r: right_knee,
-                calf_l: left_knee,
-                // 脚踝抵消大腿与膝盖旋转，让支撑脚更接近贴地。
-                foot_r: swing * 0.34 - right_knee * 0.72,
-                foot_l: -swing * 0.34 - left_knee * 0.72,
-            }
-        }
+        PlayerLocomotionState::Walk => LowerBodyPose {
+            // 腿/小腿姿态采样自模型 walk 动画关键帧；模型未导出 right_leg，
+            // 右侧大腿按左腿相位 +0.5 反相生成（见 model_anim_data）。
+            thigh_r: x_rotation(anim_data::sample_rot(anim_data::WALK_RIGHT_LEG, time)),
+            thigh_l: x_rotation(anim_data::sample_rot(anim_data::WALK_LEFT_LEG, time)),
+            calf_r: x_rotation(anim_data::sample_rot(anim_data::WALK_RIGHT_CALF, time)),
+            calf_l: x_rotation(anim_data::sample_rot(anim_data::WALK_LEFT_CALF, time)),
+        },
+        PlayerLocomotionState::Run => LowerBodyPose {
+            thigh_r: x_rotation(anim_data::sample_rot(anim_data::RUN_RIGHT_LEG, time)),
+            thigh_l: x_rotation(anim_data::sample_rot(anim_data::RUN_LEFT_LEG, time)),
+            calf_r: x_rotation(anim_data::sample_rot(anim_data::RUN_RIGHT_CALF, time)),
+            calf_l: x_rotation(anim_data::sample_rot(anim_data::RUN_LEFT_CALF, time)),
+        },
         PlayerLocomotionState::Jump => LowerBodyPose {
             thigh_r: -0.24,
             thigh_l: 0.18,
             calf_r: 0.22,
             calf_l: 0.08,
-            foot_r: -0.16,
-            foot_l: -0.08,
         },
         PlayerLocomotionState::Fall => LowerBodyPose {
-            thigh_r: 0.18,
-            thigh_l: 0.12,
-            calf_r: 0.34,
-            calf_l: 0.28,
-            foot_r: 0.18,
-            foot_l: 0.14,
+            // 坠落姿态采样自模型 fall 动画：左腿前抬、右小腿后屈的跨步姿态。
+            // 飞行沿用该姿态（需求：飞行沿用坠落动画）。
+            thigh_r: x_rotation(anim_data::sample_rot(anim_data::FALL_RIGHT_LEG, time)),
+            thigh_l: x_rotation(anim_data::sample_rot(anim_data::FALL_LEFT_LEG, time)),
+            calf_r: x_rotation(anim_data::sample_rot(anim_data::FALL_RIGHT_CALF, time)),
+            calf_l: x_rotation(anim_data::sample_rot(anim_data::FALL_LEFT_CALF, time)),
         },
+    }
+}
+
+/// 身体/头部在 walk/run 时随模型动画上下起伏的绝对 y 高度。
+///
+/// 模型动画的 body/head translation 通道以 1.5 为基准上下浮动；group 初始 y 也是 1.5，
+/// 因此直接采样动画值即可。其余状态回到初始高度。
+fn body_bob_y(state: &PlayerAnimationState) -> f32 {
+    let time = normalized_phase(state.parameters.locomotion_phase);
+    match state.lower_body.current {
+        PlayerLocomotionState::Walk => anim_data::sample_y(anim_data::WALK_BODY_Y, time),
+        PlayerLocomotionState::Run => anim_data::sample_y(anim_data::RUN_BODY_Y, time),
+        _ => 1.5,
     }
 }
 
@@ -299,42 +315,112 @@ fn base_upper_pose(state: &PlayerAnimationState, first_person: bool) -> UpperBod
     if state.parameters.holding_item {
         if first_person {
             // 第一人称抬手：右臂抬到屏幕右下角，让手持工具稳定进入视野。
-            // 身体/头网格在第一人称下被隐藏，姿态仅影响手臂和手持物。
+            // 左手同样参与移动动画（右手被固定抬手时左手仍随步态摆动）。
+            let (upper_arm_l, forearm_l) = moving_left_arm(state);
             UpperBodyPose {
                 body,
                 head,
                 upper_arm_r: arm_rotation(1.15, -0.18),
-                upper_arm_l: arm_rotation(0.15, 0.12),
+                upper_arm_l,
                 forearm_r: arm_rotation(0.25, -0.08),
-                forearm_l: arm_rotation(0.12, 0.05),
+                forearm_l,
                 hand_r: Quat::from_rotation_x(0.05),
                 hand_l: Quat::from_rotation_x(0.04),
                 death_weight: 0.0,
             }
         } else {
+            // 第三人称：拿着物品时右手始终抬起，左手不受影响、照常参与移动动画。
+            let (upper_arm_l, forearm_l) = moving_left_arm(state);
             UpperBodyPose {
                 body,
                 head,
-                upper_arm_r: arm_rotation(0.68 + swing * 0.16, -0.30),
-                upper_arm_l: arm_rotation(0.10 - swing * 0.86, 0.07),
-                forearm_r: arm_rotation(0.44 + swing * 0.06, -0.10),
-                forearm_l: arm_rotation(0.14 - swing * 0.18, 0.03),
+                upper_arm_r: arm_rotation(0.68, -0.30),
+                upper_arm_l,
+                forearm_r: arm_rotation(0.44, -0.10),
+                forearm_l,
                 hand_r: Quat::from_rotation_x(0.10),
                 hand_l: Quat::from_rotation_x(0.04),
                 death_weight: 0.0,
             }
         }
     } else {
-        UpperBodyPose {
-            body,
-            head,
-            upper_arm_r: arm_rotation(0.10 + swing, -0.07),
-            upper_arm_l: arm_rotation(0.10 - swing, 0.07),
-            forearm_r: arm_rotation(0.12 + (-swing).max(0.0) * 0.30, -0.03),
-            forearm_l: arm_rotation(0.12 + swing.max(0.0) * 0.30, 0.03),
-            hand_r: Quat::from_rotation_x(0.04),
-            hand_l: Quat::from_rotation_x(0.04),
-            death_weight: 0.0,
+        // 空手：静止（Idle/Jump）自然下垂；Walk/Run 摆臂、Fall 张臂的姿态采样自模型动画。
+        let (upper_arm_l, forearm_l) = moving_left_arm(state);
+        let time = normalized_phase(state.parameters.locomotion_phase);
+        match state.lower_body.current {
+            PlayerLocomotionState::Walk => UpperBodyPose {
+                body,
+                head,
+                upper_arm_r: anim_data::sample_rot(anim_data::WALK_RIGHT_ARM, time),
+                upper_arm_l,
+                forearm_r: Quat::IDENTITY,
+                forearm_l,
+                hand_r: Quat::IDENTITY,
+                hand_l: Quat::IDENTITY,
+                death_weight: 0.0,
+            },
+            PlayerLocomotionState::Run => UpperBodyPose {
+                body,
+                head,
+                upper_arm_r: anim_data::sample_rot(anim_data::RUN_RIGHT_ARM, time),
+                upper_arm_l,
+                // 跑步时模型动画保持前臂抬肘约 25°。
+                forearm_r: Quat::from_rotation_x(0.4226),
+                forearm_l,
+                hand_r: Quat::IDENTITY,
+                hand_l: Quat::IDENTITY,
+                death_weight: 0.0,
+            },
+            PlayerLocomotionState::Fall => UpperBodyPose {
+                body,
+                head,
+                // 坠落/飞行：双臂向两侧张开（模型 fall 动画），前臂保持伸直。
+                upper_arm_r: anim_data::sample_rot(anim_data::FALL_RIGHT_ARM, time),
+                upper_arm_l,
+                forearm_r: Quat::IDENTITY,
+                forearm_l,
+                hand_r: Quat::IDENTITY,
+                hand_l: Quat::IDENTITY,
+                death_weight: 0.0,
+            },
+            PlayerLocomotionState::Idle | PlayerLocomotionState::Jump => UpperBodyPose {
+                body,
+                head,
+                upper_arm_r: Quat::IDENTITY,
+                upper_arm_l,
+                forearm_r: Quat::IDENTITY,
+                forearm_l,
+                hand_r: Quat::IDENTITY,
+                hand_l: Quat::IDENTITY,
+                death_weight: 0.0,
+            },
+        }
+    }
+}
+
+/// 返回左臂的移动姿态（上臂/前臂）：Walk/Run 摆臂、Fall 张臂、Idle/Jump 自然下垂，
+/// 姿态采样自模型动画关键帧。
+///
+/// 左手永远不握持物品，因此手持物品时左手也应照常参与移动动画；
+/// 右手则在手持物品时被固定为抬手姿态（见 [`base_upper_pose`]）。
+fn moving_left_arm(state: &PlayerAnimationState) -> (Quat, Quat) {
+    let time = normalized_phase(state.parameters.locomotion_phase);
+    match state.lower_body.current {
+        PlayerLocomotionState::Walk => (
+            anim_data::sample_rot(anim_data::WALK_LEFT_ARM, time),
+            Quat::IDENTITY,
+        ),
+        PlayerLocomotionState::Run => (
+            anim_data::sample_rot(anim_data::RUN_LEFT_ARM, time),
+            // 跑步时前臂抬肘约 25°（模型 run 动画）。
+            Quat::from_rotation_x(0.4226),
+        ),
+        PlayerLocomotionState::Fall => (
+            anim_data::sample_rot(anim_data::FALL_LEFT_ARM, time),
+            Quat::IDENTITY,
+        ),
+        PlayerLocomotionState::Idle | PlayerLocomotionState::Jump => {
+            (Quat::IDENTITY, Quat::IDENTITY)
         }
     }
 }

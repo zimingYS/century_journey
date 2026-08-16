@@ -13,6 +13,7 @@ use crate::content::block::event::{BlockInteractEvent, BlockPlaceEvent};
 use crate::game::gameplay::block_action::BlockBreakProgress;
 use crate::game::inventory::state::LocalInventory;
 use crate::game::player::control::action::{PlayerAction, PlayerActionState};
+use crate::game::player::flight::components::PlayerFlight;
 use crate::game::player::identity::LocalPlayer;
 use crate::game::player::lifecycle::events::DeathEvent;
 use crate::game::player::movement::components::PlayerVelocity;
@@ -85,6 +86,7 @@ pub fn player_animation_controller_system(
             &Health,
             &FoodUseState,
             &DrinkUseState,
+            &PlayerFlight,
             &mut PlayerAnimationState,
         ),
         With<LocalPlayer>,
@@ -123,12 +125,13 @@ pub fn player_animation_controller_system(
         .collect();
     let holding_item = !input.inventory.hotbar.active_stack().is_empty();
 
-    for (entity, gravity, velocity, health, food_use, drink_use, mut state) in &mut query {
+    for (entity, gravity, velocity, health, food_use, drink_use, flight, mut state) in &mut query {
         update_motion_parameters(
             &mut state,
             velocity.horizontal.length(),
             gravity,
             holding_item,
+            flight.enabled,
             delta_seconds,
             &input.config,
             &input.actions,
@@ -181,11 +184,15 @@ pub fn player_animation_controller_system(
 }
 
 /// 从固定步速度和接地状态更新连续移动动画参数。
+// 速度平滑、状态机判定与相位推进共用同一份固定步采样，拆分会破坏状态一致性；
+// 参数均为独立只读输入与单一可变状态，保持一次性列表并豁免参数数量检查。
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn update_motion_parameters(
     state: &mut PlayerAnimationState,
     simulated_horizontal_speed: f32,
     gravity: &PlayerGravity,
     holding_item: bool,
+    flying: bool,
     delta_seconds: f32,
     config: &PlayerAnimationConfig,
     actions: &PlayerActionState,
@@ -195,7 +202,10 @@ pub(crate) fn update_motion_parameters(
     let response = 1.0 - (-18.0 * delta_seconds).exp();
     let horizontal_speed = state.parameters.horizontal_speed
         + (sampled_speed.clamp(0.0, 30.0) - state.parameters.horizontal_speed) * response;
-    let locomotion = if !gravity.is_grounded {
+    let locomotion = if flying {
+        // 飞行沿用坠落动画（需求：飞行姿态与坠落一致）。
+        PlayerLocomotionState::Fall
+    } else if !gravity.is_grounded {
         if gravity.velocity_y > 0.0 {
             PlayerLocomotionState::Jump
         } else {

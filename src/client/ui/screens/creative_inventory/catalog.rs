@@ -49,7 +49,10 @@ pub fn build_creative_categories_system(
 
     let mut tools = CreativeCategory::virtual_category("工具", "⚒");
     if let Some(item_reg) = item_registry.as_ref() {
-        tools.items = item_reg.items_by_category(&ItemCategory::Tool).to_vec();
+        let mut tool_items = item_reg.items_by_category(&ItemCategory::Tool).to_vec();
+        // 注册顺序由内容编译决定，不一定稳定；按 identifier 排序保持槽位一致。
+        tool_items.sort_by(|a, b| a.identifier().path().cmp(b.identifier().path()));
+        tools.items = tool_items;
     }
     categories.push(tools);
 
@@ -117,6 +120,11 @@ fn category_from_tag(
 }
 
 /// 将方块标签里的运行时方块 ID 转换成物品 ID。
+///
+/// `BlockRegistry::identifier_to_id` 与 `ItemRegistry::entries` 都是 HashMap，
+/// 迭代顺序不稳定会直接反映到槽位上：同一物品每次启动在不同槽位、点击拾取
+/// 也指向不同 identifier。返回前按 identifier.path 排序，保证槽位 ↔ 物品
+/// 的映射稳定。
 fn items_for_tag(
     tag: &TagId,
     tag_registry: &RuntimeTagRegistry,
@@ -125,10 +133,13 @@ fn items_for_tag(
     tag_registry
         .get_ids(tag)
         .map(|ids| {
-            ids.iter()
+            let mut items: Vec<ItemId> = ids
+                .iter()
                 .filter_map(|&id| block_registry.get_identifier_by_id(id))
                 .map(|ident| ItemId::new(ident.clone()))
-                .collect()
+                .collect();
+            items.sort_by(|a, b| a.identifier().path().cmp(b.identifier().path()));
+            items
         })
         .unwrap_or_default()
 }
@@ -170,6 +181,9 @@ pub fn update_creative_filter_system(
                 }
             }
         }
+        // 注册表底层 HashMap 迭代顺序不稳定，会导致同一物品每次启动在不同槽位；
+        // 按 identifier 路径排序，让槽位 ↔ 物品的对应关系稳定可预期。
+        all.sort_by(|a, b| a.identifier().path().cmp(b.identifier().path()));
         all
     } else if let Some(cat) = state.creative.categories.get(tab) {
         if cat.tag_id.is_none() && cat.display_name == "收藏" {

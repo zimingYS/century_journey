@@ -61,6 +61,9 @@ pub struct BlockProperty {
     pub display_name: String,
     /// 渲染归类
     pub render_mode: RenderMode,
+    /// 生物群系/季节着色类型（None = 不着色，由客户端按顶面或全脸着色）。
+    #[serde(default)]
+    pub tint: Option<BlockTint>,
     /// 纹理
     pub textures: BlockTextureConfig,
     /// 硬度（破坏时间 = 硬度 × 基础时间）
@@ -146,6 +149,7 @@ impl Default for BlockProperty {
             identifier: Identifier::new("century_journey", ""),
             display_name: String::new(),
             render_mode: RenderMode::Opaque,
+            tint: None,
             is_solid: true,
             light_emission: 0,
             light: None,
@@ -188,6 +192,18 @@ pub enum RenderMode {
     Cutout,
     /// 自定义模型方块
     CustomMesh,
+}
+
+/// 方块受生物群系与季节影响的着色方式。
+///
+/// 客户端据此决定对哪些面应用环境着色；纯表现层数据，不参与权威规则。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum BlockTint {
+    /// 只给顶面着色（草方块的绿色草皮）。
+    GrassTop,
+    /// 给全部面着色（树叶、植物等）。
+    Foliage,
 }
 
 /// 方块纹理配置

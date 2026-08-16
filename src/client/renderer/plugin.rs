@@ -13,6 +13,7 @@ impl Plugin for ClientRenderingPlugin {
     /// 注册客户端渲染资源和运行时系统。
     fn build(&self, app: &mut App) {
         world::register_mesh_lifecycle_resources(app);
+        world::tint::register_season_state(app);
         app.add_plugins(lighting::VoxelLightingPlugin)
             .init_resource::<item::cache::ItemModelCache>()
             .init_resource::<item::gui_icon_cache::GuiItemIconCache>()
@@ -45,6 +46,7 @@ impl Plugin for ClientRenderingPlugin {
             .add_systems(
                 Update,
                 (
+                    world::tint::sync_season_state,
                     world::collect_priority_mesh_rebuilds,
                     world::spawn_mesh_build_tasks
                         .after(crate::game::world::generation::receive_structure_results),

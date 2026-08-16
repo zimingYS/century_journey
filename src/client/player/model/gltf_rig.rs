@@ -11,6 +11,7 @@
 
 use bevy::gltf::GltfAssetLabel;
 use bevy::prelude::*;
+use bevy::render::render_resource::Face;
 use bevy::world_serialization::{WorldAssetRoot, WorldInstanceReady};
 
 use crate::client::player::model::components::{PlayerPart, PlayerRig};
@@ -65,6 +66,10 @@ pub fn spawn_glb_player_rig(
 /// `WorldInstanceReady` 是 Bevy 0.19 的 `EntityEvent`（用 `world.commands().trigger` 发出），
 /// 订阅方要用 `On<WorldInstanceReady>` 作为参数；不能走 `MessageReader` 通道。
 /// 调用方需要在 `PlayerModelPlugin::build` 里 `app.add_observer(bind_player_rig_on_ready)`。
+///
+/// 单次回调需同时完成命名收集、mesh 收集与材质单面化三件事，各查询为独立只读/写通道，
+/// 拆分会模糊一次绑定的原子边界，因此保持一次性参数列表并豁免参数数量检查。
+#[allow(clippy::too_many_arguments)]
 pub fn bind_player_rig_on_ready(
     event: On<WorldInstanceReady>,
     mut commands: Commands,
@@ -72,6 +77,8 @@ pub fn bind_player_rig_on_ready(
     children_query: Query<&Children>,
     name_query: Query<&Name>,
     mesh_query: Query<(), With<Mesh3d>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mesh_material_query: Query<&MeshMaterial3d<StandardMaterial>>,
 ) {
     let scene_root = event.entity;
     // 只处理本地玩家 / 预览（带 PendingPlayerRigBind 的实体）
@@ -150,6 +157,20 @@ pub fn bind_player_rig_on_ready(
     all_meshes.extend(rig_entities.body_meshes.iter().copied());
     let arm_mesh_count = rig_entities.arm_meshes.len();
     let body_mesh_count = rig_entities.body_meshes.len();
+
+    // 玩家模型 glb 以 `doubleSided=True` 导出，Bevy 据此把材质设为 `cull_mode=None`
+    // （双面渲染）。第一人称相机位于 head 几何体内部，若保持双面渲染会看到 head 的
+    // 内表面（穿模遮挡视线）。这里显式把所有玩家 mesh 的材质改为单面（`cull_mode=Back`）：
+    // 从外部（第三人称、阴影相机）看正面正常渲染并投射完整阴影；从内部（相机在 head 内）
+    // 看背面被剔除，head 自动隐形，无需再用 Visibility 隐藏。
+    for mesh_entity in &all_meshes {
+        if let Ok(material_handle) = mesh_material_query.get(*mesh_entity)
+            && let Some(mut material) = materials.get_mut(&material_handle.0)
+        {
+            material.cull_mode = Some(Face::Back);
+        }
+    }
+
     let mut rig_entities = rig_entities;
     rig_entities.mesh_entities = all_meshes;
 
