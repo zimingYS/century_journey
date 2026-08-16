@@ -68,6 +68,10 @@ pub struct PlayerRigEntities {
     pub head_mesh: Entity,
     /// 所有身体网格实体，用于本地玩家可见性和渲染层同步。
     pub mesh_entities: Vec<Entity>,
+    /// 手臂网格实体（上臂/前臂/手），第一人称保留显示，第三人称完整显示。
+    pub arm_meshes: Vec<Entity>,
+    /// 头/身/腿网格实体，第一人称隐藏以避免穿模遮挡视线，第三人称显示。
+    pub body_meshes: Vec<Entity>,
 }
 
 /// 生成可同时服务第一人称和第三人称的真实玩家 Rig。
@@ -177,15 +181,17 @@ pub fn spawn_player_rig(
     let chest = spawn_chest_anchor(commands, body_joint);
     let back = spawn_back_anchor(commands, body_joint);
 
-    let mut mesh_entities = vec![
-        body_mesh,
-        head_mesh,
+    let arm_meshes = vec![
         right_arm.upper_mesh,
         right_arm.forearm_mesh,
         right_arm.hand_mesh,
         left_arm.upper_mesh,
         left_arm.forearm_mesh,
         left_arm.hand_mesh,
+    ];
+    let mut body_meshes = vec![
+        body_mesh,
+        head_mesh,
         thigh_r_mesh,
         calf_r_mesh,
         foot_r_mesh,
@@ -193,7 +199,9 @@ pub fn spawn_player_rig(
         calf_l_mesh,
         foot_l_mesh,
     ];
-    mesh_entities.extend(detail_meshes);
+    body_meshes.extend(detail_meshes);
+    let mut mesh_entities = arm_meshes.clone();
+    mesh_entities.extend(body_meshes.iter().copied());
 
     let entities = PlayerRigEntities {
         root,
@@ -218,6 +226,8 @@ pub fn spawn_player_rig(
         back,
         head_mesh,
         mesh_entities,
+        arm_meshes,
+        body_meshes,
     };
 
     (root, entities)

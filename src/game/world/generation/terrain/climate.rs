@@ -1,6 +1,7 @@
 //! 从世界坐标采样生成期温度和湿度等稳定气候场。
 
 use crate::game::world::time::Season;
+use bevy::prelude::Resource;
 use noise::{NoiseFn, Perlin, Seedable};
 use serde::{Deserialize, Serialize};
 
@@ -51,6 +52,7 @@ impl Season {
 }
 
 /// 从世界坐标采样稳定温度场和湿度场。
+#[derive(Resource)]
 pub struct ClimateSampler {
     pub seed: u32,
     pub temperature_noise: Perlin,

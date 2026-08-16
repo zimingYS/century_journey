@@ -12,6 +12,7 @@ use crate::game::player::survival::environment::EnvironmentExposure;
 use crate::game::player::survival::events::DamageSource;
 use crate::game::player::survival::health::Health;
 use crate::game::player::survival::hunger::{FoodUseState, Hunger};
+use crate::game::player::survival::temperature::TemperatureExposure;
 use crate::game::player::survival::thirst::Thirst;
 use crate::game::world::entity::dropped_item::{
     DroppedItemVelocity, spawn_dropped_item_with_velocity,
@@ -127,6 +128,7 @@ pub fn respawn_request_system(
             &mut PlayerGravity,
             &mut EnvironmentExposure,
             &mut FoodUseState,
+            &mut TemperatureExposure,
         ),
         With<Player>,
     >,
@@ -143,6 +145,7 @@ pub fn respawn_request_system(
             mut gravity,
             mut exposure,
             mut food_use,
+            mut temperature,
         )) = query.get_mut(request.entity)
         else {
             continue;
@@ -157,6 +160,7 @@ pub fn respawn_request_system(
         *velocity = PlayerVelocity::default();
         *gravity = PlayerGravity::default();
         *exposure = EnvironmentExposure::default();
+        *temperature = TemperatureExposure::default();
         food_use.cancel();
         lifecycle.state = PlayerLifeState::Respawning;
         lifecycle.respawn_remaining = 0.15;

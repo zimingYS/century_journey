@@ -10,6 +10,7 @@ use crate::game::player::lifecycle::components::PlayerLifecycle;
 use crate::game::player::movement::components::{PlayerMovement, PlayerVelocity};
 use crate::game::player::physics::collision::check_collision_at;
 use crate::game::player::physics::components::{PlayerCollider, PlayerGravity};
+use crate::game::player::survival::temperature::TemperatureExposure;
 use crate::game::world::state::WorldState;
 use bevy::math::Vec3;
 use bevy::prelude::{Fixed, Query, Res, Time, Transform, With};
@@ -30,6 +31,7 @@ pub fn player_movement_system(
             &mut PlayerVelocity,
             &PlayerLifecycle,
             &PlayerFlight,
+            Option<&TemperatureExposure>,
         ),
         With<Player>,
     >,
@@ -37,8 +39,16 @@ pub fn player_movement_system(
     let Some(reg) = registry else { return };
     let dt = time.delta_secs().min(0.05);
 
-    for (mut transform, collider, movement, mut gravity, mut velocity, lifecycle, flight) in
-        &mut query
+    for (
+        mut transform,
+        collider,
+        movement,
+        mut gravity,
+        mut velocity,
+        lifecycle,
+        flight,
+        temperature,
+    ) in &mut query
     {
         if !lifecycle.is_alive() {
             velocity.horizontal = Vec3::ZERO;
@@ -74,8 +84,8 @@ pub fn player_movement_system(
             direction = direction.normalize();
         }
 
-        // 处理移动速度
-        let speed = if flight.enabled {
+        // 处理移动速度；温度惩罚按倍率缩放最终速度。
+        let base_speed = if flight.enabled {
             // 飞行加速
             if actions.pressed(PlayerAction::Sprint) {
                 flight.fly_speed * movement.sprint_factor * 1.5
@@ -88,6 +98,7 @@ pub fn player_movement_system(
         } else {
             movement.movement_speed
         };
+        let speed = base_speed * temperature.map_or(1.0, |exposure| exposure.speed_multiplier);
 
         let desired_velocity = direction * speed;
         let changing_direction = direction != Vec3::ZERO

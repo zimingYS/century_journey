@@ -1,44 +1,50 @@
 //! 管理生存物品栏中的离屏玩家模型预览。
 
 use bevy::camera::{RenderTarget, ScalingMode, visibility::RenderLayers};
-use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::render_resource::TextureFormat;
 
-use crate::client::player::model::config::PlayerModelConfig;
+use crate::client::player::model::gltf_rig::spawn_glb_player_rig;
 use crate::client::ui::components::SurvivalPlayerPreviewCamera;
 
 const PREVIEW_LAYER: usize = 7;
 /// 创建只由生存物品栏使用的离屏玩家预览。
+///
+/// 模型来自 Blockbench 导出的 player.glb（走程序化 rig 路径被废弃，
+/// 这里和主世界使用同一份资产和同一套骨骼映射）。
 pub(super) fn spawn_player_preview(
     commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
     images: &mut Assets<Image>,
     meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
-    config: &PlayerModelConfig,
 ) -> Handle<Image> {
     let image = Image::new_target_texture(384, 320, TextureFormat::Rgba8UnormSrgb, None);
     let image_handle = images.add(image);
     let target = Vec3::new(0.0, -750.0, 0.0);
     let preview_layer = RenderLayers::layer(PREVIEW_LAYER);
-    let (root, rig) =
-        crate::client::player::model::rig::spawn_player_rig(commands, meshes, materials, config);
+    // 预览根实体作为骨架父级，骨架会异步加载并自动 add_child。
+    let preview_root = commands
+        .spawn((
+            Transform {
+                translation: target,
+                rotation: Quat::from_rotation_y(std::f32::consts::PI),
+                ..default()
+            },
+            preview_layer.clone(),
+            Name::new("InventoryPlayerPreview"),
+            Visibility::default(),
+        ))
+        .id();
+    let _rig_root = spawn_glb_player_rig(
+        commands,
+        asset_server,
+        preview_root,
+        preview_root,
+        "InventoryPlayerRig",
+    );
 
-    commands.entity(root).insert((
-        Transform {
-            translation: target,
-            rotation: Quat::from_rotation_y(std::f32::consts::PI),
-            ..default()
-        },
-        preview_layer.clone(),
-        Name::new("InventoryPlayerPreview"),
-    ));
-    for entity in rig.mesh_entities {
-        commands
-            .entity(entity)
-            .insert((preview_layer.clone(), NotShadowCaster));
-    }
-
+    // 灯光和相机不变——只需要继续往下
+    let _ = meshes;
     commands.spawn((
         DirectionalLight {
             illuminance: 10_000.0,

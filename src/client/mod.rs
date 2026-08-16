@@ -24,3 +24,4 @@ pub mod sky;
 pub mod sound;
 pub mod ui;
 pub mod water;
+pub mod weather;

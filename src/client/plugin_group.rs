@@ -15,6 +15,7 @@ use crate::client::sky::cloud::CloudPlugin;
 use crate::client::sound::ClientSoundPlugin;
 use crate::client::ui::UIPlugin;
 use crate::client::water::WaterPlugin;
+use crate::client::weather::ClientWeatherPlugin;
 
 /// Client 层插件聚合入口。
 ///
@@ -32,6 +33,7 @@ impl Plugin for ClientPluginGroup {
             SkyPlugin,
             CloudPlugin,
             WaterPlugin,
+            ClientWeatherPlugin,
             UIPlugin,
             ClientSoundPlugin,
             ClientParticlePlugin,

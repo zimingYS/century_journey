@@ -4,6 +4,7 @@ use crate::game::simulation::SimulationSet;
 use crate::game::world::state;
 use crate::game::world::voxel_change::apply::apply_voxel_changes;
 use crate::game::world::voxel_change::provenance::VoxelProvenance;
+use crate::game::world::weather::{WeatherCell, weather_evolve_system};
 use crate::game::world::{entity, generation, interaction, lighting, streaming, time, vegetation};
 use crate::shared::voxel_change::VoxelChangeBuffer;
 use bevy::app::{App, Plugin, Startup};
@@ -20,10 +21,15 @@ impl Plugin for GameWorldPlugin {
             .init_resource::<state::WorldState>()
             .init_resource::<state::ChunkRuntime>()
             .init_resource::<VoxelProvenance>()
+            .init_resource::<WeatherCell>()
             .init_resource::<crate::game::block::BlockBehaviorRegistry>()
             .add_systems(
                 FixedUpdate,
                 apply_voxel_changes.in_set(SimulationSet::VoxelChange),
+            )
+            .add_systems(
+                FixedUpdate,
+                weather_evolve_system.in_set(SimulationSet::Environment),
             )
             .add_systems(Startup, crate::game::block::init_behavior_registry_system)
             .add_plugins((
