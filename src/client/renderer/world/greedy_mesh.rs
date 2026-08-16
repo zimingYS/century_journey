@@ -524,10 +524,7 @@ fn append_cross_models(
                     season,
                     tint_sampler,
                 );
-                let color = apply_vertex_tint(
-                    light_to_color(light_cell),
-                    unquantize_tint(tint),
-                );
+                let color = apply_vertex_tint(light_to_color(light_cell), unquantize_tint(tint));
                 let block_light_uv = block_light_to_uv(light_cell.block);
 
                 for mut vertices in generate_cross_vertices(x as f32, y as f32, z as f32) {

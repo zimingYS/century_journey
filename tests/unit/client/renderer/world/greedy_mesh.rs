@@ -43,7 +43,11 @@ fn face_key_distinguishes_sky_light_from_equal_block_light() {
         g: 10,
         b: 10,
     };
-    let tint = LightRgb { r: 10, g: 10, b: 10 };
+    let tint = LightRgb {
+        r: 10,
+        g: 10,
+        b: 10,
+    };
     let sky_only = encode_face_key(3, 0, combined, LightRgb::default(), tint);
     let block_only = encode_face_key(3, 0, combined, combined, tint);
 
@@ -78,8 +82,8 @@ fn water_side_keeps_its_bottom_and_lowers_only_the_top_edge() {
 }
 #[test]
 fn water_voxel_builds_a_visible_water_mesh_channel() {
-    use crate::content::block::registry::{BlockRegistry, init_block_registry_system};
     use crate::content::biome::BiomeRegistry;
+    use crate::content::block::registry::{BlockRegistry, init_block_registry_system};
     use crate::content::validation::compile_content;
     use crate::engine::asset::AssetResolver;
     use crate::game::world::generation::block_ids::GenerationBlockIds;

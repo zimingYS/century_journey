@@ -66,6 +66,9 @@ pub fn spawn_glb_player_rig(
 /// `WorldInstanceReady` 是 Bevy 0.19 的 `EntityEvent`（用 `world.commands().trigger` 发出），
 /// 订阅方要用 `On<WorldInstanceReady>` 作为参数；不能走 `MessageReader` 通道。
 /// 调用方需要在 `PlayerModelPlugin::build` 里 `app.add_observer(bind_player_rig_on_ready)`。
+// 单次回调需同时完成命名收集、mesh 收集与材质单面化三件事，各查询为独立只读/写通道，
+// 拆分会模糊一次绑定的原子边界，保持一次性参数列表。
+#[allow(clippy::too_many_arguments)]
 pub fn bind_player_rig_on_ready(
     event: On<WorldInstanceReady>,
     mut commands: Commands,
@@ -160,10 +163,10 @@ pub fn bind_player_rig_on_ready(
     // 从外部（第三人称、阴影相机）看正面正常渲染并投射完整阴影；从内部（相机在 head 内）
     // 看背面被剔除，head 自动隐形，无需再用 Visibility 隐藏。
     for mesh_entity in &all_meshes {
-        if let Ok(material_handle) = mesh_material_query.get(*mesh_entity) {
-            if let Some(mut material) = materials.get_mut(&material_handle.0) {
-                material.cull_mode = Some(Face::Back);
-            }
+        if let Ok(material_handle) = mesh_material_query.get(*mesh_entity)
+            && let Some(mut material) = materials.get_mut(&material_handle.0)
+        {
+            material.cull_mode = Some(Face::Back);
         }
     }
 

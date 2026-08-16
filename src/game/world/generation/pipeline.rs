@@ -112,8 +112,12 @@ impl TerrainSurfaceSampler {
     /// 生物群系色由稳定的基础气候决定，季节作为独立乘子叠加，避免群系边界随季节漂移。
     pub fn sample_climate(&self, world_x: i32, world_z: i32) -> (f64, f64) {
         (
-            self.pipeline.climate_sampler.sample_temperature(world_x, world_z),
-            self.pipeline.climate_sampler.sample_humidity(world_x, world_z),
+            self.pipeline
+                .climate_sampler
+                .sample_temperature(world_x, world_z),
+            self.pipeline
+                .climate_sampler
+                .sample_humidity(world_x, world_z),
         )
     }
 }

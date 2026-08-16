@@ -10,7 +10,10 @@ fn biome_tint_stays_in_unit_range_across_climate_extremes() {
         for hum in [0.0, 0.25, 0.5, 0.75, 1.0] {
             let color = biome_tint(BlockTint::GrassTop, temp, hum);
             for c in color {
-                assert!((0.0..=1.0).contains(&c), "{c} out of [0,1] at temp={temp},hum={hum}");
+                assert!(
+                    (0.0..=1.0).contains(&c),
+                    "{c} out of [0,1] at temp={temp},hum={hum}"
+                );
             }
         }
     }
@@ -38,9 +41,17 @@ fn biome_tint_dry_warm_shifts_grass_toward_yellow() {
 
 #[test]
 fn season_tint_stays_within_unit_range() {
-    for season in [Season::Spring, Season::Summer, Season::Autumn, Season::Winter] {
+    for season in [
+        Season::Spring,
+        Season::Summer,
+        Season::Autumn,
+        Season::Winter,
+    ] {
         for c in season_tint(season) {
-            assert!((0.0..=1.0).contains(&c), "season {season:?} tint out of range: {c}");
+            assert!(
+                (0.0..=1.0).contains(&c),
+                "season {season:?} tint out of range: {c}"
+            );
         }
     }
 }
@@ -48,13 +59,19 @@ fn season_tint_stays_within_unit_range() {
 #[test]
 fn autumn_shifts_warm_and_dampens_green() {
     let autumn = season_tint(Season::Autumn);
-    assert!(autumn[0] >= 0.9 && autumn[1] <= 0.7, "秋季应红升绿降：{autumn:?}");
+    assert!(
+        autumn[0] >= 0.9 && autumn[1] <= 0.7,
+        "秋季应红升绿降：{autumn:?}"
+    );
 }
 
 #[test]
 fn winter_desaturates() {
     let winter = season_tint(Season::Winter);
-    assert!(winter[0] <= 0.8 && winter[2] >= 0.85, "冬季应整体偏白/淡：{winter:?}");
+    assert!(
+        winter[0] <= 0.8 && winter[2] >= 0.85,
+        "冬季应整体偏白/淡：{winter:?}"
+    );
 }
 
 #[test]
@@ -86,7 +103,11 @@ fn quantize_tint_round_trips_with_small_error() {
 fn white_quant_tint_is_full_bright() {
     assert_eq!(
         super::super::tint::white_tint(),
-        super::super::tint::LightRgb { r: 15, g: 15, b: 15 }
+        super::super::tint::LightRgb {
+            r: 15,
+            g: 15,
+            b: 15
+        }
     );
 }
 

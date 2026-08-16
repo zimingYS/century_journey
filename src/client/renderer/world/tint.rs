@@ -51,12 +51,7 @@ pub fn season_tint(season: Season) -> [f32; 3] {
 }
 
 /// 组合生物群系基础色与季节乘子，得到最终着色。
-pub fn final_tint(
-    kind: BlockTint,
-    temperature: f64,
-    humidity: f64,
-    season: Season,
-) -> [f32; 3] {
+pub fn final_tint(kind: BlockTint, temperature: f64, humidity: f64, season: Season) -> [f32; 3] {
     let biome = biome_tint(kind, temperature, humidity);
     let seasonal = season_tint(season);
     [

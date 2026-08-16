@@ -16,7 +16,7 @@ fn player_visual_camera_pitch_is_clamped_before_world_can_flip() {
 
 #[test]
 fn player_visual_first_person_eye_is_in_front_of_torso() {
-    let eye = perspective_offset(CameraPerspective::FirstPerson);
+    let eye = perspective_offset(CameraPerspective::FirstPerson, 0.0);
     let torso_front = -PlayerModelConfig::half_dims(PlayerPart::Body).z;
 
     assert!(eye.z < torso_front);
@@ -29,36 +29,56 @@ fn second_person_camera_is_in_front_and_faces_the_player() {
         perspective: CameraPerspective::SecondPerson,
         ..Default::default()
     };
-    let offset = perspective_offset(camera.perspective);
+    let offset = perspective_offset(camera.perspective, camera.pitch);
     let forward = perspective_rotation(&camera) * Vec3::NEG_Z;
 
     assert!(offset.z < 0.0);
-    assert!(forward.z > 0.99);
+    assert!(forward.z > 0.98);
 }
 
 #[test]
-fn second_person_pitch_direction_matches_first_person() {
+fn second_person_orbit_always_looks_at_the_player() {
+    // 球面轨道：任何俯仰角下相机 forward 都精确指向玩家（-offset 方向），
+    // 且相机 up 保持朝上（地平线不倾斜、画面不翻转）。
     for pitch in [-0.6f32, -0.2, 0.0, 0.2, 0.6] {
-        let first = FpsCamera {
-            perspective: CameraPerspective::FirstPerson,
-            pitch,
-            ..Default::default()
-        };
-        let second = FpsCamera {
+        let camera = FpsCamera {
             perspective: CameraPerspective::SecondPerson,
             pitch,
             ..Default::default()
         };
-        let first_forward = perspective_rotation(&first) * Vec3::NEG_Z;
-        let second_forward = perspective_rotation(&second) * Vec3::NEG_Z;
+        let offset = perspective_offset(camera.perspective, camera.pitch);
+        let rotation = perspective_rotation(&camera);
 
-        // 相同俯仰角下两个视角的垂直视线方向必须一致：正俯仰都向上，负俯仰都向下。
+        let forward = rotation * Vec3::NEG_Z;
+        let to_player = (-offset).normalize();
         assert!(
-            first_forward.y.signum() == second_forward.y.signum(),
-            "pitch={pitch}: first.y={} second.y={}",
-            first_forward.y,
-            second_forward.y
+            forward.dot(to_player) > 0.999,
+            "pitch={pitch}: forward 应指向玩家，dot={}",
+            forward.dot(to_player)
         );
+
+        // up 不得指向下方：`from_rotation_arc` 在相机背对 -Z 时会把画面上下颠倒。
+        let up = rotation * Vec3::Y;
+        assert!(up.y > 0.0, "pitch={pitch}: up.y={}", up.y);
+    }
+}
+
+#[test]
+fn orbit_radius_shrinks_and_camera_rises_with_pitch() {
+    // 球面轨道：|pitch| 增大时水平距离 r·cos(p) 收缩，正俯仰抬高相机。
+    for perspective in [
+        CameraPerspective::SecondPerson,
+        CameraPerspective::ThirdPerson,
+    ] {
+        let flat = perspective_offset(perspective, 0.0);
+        let steep = perspective_offset(perspective, 0.6);
+        let flat_horizontal = Vec3::new(flat.x, 0.0, flat.z).length();
+        let steep_horizontal = Vec3::new(steep.x, 0.0, steep.z).length();
+        assert!(
+            steep_horizontal < flat_horizontal,
+            "{perspective:?}: 大俯仰角水平距离应收缩"
+        );
+        assert!(steep.y > flat.y, "{perspective:?}: 正俯仰应抬高相机");
     }
 }
 
