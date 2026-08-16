@@ -320,8 +320,9 @@ impl Default for PlayerAnimationConfig {
         Self {
             locomotion_transition_seconds: 0.14,
             behavior_transition_seconds: 0.08,
-            walk_cycle_speed: 7.0,
-            run_cycle_speed: 10.5,
+            // 与模型动画周期对齐：walk 周期 1.0s → 2π rad/s；run 周期 0.6s → 2π/0.6。
+            walk_cycle_speed: std::f32::consts::TAU,
+            run_cycle_speed: std::f32::consts::TAU / 0.6,
             mining_duration: 0.42,
             placing_duration: 0.28,
             using_duration: 0.46,

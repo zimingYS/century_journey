@@ -66,8 +66,9 @@ pub fn spawn_glb_player_rig(
 /// `WorldInstanceReady` 是 Bevy 0.19 的 `EntityEvent`（用 `world.commands().trigger` 发出），
 /// 订阅方要用 `On<WorldInstanceReady>` 作为参数；不能走 `MessageReader` 通道。
 /// 调用方需要在 `PlayerModelPlugin::build` 里 `app.add_observer(bind_player_rig_on_ready)`。
-// 单次回调需同时完成命名收集、mesh 收集与材质单面化三件事，各查询为独立只读/写通道，
-// 拆分会模糊一次绑定的原子边界，保持一次性参数列表。
+///
+/// 单次回调需同时完成命名收集、mesh 收集与材质单面化三件事，各查询为独立只读/写通道，
+/// 拆分会模糊一次绑定的原子边界，因此保持一次性参数列表并豁免参数数量检查。
 #[allow(clippy::too_many_arguments)]
 pub fn bind_player_rig_on_ready(
     event: On<WorldInstanceReady>,
