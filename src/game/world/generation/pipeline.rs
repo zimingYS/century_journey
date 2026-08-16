@@ -107,6 +107,15 @@ impl TerrainSurfaceSampler {
             water_block: self.block_ids.water,
         }
     }
+    /// 采样任意世界列的基础温湿度（不含运行期季节），供客户端生物群系着色使用。
+    ///
+    /// 生物群系色由稳定的基础气候决定，季节作为独立乘子叠加，避免群系边界随季节漂移。
+    pub fn sample_climate(&self, world_x: i32, world_z: i32) -> (f64, f64) {
+        (
+            self.pipeline.climate_sampler.sample_temperature(world_x, world_z),
+            self.pipeline.climate_sampler.sample_humidity(world_x, world_z),
+        )
+    }
 }
 
 /// 只读、可跨线程克隆的基础生成管线。

@@ -30,9 +30,10 @@ fn world_mesh_uploads_block_light_in_second_uv_channel() {
 fn face_key_round_trips_combined_and_block_light() {
     let combined = LightRgb { r: 15, g: 9, b: 4 };
     let block = LightRgb { r: 12, g: 7, b: 2 };
-    let key = encode_face_key(1234, 1, combined, block);
+    let tint = LightRgb { r: 10, g: 5, b: 3 };
+    let key = encode_face_key(1234, 1, combined, block, tint);
 
-    assert_eq!(decode_face_key(key), (1234, 1, combined, block));
+    assert_eq!(decode_face_key(key), (1234, 1, tint, combined, block));
 }
 
 #[test]
@@ -42,8 +43,9 @@ fn face_key_distinguishes_sky_light_from_equal_block_light() {
         g: 10,
         b: 10,
     };
-    let sky_only = encode_face_key(3, 0, combined, LightRgb::default());
-    let block_only = encode_face_key(3, 0, combined, combined);
+    let tint = LightRgb { r: 10, g: 10, b: 10 };
+    let sky_only = encode_face_key(3, 0, combined, LightRgb::default(), tint);
+    let block_only = encode_face_key(3, 0, combined, combined, tint);
 
     assert_ne!(sky_only, block_only);
 }
@@ -77,8 +79,12 @@ fn water_side_keeps_its_bottom_and_lowers_only_the_top_edge() {
 #[test]
 fn water_voxel_builds_a_visible_water_mesh_channel() {
     use crate::content::block::registry::{BlockRegistry, init_block_registry_system};
+    use crate::content::biome::BiomeRegistry;
     use crate::content::validation::compile_content;
     use crate::engine::asset::AssetResolver;
+    use crate::game::world::generation::block_ids::GenerationBlockIds;
+    use crate::game::world::generation::pipeline::{GenerationPipeline, TerrainSurfaceSampler};
+    use crate::game::world::time::Season;
     use crate::shared::states::AppState;
     use bevy::state::app::StatesPlugin;
 
@@ -99,6 +105,11 @@ fn water_voxel_builds_a_visible_water_mesh_channel() {
         .get_id_by_identifier("century_journey:water")
         .expect("内容注册表必须包含水方块");
     let block_info = BlockInfoSnapshot::from_registry(registry);
+    // 未就绪的采样器即可——水方块未配置 tint，compute_face_tint 不会读到气候。
+    let tint_sampler = TerrainSurfaceSampler::pending(
+        GenerationPipeline::new(0, BiomeRegistry::default()),
+        GenerationBlockIds::default(),
+    );
 
     let mut chunk = ChunkData::new();
     chunk.set_voxel(8, 8, 8, water_id);
@@ -111,6 +122,8 @@ fn water_voxel_builds_a_visible_water_mesh_channel() {
         block_info,
         light: None,
         neighbor_lights: std::array::from_fn(|_| None),
+        season: Season::Spring,
+        tint_sampler,
     });
 
     assert!(!result.water.is_empty());

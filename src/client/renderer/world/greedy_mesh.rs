@@ -4,10 +4,13 @@ use crate::client::renderer::constants::WATER_SURFACE_INSET;
 use crate::client::renderer::lighting::bake::{
     block_light_to_uv, light_rgb_to_color, light_to_color, sample_light_at,
 };
+use crate::client::renderer::world::tint::{apply_vertex_tint, compute_face_tint, unquantize_tint};
 use crate::content::block::definition::RenderMode;
 use crate::content::block::model::generate_cross_vertices;
 use crate::game::world::chunk::ChunkData;
+use crate::game::world::generation::pipeline::TerrainSurfaceSampler;
 use crate::game::world::lighting::chunk_light::{ChunkLight, LightRgb};
+use crate::game::world::time::Season;
 use crate::shared::voxel::CHUNK_SIZE;
 use bevy::prelude::*;
 use std::sync::Arc;
@@ -27,6 +30,8 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
         block_info,
         light,
         neighbor_lights,
+        season,
+        tint_sampler,
     } = input;
 
     let mut opaque_buf = MeshBufferData::new();
@@ -100,11 +105,20 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
                         chunk_pos * CHUNK_SIZE as i32 + IVec3::new(x as i32, y as i32, z as i32);
                     let surface_light =
                         sample_light_at(world_pos + dir, chunk_pos, &light, &neighbor_lights);
+                    let tint = compute_face_tint(
+                        voxel_id,
+                        face_idx,
+                        world_pos,
+                        &block_info,
+                        season,
+                        &tint_sampler,
+                    );
                     *face_key = encode_face_key(
                         texture_layer,
                         buffer_idx,
                         surface_light.combined(),
                         surface_light.block,
+                        tint,
                     );
                 }
             }
@@ -130,6 +144,8 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
         &block_info,
         &light,
         &neighbor_lights,
+        season,
+        &tint_sampler,
         &mut cutout_buf,
     );
 
@@ -186,7 +202,8 @@ fn greedy_merge_pass(
                 continue;
             }
 
-            let (texture_layer, buffer_idx, surface_light, block_light) = decode_face_key(face_key);
+            let (texture_layer, buffer_idx, tint, surface_light, block_light) =
+                decode_face_key(face_key);
 
             // 向右扩展宽度
             let mut width = 1;
@@ -225,6 +242,7 @@ fn greedy_merge_pass(
             let (_, normal) = DIRECTIONS[face_idx];
 
             let color = light_rgb_to_color(surface_light);
+            let color = apply_vertex_tint(color, unquantize_tint(tint));
             let block_light_uv = block_light_to_uv(block_light);
 
             let buf = match buffer_idx {
@@ -245,26 +263,29 @@ fn greedy_merge_pass(
     }
 }
 
-/// 把材质通道与量化光色写入贪心掩码；光级不同的相邻面不会被错误合并。
+/// 把材质通道与量化光色及环境着色写入贪心掩码；不同生物群系/季节的面不会被错误合并。
 #[inline]
 fn encode_face_key(
     texture_layer: u32,
     buffer_idx: u8,
     combined_light: LightRgb,
     block_light: LightRgb,
+    tint: LightRgb,
 ) -> u64 {
-    ((texture_layer as u64) << 26)
+    ((texture_layer as u64) << 38)
+        | (pack_light_rgb(tint) << 26)
         | ((buffer_idx as u64 & 0x3) << 24)
         | (pack_light_rgb(combined_light) << 12)
         | pack_light_rgb(block_light)
 }
 
-/// 从贪心掩码恢复纹理、材质通道、合成光色和独立方块光色。
+/// 从贪心掩码恢复纹理、材质通道、量化环境着色、合成光色和独立方块光色。
 #[inline]
-fn decode_face_key(key: u64) -> (u32, u8, LightRgb, LightRgb) {
+fn decode_face_key(key: u64) -> (u32, u8, LightRgb, LightRgb, LightRgb) {
     (
-        (key >> 26) as u32,
+        (key >> 38) as u32,
         ((key >> 24) & 0x3) as u8,
+        unpack_light_rgb((key >> 26) & 0xFFF),
         unpack_light_rgb((key >> 12) & 0xFFF),
         unpack_light_rgb(key & 0xFFF),
     )
@@ -465,12 +486,15 @@ fn is_face_visible_snapshot(
 }
 
 /// 为区块内的十字模型方块生存独立的双面交叉平面
+#[allow(clippy::too_many_arguments)]
 fn append_cross_models(
     chunk_pos: IVec3,
     current_data: &ChunkData,
     block_info: &BlockInfoSnapshot,
     light: &Option<Arc<ChunkLight>>,
     neighbor_lights: &[Option<Arc<ChunkLight>>; 6],
+    season: Season,
+    tint_sampler: &TerrainSurfaceSampler,
     cutout_buf: &mut MeshBufferData,
 ) {
     for y in 0..CHUNK_SIZE {
@@ -492,7 +516,18 @@ fn append_cross_models(
 
                 // 十字方块按自身位置采样光级。
                 let light_cell = sample_light_at(world_position, chunk_pos, light, neighbor_lights);
-                let color = light_to_color(light_cell);
+                let tint = compute_face_tint(
+                    voxel_id,
+                    0,
+                    world_position,
+                    block_info,
+                    season,
+                    tint_sampler,
+                );
+                let color = apply_vertex_tint(
+                    light_to_color(light_cell),
+                    unquantize_tint(tint),
+                );
                 let block_light_uv = block_light_to_uv(light_cell.block);
 
                 for mut vertices in generate_cross_vertices(x as f32, y as f32, z as f32) {

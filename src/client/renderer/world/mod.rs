@@ -5,6 +5,7 @@ pub mod dropped_item;
 mod greedy_mesh;
 mod mesh_buffer;
 mod mesh_lifecycle;
+pub mod tint;
 
 pub use channel::{
     BlockInfoSnapshot, CachedBlockInfo, MeshBuildChannel, MeshBuildInput, MeshBuildResult,

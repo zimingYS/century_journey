@@ -4,6 +4,7 @@ use super::{
     BlockInfoSnapshot, CachedBlockInfo, DIRECTIONS, MeshBuildChannel, MeshBuildInput,
     build_greedy_mesh,
 };
+use super::tint::SeasonState;
 use crate::client::renderer::lighting::material::VoxelMaterial;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 
@@ -11,6 +12,7 @@ use crate::content::block::event::BlockChangedEvent;
 use crate::content::block::registry::BlockRegistry;
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::world::chunk::{ChunkComponents, ChunkData, ChunkState};
+use crate::game::world::generation::pipeline::TerrainSurfaceSampler;
 use crate::game::world::lighting::WorldLighting;
 use crate::game::world::lighting::chunk_light::ChunkLight;
 use crate::game::world::state::ChunkRuntime;
@@ -163,6 +165,8 @@ pub fn spawn_mesh_build_tasks(
     mut request_tracker: ResMut<MeshRequestTracker>,
     mut priority_queue: ResMut<PriorityMeshQueue>,
     world_lighting: Option<Res<WorldLighting>>,
+    season_state: Res<SeasonState>,
+    tint_sampler: Res<TerrainSurfaceSampler>,
 ) {
     if registry.is_none() {
         return;
@@ -200,6 +204,8 @@ pub fn spawn_mesh_build_tasks(
             &mut chunk_query,
             &chunk_runtime,
             world_lighting.as_deref(),
+            season_state.last_seen,
+            &tint_sampler,
             &mut request_tracker,
         ) {
             MeshSpawnAttempt::Spawned => spawned += 1,
@@ -233,6 +239,8 @@ pub fn spawn_mesh_build_tasks(
                 &mut chunk_query,
                 &chunk_runtime,
                 world_lighting.as_deref(),
+                season_state.last_seen,
+                &tint_sampler,
                 &mut request_tracker,
             ),
             MeshSpawnAttempt::Spawned
@@ -256,6 +264,8 @@ fn spawn_mesh_for_position(
     chunk_query: &mut Query<(&ChunkComponents, &mut ChunkState)>,
     runtime: &ChunkRuntime,
     lighting: Option<&WorldLighting>,
+    season: crate::game::world::time::Season,
+    tint_sampler: &TerrainSurfaceSampler,
     requests: &mut MeshRequestTracker,
 ) -> MeshSpawnAttempt {
     if !streaming.should_mesh_chunk(player_chunk, position) {
@@ -315,6 +325,8 @@ fn spawn_mesh_for_position(
         block_info: block_info.clone(),
         light,
         neighbor_lights,
+        season,
+        tint_sampler: tint_sampler.clone(),
     };
 
     channel.in_flight.fetch_add(1, Ordering::Relaxed);

@@ -3,6 +3,7 @@
   "identifier": "century_journey:leaves",
   "display_name": "树叶",
   "render_mode": "Cutout",
+  "tint": "foliage",
   "is_solid": false,
   "light_transmission": 0.72,
   "light_emission": 0,
