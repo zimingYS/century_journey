@@ -41,7 +41,11 @@ pub(super) fn attach_local_player_presentation_system(
     let presentation_root = commands
         .spawn((
             Name::new("PlayerPresentation"),
-            SimulationPresentation::translation_only(),
+            // 使用 full_transform 让 presentation_root 跟随 player 的位移与偏航；
+            // 相机作为其子节点会随玩家水平转身而绕玩家旋转（以玩家为中心的视角）。
+            // 若用 translation_only，相机只跟随位移、不跟随旋转，会导致横向转视野时
+            // 相机停在原地打转、与垂直俯仰的体验不一致。
+            SimulationPresentation::full_transform(),
             Transform::default(),
             Visibility::default(),
         ))
@@ -80,45 +84,28 @@ pub(super) fn attach_local_player_presentation_system(
         .add_child(camera);
 }
 
-/// 第一人称真实身体可见性。
+/// 玩家模型可见性与渲染层同步。
 ///
-/// 玩家模型以 `armature=false` 导出，每个肢体是独立 mesh。第一人称隐藏头/身/腿网格
-/// （避免相机穿模遮挡视线），保留手臂网格（MC 风格：第一人称看到自己的手拿工具）；
-/// 第三人称显示完整身体。
+/// 玩家模型以 `armature=false` 导出，每个肢体是独立 mesh。第一人称相机位于头部几何体
+/// 内部（相机相对 presentation_root 偏移 (0, 0.78, -0.18)，head cube 中心相对
+/// presentation_root 约 (0, 0.85, 0)、半尺寸约 0.25），因此 head mesh 依靠 backface
+/// culling（bind_player_rig_on_ready 已把材质显式设为 `cull_mode = Back`）从相机内部
+/// 自动隐形——相机在头内看到的全是背面，被剔除，无需手动隐藏。
+///
+/// 身体/腿位于相机下方（body 顶部相对 presentation_root 约 y=0.6 < 相机 y=0.78），
+/// 第一人称低头即可看到自己的衣服。所有 mesh（头/身/腿/手臂）在两个视角下都保持可见，
+/// 从而对 directional light 投射完整的全身阴影（修复此前隐藏身体导致阴影只剩双手的问题）。
 pub(super) fn first_person_visibility_system(
     mut commands: Commands,
     rig_query: Query<&PlayerRigEntities, With<LocalPlayer>>,
-    camera_query: Query<&FpsCamera, With<Camera3d>>,
     mut mesh_query: Query<(&mut Visibility, Option<&mut RenderLayers>)>,
 ) {
     let Ok(rig) = rig_query.single() else {
         return;
     };
-    let is_first_person = camera_query
-        .iter()
-        .next()
-        .is_none_or(|camera| camera.is_first_person());
-
-    // 身体网格（头/身/腿）：第一人称隐藏避免穿模遮挡视线，第三人称显示。
-    for mesh_entity in &rig.body_meshes {
-        let Ok((mut visibility, layers)) = mesh_query.get_mut(*mesh_entity) else {
-            continue;
-        };
-        let target_layers = RenderLayers::layer(WORLD_RENDER_LAYER);
-        *visibility = if is_first_person {
-            Visibility::Hidden
-        } else {
-            Visibility::Inherited
-        };
-        if let Some(mut layers) = layers {
-            *layers = target_layers;
-        } else {
-            commands.entity(*mesh_entity).insert(target_layers);
-        }
-    }
-
-    // 手臂网格：两个视角都显示（第一人称看到手持工具）。
-    for mesh_entity in &rig.arm_meshes {
+    // 所有玩家 mesh 始终可见；head 靠 backface culling 从相机内部隐形，
+    // body/arm 正常渲染并投射完整阴影。仅同步渲染层，保证与玩家相机同 layer。
+    for mesh_entity in &rig.mesh_entities {
         let Ok((mut visibility, layers)) = mesh_query.get_mut(*mesh_entity) else {
             continue;
         };
