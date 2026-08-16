@@ -12,7 +12,7 @@ use bevy::prelude::*;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex, mpsc};
 
-/// 后台网格任务返回的三种渲染通道。
+/// 后台网格任务返回的四种渲染通道。
 pub struct MeshBuildResult {
     pub chunk_pos: IVec3,
     /// 派发任务时对应的区块实体，用于拒绝卸载后同坐标新实体收到旧结果。
@@ -22,6 +22,8 @@ pub struct MeshBuildResult {
     pub opaque: MeshBufferData,
     pub cutout: MeshBufferData,
     pub water: MeshBufferData,
+    /// 半透明方块（如玻璃）通道：使用 `AlphaMode::Blend` 材质，与不透明通道分离。
+    pub transparent: MeshBufferData,
 }
 
 /// Client 层的区块网格任务通道。

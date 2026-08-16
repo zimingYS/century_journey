@@ -446,6 +446,7 @@ pub fn receive_mesh_results(
     };
     let opaque_mat = render_assets.voxel_opaque_material().clone();
     let cutout_mat = render_assets.voxel_cutout_material().clone();
+    let transparent_mat = render_assets.transparent_material().clone();
     let water_base_mat = render_assets.water_base_material().clone();
     let water_effect_mat = render_assets.water_effect_material().clone();
 
@@ -511,6 +512,26 @@ pub fn receive_mesh_results(
             let child = commands
                 .spawn((
                     Mesh3d(cutout_mesh),
+                    MeshMaterial3d(mat),
+                    Transform::IDENTITY,
+                    Visibility::default(),
+                ))
+                .id();
+            commands
+                .entity(chunk_entity)
+                .queue_silenced(move |mut entity: EntityWorldMut| {
+                    entity.add_child(child);
+                });
+        }
+
+        if !result.transparent.is_empty() {
+            // 半透明方块（玻璃）独立通道：带顶点光色，使用 Blend 材质，
+            // 与不透明/裁切通道分离，保证 alpha 混合正确。
+            let transparent_mesh = meshes.add(result.transparent.build_mesh());
+            let mat = transparent_mat.clone();
+            let child = commands
+                .spawn((
+                    Mesh3d(transparent_mesh),
                     MeshMaterial3d(mat),
                     Transform::IDENTITY,
                     Visibility::default(),

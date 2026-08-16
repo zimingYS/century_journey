@@ -37,6 +37,7 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
     let mut opaque_buf = MeshBufferData::new();
     let mut cutout_buf = MeshBufferData::new();
     let mut water_buf = MeshBufferData::new();
+    let mut transparent_buf = MeshBufferData::new();
 
     let cs = CHUNK_SIZE;
     let mut mask = [[FACE_NONE; 16]; 16];
@@ -91,14 +92,16 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
                     let idx = voxel_id as usize;
                     let buffer_idx = if current_is_water {
                         2u8
+                    } else if idx < block_info.render_modes.len()
+                        && block_info.render_modes[idx] == RenderMode::Cutout
+                    {
+                        1
+                    } else if idx < block_info.render_modes.len()
+                        && block_info.render_modes[idx] == RenderMode::Transparent
+                    {
+                        3
                     } else {
-                        if idx < block_info.render_modes.len()
-                            && block_info.render_modes[idx] == RenderMode::Cutout
-                        {
-                            1
-                        } else {
-                            0
-                        }
+                        0
                     };
 
                     let world_pos =
@@ -134,6 +137,7 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
                 &mut opaque_buf,
                 &mut cutout_buf,
                 &mut water_buf,
+                &mut transparent_buf,
             );
         }
     }
@@ -156,6 +160,7 @@ pub fn build_greedy_mesh(input: MeshBuildInput) -> super::channel::MeshBuildResu
         opaque: opaque_buf,
         cutout: cutout_buf,
         water: water_buf,
+        transparent: transparent_buf,
     }
 }
 
@@ -190,6 +195,7 @@ fn greedy_merge_pass(
     opaque_buf: &mut MeshBufferData,
     cutout_buf: &mut MeshBufferData,
     water_buf: &mut MeshBufferData,
+    transparent_buf: &mut MeshBufferData,
 ) {
     let cs = CHUNK_SIZE;
 
@@ -247,6 +253,7 @@ fn greedy_merge_pass(
 
             let buf = match buffer_idx {
                 2 => &mut *water_buf,
+                3 => &mut *transparent_buf,
                 1 => &mut *cutout_buf,
                 _ => &mut *opaque_buf,
             };
@@ -482,7 +489,17 @@ fn is_face_visible_snapshot(
         .get(neighbor_voxel_id as usize)
         .copied()
         .unwrap_or(true);
-    !nbr_is_solid || neighbor_voxel_id == block_info.water_id
+    if !nbr_is_solid || neighbor_voxel_id == block_info.water_id {
+        return true;
+    }
+    // 透明方块（玻璃等）不遮挡邻居的面：不透明方块朝玻璃的面也要渲染，
+    // 否则透过玻璃会看到内部空洞。玻璃朝不透明方块的面仍隐藏（贴面不可见）。
+    block_info
+        .render_modes
+        .get(neighbor_voxel_id as usize)
+        .copied()
+        .unwrap_or(RenderMode::Opaque)
+        == RenderMode::Transparent
 }
 
 /// 为区块内的十字模型方块生存独立的双面交叉平面

@@ -134,3 +134,58 @@ fn water_voxel_builds_a_visible_water_mesh_channel() {
     assert!(result.opaque.is_empty());
     assert!(result.cutout.is_empty());
 }
+
+#[test]
+fn transparent_block_routes_to_its_own_blend_buffer() {
+    use crate::content::biome::BiomeRegistry;
+    use crate::content::block::registry::{BlockRegistry, init_block_registry_system};
+    use crate::content::validation::compile_content;
+    use crate::engine::asset::AssetResolver;
+    use crate::game::world::generation::block_ids::GenerationBlockIds;
+    use crate::game::world::generation::pipeline::{GenerationPipeline, TerrainSurfaceSampler};
+    use crate::game::world::time::Season;
+    use crate::shared::states::AppState;
+    use bevy::state::app::StatesPlugin;
+
+    let resolver =
+        AssetResolver::new(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets"));
+    let compilation = compile_content(&resolver);
+    assert!(compilation.is_valid());
+
+    let mut app = App::new();
+    app.add_plugins(StatesPlugin)
+        .init_state::<AppState>()
+        .insert_resource(compilation)
+        .add_systems(Update, init_block_registry_system);
+    app.update();
+
+    let registry = app.world().resource::<BlockRegistry>();
+    let glass_id = registry
+        .get_id_by_identifier("century_journey:glass")
+        .expect("内容注册表必须包含玻璃方块");
+    let block_info = BlockInfoSnapshot::from_registry(registry);
+    let tint_sampler = TerrainSurfaceSampler::pending(
+        GenerationPipeline::new(0, BiomeRegistry::default()),
+        GenerationBlockIds::default(),
+    );
+
+    let mut chunk = ChunkData::new();
+    chunk.set_voxel(8, 8, 8, glass_id);
+    let result = build_greedy_mesh(MeshBuildInput {
+        chunk_pos: IVec3::ZERO,
+        request_entity: Entity::PLACEHOLDER,
+        request_id: 1,
+        current_data: Arc::new(chunk),
+        neighbors: std::array::from_fn(|_| None),
+        block_info,
+        light: None,
+        neighbor_lights: std::array::from_fn(|_| None),
+        season: Season::Spring,
+        tint_sampler,
+    });
+
+    // 半透明方块必须进入独立 blend 通道，而不是不透明通道（否则黑色不透光）。
+    assert!(!result.transparent.is_empty());
+    assert!(result.opaque.is_empty());
+    assert!(result.cutout.is_empty());
+}

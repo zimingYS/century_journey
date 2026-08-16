@@ -1,6 +1,6 @@
 //! 从内容纹理构建方块图集，并提供运行时纹理索引映射。
 
-use crate::client::renderer::constants::{BLOCK_ATLAS_TILES_PER_ROW, TILE_SIZE};
+use crate::client::renderer::constants::{BLOCK_ATLAS_TILES_PER_ROW, BLOCK_TILE_SIZE};
 use crate::client::renderer::lighting::material::{VoxelMaterial, VoxelMaterialExtension};
 use crate::client::water::{WaterMaterial, WaterMaterialExtension};
 use crate::content::block::definition::RenderMode;
@@ -137,8 +137,8 @@ pub(crate) fn build_texture_atlas(
     let unique_paths = registry.texture_paths();
     let layer_count = unique_paths.len() as u32;
 
-    let atlas_width = BLOCK_ATLAS_TILES_PER_ROW * TILE_SIZE;
-    let atlas_height = layer_count * BLOCK_ATLAS_TILES_PER_ROW * TILE_SIZE;
+    let atlas_width = BLOCK_ATLAS_TILES_PER_ROW * BLOCK_TILE_SIZE;
+    let atlas_height = layer_count * BLOCK_ATLAS_TILES_PER_ROW * BLOCK_TILE_SIZE;
 
     let pixel_count = atlas_width * atlas_height;
     let data_len = pixel_count as usize * 4;
@@ -165,25 +165,25 @@ pub(crate) fn build_texture_atlas(
 
         let resized = image::imageops::resize(
             &image,
-            TILE_SIZE,
-            TILE_SIZE,
+            BLOCK_TILE_SIZE,
+            BLOCK_TILE_SIZE,
             image::imageops::FilterType::Nearest,
         );
         let src_pixels = resized.as_raw();
 
-        let layer_pixel_y_start = layer_idx as u32 * BLOCK_ATLAS_TILES_PER_ROW * TILE_SIZE;
+        let layer_pixel_y_start = layer_idx as u32 * BLOCK_ATLAS_TILES_PER_ROW * BLOCK_TILE_SIZE;
 
         for tile_y in 0..BLOCK_ATLAS_TILES_PER_ROW {
             for tile_x in 0..BLOCK_ATLAS_TILES_PER_ROW {
-                for row in 0..TILE_SIZE {
-                    let dest_x = tile_x * TILE_SIZE;
-                    let dest_y = layer_pixel_y_start + tile_y * TILE_SIZE + row;
+                for row in 0..BLOCK_TILE_SIZE {
+                    let dest_x = tile_x * BLOCK_TILE_SIZE;
+                    let dest_y = layer_pixel_y_start + tile_y * BLOCK_TILE_SIZE + row;
 
-                    let src_start = (row * TILE_SIZE * 4) as usize;
-                    let src_end = src_start + (TILE_SIZE * 4) as usize;
+                    let src_start = (row * BLOCK_TILE_SIZE * 4) as usize;
+                    let src_end = src_start + (BLOCK_TILE_SIZE * 4) as usize;
                     let dest_start = ((dest_y * atlas_width + dest_x) * 4) as usize;
 
-                    atlas_data[dest_start..dest_start + (TILE_SIZE * 4) as usize]
+                    atlas_data[dest_start..dest_start + (BLOCK_TILE_SIZE * 4) as usize]
                         .copy_from_slice(&src_pixels[src_start..src_end]);
                 }
             }
@@ -205,7 +205,7 @@ pub(crate) fn build_texture_atlas(
 
     let texture_handle = images.add(array_image);
     let atlas_layout = layouts.add(TextureAtlasLayout::from_grid(
-        UVec2::splat(TILE_SIZE),
+        UVec2::splat(BLOCK_TILE_SIZE),
         BLOCK_ATLAS_TILES_PER_ROW,
         layer_count * BLOCK_ATLAS_TILES_PER_ROW,
         None,
@@ -255,12 +255,12 @@ pub(crate) fn build_texture_atlas(
                 Ok(img) => img.to_rgba8(),
                 Err(_) => {
                     error!("cannot decode water texture {water_path}");
-                    image::RgbaImage::new(TILE_SIZE, TILE_SIZE)
+                    image::RgbaImage::new(BLOCK_TILE_SIZE, BLOCK_TILE_SIZE)
                 }
             },
             Err(_) => {
                 error!("cannot load water texture {water_path}");
-                image::RgbaImage::new(TILE_SIZE, TILE_SIZE)
+                image::RgbaImage::new(BLOCK_TILE_SIZE, BLOCK_TILE_SIZE)
             }
         };
         // 水位调整：轻度提升亮度和饱和度，让水面在暗环境可读。
@@ -271,15 +271,15 @@ pub(crate) fn build_texture_atlas(
         }
         let resized = image::imageops::resize(
             &water_image,
-            TILE_SIZE,
-            TILE_SIZE,
+            BLOCK_TILE_SIZE,
+            BLOCK_TILE_SIZE,
             image::imageops::FilterType::Nearest,
         );
         let data = resized.into_raw();
         let mut water_texture = Image::new(
             Extent3d {
-                width: TILE_SIZE,
-                height: TILE_SIZE,
+                width: BLOCK_TILE_SIZE,
+                height: BLOCK_TILE_SIZE,
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
@@ -353,9 +353,9 @@ fn grade_builtin_world_texture(path: &str, image: &mut image::RgbaImage) {
 }
 
 fn create_missing_texture_placeholder() -> image::RgbaImage {
-    let mut img = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
-    for y in 0..TILE_SIZE {
-        for x in 0..TILE_SIZE {
+    let mut img = image::RgbaImage::new(BLOCK_TILE_SIZE, BLOCK_TILE_SIZE);
+    for y in 0..BLOCK_TILE_SIZE {
+        for x in 0..BLOCK_TILE_SIZE {
             let color = if (x / 4 + y / 4) % 2 == 0 {
                 image::Rgba([255, 0, 255, 255])
             } else {

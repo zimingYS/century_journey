@@ -7,7 +7,7 @@ use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-use crate::client::renderer::constants::{BLOCK_ATLAS_TILES_PER_ROW, TILE_SIZE};
+use crate::client::renderer::constants::{BLOCK_ATLAS_TILES_PER_ROW, BLOCK_TILE_SIZE};
 use crate::client::renderer::item::baked_model::BakedItemModel;
 use crate::client::renderer::item::display::ItemDisplayContext;
 use crate::client::renderer::item::gui_icon_cache::{GuiItemIcon, GuiItemIconCache};
@@ -366,8 +366,11 @@ fn draw_icon_face(
 }
 
 /// 从方块 atlas 的指定层采样一个像素。
+///
+/// 方块图集瓦片边长是 `BLOCK_TILE_SIZE`（32×32），不能使用物品 GUI 的 `TILE_SIZE`，
+/// 否则每个图标只会采样到瓦片左上 16×16 的区域，图标内容错位。
 fn sample_block_atlas(sampler: &AtlasSampler<'_>, layer: u32, u: f32, v: f32) -> Option<[u8; 4]> {
-    let tile_size = TILE_SIZE;
+    let tile_size = BLOCK_TILE_SIZE;
     let atlas_x = (u.clamp(0.0, 0.999) * tile_size as f32) as u32;
     let atlas_y = layer * BLOCK_ATLAS_TILES_PER_ROW * tile_size
         + (v.clamp(0.0, 0.999) * tile_size as f32) as u32;
