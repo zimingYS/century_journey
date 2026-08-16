@@ -2,6 +2,10 @@ use super::*;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::Interaction;
 
+use super::context::resolve_context;
+use super::interface::apply_interface_command;
+use super::pointer::interaction_phase;
+
 use crate::client::ui::state::SearchInputState;
 use crate::game::inventory::events::InventoryCommand;
 use crate::game::inventory::state::InventoryState;

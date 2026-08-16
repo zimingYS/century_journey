@@ -1,86 +1,46 @@
-//! 为可见区块和方块编辑区域提供高优先级局部光照重建。
+//! 局部光照的队列、调度、提交与清理系统。
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, mpsc};
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
+use std::time::Instant;
 
 use bevy::prelude::*;
 
-use super::chunk_light::ChunkLight;
-use super::local_queue::LocalLightingQueue;
-use super::rebuild::{
-    BlockLightSource, GameLightInfo, LightingWorldSnapshot, rebuild_loaded_lighting,
-    rebuild_loaded_lighting_from_source_index,
-};
-use super::{CachedLightInfo, LightingRebuildTracker, WorldLighting, light_dependent_mesh_chunks};
-use crate::content::block::definition::BlockLightDef;
 use crate::content::block::event::BlockChangedEvent;
 use crate::engine::task::{TaskManager, TaskResult};
 use crate::game::world::chunk::{ChunkComponents, ChunkState};
 use crate::game::world::generation::generator::WorldGenerator;
+use crate::game::world::lighting::chunk_light::ChunkLight;
+use crate::game::world::lighting::local::channel::{
+    LocalLightingBuildChannel, LocalLightingBuildResult,
+};
+use crate::game::world::lighting::local::constants::{
+    LOCAL_DISCOVERY_QUEUE_LIMIT, LOCAL_TASK_BACKLOG_FACTOR,
+};
+use crate::game::world::lighting::local::helpers::{
+    chunk_generation_ready, dependency_columns, edit_affects_sky, enqueue_block_change_targets,
+    local_column_batch_size, local_lighting_slot_available, neighborhood_generation_ready,
+    same_light, update_source_entry, world_to_chunk,
+};
+use crate::game::world::lighting::local_queue::LocalLightingQueue;
+use crate::game::world::lighting::rebuild::{
+    LightingWorldSnapshot, rebuild_loaded_lighting, rebuild_loaded_lighting_from_source_index,
+};
+use crate::game::world::lighting::resources::{
+    CachedLightInfo, LightingRebuildTracker, WorldLighting,
+};
+use crate::game::world::lighting::systems::light_dependent_mesh_chunks;
 use crate::game::world::state::{ChunkRuntime, WorldState};
 use crate::game::world::streaming::{PlayerChunkCache, WorldStreamingConfig};
 use crate::shared::voxel::CHUNK_SIZE;
-
-/// 普通流送任务一次最多处理的核心水平列数。
-const LOCAL_TARGET_COLUMN_BATCH_SIZE: usize = 24;
-/// 玩家交互一次最多合并的水平列数，覆盖常用一至两圈传播半径。
-const LOCAL_INTERACTION_COLUMN_BATCH_LIMIT: usize = 25;
-/// 可见区块发现阶段保留的最大候选数，避免每个固定步扫描完整窗口。
-const LOCAL_DISCOVERY_QUEUE_LIMIT: usize = 512;
-/// 普通光照任务允许进入的任务池积压倍数；通道有限并发保证不会无界增长。
-const LOCAL_TASK_BACKLOG_FACTOR: usize = 2;
-/// 局部光照任务允许的最小基础并发数；列集由 pop_columns 从队列移除，天然不相交。
-const LOCAL_LIGHTING_MIN_IN_FLIGHT: usize = 2;
-/// 局部光照任务允许的最大基础并发数；上限保证与网格、全局重建共享线程池时不过度超发。
-const LOCAL_LIGHTING_MAX_IN_FLIGHT: usize = 3;
-
-struct LocalLightingBuildResult {
-    session_id: u64,
-    content_revision: u64,
-    targets: Vec<IVec3>,
-    dependency_halo: i32,
-    snapshot: LightingWorldSnapshot,
-    lights: HashMap<IVec3, ChunkLight>,
-    sources: Vec<BlockLightSource>,
-    priority: bool,
-    sky_dirty: bool,
-    waited_ticks: u16,
-    elapsed: Duration,
-}
-
-/// 局部光照任务通道；限制为少量并发任务，连续编辑通过目标队列合并。
-#[derive(Resource)]
-pub(super) struct LocalLightingBuildChannel {
-    sender: mpsc::Sender<LocalLightingBuildResult>,
-    receiver: Mutex<mpsc::Receiver<LocalLightingBuildResult>>,
-    in_flight: Arc<AtomicUsize>,
-}
-
-impl Default for LocalLightingBuildChannel {
-    fn default() -> Self {
-        let (sender, receiver) = mpsc::channel();
-        Self {
-            sender,
-            receiver: Mutex::new(receiver),
-            in_flight: Arc::new(AtomicUsize::new(0)),
-        }
-    }
-}
-
-/// 注册局部光照任务所需的会话期资源。
-pub(super) fn register_resources(app: &mut App) {
-    app.init_resource::<LocalLightingQueue>()
-        .init_resource::<LocalLightingBuildChannel>();
-}
 
 /// 把结构已稳定但光照快照尚未同步的可见区块推进到等待态并加入去重队列。
 ///
 /// 该系统位于固定步光照结果提交之后、任务派发之前；旧网格保持可见，只有新网格
 /// 会等待 `LightingReady`，从而避免新区块和编辑区块先黑闪再重建。
 #[allow(clippy::too_many_arguments)]
-pub(super) fn queue_pending_chunk_lighting(
+pub(crate) fn queue_pending_chunk_lighting(
     world: Res<WorldState>,
     lighting: Res<WorldLighting>,
     player_cache: Res<PlayerChunkCache>,
@@ -139,7 +99,7 @@ pub(super) fn queue_pending_chunk_lighting(
 ///
 /// Bevy 系统参数保持任务队列、流送优先级与区块生命周期的访问边界显式。
 #[allow(clippy::too_many_arguments)]
-pub(super) fn schedule_local_lighting_rebuild(
+pub(crate) fn schedule_local_lighting_rebuild(
     mut changed_blocks: MessageReader<BlockChangedEvent>,
     mut queue: ResMut<LocalLightingQueue>,
     channel: Res<LocalLightingBuildChannel>,
@@ -385,7 +345,7 @@ pub(super) fn schedule_local_lighting_rebuild(
 ///
 /// Bevy 系统参数保持光场、队列和区块生命周期的访问边界显式。
 #[allow(clippy::too_many_arguments)]
-pub(super) fn receive_local_lighting_results(
+pub(crate) fn receive_local_lighting_results(
     mut lighting: ResMut<WorldLighting>,
     mut queue: ResMut<LocalLightingQueue>,
     channel: Res<LocalLightingBuildChannel>,
@@ -536,7 +496,7 @@ pub(super) fn receive_local_lighting_results(
 }
 
 /// 方块事件发生后立即维护点光源索引，不等待体素光传播任务完成。
-pub(super) fn sync_changed_block_sources(
+pub(crate) fn sync_changed_block_sources(
     mut changed_blocks: MessageReader<BlockChangedEvent>,
     cached: Res<CachedLightInfo>,
     mut lighting: ResMut<WorldLighting>,
@@ -556,7 +516,7 @@ pub(super) fn sync_changed_block_sources(
 }
 
 /// 立即移除已卸载区块的光数组、权威快照和光源，避免持续流送累积内存。
-pub(super) fn prune_unloaded_lighting(
+pub(crate) fn prune_unloaded_lighting(
     world: Res<WorldState>,
     mut lighting: ResMut<WorldLighting>,
     mut queue: ResMut<LocalLightingQueue>,
@@ -583,204 +543,6 @@ pub(super) fn prune_unloaded_lighting(
 }
 
 /// 离开世界时清空尚未派发的局部目标；飞行中结果由会话编号拒绝。
-pub(super) fn clear_local_lighting(mut queue: ResMut<LocalLightingQueue>) {
+pub(crate) fn clear_local_lighting(mut queue: ResMut<LocalLightingQueue>) {
     queue.clear();
 }
-
-fn enqueue_block_change_targets(
-    world: &WorldState,
-    world_pos: IVec3,
-    halo: i32,
-    sky_dirty: bool,
-    queue: &mut LocalLightingQueue,
-) {
-    let center = world_to_chunk(world_pos);
-    let mut positions = world
-        .chunks()
-        .map(|(position, _)| position)
-        .filter(|position| {
-            (position.x - center.x).abs() <= halo && (position.z - center.z).abs() <= halo
-        })
-        .collect::<Vec<_>>();
-    positions.sort_by_key(|position| {
-        let delta = *position - center;
-        (delta.x.abs() + delta.y.abs() + delta.z.abs(), delta.y.abs())
-    });
-    for position in positions.into_iter().rev() {
-        queue.prioritize_edit(position, sky_dirty);
-    }
-}
-
-/// 只有方块的天空光透射发生变化时才需要重新灌入整列天光。
-///
-/// 发光属性变化只影响方块光；同透射材质间替换也不会改变天空通路。
-fn edit_affects_sky(
-    info: &GameLightInfo,
-    lighting: &WorldLighting,
-    world: &WorldState,
-    change: &BlockChangedEvent,
-) -> bool {
-    const NEIGHBORS: [IVec3; 7] = [
-        IVec3::ZERO,
-        IVec3::X,
-        IVec3::NEG_X,
-        IVec3::Y,
-        IVec3::NEG_Y,
-        IVec3::Z,
-        IVec3::NEG_Z,
-    ];
-    let old_filter = info.prop(change.old_block_id).filter;
-    let new_filter = info.prop(change.new_block_id).filter;
-    if old_filter == new_filter {
-        return false;
-    }
-    if NEIGHBORS.into_iter().any(|offset| {
-        lighting
-            .light_cell_at_world(change.world_pos + offset)
-            .is_some_and(|cell| !cell.sky.is_dark())
-    }) {
-        return true;
-    }
-
-    // 打开原本封闭的天井时，改动格及其邻域仍可能全黑；向上检查同列的已加载
-    // 区块，只有确实能接到现有天空光柱时才升级为天光重建。未加载空间不会被当作露天。
-    let opens_transmission = new_filter
-        .iter()
-        .zip(old_filter)
-        .any(|(new, old)| *new > old);
-    if !opens_transmission {
-        return false;
-    }
-    let max_chunk_y = world
-        .chunks()
-        .filter(|(position, _)| {
-            position.x == change.world_pos.x.div_euclid(CHUNK_SIZE as i32)
-                && position.z == change.world_pos.z.div_euclid(CHUNK_SIZE as i32)
-        })
-        .map(|(position, _)| position.y)
-        .max();
-    let Some(max_chunk_y) = max_chunk_y else {
-        return false;
-    };
-    let max_y = (max_chunk_y + 1) * CHUNK_SIZE as i32 - 1;
-    let mut position = change.world_pos + IVec3::Y;
-    while position.y <= max_y {
-        if lighting
-            .light_cell_at_world(position)
-            .is_some_and(|cell| !cell.sky.is_dark())
-        {
-            return true;
-        }
-        position.y += 1;
-    }
-    false
-}
-
-fn dependency_columns(targets: &[IVec3], halo: i32) -> HashSet<(i32, i32)> {
-    let mut columns = HashSet::new();
-    for target in targets {
-        for x in -halo..=halo {
-            for z in -halo..=halo {
-                columns.insert((target.x + x, target.z + z));
-            }
-        }
-    }
-    columns
-}
-
-fn local_column_batch_size(interaction: bool, dependency_halo: i32) -> usize {
-    if !interaction {
-        return LOCAL_TARGET_COLUMN_BATCH_SIZE;
-    }
-    let diameter = dependency_halo.max(0) as usize * 2 + 1;
-    diameter
-        .saturating_mul(diameter)
-        .clamp(1, LOCAL_INTERACTION_COLUMN_BATCH_LIMIT)
-}
-
-/// 普通局部任务受固定并发上限约束；交互可临时多占一个槽，但不能无界超发。
-///
-/// 基础并发随工作线程数在 [`LOCAL_LIGHTING_MIN_IN_FLIGHT`] 与
-/// [`LOCAL_LIGHTING_MAX_IN_FLIGHT`] 之间伸缩：区块流送阶段网格任务仍被光照闸门阻塞，
-/// 线程空闲时可并行处理更多不相交列集，从而缩短区块进入 `LightingReady` 的时间。
-fn local_lighting_slot_available(in_flight: usize, interaction: bool, worker_count: usize) -> bool {
-    let base_limit = worker_count
-        .saturating_sub(2)
-        .clamp(LOCAL_LIGHTING_MIN_IN_FLIGHT, LOCAL_LIGHTING_MAX_IN_FLIGHT);
-    let limit = base_limit + usize::from(interaction);
-    in_flight < limit
-}
-
-fn neighborhood_generation_ready(
-    world: &WorldState,
-    target: IVec3,
-    runtime: &ChunkRuntime,
-    states: &Query<&ChunkState>,
-    player_cache: &PlayerChunkCache,
-    halo: i32,
-) -> bool {
-    player_cache
-        .ordered_chunks()
-        .iter()
-        .copied()
-        .filter(|position| {
-            (position.x - target.x).abs() <= halo && (position.z - target.z).abs() <= halo
-        })
-        .all(|position| {
-            world.contains_chunk(position)
-                && runtime
-                    .chunk_entity(position)
-                    .and_then(|entity| states.get(entity).ok())
-                    .is_some_and(|state| {
-                        matches!(*state, ChunkState::LoadFailed) || state.has_completed_structure()
-                    })
-        })
-}
-
-fn chunk_generation_ready(
-    position: IVec3,
-    runtime: &ChunkRuntime,
-    states: &Query<&ChunkState>,
-) -> bool {
-    runtime
-        .chunk_entity(position)
-        .and_then(|entity| states.get(entity).ok())
-        .is_some_and(|state| state.has_completed_structure())
-}
-
-fn update_source_entry(
-    sources: &mut Vec<BlockLightSource>,
-    world_pos: IVec3,
-    light: Option<BlockLightDef>,
-) -> bool {
-    let previous = sources
-        .iter()
-        .find(|source| source.world_pos == world_pos)
-        .copied();
-    let next = light.map(|light| BlockLightSource { world_pos, light });
-    if previous == next {
-        return false;
-    }
-    sources.retain(|source| source.world_pos != world_pos);
-    if let Some(source) = next {
-        sources.push(source);
-        sources.sort_by_key(|source| (source.world_pos.x, source.world_pos.y, source.world_pos.z));
-    }
-    true
-}
-
-fn same_light(left: &ChunkLight, right: &ChunkLight) -> bool {
-    left.is_initialized() == right.is_initialized() && left.fingerprint() == right.fingerprint()
-}
-
-fn world_to_chunk(position: IVec3) -> IVec3 {
-    IVec3::new(
-        position.x.div_euclid(CHUNK_SIZE as i32),
-        position.y.div_euclid(CHUNK_SIZE as i32),
-        position.z.div_euclid(CHUNK_SIZE as i32),
-    )
-}
-
-#[cfg(test)]
-#[path = "../../../../tests/unit/game/world/lighting/local.rs"]
-mod tests;

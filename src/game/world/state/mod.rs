@@ -3,8 +3,10 @@
 mod authoritative;
 mod chunk_runtime;
 mod headless;
+mod plugin;
 
 pub(in crate::game) use authoritative::WorldChunkSnapshot;
 pub use authoritative::WorldState;
 pub use chunk_runtime::ChunkRuntime;
 pub use headless::HeadlessWorldPlugin;
+pub use plugin::WorldStatePlugin;

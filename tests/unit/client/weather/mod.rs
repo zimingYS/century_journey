@@ -1,4 +1,8 @@
-use super::*;
+use super::systems::{noise01, spawn_precipitation_system};
+use super::types::{PrecipitationKind, PrecipitationParticle, PrecipitationVisuals};
+use crate::game::player::identity::Player;
+use crate::game::world::weather::WeatherCell;
+use bevy::prelude::*;
 
 #[test]
 fn noise01_stays_within_unit_range() {

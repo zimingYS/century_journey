@@ -1,6 +1,8 @@
-use super::*;
+use super::systems::{perspective_offset, perspective_rotation};
+use super::types::{CameraPerspective, FpsCamera, MAX_CAMERA_PITCH, MIN_CAMERA_PITCH};
 use crate::client::player::model::components::PlayerPart;
 use crate::client::player::model::config::PlayerModelConfig;
+use bevy::math::Vec3;
 
 #[test]
 fn player_visual_camera_pitch_is_clamped_before_world_can_flip() {
@@ -25,7 +27,7 @@ fn player_visual_first_person_eye_is_in_front_of_torso() {
 fn second_person_camera_is_in_front_and_faces_the_player() {
     let camera = FpsCamera {
         perspective: CameraPerspective::SecondPerson,
-        ..default()
+        ..Default::default()
     };
     let offset = perspective_offset(camera.perspective);
     let forward = perspective_rotation(&camera) * Vec3::NEG_Z;
@@ -40,12 +42,12 @@ fn second_person_pitch_direction_matches_first_person() {
         let first = FpsCamera {
             perspective: CameraPerspective::FirstPerson,
             pitch,
-            ..default()
+            ..Default::default()
         };
         let second = FpsCamera {
             perspective: CameraPerspective::SecondPerson,
             pitch,
-            ..default()
+            ..Default::default()
         };
         let first_forward = perspective_rotation(&first) * Vec3::NEG_Z;
         let second_forward = perspective_rotation(&second) * Vec3::NEG_Z;

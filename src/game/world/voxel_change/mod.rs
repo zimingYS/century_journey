@@ -4,4 +4,7 @@
 //! 此处 re-export 保持既有引用路径不变；apply 实现与来源记录留在 Game 层。
 
 pub mod apply;
+mod plugin;
 pub mod provenance;
+
+pub use plugin::VoxelChangePlugin;

@@ -1,5 +1,6 @@
 use super::*;
 use crate::game::world::generation::terrain::climate::{ClimateConfig, ClimateSampler};
+use crate::game::world::time::Season;
 use crate::shared::random::DeterministicRng;
 
 #[test]
