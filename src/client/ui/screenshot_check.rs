@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 
@@ -20,6 +21,7 @@ use crate::game::player::identity::LocalPlayer;
 use crate::game::player::movement::components::PlayerVelocity;
 use crate::game::player::physics::components::PlayerGravity;
 use crate::game::save::world::metadata::io;
+use crate::game::world::time::WorldSimulationClock;
 use crate::shared::item_id::ItemId;
 use crate::shared::states::AppState;
 
@@ -35,6 +37,7 @@ enum ScreenshotTarget {
     Workbench,
     SecondPerson,
     ThirdPerson,
+    SkyView,
 }
 
 #[derive(Resource, Debug)]
@@ -51,6 +54,8 @@ struct UiScreenshotCheck {
     ready_seconds: f32,
     capture_delay_seconds: f32,
     requested: bool,
+    /// 截图请求后的退出倒计时（帧）：给渲染世界足够时间完成截图并写盘。
+    exit_frames: u32,
 }
 
 /// 根据截图环境变量配置固定界面状态、相机和自动退出流程。
@@ -75,6 +80,7 @@ pub fn configure_ui_screenshot_check(app: &mut App) {
         "workbench" => ScreenshotTarget::Workbench,
         "second-person" => ScreenshotTarget::SecondPerson,
         "third-person" => ScreenshotTarget::ThirdPerson,
+        "sky-view" => ScreenshotTarget::SkyView,
         _ => ScreenshotTarget::Inventory,
     };
     let capture_delay_seconds = std::env::var("CJ_UI_SCREENSHOT_DELAY_SECONDS")
@@ -101,8 +107,20 @@ pub fn configure_ui_screenshot_check(app: &mut App) {
         ready_seconds: 0.0,
         capture_delay_seconds,
         requested: false,
+        exit_frames: 0,
     })
     .add_systems(Update, ui_screenshot_check_system);
+}
+
+/// 截图驱动所需的应用流程控制参数聚合，避免 system 参数超过 Bevy 上限。
+#[derive(SystemParam)]
+struct ScreenshotFlow<'w, 's> {
+    navigation: MessageWriter<'w, UiNavigation>,
+    pending_world: ResMut<'w, PendingWorld>,
+    menu_page: ResMut<'w, MenuPage>,
+    next_state: ResMut<'w, NextState<AppState>>,
+    commands: Commands<'w, 's>,
+    exit_writer: MessageWriter<'w, AppExit>,
 }
 
 // 截图工具在同一帧检查多个界面锚点和状态，参数只存在于开发期验证路径。
@@ -124,11 +142,9 @@ fn ui_screenshot_check_system(
     >,
     mut containers: ResMut<WorldContainers>,
     mut camera: Query<&mut FpsCamera, With<Camera3d>>,
-    mut navigation: MessageWriter<UiNavigation>,
-    mut pending_world: ResMut<PendingWorld>,
+    mut clock: ResMut<WorldSimulationClock>,
+    mut flow: ScreenshotFlow,
     block_registry: Option<Res<BlockRegistry>>,
-    mut menu_page: ResMut<MenuPage>,
-    mut next_state: ResMut<NextState<AppState>>,
     pause_controls: Query<
         (&ComputedNode, &InheritedVisibility),
         Or<(
@@ -138,12 +154,18 @@ fn ui_screenshot_check_system(
         )>,
     >,
     survival_inventory: Query<(&ComputedNode, &InheritedVisibility), With<SurvivalInventoryRoot>>,
-    mut commands: Commands,
 ) {
     let Some(mut config) = config else {
         return;
     };
     if config.requested {
+        // 截图已请求：给渲染世界留出完成截图写盘的时间后再退出。
+        if std::env::var("CJ_UI_SCREENSHOT_EXIT").as_deref() == Ok("1") {
+            config.exit_frames += 1;
+            if config.exit_frames >= 90 {
+                flow.exit_writer.write(AppExit::Success);
+            }
+        }
         return;
     }
     let state = app_state.get();
@@ -151,6 +173,7 @@ fn ui_screenshot_check_system(
         && state == &AppState::InGame
         && let Ok((_, _, mut transform, mut gravity, mut velocity)) = player_query.single_mut()
     {
+        // 锚定在海平面上方：SEA_LEVEL=64，脚底约 69，离水 5m，不在水中也不被地形遮挡。
         transform.translation = Vec3::new(0.0, 70.0, 0.0);
         gravity.velocity_y = 0.0;
         gravity.fall_distance = 0.0;
@@ -162,7 +185,7 @@ fn ui_screenshot_check_system(
             ScreenshotTarget::MainMenu | ScreenshotTarget::Settings
         )
     {
-        *menu_page = if config.target == ScreenshotTarget::Settings {
+        *flow.menu_page = if config.target == ScreenshotTarget::Settings {
             MenuPage::Settings
         } else {
             MenuPage::Worlds
@@ -194,9 +217,9 @@ fn ui_screenshot_check_system(
                 return;
             }
         }
-        pending_world.0 = Some(screenshot_world);
+        flow.pending_world.0 = Some(screenshot_world);
         config.world_requested = true;
-        next_state.set(AppState::WorldLoading);
+        flow.next_state.set(AppState::WorldLoading);
         return;
     }
     if state == &AppState::InGame && !config.prepared {
@@ -225,7 +248,8 @@ fn ui_screenshot_check_system(
         }
         match config.target {
             ScreenshotTarget::Inventory => {
-                navigation.write(UiNavigation::Open(UiScreen::Inventory));
+                flow.navigation
+                    .write(UiNavigation::Open(UiScreen::Inventory));
             }
             ScreenshotTarget::Workbench => {
                 let Some(container_id) = containers.ensure_at(
@@ -235,7 +259,8 @@ fn ui_screenshot_check_system(
                     return;
                 };
                 *active_crafting = ActiveCrafting::workbench(IVec3::ZERO, container_id);
-                navigation.write(UiNavigation::Open(UiScreen::Container));
+                flow.navigation
+                    .write(UiNavigation::Open(UiScreen::Container));
             }
             ScreenshotTarget::SecondPerson => {
                 if let Ok(mut camera) = camera.single_mut() {
@@ -249,8 +274,18 @@ fn ui_screenshot_check_system(
                     camera.set_pitch(-0.12);
                 }
             }
+            ScreenshotTarget::SkyView => {
+                if let Ok(mut camera) = camera.single_mut() {
+                    camera.perspective = CameraPerspective::FirstPerson;
+                    // 仰头约 50°：让近处大型云团（仰角约 40°~80°）落在画面中央。
+                    camera.set_pitch(0.88);
+                }
+                // 正午：太阳直射云顶，底面由自发光保持冷灰亮色，光影最接近参考图。
+                *clock = WorldSimulationClock::from_legacy_time_of_day(12.0);
+            }
             ScreenshotTarget::Pause => {
-                navigation.write(UiNavigation::Open(UiScreen::PauseMenu));
+                flow.navigation
+                    .write(UiNavigation::Open(UiScreen::PauseMenu));
             }
             ScreenshotTarget::MainMenu | ScreenshotTarget::Settings => {}
         }
@@ -267,9 +302,9 @@ fn ui_screenshot_check_system(
                 })
         }
         ScreenshotTarget::Workbench => state == &AppState::InGame,
-        ScreenshotTarget::SecondPerson | ScreenshotTarget::ThirdPerson => {
-            state == &AppState::InGame
-        }
+        ScreenshotTarget::SecondPerson
+        | ScreenshotTarget::ThirdPerson
+        | ScreenshotTarget::SkyView => state == &AppState::InGame,
     };
     if !ready || !config.prepared {
         config.ready_frames = 0;
@@ -293,7 +328,7 @@ fn ui_screenshot_check_system(
     {
         return;
     }
-    commands
+    flow.commands
         .spawn(Screenshot::primary_window())
         .observe(save_to_disk(config.output.clone()));
     config.requested = true;

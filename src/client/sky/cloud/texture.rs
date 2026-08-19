@@ -2,6 +2,9 @@
 //!
 //! 云纹理是单通道 alpha 图（白色云形 + 透明背景），水平与垂直方向均可平铺，
 //! 供云层 quad 与 billboard 云片共用。
+//!
+//! 本模块是原 raymarching 体积云的保留备份（当前未注册，见 `mod.rs`），作为
+//! 未来切换回体积云的入口。dead_code 豁免声明在 `mod.rs` 的模块声明上。
 
 use crate::client::sky::cloud::constants::CLOUD_TEXTURE_SIZE;
 use bevy::asset::RenderAssetUsages;

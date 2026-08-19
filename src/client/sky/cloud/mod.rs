@@ -1,13 +1,23 @@
 //! 组织多层动态云的实体创建与每帧表现更新。
 //!
-//! 云是纯表现层功能：读取 Content 编译的云定义与客户端时间快照，在渲染帧
-//! 驱动云层漂移、昼夜染色与近景云片朝向。不进入 FixedUpdate，不参与权威模拟。
+//! 当前实现：voxel 块状云（ARTShade 风格几何云）。raymarching 体积云代码
+//! 仍保留在子模块（`material`、`systems`、`texture`）中以备未来切换，但
+//! 不在 plugin 中注册，因此不会被运行时使用。
 
 mod components;
 mod constants;
+mod generation;
+// 原 raymarching 体积云保留备份（未注册、不被运行时调用，见模块顶部说明）。
+#[allow(dead_code)]
+mod material;
 mod plugin;
+// 原 raymarching 体积云保留备份（未注册、不被运行时调用，见模块顶部说明）。
+#[allow(dead_code)]
 mod systems;
+// 原 raymarching 体积云保留备份（未注册、不被运行时调用，见模块顶部说明）。
+#[allow(dead_code)]
 mod texture;
+mod voxel;
 mod weather_adapter;
 
 pub use plugin::CloudPlugin;
