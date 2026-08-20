@@ -7,15 +7,9 @@
 mod components;
 mod constants;
 mod generation;
-// 原 raymarching 体积云保留备份（未注册、不被运行时调用，见模块顶部说明）。
-#[allow(dead_code)]
 mod material;
 mod plugin;
-// 原 raymarching 体积云保留备份（未注册、不被运行时调用，见模块顶部说明）。
-#[allow(dead_code)]
 mod systems;
-// 原 raymarching 体积云保留备份（未注册、不被运行时调用，见模块顶部说明）。
-#[allow(dead_code)]
 mod texture;
 mod voxel;
 mod weather_adapter;
