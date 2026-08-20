@@ -16,8 +16,9 @@ use bevy::math::Vec4;
 use bevy::prelude::*;
 use rand::{RngExt, SeedableRng};
 
-/// 云层垂直厚度的一半（世界单位），决定云体的高度范围（云厚 24 米）。
-const CLOUD_HALF_THICKNESS: f32 = 12.0;
+/// 云层垂直厚度的一半（世界单位），决定云体的高度范围（云厚 8 米）。
+// ARTShade 使用 8 个世界单位的薄云层；三层之间的间隔由着色器固定为 48。
+const CLOUD_HALF_THICKNESS: f32 = 4.0;
 
 /// 云场运行时资源，集中管理实体生命周期和近景云片共享材质。
 #[derive(Resource, Default)]
@@ -63,7 +64,7 @@ pub(super) struct CloudSetupParams<'w, 's> {
 /// 在进入游戏且内容注册表就绪后创建云场实体。
 ///
 /// 云层用「天空球体 mesh + raymarching 扩展材质」：球体仅作为触发片元着色的
-/// 载体，云的真实形状由 shader 内的 3D 密度场决定，因此有侧面、厚度与受光方向。
+/// 载体，云的真实形状由 shader 内的二维覆盖场和垂直边缘淡出决定。
 /// 近景云片仍保留 billboard 贴图，用于补充云场纵深。
 pub fn setup_cloud_system(mut commands: Commands, mut params: CloudSetupParams) {
     cleanup_cloud_entities(&mut commands, &mut params.runtime);
@@ -73,17 +74,21 @@ pub fn setup_cloud_system(mut commands: Commands, mut params: CloudSetupParams) 
     };
 
     let weather = params.weather.normalized();
-    let camera_pos = params
-        .camera_query
-        .iter()
-        .next()
+    let camera_transform = params.camera_query.iter().next();
+    let camera_pos = camera_transform
         .map(|transform| transform.translation())
         .unwrap_or(Vec3::ZERO);
+    let camera_rotation = camera_transform
+        .map(GlobalTransform::rotation)
+        .unwrap_or(Quat::IDENTITY);
+    let camera_forward = camera_transform
+        .map(|transform| transform.forward().as_vec3())
+        .unwrap_or(-Vec3::Z);
 
     // 体积云层：天空球体 mesh + raymarching 扩展材质。
-    for layer in &definition.layers {
-        // 球体半径取整层尺寸，保证天空覆盖范围足够；云层厚度由 shader 内高度范围控制。
-        let radius = layer.size;
+    if let Some(layer) = definition.layers.first() {
+        // 使用朝向相机的全屏代理平面，模拟 ARTShade 的后处理云 pass。
+        let proxy_distance = 256.0;
         let wind = Vec2::from_array(layer.wind_direction).normalize_or_zero();
         let material = params.cloud_materials.add(CloudVolumeMaterial {
             base: StandardMaterial {
@@ -123,7 +128,9 @@ pub fn setup_cloud_system(mut commands: Commands, mut params: CloudSetupParams) 
                 },
             },
         });
-        let mesh = params.meshes.add(Mesh::from(Sphere::new(radius)));
+        let mesh = params
+            .meshes
+            .add(Mesh::from(Rectangle::new(2048.0, 2048.0)));
         let entity = commands
             .spawn((
                 CloudLayer {
@@ -131,7 +138,8 @@ pub fn setup_cloud_system(mut commands: Commands, mut params: CloudSetupParams) 
                 },
                 Mesh3d(mesh),
                 MeshMaterial3d(material),
-                Transform::from_xyz(camera_pos.x, layer.height, camera_pos.z),
+                Transform::from_translation(camera_pos + camera_forward * proxy_distance)
+                    .with_rotation(camera_rotation),
                 Visibility::default(),
                 NotShadowCaster,
                 NotShadowReceiver,
@@ -237,7 +245,9 @@ pub fn cloud_volume_update_system(
         .normalize_or_zero();
 
     for (layer, material_handle, mut transform) in &mut cloud_query {
-        transform.translation = Vec3::new(camera_pos.x, layer.definition.height, camera_pos.z);
+        // 代理平面跟随相机姿态；云层真实高度由 uniform 的 slab 范围决定。
+        transform.translation = camera_pos + camera_transform.forward().as_vec3() * 256.0;
+        transform.rotation = camera_transform.rotation();
         if let Some(mut material) = materials.get_mut(&material_handle.0) {
             material.extension.uniform.time_seconds = elapsed;
             material.extension.uniform.coverage = weather.coverage;
