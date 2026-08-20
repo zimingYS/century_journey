@@ -1,27 +1,15 @@
 // =============================================================================
-// CenturyJourney - 体积云着色器 (Fixed Ray March)
-// =============================================================================
-// 目标样式: ARTShade / Minecraft 风格的方块云
-//
-// 核心改进说明 (解决云边交界/切边问题)：
-// -----------------------------------------------------------------------------
-// 1. 抛弃了 DDA 体素步进。因为 DDA 会在 Cell 边界时导致密度突变，
-//    即使加了 smoothstep 也容易留下接缝。
-// 2. 改用固定步长 (Fixed Ray March) 在云层内部进行积分。
-// 3. 使用带平滑阈值的 "宏观占用(Occupancy)"，并配合连续世界坐标采样，
-//    让云团边缘有自然的半透明过渡。
-// 4. 降低了步长比例 (MARCH_STEP_FACTOR)，极大减少了体积渲染的条带伪影。
-// 5. 保留顶亮底暗、自阴影和太阳高光特性。
+// CenturyJourney - 3D 体素体积云着色器
 // =============================================================================
 
 #import bevy_pbr::{
     forward_io::{VertexOutput, FragmentOutput},
     pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
     pbr_fragment::pbr_input_from_standard_material,
-};
+}
 
 // =============================================================================
-// 云层统一参数缓冲区 (Uniform Buffer)
+// 引擎侧云层参数统一缓冲区 (Uniform Buffer)
 // =============================================================================
 struct CloudVolumeExtension {
     time_seconds: f32,
@@ -35,7 +23,7 @@ struct CloudVolumeExtension {
     wind_speed: f32,
     noise_scale: f32,
 
-    cell_size: f32,         // 体素云方块大小
+    cell_size: f32,
     density_threshold: f32,
     detail_strength: f32,
     visibility: f32,
@@ -47,206 +35,321 @@ struct CloudVolumeExtension {
     tint_day: vec4<f32>,
     tint_night: vec4<f32>,
     tint_sunset: vec4<f32>,
-};
+}
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(100)
 var<uniform> cloud: CloudVolumeExtension;
 
 // =============================================================================
-// 常量定义
+// 渲染参数常量
 // =============================================================================
 
-/// 光线步进最大次数，防止死循环
-const MAX_STEPS: i32 = 512;
+// 最大光线步进步数 (128步既能覆盖480米渲染距离，又可保障性能)
+const MAX_STEPS: i32 = 128;
 
-/// 渲染距离因子 (实际距离 = cell_size * RENDER_DIST_FACTOR)
-const RENDER_DIST_FACTOR: f32 = 96.0;
+// 云的最大世界空间可视距离（独立于 cell_size 固定为 480.0 米）
+const CLOUD_RENDER_DISTANCE: f32 = 480.0;
 
-/// 光线步进比例 (cell_size 为 10 时，步长为 2.5)。
-/// 调小可增强平滑度，调大可提升性能，但易出现分层条带。
-const MARCH_STEP_FACTOR: f32 = 0.40;
+// 体积光学消光强度。数值越大，光线穿透时衰减越快，云层看起来越浓密厚实。
+const CLOUD_EXTINCTION: f32 = 1.15;
 
-/// 最小光线步长，防止因单元格过小而开销爆炸
-const MIN_MARCH_STEP: f32 = 1.5;
+// 单个体素产生的最低有效不透明度，低于此值直接跳过积分。
+const MIN_STEP_ALPHA: f32 = 0.0005;
 
-/// 自阴影消光系数 (Beer-Lambert 简化)
-const SHADOW_EXTINCTION: f32 = 1.2;
+// 累积不透明度接近完全不透明时的提前截止阈值，用于性能优化。
+const MAX_ACCUMULATED_ALPHA: f32 = 0.985;
 
-/// 自阴影最低透射率，防止云体背光死黑
-const SHADOW_MIN_TRANSMISSION: f32 = 0.45;
+// 云层垂直方向的顶部和底部淡出范围（用于模拟云的平坦顶底）
+const CLOUD_BOTTOM_FADE: f32 = 0.055;
+const CLOUD_TOP_FADE: f32 = 0.075;
 
-/// 自阴影沿太阳方向偏移距离
-const SHADOW_CELL_OFFSET: f32 = 0.75;
+// 体素密度边缘的柔化宽度。
+// 该数值作用于噪声阈值过度的区间，影响体素的“马赛克感”，而非直接模糊网格。
+const VOXEL_EDGE_SOFTNESS: f32 = 0.105;
+
+// 太阳高光散射参数。
+const SUN_SCATTER_POWER: f32 = 8.0;
+const SUN_SCATTER_STRENGTH: f32 = 0.65;
 
 // =============================================================================
-// 噪声工具函数
+// 3D 伪随机哈希 (用于 3D 值噪声)
 // =============================================================================
-
-/// 2D 伪随机哈希
-fn hash21(p: vec2<f32>) -> f32 {
-    let n = sin(dot(p, vec2<f32>(127.1, 311.7))) * 43758.5453;
+fn hash31(p: vec3<f32>) -> f32 {
+    let n = sin(dot(p, vec3<f32>(127.1, 311.7, 74.7))) * 43758.5453;
     return fract(n);
 }
 
-/// 2D 值噪声 (双线性插值)
-fn value_noise(p: vec2<f32>) -> f32 {
+// =============================================================================
+// 3D 值噪声 (基于三线性插值)
+// =============================================================================
+fn value_noise_3d(p: vec3<f32>) -> f32 {
     let i = floor(p);
     let f = fract(p);
-    let u = f * f * (3.0 - 2.0 * f); // Hermite 平滑
+    let u = f * f * (3.0 - 2.0 * f); // 平滑 Hermite 曲线
 
-    return mix(
-        mix(hash21(i + vec2<f32>(0.0, 0.0)), hash21(i + vec2<f32>(1.0, 0.0)), u.x),
-        mix(hash21(i + vec2<f32>(0.0, 1.0)), hash21(i + vec2<f32>(1.0, 1.0)), u.x),
-        u.y
-    );
+    // 立方体的 8 个顶点哈希值
+    let n000 = hash31(i + vec3<f32>(0.0, 0.0, 0.0));
+    let n100 = hash31(i + vec3<f32>(1.0, 0.0, 0.0));
+    let n010 = hash31(i + vec3<f32>(0.0, 1.0, 0.0));
+    let n110 = hash31(i + vec3<f32>(1.0, 1.0, 0.0));
+    let n001 = hash31(i + vec3<f32>(0.0, 0.0, 1.0));
+    let n101 = hash31(i + vec3<f32>(1.0, 0.0, 1.0));
+    let n011 = hash31(i + vec3<f32>(0.0, 1.0, 1.0));
+    let n111 = hash31(i + vec3<f32>(1.0, 1.0, 1.0));
+
+    // 三线性插值 (X/Y/Z 依次插值)
+    let low = mix(mix(n000, n100, u.x), mix(n010, n110, u.x), u.y);
+    let high = mix(mix(n001, n101, u.x), mix(n011, n111, u.x), u.y);
+    return mix(low, high, u.z);
 }
 
-/// 3 层分形布朗运动 (FBM)
-fn fbm(p: vec2<f32>) -> f32 {
+// =============================================================================
+// 3层 FBM (分形布朗运动)
+// =============================================================================
+fn fbm3(p: vec3<f32>) -> f32 {
     var value = 0.0;
     var amplitude = 0.5;
     var sample = p;
 
     for (var octave: i32 = 0; octave < 3; octave = octave + 1) {
-        value = value + value_noise(sample) * amplitude;
-        sample = sample * 2.03 + vec2<f32>(11.7, 7.9);
-        amplitude = amplitude * 0.5;
+        value += value_noise_3d(sample) * amplitude;
+        // 频率倍率，并增加偏移以避免网格对齐
+        sample = sample * 2.03 + vec3<f32>(11.7, 7.9, 23.5);
+        amplitude *= 0.5; // 振幅递减
     }
 
-    return value / 0.9375; // 归一化
+    return value / 0.9375; // 归一化返回值域到 [0, 1] 附近
 }
 
-/// 仅用于自阴影采样的密度函数 (独立于主函数，避免重复计算开销)
-fn shadow_density(world_pos: vec3<f32>) -> f32 {
-    let wind = cloud.wind_direction.xy * cloud.time_seconds * cloud.wind_speed;
-    let moved_xz = world_pos.xz + wind;
-    let voxel = max(cloud.cell_size, 0.001);
+// =============================================================================
+// 云层密度计算函数
+//
+// 核心架构：真正的 3D 体素密度。
+// X、Y、Z 使用统一的空间噪声尺度 (`noise_scale`)。
+// 体素(`cell_size`) 仅用于决定采样的离散网格位置，而噪声尺度决定云团的宏观形状。
+// =============================================================================
+fn get_layer_density(
+    world_xz: vec2<f32>,
+    world_y: f32,
+    time: f32,
+    coverage: f32,
+    narrowness: f32,
+    layer_idx: i32,
+    cell_size: f32,
+    layer_bottom: f32
+) -> f32 {
+    //  风场驱动偏移，产生云的飘移动画
+    let wind = cloud.wind_direction.xy * time * cloud.wind_speed;
+    var moved_xz = world_xz + wind;
 
+    // 不同云层叠加不同的空间偏移，避免三层云完全重叠对齐
+    if (layer_idx == 2) { moved_xz += vec2<f32>(5333.0, 2187.0); }
+    if (layer_idx == 3) { moved_xz += vec2<f32>(-2814.0, 6942.0); }
+
+    // XZ 平面体素化坐标 (量化网格)
+    let voxel = max(cell_size, 0.001);
     let cell_id = floor(moved_xz / voxel);
     let cell_center = (cell_id + vec2<f32>(0.5, 0.5)) * voxel;
 
-    let macro_p = cell_center * cloud.noise_scale;
-    let macro_noise = fbm(macro_p * 0.72);
+    // Y 轴体素化 (为了保持完全各向同性的 3D 体素感)
+    let y_cell = floor((world_y - layer_bottom) / voxel);
+    let y_center = layer_bottom + (y_cell + 0.5) * voxel;
 
-    let coverage_bias = (cloud.coverage - 0.5) * 0.24;
-    let threshold = 0.55 - coverage_bias;
+    // 确定噪声缩放比例
+    let fallback_scale = max(narrowness * 0.15, 0.0001);
+    let noise_scale = select(fallback_scale, max(cloud.noise_scale, 0.0001), cloud.noise_scale > 0.0001);
 
-    // 使用窄阈值 smoothstep 保持云块边缘的方块感
-    return smoothstep(threshold - 0.06, threshold + 0.04, macro_noise);
+    // 不同层应用不同的宏观缩放以产生细节差异
+    var layer_scale = 1.0;
+    if (layer_idx == 2) { layer_scale = 1.15; }
+    if (layer_idx == 3) { layer_scale = 1.30; }
+
+    // 基于体素中心计算三维空间中的 FBM 采样坐标
+    let relative_y = y_center - layer_bottom;
+    let base_position = vec3<f32>(cell_center.x, relative_y, cell_center.y) * noise_scale * layer_scale;
+
+    let p3_a = base_position + vec3<f32>(0.0, time * 0.012, 0.0);
+    let p3_b = base_position * 1.07 + vec3<f32>(17.3, 31.7, 9.4) + vec3<f32>(0.0, time * 0.008, 0.0);
+
+    var density = mix(fbm3(p3_a), fbm3(p3_b), 0.5);
+
+    // 细节噪声层级 (Detail)
+    let detail_strength = clamp(cloud.detail_strength, 0.0, 1.0);
+    let detail_position = base_position * 2.02 + vec3<f32>(45.6, 12.8, 78.9) + vec3<f32>(0.0, time * 0.018, 0.0);
+    let detail = fbm3(detail_position);
+    density = mix(density, density * 0.72 + detail * 0.28, detail_strength);
+
+    // 最精细层级噪声 (Fine detail)
+    let fine_position = base_position * 4.03 + vec3<f32>(91.7, 17.2, 43.5) + vec3<f32>(0.0, time * 0.028, 0.0);
+    let fine = fbm3(fine_position);
+    density += (fine - 0.5) * 0.10 * detail_strength;
+
+    // 平滑与归一化
+    density = clamp(density, 0.0, 1.0);
+    density = smoothstep(0.10, 0.90, density);
+
+    // 覆盖度 (Coverage) 映射
+    let actual_coverage = clamp(coverage, 0.0, 1.0); // 修复原版 coverage=0 时强制 0.85 的硬编码
+    let coverage_threshold = mix(0.72, 0.40, actual_coverage); // 覆盖度越高，阈值越低，云越多
+
+    // 外部密度阈值调节
+    let external_threshold = clamp(cloud.density_threshold, 0.0, 1.0);
+    let threshold = mix(coverage_threshold, external_threshold, select(0.0, 1.0, cloud.density_threshold > 0.001));
+
+    // 软体素边缘过渡 (VOXEL_EDGE_SOFTNESS)
+    let edge = max(VOXEL_EDGE_SOFTNESS, 0.001);
+    return smoothstep(threshold - edge, threshold + edge, density);
 }
 
 // =============================================================================
-// 云密度计算函数 (核心)
+// 射线与垂直云层区块相交判定
 // =============================================================================
-// 结构拆解：
-//  1. cell_center 决定宏观占用 (Occupancy)
-//  2. world_pos 决定连续内部密度
-// 结果：
-//  云的外部呈方块状 (Minecraft风格)，云的内部呈连续体积感。
-// =============================================================================
-fn cloud_map(world_pos: vec3<f32>) -> f32 {
-    // -------------------------------------------------------------------------
-    // 1. 风场与坐标偏移
-    // -------------------------------------------------------------------------
-    let wind = cloud.wind_direction.xy * cloud.time_seconds * cloud.wind_speed;
-    let moved_xz = world_pos.xz + wind;
-
-    // -------------------------------------------------------------------------
-    // 2. 体素 (Cell) 定位
-    // -------------------------------------------------------------------------
-    let voxel = max(cloud.cell_size, 0.001);
-    let cell_id = floor(moved_xz / voxel);
-    let cell_center = (cell_id + vec2<f32>(0.5, 0.5)) * voxel;
-
-    // -------------------------------------------------------------------------
-    // 3. 宏观云形 (Macro Occupancy)
-    //    仅根据 Cell 中心判断该块是否属于云，避免让云变成连续的一团。
-    // -------------------------------------------------------------------------
-    let macro_p = cell_center * cloud.noise_scale;
-    let macro_noise = fbm(macro_p * 0.72);
-
-    let coverage_bias = (cloud.coverage - 0.5) * 0.24;
-    let occupancy_threshold = 0.55 - coverage_bias;
-
-    // 使用极窄的 smoothstep 产生略微柔和的接缝，防止硬切边
-    let occupied = smoothstep(
-        occupancy_threshold - 0.045,
-        occupancy_threshold + 0.035,
-        macro_noise
-    );
-
-    if (occupied <= 0.001) {
-        return 0.0;
-    }
-
-    // -------------------------------------------------------------------------
-    // 4. 连续内部密度 (世界空间坐标)
-    //    使用连续的世界坐标采样高频噪声，打破单元格内的均匀感。
-    // -------------------------------------------------------------------------
-    let local_p = moved_xz * cloud.noise_scale;
-
-    let detail_noise = value_noise(local_p * 1.30 + vec2<f32>(31.7, -17.3));
-    let detail = mix(0.80, 1.0, smoothstep(0.25, 0.75, detail_noise));
-
-    // -------------------------------------------------------------------------
-    // 5. 边缘细节微调
-    // -------------------------------------------------------------------------
-    let edge_noise = value_noise(local_p * 2.0 + vec2<f32>(19.4, -7.2));
-    let edge_signal = smoothstep(0.20, 0.80, edge_noise);
-    let edge_strength = clamp(cloud.detail_strength * 0.18, 0.0, 0.18);
-    let edge = mix(1.0, edge_signal, edge_strength);
-
-    // -------------------------------------------------------------------------
-    // 6. 垂直剖面 (顶亮底暗)
-    // -------------------------------------------------------------------------
-    let y_range = max(cloud.cloud_max_y - cloud.cloud_min_y, 0.001);
-    let y_norm = clamp((world_pos.y - cloud.cloud_min_y) / y_range, 0.0, 1.0);
-
-    let vertical_noise = value_noise(macro_p * 0.30 + vec2<f32>(5.1, 13.7));
-    let base_level = mix(0.03, 0.10, vertical_noise);
-    let top_level = mix(0.82, 0.95, vertical_noise);
-
-    let bottom_falloff = smoothstep(base_level, base_level + 0.10, y_norm);
-    let top_falloff = 1.0 - smoothstep(top_level - 0.12, top_level + 0.03, y_norm);
-    let vertical = bottom_falloff * top_falloff;
-
-    // -------------------------------------------------------------------------
-    // 7. 内部起伏 (Billow)
-    // -------------------------------------------------------------------------
-    let billow_noise = value_noise(local_p * 1.7 + vec2<f32>(-4.3, 8.6));
-    let billow = mix(0.90, 1.0, billow_noise);
-
-    // -------------------------------------------------------------------------
-    // 8. 最终密度合成
-    //    宏观占用和连续细节相乘，形成方块化轮廓+平滑内部体积感。
-    // -------------------------------------------------------------------------
-    let density = occupied * detail * edge * vertical * billow;
-    return clamp(density, 0.0, 1.0);
+fn ray_slab_intersect(origin: vec3<f32>, dir: vec3<f32>, y_bottom: f32, y_top: f32) -> vec2<f32> {
+    let safe_dir_y = select(0.000001, dir.y, abs(dir.y) > 0.000001); // 防止视线绝对水平时除零错误
+    let t0 = (y_bottom - origin.y) / safe_dir_y;
+    let t1 = (y_top - origin.y) / safe_dir_y;
+    var t_near = min(t0, t1);
+    var t_far = max(t0, t1);
+    if (t_far < 0.0) { return vec2<f32>(-1.0, -1.0); }
+    t_near = max(t_near, 0.0);
+    return vec2<f32>(t_near, t_far);
 }
 
 // =============================================================================
-// 自阴影计算
+// 单层云的光线追踪 (核心 DDA 算法)
 // =============================================================================
-// 使用极轻量的采样 (仅偏移一次)，避免因阴影进一步强调 Cell 接缝。
-// =============================================================================
-fn light_transmission(hit_pos: vec3<f32>, sample_density: f32) -> f32 {
-    let sun_xz = vec2<f32>(cloud.sun_direction.x, cloud.sun_direction.z);
-    let sun_xz_len = length(sun_xz);
+fn trace_layer(
+    cam_pos: vec3<f32>,
+    dir: vec3<f32>,
+    t_near: f32,
+    t_far: f32,
+    layer_bottom: f32,
+    layer_top: f32,
+    coverage: f32,
+    cell_size: f32,
+    narrowness: f32,
+    time: f32,
+    render_dist: f32,
+    layer_idx: i32,
+    top_col: vec3<f32>,
+    bot_col: vec3<f32>
+) -> vec4<f32> {
+    if (t_near >= t_far) { return vec4<f32>(0.0); }
 
-    if (sun_xz_len < 0.001) {
-        return 1.0;
+    let voxel = max(cell_size, 0.001);
+    let t_limit = min(t_far, t_near + render_dist);
+    if (t_near >= t_limit) { return vec4<f32>(0.0); }
+
+    // 获取风场数据
+    let wind = cloud.wind_direction.xy * time * cloud.wind_speed;
+    let entry_pos = cam_pos + dir * t_near;
+    let start_xz = entry_pos.xz + wind;
+    let dir_xz = dir.xz;
+
+    // 累积变量 (返回的是非预乘的直通 Alpha)
+    var acc_color = vec3<f32>(0.0);
+    var acc_alpha = 0.0;
+
+    // DDA 初始化：计算入口所在的体素网格
+    var cell_idx = floor(start_xz / voxel);
+
+    // 计算 XZ 平面的行进方向
+    var step_dir = vec2<f32>(0.0, 0.0);
+    if (dir_xz.x > 0.0) { step_dir.x = 1.0; }
+    else if (dir_xz.x < 0.0) { step_dir.x = -1.0; }
+    if (dir_xz.y > 0.0) { step_dir.y = 1.0; }
+    else if (dir_xz.y < 0.0) { step_dir.y = -1.0; }
+
+    // 计算方向倒数、跨过一个体素所需的时间
+    let inv_dir_x = select(1e20, 1.0 / dir_xz.x, abs(dir_xz.x) > 0.0001);
+    let inv_dir_y = select(1e20, 1.0 / dir_xz.y, abs(dir_xz.y) > 0.0001);
+    let t_delta_x = abs(voxel * inv_dir_x);
+    let t_delta_y = abs(voxel * inv_dir_y);
+
+    // 计算到达下一个网格边界的时间 tMax
+    var t_max_x = 1e20;
+    var t_max_y = 1e20;
+    if (step_dir.x > 0.0) { t_max_x = ((cell_idx.x + 1.0) * voxel - start_xz.x) * inv_dir_x; }
+    else if (step_dir.x < 0.0) { t_max_x = (cell_idx.x * voxel - start_xz.x) * inv_dir_x; }
+    if (step_dir.y > 0.0) { t_max_y = ((cell_idx.y + 1.0) * voxel - start_xz.y) * inv_dir_y; }
+    else if (step_dir.y < 0.0) { t_max_y = (cell_idx.y * voxel - start_xz.y) * inv_dir_y; }
+
+    var cur_t = t_near;
+
+    // DDA 光线步进主循环
+    for (var i: i32 = 0; i < MAX_STEPS; i = i + 1) {
+        if (acc_alpha >= MAX_ACCUMULATED_ALPHA) { break; }
+        if (cur_t >= t_limit) { break; }
+
+        // 获得离开当前体素最近的边界时间
+        let boundary_t = min(t_max_x, t_max_y);
+        let segment_start = cur_t;
+        let segment_end = min(t_near + boundary_t, t_limit);
+
+        // 防止因浮点误差导致 0 长度区间
+        if (segment_end > segment_start + 0.00001) {
+
+            // ================================================================
+            // 在体素区间的正中心进行采样
+            // ================================================================
+            let sample_t = 0.5 * (segment_start + segment_end);
+            let sample_pos = cam_pos + dir * sample_t;
+
+            // 当前体素的中心坐标 (由风场偏移修正回世界空间)
+            let voxel_center_winded = (vec2<f32>(cell_idx) + vec2<f32>(0.5, 0.5)) * voxel;
+            let world_cell = voxel_center_winded - wind;
+
+            let density = get_layer_density(
+                world_cell, sample_pos.y, time, coverage, narrowness, layer_idx, cell_size, layer_bottom
+            );
+
+            // ================================================================
+            // 基于真实路径长度的 Beer-Lambert 体积积分。
+            // ================================================================
+            let segment_length = segment_end - segment_start;
+
+            // 垂直方向的高度渐变 (顶亮底暗)
+            let local_y = clamp((sample_pos.y - layer_bottom) / max(layer_top - layer_bottom, 0.001), 0.0, 1.0);
+            let bottom_fade = smoothstep(0.0, CLOUD_BOTTOM_FADE, local_y);
+            let top_fade = 1.0 - smoothstep(1.0 - CLOUD_TOP_FADE, 1.0, local_y);
+            let vertical_fade = bottom_fade * top_fade;
+
+            // 基于光线真实长度的距离淡出 (修复了基于 XZ 平面的淡出判定)
+            let hit_dist = sample_t;
+            let distance_fade = 1.0 - smoothstep(render_dist * 0.70, render_dist, hit_dist);
+
+            let effective_density = density * vertical_fade * distance_fade;
+
+            if (effective_density > 0.0001) {
+                // Beer-Lambert 消光公式求不透明度
+                let optical_depth = effective_density * segment_length * CLOUD_EXTINCTION;
+                let step_alpha = 1.0 - exp(-optical_depth);
+
+                if (step_alpha > MIN_STEP_ALPHA) {
+                    let vertical_color = mix(bot_col, top_col, smoothstep(0.0, 1.0, local_y));
+
+                    // 从前往后 Alpha 混合 (直通 Alpha)
+                    let remaining = 1.0 - acc_alpha;
+                    acc_color += vertical_color * step_alpha * remaining;
+                    acc_alpha += step_alpha * remaining;
+                }
+            }
+        }
+
+        // 沿着网格向前推进
+        cur_t = segment_end;
+        if (cur_t >= t_limit) { break; }
+
+        if (t_max_x < t_max_y) {
+            cell_idx.x += step_dir.x;
+            t_max_x += t_delta_x;
+        } else {
+            cell_idx.y += step_dir.y;
+            t_max_y += t_delta_y;
+        }
     }
 
-    let sun_xz_norm = sun_xz / sun_xz_len;
-    let offset = vec3<f32>(sun_xz_norm.x, 0.0, sun_xz_norm.y) * cloud.cell_size * SHADOW_CELL_OFFSET;
-
-    let shadow_density = shadow_density(hit_pos + offset);
-
-    // 主样本占 70%，阴影样本占 30%，使阴影过渡柔和平滑
-    let shadow_amount = sample_density * 0.70 + shadow_density * 0.30;
-    let raw = exp(-shadow_amount * SHADOW_EXTINCTION);
-
-    return max(raw, SHADOW_MIN_TRANSMISSION);
+    return vec4(acc_color, acc_alpha);
 }
 
 // =============================================================================
@@ -256,143 +359,107 @@ fn light_transmission(hit_pos: vec3<f32>, sample_density: f32) -> f32 {
 fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> FragmentOutput {
     var pbr_input = pbr_input_from_standard_material(in, is_front);
 
-    // -------------------------------------------------------------------------
-    // 1. 射线初始化
-    // -------------------------------------------------------------------------
+    // 相机视线与位置
     let ray_origin = cloud.camera_position.xyz;
     let ray_dir = normalize(in.world_position.xyz - ray_origin);
 
-    // 视线朝下或完全水平时，跳过云层绘制
-    if (ray_dir.y <= 0.0005) {
-        discard;
-    }
+    // 云层尺寸与布局定义
+    let base_altitude = cloud.cloud_min_y;
+    let layer_thick = max(cloud.cloud_max_y - cloud.cloud_min_y, 0.001);
 
-    // -------------------------------------------------------------------------
-    // 2. 射线与云层高度盒求交
-    // -------------------------------------------------------------------------
-    let t0 = (cloud.cloud_min_y - ray_origin.y) / ray_dir.y;
-    let t1 = (cloud.cloud_max_y - ray_origin.y) / ray_dir.y;
-    let t_near = min(t0, t1);
-    let t_far = max(t0, t1);
-
-    if (t_far < 0.0) {
-        discard;
-    }
-
-    let t_start = max(t_near, 0.0);
-    if (t_start >= t_far) {
-        discard;
-    }
-
-    // -------------------------------------------------------------------------
-    // 3. 云层基础颜色与渲染距离
-    // -------------------------------------------------------------------------
-    var cloud_tint = mix(cloud.tint_day.rgb, cloud.tint_night.rgb, cloud.night_factor);
-    cloud_tint = mix(cloud_tint, cloud.tint_sunset.rgb, cloud.twilight_glow * 0.5);
-
-    let top_color = cloud_tint;
-    let bottom_color = cloud_tint * 0.60;
-
+    // 降低层间距，使三层云在视觉上融合为一个整体，而非彼此脱离
+    let layer_gap = layer_thick * 0.45;
     let cell_size = max(cloud.cell_size, 0.001);
-    let render_dist = cell_size * RENDER_DIST_FACTOR;
+    let render_dist = CLOUD_RENDER_DISTANCE; // 改用固定距离，不再被体素大小绑架
 
-    // -------------------------------------------------------------------------
-    // 4. 固定步长光线步进 (Fixed Ray March)
-    //    消除 DDA 导致的 Cell 接缝条带伪影。
-    // -------------------------------------------------------------------------
-    let march_step = max(cell_size * MARCH_STEP_FACTOR, MIN_MARCH_STEP);
+    // 云体颜色处理 (昼夜与黄昏)
+    var cloud_tint = mix(cloud.tint_day.rgb, cloud.tint_night.rgb, clamp(cloud.night_factor, 0.0, 1.0));
+    cloud_tint = mix(cloud_tint, cloud.tint_sunset.rgb, clamp(cloud.twilight_glow * 0.5, 0.0, 1.0));
+    let top_color = cloud_tint;
+    let bottom_color = cloud_tint * 0.40; // 底部较暗，呈现立体阴影
 
-    var t = t_start;
-    var accum_color = vec3<f32>(0.0, 0.0, 0.0);
-    var accum_alpha = 0.0;
-    var transmission = 1.0;
+    let effective_coverage = clamp(cloud.coverage, 0.0, 1.0);
 
-    for (var i: i32 = 0; i < MAX_STEPS; i = i + 1) {
-        // 超出云层范围
-        if (t >= t_far) {
-            break;
-        }
-        // 不透明度饱和提前截止
-        if (accum_alpha >= 0.985) {
-            break;
-        }
-
-        let sample_pos = ray_origin + ray_dir * t;
-        let horizontal_dist = length(sample_pos.xz - ray_origin.xz);
-
-        // 超出水平渲染距离
-        if (horizontal_dist >= render_dist) {
-            break;
-        }
-
-        let density = cloud_map(sample_pos);
-
-        if (density > 0.001) {
-            // -------------------------------------------------------------
-            // 距离淡出 (Distance Fade)
-            // -------------------------------------------------------------
-            let dist_fade = 1.0 - smoothstep(render_dist * 0.55, render_dist, horizontal_dist);
-
-            // -------------------------------------------------------------
-            // 自阴影采样优化 (每 8 步更新一次)
-            //    降低采样频率，避免因高频阴影计算导致性能损耗与闪烁。
-            // -------------------------------------------------------------
-            if ((i % 8) == 0) {
-                transmission = light_transmission(sample_pos, density);
-            }
-
-            // -------------------------------------------------------------
-            // 顶亮底暗颜色混合
-            // -------------------------------------------------------------
-            let local_y = clamp((sample_pos.y - cloud.cloud_min_y) /
-                                max(cloud.cloud_max_y - cloud.cloud_min_y, 0.001), 0.0, 1.0);
-            let height_factor = smoothstep(0.0, 1.0, local_y);
-            let base_col = mix(bottom_color, top_color, height_factor);
-            let col = base_col * mix(SHADOW_MIN_TRANSMISSION, 1.0, transmission);
-
-            // -------------------------------------------------------------
-            // 体积积分 (固定步长)
-            //    固定步长值乘以密度，得到当前采样点贡献的不透明度增量。
-            // -------------------------------------------------------------
-            let step_alpha = clamp(density * march_step * 0.026, 0.0, 0.18) * dist_fade;
-
-            // -------------------------------------------------------------
-            // 从前往后混合 (Alpha Blending)
-            // -------------------------------------------------------------
-            accum_color = accum_color + col * step_alpha * (1.0 - accum_alpha);
-            accum_alpha = accum_alpha + step_alpha * (1.0 - accum_alpha);
-        }
-
-        // 向前迈进一步
-        t = t + march_step;
+    // 光线追踪三层云
+    // Layer 1
+    let l1_bot = base_altitude;
+    let l1_top = base_altitude + layer_thick;
+    let dist1 = ray_slab_intersect(ray_origin, ray_dir, l1_bot, l1_top);
+    var col1 = vec4<f32>(0.0);
+    var depth1 = 1e30;
+    if (dist1.y > 0.0 && dist1.x < dist1.y) {
+        col1 = trace_layer(ray_origin, ray_dir, dist1.x, dist1.y, l1_bot, l1_top, effective_coverage, cell_size, 0.07, cloud.time_seconds, render_dist, 1, top_color, bottom_color);
+        depth1 = dist1.x;
     }
 
-    // -------------------------------------------------------------------------
-    // 5. 太阳光晕 (高光散射)
-    // -------------------------------------------------------------------------
+    // Layer 2
+    let l2_bot = l1_top + layer_gap;
+    let l2_top = l2_bot + layer_thick;
+    let dist2 = ray_slab_intersect(ray_origin, ray_dir, l2_bot, l2_top);
+    var col2 = vec4<f32>(0.0);
+    var depth2 = 1e30;
+    if (dist2.y > 0.0 && dist2.x < dist2.y) {
+        col2 = trace_layer(ray_origin, ray_dir, dist2.x, dist2.y, l2_bot, l2_top, effective_coverage * 0.78, cell_size, 0.07, cloud.time_seconds, render_dist, 2, top_color, bottom_color);
+        depth2 = dist2.x;
+    }
+
+    // Layer 3
+    let l3_bot = l2_top + layer_gap;
+    let l3_top = l3_bot + layer_thick;
+    let dist3 = ray_slab_intersect(ray_origin, ray_dir, l3_bot, l3_top);
+    var col3 = vec4<f32>(0.0);
+    var depth3 = 1e30;
+    if (dist3.y > 0.0 && dist3.x < dist3.y) {
+        col3 = trace_layer(ray_origin, ray_dir, dist3.x, dist3.y, l3_bot, l3_top, effective_coverage * 0.58, cell_size, 0.07, cloud.time_seconds, render_dist, 3, top_color, bottom_color);
+        depth3 = dist3.x;
+    }
+
+    // 对三层云从远到近进行排序 (冒泡排序)
+    var arr_col = array<vec4<f32>, 3>(col1, col2, col3);
+    var arr_dep = array<f32, 3>(depth1, depth2, depth3);
+    for (var i = 0; i < 2; i++) {
+        for (var j = 0; j < 2 - i; j++) {
+            if (arr_dep[j] < arr_dep[j + 1]) {
+                let tmp_d = arr_dep[j];
+                arr_dep[j] = arr_dep[j + 1];
+                arr_dep[j + 1] = tmp_d;
+                let tmp_c = arr_col[j];
+                arr_col[j] = arr_col[j + 1];
+                arr_col[j + 1] = tmp_c;
+            }
+        }
+    }
+
+    // 混合三层云 (直通 Alpha 混合)
+    // trace_layer 返回的是非预乘 RGB 和直通 Alpha。
+    var final_rgb = vec3<f32>(0.0);
+    var final_alpha = 0.0;
+    for (var k = 0; k < 3; k++) {
+        let layer = arr_col[k];
+        if (layer.a > 0.0) {
+            let remaining = 1.0 - final_alpha;
+            final_rgb += layer.rgb * layer.a * remaining;
+            final_alpha += layer.a * remaining;
+        }
+    }
+
+    // 太阳光晕散射效果
     let sun_dir = normalize(cloud.sun_direction.xyz);
     let light_dot = max(dot(ray_dir, sun_dir), 0.0);
-    let scatter = pow(light_dot, 8.0) * 0.75;
-    accum_color = accum_color + cloud_tint * scatter * accum_alpha;
+    let scatter = pow(light_dot, SUN_SCATTER_POWER) * SUN_SCATTER_STRENGTH;
+    final_rgb += cloud_tint * scatter * final_alpha;
 
-    if (accum_alpha <= 0.0001) {
-        discard;
-    }
+    if (final_alpha <= 0.001) { discard; }
 
-    // -------------------------------------------------------------------------
-    // 6. 输出处理 (预乘 Alpha 转 直通 Alpha)
-    // -------------------------------------------------------------------------
-    let straight_rgb = accum_color / max(accum_alpha, 0.001);
+    // 最终透明度控制与输出
+    let tint_alpha = max(cloud.tint_day.a, 0.0);
+    let visibility = clamp(cloud.visibility, 0.0, 1.0);
+    let coverage_alpha = smoothstep(0.0, 0.12, effective_coverage);
+    let final_alpha_output = final_alpha * tint_alpha * visibility * coverage_alpha;
 
-    let coverage_alpha = smoothstep(0.0, 0.12, cloud.coverage);
-    let final_alpha = accum_alpha * cloud.tint_day.a * cloud.visibility * coverage_alpha;
-
-    pbr_input.material.base_color = vec4<f32>(straight_rgb, final_alpha);
+    pbr_input.material.base_color = vec4<f32>(final_rgb, final_alpha_output);
     pbr_input.material.emissive = vec4<f32>(vec3<f32>(0.0), 1.0);
 
-    // -------------------------------------------------------------------------
-    // 7. Bevy PBR 管线输出
-    // -------------------------------------------------------------------------
     var out: FragmentOutput;
     out.color = apply_pbr_lighting(pbr_input);
     out.color = main_pass_post_lighting_processing(pbr_input, out.color);

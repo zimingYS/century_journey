@@ -1,7 +1,7 @@
 //! 创建云场实体，并在渲染帧推进体积云着色参数与近景云片表现。
 //!
-//! 本模块是原 raymarching 体积云的保留备份（当前未注册，见 `mod.rs`），作为
-//! 未来切换回体积云的入口。dead_code 豁免声明在 `mod.rs` 的模块声明上。
+//! 云层用「天空球体 mesh + raymarching 扩展材质」：球体仅作为触发片元着色的
+//! 载体，云的真实形状由 `cloud_volume.wgsl` 内的体素密度场决定。
 
 use super::components::{CloudLayer, CloudPatch, CloudWeatherState};
 use super::material::{CloudVolumeExtension, CloudVolumeMaterial, CloudVolumeUniform};

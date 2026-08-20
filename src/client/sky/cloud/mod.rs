@@ -1,17 +1,14 @@
 //! 组织多层动态云的实体创建与每帧表现更新。
 //!
-//! 当前实现：voxel 块状云（ARTShade 风格几何云）。raymarching 体积云代码
-//! 仍保留在子模块（`material`、`systems`、`texture`）中以备未来切换，但
-//! 不在 plugin 中注册，因此不会被运行时使用。
+//! 当前实现：raymarching 体积云（着色器云），通过天空球体 + 扩展材质渲染，
+//! 云形由 `cloud_volume.wgsl` 的 DDA 体素 raymarching 决定。
 
 mod components;
 mod constants;
-mod generation;
 mod material;
 mod plugin;
 mod systems;
 mod texture;
-mod voxel;
 mod weather_adapter;
 
 pub use plugin::CloudPlugin;

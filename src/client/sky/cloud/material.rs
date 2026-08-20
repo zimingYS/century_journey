@@ -3,9 +3,6 @@
 //! 云复用 `StandardMaterial` 的顶点结构（提供世界坐标与世界法线），在扩展
 //! fragment shader 里做 raymarching：从摄像机位置沿视线在云层高度范围内步进，
 //! 采样分形噪声并结合垂直剖面累积光学厚度，产生有侧面、有厚度的体积云。
-//!
-//! 本模块是原 raymarching 体积云的保留备份（当前未注册，见 `mod.rs`），作为
-//! 未来切换回体积云的入口。dead_code 豁免声明在 `mod.rs` 的模块声明上。
 
 use bevy::math::Vec4;
 use bevy::pbr::{ExtendedMaterial, MaterialExtension, StandardMaterial};
