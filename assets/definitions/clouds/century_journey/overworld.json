@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "identifier": "century_journey:overworld",
-  "density": 0.1,
+  "density": 0.0,
   "seed": 20260803,
   "layers": [
     {
@@ -12,7 +12,7 @@
       "tint_day": [1.0, 1.0, 1.0],
       "tint_night": [0.22, 0.25, 0.36],
       "tint_sunset": [1.0, 0.72, 0.52],
-      "opacity": 0.9
+      "opacity": 0.72
     },
     {
       "height": 240.0,
