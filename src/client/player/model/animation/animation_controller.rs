@@ -184,8 +184,8 @@ pub fn player_animation_controller_system(
 }
 
 /// 从固定步速度和接地状态更新连续移动动画参数。
-// 速度平滑、状态机判定与相位推进共用同一份固定步采样，拆分会破坏状态一致性；
-// 参数均为独立只读输入与单一可变状态，保持一次性列表并豁免参数数量检查。
+/// 速度平滑、状态机判定与相位推进共用同一份固定步采样，拆分会破坏状态一致性；
+/// 参数均为独立只读输入与单一可变状态，保持一次性列表并豁免参数数量检查。
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn update_motion_parameters(
     state: &mut PlayerAnimationState,

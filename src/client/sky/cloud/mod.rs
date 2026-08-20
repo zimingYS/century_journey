@@ -1,10 +1,11 @@
 //! 组织多层动态云的实体创建与每帧表现更新。
 //!
-//! 云是纯表现层功能：读取 Content 编译的云定义与客户端时间快照，在渲染帧
-//! 驱动云层漂移、昼夜染色与近景云片朝向。不进入 FixedUpdate，不参与权威模拟。
+//! 当前实现：raymarching 体积云（着色器云），通过天空球体 + 扩展材质渲染，
+//! 云形由 `cloud_volume.wgsl` 的 DDA 体素 raymarching 决定。
 
 mod components;
 mod constants;
+mod material;
 mod plugin;
 mod systems;
 mod texture;

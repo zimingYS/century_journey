@@ -41,15 +41,14 @@ impl CloudWeatherState {
     }
 }
 
-/// 云层实体组件，保存静态层定义与世界连续 UV 相位。
+/// 云层实体组件，保存静态层定义。
+///
+/// 球冠云按世界坐标采样噪声，天然世界连续，不再需要平面云的 UV 相位补偿，
+/// 因此只保留定义参数。
 #[derive(Component)]
 pub struct CloudLayer {
     /// 云层定义参数。
     pub definition: CloudLayerDefinition,
-    /// 当前纹理相位；使用 Repeat 采样后始终保持在有限范围。
-    pub uv_offset: Vec2,
-    /// 上一帧相机水平位置，用于补偿相机移动并保持云场世界连续。
-    pub last_camera_position: Vec2,
 }
 
 /// 近景 billboard 云片组件。

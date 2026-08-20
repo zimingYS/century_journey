@@ -12,12 +12,12 @@ fn player_visual_walking_pose_tracks_model_animation_keyframes() {
     // 模型 walk 动画 t=0：左腿前摆 +30°（quat.x=sin15°，全角 2×15°）、左膝弯曲 -30°。
     let pose0 = lower_pose(PlayerLocomotionState::Walk, 0.0);
     assert!(
-        (pose0.thigh_l - 0.5236).abs() < 0.02,
+        (pose0.thigh_l - std::f32::consts::FRAC_PI_6).abs() < 0.02,
         "thigh_l={}",
         pose0.thigh_l
     );
     assert!(
-        (pose0.calf_l + 0.5236).abs() < 0.02,
+        (pose0.calf_l + std::f32::consts::FRAC_PI_6).abs() < 0.02,
         "calf_l={}",
         pose0.calf_l
     );

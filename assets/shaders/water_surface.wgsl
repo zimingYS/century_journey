@@ -77,21 +77,23 @@ fn fragment(
     let shallow_color = vec3<f32>(0.045, 0.62, 0.78);
     let deep_color = vec3<f32>(0.018, 0.22, 0.46);
     let depth_color = mix(shallow_color, deep_color, depth_factor);
-    pbr_input.material.base_color.rgb = mix(
-        pbr_input.material.base_color.rgb,
-        depth_color,
-        0.76,
+    var base_color = pbr_input.material.base_color;
+    base_color = vec4<f32>(
+        mix(base_color.rgb, depth_color, 0.76),
+        base_color.a,
     );
-    pbr_input.material.base_color.a *= mix(0.52, 0.94, depth_factor);
+    base_color = vec4<f32>(
+        base_color.rgb,
+        base_color.a * mix(0.52, 0.94, depth_factor),
+    );
 
     // 真实厚度趋近零的区域生成不规则泡沫带，避免整圈静态白边。
     let crest = 0.5 + 0.5 * wave_height(world_position * 1.7, water.time_seconds * 0.83);
     let shoreline = 1.0 - smooth_band(depth, 0.06, 0.72);
     let foam = shoreline * smooth_band(crest, 0.48, 0.78) * top_surface * water.foam_strength;
-    pbr_input.material.base_color.rgb = mix(
-        pbr_input.material.base_color.rgb,
-        vec3<f32>(0.72, 0.96, 1.0),
-        clamp(foam, 0.0, 0.78),
+    base_color = vec4<f32>(
+        mix(base_color.rgb, vec3<f32>(0.72, 0.96, 1.0), clamp(foam, 0.0, 0.78)),
+        base_color.a,
     );
     let ripple = 0.5 + 0.5 * sin(dot(world_position.xz, vec2<f32>(1.7, -1.15)) + water.time_seconds * 1.25);
     let surface_glow = top_surface * (0.025 + ripple * 0.055);
@@ -109,7 +111,7 @@ fn fragment(
         1.0,
     );
 
-    pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
+    pbr_input.material.base_color = alpha_discard(pbr_input.material, base_color);
 #ifdef PREPASS_PIPELINE
     return deferred_output(in, pbr_input);
 #else
@@ -119,7 +121,10 @@ fn fragment(
     // 额外的冷色太阳闪光填补没有环境立方体时的反射可读性。
     let highlight_direction = normalize(vec3<f32>(-0.38, 0.84, -0.26));
     let highlight = pow(max(dot(reflect(-pbr_input.V, pbr_input.N), highlight_direction), 0.0), 18.0);
-    out.color.rgb += vec3<f32>(0.40, 0.86, 1.0) * highlight * (0.16 + fresnel * 0.90) * top_surface;
+    out.color = vec4<f32>(
+        out.color.rgb + vec3<f32>(0.40, 0.86, 1.0) * highlight * (0.16 + fresnel * 0.90) * top_surface,
+        out.color.a,
+    );
     out.color = main_pass_post_lighting_processing(pbr_input, out.color);
     return out;
 #endif
