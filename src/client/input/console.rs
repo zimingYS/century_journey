@@ -7,6 +7,8 @@ use bevy::text::EditableText;
 use crate::client::ui::console::components::{ConsoleInput, ConsoleLineSubmitted, ConsoleState};
 use crate::shared::states::app_state::AppState;
 
+/// 该系统是控制台输入的单一装配点，参数保持显式以便审查每个可写资源和消息出口。
+#[allow(clippy::too_many_arguments)]
 pub(super) fn console_keyboard_system(
     mut keyboard: ResMut<ButtonInput<KeyCode>>,
     app_state: Res<State<AppState>>,
