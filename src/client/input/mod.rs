@@ -13,6 +13,7 @@ pub use interface::InterfaceCommand;
 pub use plugin::ClientInputPlugin;
 pub use pointer::{UiInteractionLifecycleEvent, UiInteractionPhase};
 
+pub mod console;
 #[cfg(test)]
 #[path = "../../../tests/unit/client/input/mod.rs"]
 mod tests;

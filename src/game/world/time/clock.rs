@@ -8,7 +8,9 @@ use super::events::{
     GameDayElapsed, GameHourElapsed, GameMinuteElapsed, GameYearElapsed, SeasonChanged,
     SolarTermChanged,
 };
-use bevy::prelude::{MessageWriter, ResMut, Resource};
+use crate::game::gameplay::rules::GameRules;
+use bevy::ecs::system::SystemParam;
+use bevy::prelude::{Local, MessageWriter, Res, ResMut, Resource};
 
 /// 世界权威模拟时间。
 ///
@@ -155,36 +157,51 @@ fn boundary_counts(previous_minute: u64, current_minute: u64) -> ClockAdvance {
     }
 }
 
+/// 时钟推进后要派发的日历边界消息出口集合。
+///
+/// 把六个日历事件 writer 收拢到一个参数，避免固定步系统参数过多。
+#[derive(SystemParam)]
+pub struct ClockEventWriters<'w> {
+    pub minute: MessageWriter<'w, GameMinuteElapsed>,
+    pub hour: MessageWriter<'w, GameHourElapsed>,
+    pub day: MessageWriter<'w, GameDayElapsed>,
+    pub solar_term: MessageWriter<'w, SolarTermChanged>,
+    pub season: MessageWriter<'w, SeasonChanged>,
+    pub year: MessageWriter<'w, GameYearElapsed>,
+}
+
 /// 在固定步推进时钟，并向其他玩法模块发送已跨越的日历边界消息。
 pub fn advance_world_simulation_clock(
+    rules: Res<GameRules>,
     mut clock: ResMut<WorldSimulationClock>,
-    mut minute_events: MessageWriter<GameMinuteElapsed>,
-    mut hour_events: MessageWriter<GameHourElapsed>,
-    mut day_events: MessageWriter<GameDayElapsed>,
-    mut solar_term_events: MessageWriter<SolarTermChanged>,
-    mut season_events: MessageWriter<SeasonChanged>,
-    mut year_events: MessageWriter<GameYearElapsed>,
+    mut accumulated: Local<f32>,
+    mut events: ClockEventWriters,
 ) {
-    let crossed = clock.advance_ticks(1);
+    let scale = rules.time_scale.clamp(0.0, 100.0);
+    let ticks_f = *accumulated + scale;
+    let ticks = ticks_f.floor() as u64;
+    *accumulated = ticks_f - ticks as f32;
+
+    let crossed = clock.advance_ticks(ticks);
     if crossed.game_minutes == 0 {
         return;
     }
     let snapshot = clock.snapshot();
-    minute_events.write(GameMinuteElapsed(snapshot));
+    events.minute.write(GameMinuteElapsed(snapshot));
     if crossed.game_hours > 0 {
-        hour_events.write(GameHourElapsed(snapshot));
+        events.hour.write(GameHourElapsed(snapshot));
     }
     if crossed.game_days > 0 {
-        day_events.write(GameDayElapsed(snapshot));
+        events.day.write(GameDayElapsed(snapshot));
     }
     if crossed.solar_terms > 0 {
-        solar_term_events.write(SolarTermChanged(snapshot));
+        events.solar_term.write(SolarTermChanged(snapshot));
     }
     if crossed.seasons > 0 {
-        season_events.write(SeasonChanged(snapshot));
+        events.season.write(SeasonChanged(snapshot));
     }
     if crossed.years > 0 {
-        year_events.write(GameYearElapsed(snapshot));
+        events.year.write(GameYearElapsed(snapshot));
     }
 }
 

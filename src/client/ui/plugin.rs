@@ -1,7 +1,5 @@
 //! 组装 Client UI 的共享资源和各子领域插件。
 
-use bevy::prelude::*;
-
 use super::interaction::UiInteractionPlugin;
 use super::navigation::{UiNavigation, UiScreenStack};
 use super::screens::UiScreensPlugin;
@@ -11,6 +9,8 @@ use super::theme::ui_theme::UiTheme;
 use super::widgets::UiWidgetsPlugin;
 use super::widgets::slot::{CategoryClickedEvent, SearchInputState};
 use super::{hud::plugin::HudPlugin, resources};
+use crate::client::ui::console::plugin::ConsolePlugin;
+use bevy::prelude::*;
 
 /// Client 层界面的聚合插件。
 ///
@@ -33,6 +33,7 @@ impl Plugin for UIPlugin {
                 UiWidgetsPlugin,
                 UiInteractionPlugin,
                 UiScreensPlugin,
+                ConsolePlugin,
             ));
     }
 }

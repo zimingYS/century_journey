@@ -3,5 +3,6 @@
 pub mod block_action;
 pub mod gamemode;
 mod plugin;
+pub mod rules;
 
 pub use plugin::GameplayPlugin;

@@ -1,0 +1,189 @@
+//! 控制台的 UI 构造与历史回显系统。
+
+use bevy::prelude::*;
+use bevy::text::{EditableText, TextCursorStyle};
+
+use super::components::{
+    ConsoleHistory, ConsoleInput, ConsoleLineSubmitted, ConsoleMessage, ConsoleRoot, ConsoleState,
+};
+use crate::client::ui::resources::ui_font::UiFont;
+use crate::client::ui::theme::ui_theme::UiTheme;
+
+const CONSOLE_VISIBLE_SECONDS: f32 = 5.0;
+/// 单条消息淡出过渡时长（秒）。
+const CONSOLE_FADE_SECONDS: f32 = 1.0;
+
+/// 构造控制台 UI 树：历史区在上，输入框在下，默认隐藏。
+pub fn spawn_console_system(mut commands: Commands, ui_font: Res<UiFont>, theme: Res<UiTheme>) {
+    commands
+        .spawn((
+            ConsoleRoot,
+            Name::new("Console"),
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(12.0),
+                bottom: Val::Percent(12.0),
+                width: Val::Percent(50.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(6.0),
+                ..default()
+            },
+            GlobalZIndex(6000),
+            Visibility::Visible,
+        ))
+        .with_children(|root| {
+            root.spawn((
+                ConsoleHistory,
+                Visibility::Visible,
+                Name::new("ConsoleHistory"),
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(200.0),
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::FlexEnd,
+                    row_gap: Val::Px(2.0),
+                    overflow: Overflow::clip_y(),
+                    ..default()
+                },
+            ));
+            root.spawn((
+                ConsoleInput,
+                Visibility::Hidden,
+                Name::new("ConsoleInput"),
+                EditableText {
+                    visible_width: Some(40.0),
+                    max_characters: Some(256),
+                    allow_newlines: false,
+                    ..default()
+                },
+                TextCursorStyle {
+                    color: theme.text_primary,
+                    selection_color: theme.border_selected,
+                    unfocused_selection_color: theme.border_hover,
+                    selected_text_color: Some(Color::BLACK),
+                },
+                TextLayout::no_wrap(),
+                TextFont {
+                    font: FontSource::from(ui_font.default.clone()),
+                    font_size: FontSize::Px(24.0),
+                    ..default()
+                },
+                TextColor(theme.text_primary),
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(32.0),
+                    align_items: AlignItems::Center,
+                    padding: UiRect::horizontal(Val::Px(10.0)),
+                    border: UiRect::all(Val::Px(1.0)),
+                    overflow: Overflow::clip_x(),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55)),
+                BorderColor::all(Color::srgba(0.5, 0.5, 0.5, 0.8)),
+            ));
+        });
+}
+
+/// 消费提交行：先写入持久历史，再 spawn 一条可见的表现消息。
+pub fn push_console_line_system(
+    mut lines: MessageReader<ConsoleLineSubmitted>,
+    mut console: ResMut<ConsoleState>,
+    history_query: Query<Entity, With<ConsoleHistory>>,
+    ui_font: Res<UiFont>,
+    theme: Res<UiTheme>,
+    mut commands: Commands,
+) {
+    let Ok(history) = history_query.single() else {
+        return;
+    };
+    for line in lines.read() {
+        if line.text.trim().is_empty() {
+            continue;
+        }
+        let text = line.text.clone();
+        // 数据层：永久记录，UI 隐藏不删除。
+        console.history.push(text.clone());
+
+        // 表现层：spawn 一条可见消息，带淡出状态机。
+        commands.entity(history).with_children(|parent| {
+            parent.spawn((
+                Text::new(format!("> {}", text)),
+                TextFont {
+                    font: FontSource::from(ui_font.default.clone()),
+                    font_size: FontSize::Px(24.0),
+                    ..default()
+                },
+                TextColor(theme.text_primary),
+                ConsoleMessage {
+                    timer: Timer::from_seconds(CONSOLE_VISIBLE_SECONDS, TimerMode::Once),
+                    fading: false,
+                    fade_timer: Timer::from_seconds(CONSOLE_FADE_SECONDS, TimerMode::Once),
+                },
+            ));
+        });
+    }
+}
+
+/// 输入框开合边沿：打开重置所有消息的淡出状态；关闭时已过期隐藏、未过期继续显示。
+pub fn sync_console_open_system(
+    console: Res<ConsoleState>,
+    mut previous: Local<bool>,
+    mut input_query: Query<&mut Visibility, (With<ConsoleInput>, Without<ConsoleMessage>)>,
+    mut message_query: Query<(&mut ConsoleMessage, &mut TextColor, &mut Visibility)>,
+) {
+    let opened = console.open && !*previous;
+    let closed = !console.open && *previous;
+    *previous = console.open;
+
+    if opened {
+        // 打开：重置所有消息的淡出状态（timer 不重置），输入框可见
+        for (mut message, mut color, mut visibility) in &mut message_query {
+            message.fading = false;
+            message.fade_timer.reset();
+            color.0.set_alpha(1.0);
+            *visibility = Visibility::Visible;
+        }
+        if let Ok(mut vis) = input_query.single_mut() {
+            *vis = Visibility::Visible;
+        }
+    } else if closed {
+        // 关闭：输入框隐藏；已过期的消息隐藏，未过期的继续显示
+        if let Ok(mut vis) = input_query.single_mut() {
+            *vis = Visibility::Hidden;
+        }
+        for (message, _, mut visibility) in &mut message_query {
+            *visibility = if message.fading {
+                Visibility::Hidden
+            } else {
+                Visibility::Visible
+            };
+        }
+    }
+}
+
+/// 推进每条消息的独立计时：未过期 tick 显示计时并进入淡出，淡出中递减 alpha 并最终 Hidden。
+pub fn update_console_message_system(
+    time: Res<Time>,
+    console: Res<ConsoleState>,
+    mut query: Query<(&mut ConsoleMessage, &mut TextColor, &mut Visibility)>,
+) {
+    // 输入框开启时，历史文本持续显示，不推进淡出计时。
+    if console.open {
+        return;
+    }
+
+    for (mut message, mut color, mut visibility) in &mut query {
+        if !message.fading {
+            message.timer.tick(time.delta());
+            if message.timer.is_finished() {
+                message.fading = true;
+            }
+        } else {
+            message.fade_timer.tick(time.delta());
+            color.0.set_alpha(1.0 - message.fade_timer.fraction());
+            if message.fade_timer.is_finished() {
+                *visibility = Visibility::Hidden;
+            }
+        }
+    }
+}

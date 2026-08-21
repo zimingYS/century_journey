@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 
 use crate::client::input::actions::{ClientActionState, collect_player_actions_system};
+use crate::client::input::console::console_keyboard_system;
 use crate::client::input::context::{
     InputBlocked, InputSet, refresh_input_context_system, resolve_input_context_system,
 };
@@ -48,6 +49,12 @@ impl Plugin for ClientInputPlugin {
                 (refresh_input_context_system, sync_cursor_state_system)
                     .chain()
                     .in_set(InputSet::SyncPresentation),
+            )
+            .add_systems(
+                PreUpdate,
+                console_keyboard_system
+                    .in_set(InputSet::Interface)
+                    .before(handle_interface_input_system),
             );
     }
 }

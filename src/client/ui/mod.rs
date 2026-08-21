@@ -1,6 +1,7 @@
 //! 提供客户端 HUD、菜单、物品栏界面、导航和通用控件。
 
 pub mod components;
+pub mod console;
 pub mod hud;
 pub mod interaction;
 pub mod navigation;
