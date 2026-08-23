@@ -50,3 +50,26 @@ fn directly_injected_commands_derive_tick_edges() {
     state.apply_command(&released);
     assert!(state.just_released(PlayerAction::Attack));
 }
+
+#[test]
+fn scaled_time_keeps_commands_aligned_with_fixed_steps() {
+    // 回归：时间倍率只加速日历，命令目标刻仍须命中下一个固定步。
+    let mut clock = WorldSimulationClock::default();
+    let mut buffer = PlayerCommandBuffer::default();
+    let target_tick = clock.simulation_tick() + 1;
+    buffer.enqueue(PlayerCommand::new(
+        target_tick,
+        [PlayerAction::MoveForward],
+        0.5,
+        0.0,
+    ));
+
+    // 倍率 10 的一个固定步：日历推进 10 刻，模拟刻只加一。
+    clock.advance_fixed_step(10);
+
+    let command = buffer.take_for_tick(clock.simulation_tick());
+    let mut simulation = PlayerActionState::default();
+    simulation.apply_command(&command);
+    assert!(simulation.pressed(PlayerAction::MoveForward));
+    assert_eq!(command.yaw, 0.5);
+}

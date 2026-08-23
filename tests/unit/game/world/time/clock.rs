@@ -1,7 +1,10 @@
 use super::*;
+use crate::game::gameplay::rules::GameRules;
 use crate::game::world::time::{
-    MINUTES_PER_GAME_DAY, SEASONS_PER_YEAR, SOLAR_TERMS_PER_YEAR, Season, SolarTerm,
+    GameDayElapsed, GameHourElapsed, GameMinuteElapsed, GameYearElapsed, MINUTES_PER_GAME_DAY,
+    SEASONS_PER_YEAR, SOLAR_TERMS_PER_YEAR, Season, SeasonChanged, SolarTerm, SolarTermChanged,
 };
+use bevy::prelude::{App, FixedUpdate};
 
 #[test]
 fn calendar_boundaries_follow_the_24_solar_terms() {
@@ -87,4 +90,66 @@ fn set_time_of_day_wraps_out_of_range_minute_into_the_day() {
     assert_eq!(clock.total_game_minutes(), 30);
     assert_eq!(clock.snapshot().hour, 0);
     assert_eq!(clock.snapshot().minute, 30);
+}
+
+/// 构造挂载了时钟推进系统的最小应用，用于按固定步驱动真实系统。
+fn clock_app_with_scale(time_scale: f32) -> App {
+    let mut app = App::new();
+    app.insert_resource(GameRules { time_scale })
+        .init_resource::<WorldSimulationClock>()
+        .add_message::<GameMinuteElapsed>()
+        .add_message::<GameHourElapsed>()
+        .add_message::<GameDayElapsed>()
+        .add_message::<SolarTermChanged>()
+        .add_message::<SeasonChanged>()
+        .add_message::<GameYearElapsed>()
+        .add_systems(FixedUpdate, advance_world_simulation_clock);
+    app
+}
+
+#[test]
+fn advance_fixed_step_advances_one_simulation_tick_per_step() {
+    let mut clock = WorldSimulationClock::default();
+    let crossed = clock.advance_fixed_step(TICKS_PER_GAME_MINUTE * 2);
+    assert_eq!(clock.simulation_tick(), 1);
+    assert_eq!(crossed.game_minutes, 2);
+    assert_eq!(clock.total_game_minutes(), NEW_WORLD_START_MINUTE + 2);
+}
+
+#[test]
+fn time_scale_accelerates_calendar_without_distorting_simulation_ticks() {
+    let mut app = clock_app_with_scale(10.0);
+    for _ in 0..2 {
+        app.world_mut().run_schedule(FixedUpdate);
+    }
+    let clock = app.world().resource::<WorldSimulationClock>();
+    // 模拟刻按真实固定步推进，玩家命令调度不受倍率影响。
+    assert_eq!(clock.simulation_tick(), 2);
+    // 日历按倍率加速：2 步 × 10 刻 = 1 个游戏分钟。
+    assert_eq!(clock.total_game_minutes(), NEW_WORLD_START_MINUTE + 1);
+}
+
+#[test]
+fn paused_time_still_advances_simulation_ticks() {
+    let mut app = clock_app_with_scale(0.0);
+    for _ in 0..3 {
+        app.world_mut().run_schedule(FixedUpdate);
+    }
+    let clock = app.world().resource::<WorldSimulationClock>();
+    // 倍率为 0 只暂停日历；模拟节拍继续，输入命令不中断。
+    assert_eq!(clock.simulation_tick(), 3);
+    assert_eq!(clock.total_game_minutes(), NEW_WORLD_START_MINUTE);
+}
+
+#[test]
+fn fractional_time_scale_accumulates_across_fixed_steps() {
+    let mut app = clock_app_with_scale(0.5);
+    for _ in 0..2 {
+        app.world_mut().run_schedule(FixedUpdate);
+    }
+    let clock = app.world().resource::<WorldSimulationClock>();
+    assert_eq!(clock.simulation_tick(), 2);
+    // 两步各积累 0.5 刻，合计推进 1 个日历刻，尚未进位为分钟。
+    assert_eq!(clock.subminute_tick(), 1);
+    assert_eq!(clock.total_game_minutes(), NEW_WORLD_START_MINUTE);
 }
