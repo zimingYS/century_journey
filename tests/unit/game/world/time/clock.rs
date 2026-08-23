@@ -1,5 +1,7 @@
 use super::*;
-use crate::game::world::time::{SEASONS_PER_YEAR, SOLAR_TERMS_PER_YEAR, Season, SolarTerm};
+use crate::game::world::time::{
+    MINUTES_PER_GAME_DAY, SEASONS_PER_YEAR, SOLAR_TERMS_PER_YEAR, Season, SolarTerm,
+};
 
 #[test]
 fn calendar_boundaries_follow_the_24_solar_terms() {
@@ -50,4 +52,39 @@ fn persisted_subminute_ticks_are_normalized() {
     let clock = WorldSimulationClock::from_persisted(10, 100, 45);
     assert_eq!(clock.total_game_minutes(), 102);
     assert_eq!(clock.subminute_tick(), 5);
+}
+
+#[test]
+fn set_time_of_day_keeps_the_current_game_day() {
+    let mut clock = WorldSimulationClock::default();
+    clock.advance_ticks(TICKS_PER_GAME_DAY * 3 + TICKS_PER_GAME_MINUTE * 10);
+    clock.set_time_of_day(0);
+    assert_eq!(clock.total_game_minutes(), 3 * MINUTES_PER_GAME_DAY);
+    let snapshot = clock.snapshot();
+    assert_eq!(snapshot.game_day, 4);
+    assert_eq!(snapshot.hour, 0);
+    assert_eq!(snapshot.minute, 0);
+}
+
+#[test]
+fn set_time_of_day_resets_subminute_remainder_and_keeps_advancing() {
+    let mut clock = WorldSimulationClock::default();
+    clock.advance_ticks(TICKS_PER_GAME_MINUTE + 7);
+    clock.set_time_of_day(600);
+    assert_eq!(clock.subminute_tick(), 0);
+    assert_eq!(clock.total_game_minutes(), 600);
+    let crossed = clock.advance_ticks(TICKS_PER_GAME_MINUTE);
+    assert_eq!(crossed.game_minutes, 1);
+    let snapshot = clock.snapshot();
+    assert_eq!(snapshot.hour, 10);
+    assert_eq!(snapshot.minute, 1);
+}
+
+#[test]
+fn set_time_of_day_wraps_out_of_range_minute_into_the_day() {
+    let mut clock = WorldSimulationClock::default();
+    clock.set_time_of_day(MINUTES_PER_GAME_DAY + 30);
+    assert_eq!(clock.total_game_minutes(), 30);
+    assert_eq!(clock.snapshot().hour, 0);
+    assert_eq!(clock.snapshot().minute, 30);
 }

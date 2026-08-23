@@ -8,6 +8,7 @@ use super::components::{
 };
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
+use crate::game::command::components::{CommandOutput, GameCommandSubmitted};
 
 const CONSOLE_VISIBLE_SECONDS: f32 = 5.0;
 /// 单条消息淡出过渡时长（秒）。
@@ -84,7 +85,35 @@ pub fn spawn_console_system(mut commands: Commands, ui_font: Res<UiFont>, theme:
         });
 }
 
+/// 在历史容器下 spawn 一条带淡出状态机的可见消息。
+fn spawn_console_message(
+    history: Entity,
+    commands: &mut Commands,
+    text: String,
+    ui_font: &UiFont,
+    theme: &UiTheme,
+) {
+    commands.entity(history).with_children(|parent| {
+        parent.spawn((
+            Text::new(text),
+            TextFont {
+                font: FontSource::from(ui_font.default.clone()),
+                font_size: FontSize::Px(24.0),
+                ..default()
+            },
+            TextColor(theme.text_primary),
+            ConsoleMessage {
+                timer: Timer::from_seconds(CONSOLE_VISIBLE_SECONDS, TimerMode::Once),
+                fading: false,
+                fade_timer: Timer::from_seconds(CONSOLE_FADE_SECONDS, TimerMode::Once),
+            },
+        ));
+    });
+}
+
 /// 消费提交行：先写入持久历史，再 spawn 一条可见的表现消息。
+///
+/// 以 '/' 开头的行是指令，交给指令系统处理，不进入聊天历史。
 pub fn push_console_line_system(
     mut lines: MessageReader<ConsoleLineSubmitted>,
     mut console: ResMut<ConsoleState>,
@@ -100,27 +129,59 @@ pub fn push_console_line_system(
         if line.text.trim().is_empty() {
             continue;
         }
-        let text = line.text.clone();
+        if line.text.trim_start().starts_with('/') {
+            continue;
+        }
         // 数据层：永久记录，UI 隐藏不删除。
-        console.history.push(text.clone());
-
+        console.history.push(line.text.clone());
         // 表现层：spawn 一条可见消息，带淡出状态机。
-        commands.entity(history).with_children(|parent| {
-            parent.spawn((
-                Text::new(format!("> {}", text)),
-                TextFont {
-                    font: FontSource::from(ui_font.default.clone()),
-                    font_size: FontSize::Px(24.0),
-                    ..default()
-                },
-                TextColor(theme.text_primary),
-                ConsoleMessage {
-                    timer: Timer::from_seconds(CONSOLE_VISIBLE_SECONDS, TimerMode::Once),
-                    fading: false,
-                    fade_timer: Timer::from_seconds(CONSOLE_FADE_SECONDS, TimerMode::Once),
-                },
-            ));
+        spawn_console_message(
+            history,
+            &mut commands,
+            format!("> {}", line.text),
+            &ui_font,
+            &theme,
+        );
+    }
+}
+
+/// 把以 '/' 开头的控制台行转发为 Game 层指令消息（剥离前导 '/'）。
+pub fn forward_command_system(
+    mut lines: MessageReader<ConsoleLineSubmitted>,
+    mut game_commands: MessageWriter<GameCommandSubmitted>,
+) {
+    for line in lines.read() {
+        let Some(raw) = line.text.trim_start().strip_prefix('/') else {
+            continue;
+        };
+        if raw.trim().is_empty() {
+            continue;
+        }
+        game_commands.write(GameCommandSubmitted {
+            raw: raw.to_owned(),
         });
+    }
+}
+
+/// 把指令反馈渲染为控制台可见消息（复用淡出状态机，不进入聊天历史）。
+pub fn push_command_output_system(
+    mut outputs: MessageReader<CommandOutput>,
+    history_query: Query<Entity, With<ConsoleHistory>>,
+    ui_font: Res<UiFont>,
+    theme: Res<UiTheme>,
+    mut commands: Commands,
+) {
+    let Ok(history) = history_query.single() else {
+        return;
+    };
+    for output in outputs.read() {
+        spawn_console_message(
+            history,
+            &mut commands,
+            output.text.clone(),
+            &ui_font,
+            &theme,
+        );
     }
 }
 

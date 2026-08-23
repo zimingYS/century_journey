@@ -102,6 +102,16 @@ impl WorldSimulationClock {
         self.subminute_tick = (accumulated_subminute % TICKS_PER_GAME_MINUTE) as u32;
         boundary_counts(previous_minute, self.game_minute)
     }
+
+    /// 把当日时间设置为指定游戏分钟，保留当前游戏日；分钟内余量归零。
+    ///
+    /// 不派发日历边界消息：跨档跳时与从存档恢复语义一致，由下一自然分钟继续。
+    /// 超出一天的入参按当日取模防御，正常范围由命令解析保证。
+    pub fn set_time_of_day(&mut self, minute_of_day: u64) {
+        let day = self.game_minute / MINUTES_PER_GAME_DAY;
+        self.game_minute = day * MINUTES_PER_GAME_DAY + minute_of_day % MINUTES_PER_GAME_DAY;
+        self.subminute_tick = 0;
+    }
 }
 
 /// 权威游戏规则每秒执行的固定步数。
