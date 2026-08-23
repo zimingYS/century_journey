@@ -2,6 +2,9 @@
 
 use bevy::prelude::*;
 
+use super::completion::CompletionTracker;
+use super::input_history::InputHistory;
+
 /// 控制台覆盖层根节点。
 #[derive(Component)]
 pub struct ConsoleRoot;
@@ -13,6 +16,10 @@ pub struct ConsoleInput;
 /// 历史回显消息容器。
 #[derive(Component)]
 pub struct ConsoleHistory;
+
+/// 指令提示节点：输入指令行时展示补全候选与用法。
+#[derive(Component)]
+pub struct ConsoleHint;
 
 /// 用户提交的一行文字（输入层采集，UI 层回显）。
 #[derive(Message, Debug, Clone)]
@@ -26,6 +33,10 @@ pub struct ConsoleState {
     pub open: bool,
     /// 持久消息历史：UI 淡出隐藏不影响这里，只有显式删除才移除。
     pub history: Vec<String>,
+    /// 输入行回溯历史：记录最近提交的原始行（含指令行），供 ↑/↓ 键翻阅。
+    pub input_history: InputHistory,
+    /// Tab 补全的循环选择状态。
+    pub completion: CompletionTracker,
 }
 
 /// 单条聊天消息（表现投影；可见性与透明度由 ConsoleState 统一驱动）。

@@ -2,9 +2,10 @@
 
 use bevy::input_focus::{FocusCause, InputFocus};
 use bevy::prelude::*;
-use bevy::text::EditableText;
+use bevy::text::{EditableText, TextEdit};
 
 use crate::client::ui::console::components::{ConsoleInput, ConsoleLineSubmitted, ConsoleState};
+use crate::game::command::suggest::completions;
 use crate::shared::states::app_state::AppState;
 
 /// 该系统是控制台输入的单一装配点，参数保持显式以便审查每个可写资源和消息出口。
@@ -27,12 +28,20 @@ pub(super) fn console_keyboard_system(
     };
 
     if !console.open {
-        // 关闭状态：Enter 打开输入框。
-        if keyboard.just_pressed(KeyCode::Enter) {
+        // 关闭状态：Enter 直接打开输入框；'/' 打开并预填指令前缀。
+        // 本系统的按键事件已在焦点分发阶段派发给未聚焦的窗口而丢弃，
+        // 预填的 '/' 不会被文本输入再插入一次。
+        let open_with_slash = keyboard.just_pressed(KeyCode::Slash);
+        if open_with_slash || keyboard.just_pressed(KeyCode::Enter) {
             keyboard.clear_just_pressed(KeyCode::Enter);
+            keyboard.clear_just_pressed(KeyCode::Slash);
             console.open = true;
             if let Ok(mut editable) = editable_query.single_mut() {
-                editable.clear();
+                if open_with_slash {
+                    replace_input_line(&mut editable, "/");
+                } else {
+                    editable.clear();
+                }
             }
             focus.set(input_entity, FocusCause::Navigated);
             if let Ok(mut vis) = input_visibility_query.single_mut() {
@@ -43,6 +52,41 @@ pub(super) fn console_keyboard_system(
     }
 
     // 打开状态。
+    // ↑/↓ 翻阅输入历史：IME 组合中方向键留给候选词导航，不拦截。
+    let browse_older = keyboard.just_pressed(KeyCode::ArrowUp);
+    let browse_newer = keyboard.just_pressed(KeyCode::ArrowDown);
+    if browse_older || browse_newer {
+        keyboard.clear_just_pressed(KeyCode::ArrowUp);
+        keyboard.clear_just_pressed(KeyCode::ArrowDown);
+        if let Ok(mut editable) = editable_query.single_mut()
+            && !editable.is_composing()
+        {
+            let current = editable.value().to_string();
+            let replacement = if browse_older {
+                console.input_history.browse_older(&current)
+            } else {
+                console.input_history.browse_newer()
+            };
+            if let Some(text) = replacement {
+                replace_input_line(&mut editable, text);
+            }
+        }
+    }
+
+    // Tab 补全指令候选：IME 组合中按键属于输入法，不处理。
+    if keyboard.just_pressed(KeyCode::Tab) {
+        keyboard.clear_just_pressed(KeyCode::Tab);
+        if let Ok(mut editable) = editable_query.single_mut()
+            && !editable.is_composing()
+        {
+            let line = editable.value().to_string();
+            let candidates = completions(&line).lines;
+            if let Some(chosen) = console.completion.choose(&line, &candidates) {
+                replace_input_line(&mut editable, &chosen);
+            }
+        }
+    }
+
     if keyboard.just_pressed(KeyCode::Escape) {
         keyboard.clear_just_pressed(KeyCode::Escape);
         close_console(
@@ -60,9 +104,9 @@ pub(super) fn console_keyboard_system(
         if let Ok(editable) = editable_query.single()
             && !editable.is_composing()
         {
-            lines.write(ConsoleLineSubmitted {
-                text: editable.value().to_string(),
-            });
+            let text = editable.value().to_string();
+            console.input_history.record(&text);
+            lines.write(ConsoleLineSubmitted { text });
         }
         // 发送后立即关闭输入框（聊天框生命周期：Enter 发送同时输入框关闭）。
         close_console(
@@ -74,6 +118,13 @@ pub(super) fn console_keyboard_system(
     }
 }
 
+/// 整行替换输入框内容：丢弃未应用的编辑动作并把光标移到行尾。
+fn replace_input_line(editable: &mut EditableText, text: &str) {
+    editable.clear();
+    editable.editor_mut().set_text(text);
+    editable.queue_edit(TextEdit::TextEnd(false));
+}
+
 /// 关闭输入框：只影响输入框的可见性与焦点，不触碰历史消息区（root/history 始终显示）。
 fn close_console(
     console: &mut ConsoleState,
@@ -82,6 +133,8 @@ fn close_console(
     input_visibility_query: &mut Query<&mut Visibility, With<ConsoleInput>>,
 ) {
     console.open = false;
+    console.input_history.reset_browsing();
+    console.completion.reset();
     focus.clear();
     if let Ok(mut editable) = editable_query.single_mut() {
         editable.clear();

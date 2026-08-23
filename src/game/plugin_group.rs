@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 
+use crate::game::command::CommandPlugin;
 use crate::game::crafting::CraftingPlugin;
 use crate::game::gameplay::GameplayPlugin;
 use crate::game::inventory::InventoryPlugin;
@@ -19,6 +20,7 @@ impl Plugin for GamePluginGroup {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             SimulationPlugin,
+            CommandPlugin,
             GameplayPlugin,
             GameWorldPlugin,
             InventoryPlugin,

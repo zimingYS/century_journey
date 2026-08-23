@@ -1,6 +1,7 @@
 use super::*;
 use crate::content::block::registry::BlockRegistry;
 use crate::game::gameplay::gamemode::PlayerGameMode;
+use crate::game::gameplay::rules::GameRules;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::player::combat::events::AttackEvent;
 use crate::game::player::control::action::{PlayerAction, PlayerActionState};
@@ -98,6 +99,7 @@ fn simulate_at_render_rate(fps: u32) -> u64 {
         .init_resource::<WorldState>()
         .init_resource::<BlockRegistry>()
         .init_resource::<PlayerGameMode>()
+        .init_resource::<GameRules>()
         .add_message::<AttackEvent>()
         .add_message::<DamageEvent>()
         .add_message::<DeathEvent>()

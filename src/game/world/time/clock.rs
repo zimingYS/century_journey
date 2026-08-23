@@ -15,9 +15,10 @@ use bevy::prelude::{Local, MessageWriter, Res, ResMut, Resource};
 /// 世界权威模拟时间。
 ///
 /// 时间只允许在固定步中推进；存档使用三个字段恢复，避免浮点时间累积误差。
+/// 时间倍率只加速日历时间的流逝，固定步节拍始终与真实步一一对应。
 #[derive(Resource, Debug, Clone, PartialEq, Eq)]
 pub struct WorldSimulationClock {
-    /// 自会话时钟起点累计的固定步数。
+    /// 自世界创建起累计的固定步数；是玩家命令与方块交互的调度节拍，不受时间倍率影响。
     simulation_tick: u64,
     /// 自日历起点累计的完整游戏分钟。
     game_minute: u64,
@@ -88,7 +89,7 @@ impl WorldSimulationClock {
             / MINUTES_PER_GAME_HOUR as f32
     }
 
-    /// 推进权威时钟并统计跨越的日历边界。
+    /// 按步数同步推进模拟刻与日历，并统计跨越的日历边界（时间倍率为 1 的基准路径）。
     pub fn advance_ticks(&mut self, ticks: u64) -> ClockAdvance {
         if ticks == 0 {
             return ClockAdvance::default();
@@ -101,6 +102,32 @@ impl WorldSimulationClock {
             .saturating_add(accumulated_subminute / TICKS_PER_GAME_MINUTE);
         self.subminute_tick = (accumulated_subminute % TICKS_PER_GAME_MINUTE) as u32;
         boundary_counts(previous_minute, self.game_minute)
+    }
+
+    /// 推进一个固定步：模拟刻恒定加一，日历按已乘时间倍率的刻数推进。
+    ///
+    /// 模拟刻是玩家命令缓冲与方块交互的调度节拍，必须与真实固定步一一对应；
+    /// 若随倍率伸缩，客户端按“当前刻 + 1”提交的命令将无法命中目标刻而被丢弃，
+    /// 表现为移动和视角转向失灵。
+    pub fn advance_fixed_step(&mut self, scaled_ticks: u64) -> ClockAdvance {
+        let previous_minute = self.game_minute;
+        self.simulation_tick = self.simulation_tick.saturating_add(1);
+        let accumulated_subminute = self.subminute_tick as u64 + scaled_ticks;
+        self.game_minute = self
+            .game_minute
+            .saturating_add(accumulated_subminute / TICKS_PER_GAME_MINUTE);
+        self.subminute_tick = (accumulated_subminute % TICKS_PER_GAME_MINUTE) as u32;
+        boundary_counts(previous_minute, self.game_minute)
+    }
+
+    /// 把当日时间设置为指定游戏分钟，保留当前游戏日；分钟内余量归零。
+    ///
+    /// 不派发日历边界消息：跨档跳时与从存档恢复语义一致，由下一自然分钟继续。
+    /// 超出一天的入参按当日取模防御，正常范围由命令解析保证。
+    pub fn set_time_of_day(&mut self, minute_of_day: u64) {
+        let day = self.game_minute / MINUTES_PER_GAME_DAY;
+        self.game_minute = day * MINUTES_PER_GAME_DAY + minute_of_day % MINUTES_PER_GAME_DAY;
+        self.subminute_tick = 0;
     }
 }
 
@@ -171,6 +198,9 @@ pub struct ClockEventWriters<'w> {
 }
 
 /// 在固定步推进时钟，并向其他玩法模块发送已跨越的日历边界消息。
+///
+/// 模拟刻每个固定步恒定加一；时间倍率只折算为日历刻的额外推进量，
+/// 保证命令调度与交互计时随倍率漂移的问题不再发生。
 pub fn advance_world_simulation_clock(
     rules: Res<GameRules>,
     mut clock: ResMut<WorldSimulationClock>,
@@ -179,10 +209,10 @@ pub fn advance_world_simulation_clock(
 ) {
     let scale = rules.time_scale.clamp(0.0, 100.0);
     let ticks_f = *accumulated + scale;
-    let ticks = ticks_f.floor() as u64;
-    *accumulated = ticks_f - ticks as f32;
+    let scaled_ticks = ticks_f.floor() as u64;
+    *accumulated = ticks_f - scaled_ticks as f32;
 
-    let crossed = clock.advance_ticks(ticks);
+    let crossed = clock.advance_fixed_step(scaled_ticks);
     if crossed.game_minutes == 0 {
         return;
     }

@@ -54,7 +54,10 @@ impl Plugin for ClientInputPlugin {
                 PreUpdate,
                 console_keyboard_system
                     .in_set(InputSet::Interface)
-                    .before(handle_interface_input_system),
+                    .before(handle_interface_input_system)
+                    // 必须晚于焦点按键分发：'/' 打开输入框当帧，该按键事件
+                    // 已派发给未聚焦窗口而被丢弃，预填的 '/' 不会被重复插入。
+                    .after(bevy::input_focus::InputFocusSystems::Dispatch),
             );
     }
 }

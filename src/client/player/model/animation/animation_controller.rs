@@ -6,7 +6,6 @@
 use std::collections::HashSet;
 
 use bevy::ecs::system::SystemParam;
-use bevy::prelude::*;
 
 use crate::client::camera::FpsCamera;
 use crate::content::block::event::{BlockInteractEvent, BlockPlaceEvent};
