@@ -2,7 +2,7 @@
 
 use bevy::input_focus::{FocusCause, InputFocus};
 use bevy::prelude::*;
-use bevy::text::EditableText;
+use bevy::text::{EditableText, TextEdit};
 
 use crate::client::ui::console::components::{ConsoleInput, ConsoleLineSubmitted, ConsoleState};
 use crate::shared::states::app_state::AppState;
@@ -43,6 +43,27 @@ pub(super) fn console_keyboard_system(
     }
 
     // 打开状态。
+    // ↑/↓ 翻阅输入历史：IME 组合中方向键留给候选词导航，不拦截。
+    let browse_older = keyboard.just_pressed(KeyCode::ArrowUp);
+    let browse_newer = keyboard.just_pressed(KeyCode::ArrowDown);
+    if browse_older || browse_newer {
+        keyboard.clear_just_pressed(KeyCode::ArrowUp);
+        keyboard.clear_just_pressed(KeyCode::ArrowDown);
+        if let Ok(mut editable) = editable_query.single_mut()
+            && !editable.is_composing()
+        {
+            let current = editable.value().to_string();
+            let replacement = if browse_older {
+                console.input_history.browse_older(&current)
+            } else {
+                console.input_history.browse_newer()
+            };
+            if let Some(text) = replacement {
+                replace_input_line(&mut editable, text);
+            }
+        }
+    }
+
     if keyboard.just_pressed(KeyCode::Escape) {
         keyboard.clear_just_pressed(KeyCode::Escape);
         close_console(
@@ -60,9 +81,9 @@ pub(super) fn console_keyboard_system(
         if let Ok(editable) = editable_query.single()
             && !editable.is_composing()
         {
-            lines.write(ConsoleLineSubmitted {
-                text: editable.value().to_string(),
-            });
+            let text = editable.value().to_string();
+            console.input_history.record(&text);
+            lines.write(ConsoleLineSubmitted { text });
         }
         // 发送后立即关闭输入框（聊天框生命周期：Enter 发送同时输入框关闭）。
         close_console(
@@ -74,6 +95,13 @@ pub(super) fn console_keyboard_system(
     }
 }
 
+/// 整行替换输入框内容：丢弃未应用的编辑动作并把光标移到行尾。
+fn replace_input_line(editable: &mut EditableText, text: &str) {
+    editable.clear();
+    editable.editor_mut().set_text(text);
+    editable.queue_edit(TextEdit::TextEnd(false));
+}
+
 /// 关闭输入框：只影响输入框的可见性与焦点，不触碰历史消息区（root/history 始终显示）。
 fn close_console(
     console: &mut ConsoleState,
@@ -82,6 +110,7 @@ fn close_console(
     input_visibility_query: &mut Query<&mut Visibility, With<ConsoleInput>>,
 ) {
     console.open = false;
+    console.input_history.reset_browsing();
     focus.clear();
     if let Ok(mut editable) = editable_query.single_mut() {
         editable.clear();

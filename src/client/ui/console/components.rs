@@ -2,6 +2,8 @@
 
 use bevy::prelude::*;
 
+use super::input_history::InputHistory;
+
 /// 控制台覆盖层根节点。
 #[derive(Component)]
 pub struct ConsoleRoot;
@@ -26,6 +28,8 @@ pub struct ConsoleState {
     pub open: bool,
     /// 持久消息历史：UI 淡出隐藏不影响这里，只有显式删除才移除。
     pub history: Vec<String>,
+    /// 输入行回溯历史：记录最近提交的原始行（含指令行），供 ↑/↓ 键翻阅。
+    pub input_history: InputHistory,
 }
 
 /// 单条聊天消息（表现投影；可见性与透明度由 ConsoleState 统一驱动）。
