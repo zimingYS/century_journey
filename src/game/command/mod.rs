@@ -4,5 +4,6 @@ pub mod components;
 pub mod execute;
 pub mod parse;
 pub mod plugin;
+pub mod suggest;
 
 pub use plugin::CommandPlugin;

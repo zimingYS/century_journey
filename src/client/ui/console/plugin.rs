@@ -3,7 +3,8 @@
 use super::components::{ConsoleLineSubmitted, ConsoleState};
 use crate::client::ui::console::systems::{
     forward_command_system, push_command_output_system, push_console_line_system,
-    spawn_console_system, sync_console_open_system, update_console_message_system,
+    spawn_console_system, sync_console_open_system, update_console_hint_system,
+    update_console_message_system,
 };
 use crate::client::ui::resources::ui_font::load_ui_font_system;
 use bevy::prelude::*;
@@ -23,6 +24,7 @@ impl Plugin for ConsolePlugin {
                     push_console_line_system,
                     push_command_output_system,
                     sync_console_open_system,
+                    update_console_hint_system,
                     update_console_message_system,
                 ),
             );

@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy::text::{EditableText, TextEdit};
 
 use crate::client::ui::console::components::{ConsoleInput, ConsoleLineSubmitted, ConsoleState};
+use crate::game::command::suggest::completions;
 use crate::shared::states::app_state::AppState;
 
 /// 该系统是控制台输入的单一装配点，参数保持显式以便审查每个可写资源和消息出口。
@@ -27,12 +28,20 @@ pub(super) fn console_keyboard_system(
     };
 
     if !console.open {
-        // 关闭状态：Enter 打开输入框。
-        if keyboard.just_pressed(KeyCode::Enter) {
+        // 关闭状态：Enter 直接打开输入框；'/' 打开并预填指令前缀。
+        // 本系统的按键事件已在焦点分发阶段派发给未聚焦的窗口而丢弃，
+        // 预填的 '/' 不会被文本输入再插入一次。
+        let open_with_slash = keyboard.just_pressed(KeyCode::Slash);
+        if open_with_slash || keyboard.just_pressed(KeyCode::Enter) {
             keyboard.clear_just_pressed(KeyCode::Enter);
+            keyboard.clear_just_pressed(KeyCode::Slash);
             console.open = true;
             if let Ok(mut editable) = editable_query.single_mut() {
-                editable.clear();
+                if open_with_slash {
+                    replace_input_line(&mut editable, "/");
+                } else {
+                    editable.clear();
+                }
             }
             focus.set(input_entity, FocusCause::Navigated);
             if let Ok(mut vis) = input_visibility_query.single_mut() {
@@ -60,6 +69,20 @@ pub(super) fn console_keyboard_system(
             };
             if let Some(text) = replacement {
                 replace_input_line(&mut editable, text);
+            }
+        }
+    }
+
+    // Tab 补全指令候选：IME 组合中按键属于输入法，不处理。
+    if keyboard.just_pressed(KeyCode::Tab) {
+        keyboard.clear_just_pressed(KeyCode::Tab);
+        if let Ok(mut editable) = editable_query.single_mut()
+            && !editable.is_composing()
+        {
+            let line = editable.value().to_string();
+            let candidates = completions(&line).lines;
+            if let Some(chosen) = console.completion.choose(&line, &candidates) {
+                replace_input_line(&mut editable, &chosen);
             }
         }
     }
@@ -111,6 +134,7 @@ fn close_console(
 ) {
     console.open = false;
     console.input_history.reset_browsing();
+    console.completion.reset();
     focus.clear();
     if let Ok(mut editable) = editable_query.single_mut() {
         editable.clear();

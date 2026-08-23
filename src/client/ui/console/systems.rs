@@ -4,11 +4,13 @@ use bevy::prelude::*;
 use bevy::text::{EditableText, TextCursorStyle};
 
 use super::components::{
-    ConsoleHistory, ConsoleInput, ConsoleLineSubmitted, ConsoleMessage, ConsoleRoot, ConsoleState,
+    ConsoleHint, ConsoleHistory, ConsoleInput, ConsoleLineSubmitted, ConsoleMessage, ConsoleRoot,
+    ConsoleState,
 };
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::game::command::components::{CommandOutput, GameCommandSubmitted};
+use crate::game::command::suggest::completions;
 
 const CONSOLE_VISIBLE_SECONDS: f32 = 5.0;
 /// 单条消息淡出过渡时长（秒）。
@@ -44,6 +46,23 @@ pub fn spawn_console_system(mut commands: Commands, ui_font: Res<UiFont>, theme:
                     justify_content: JustifyContent::FlexEnd,
                     row_gap: Val::Px(2.0),
                     overflow: Overflow::clip_y(),
+                    ..default()
+                },
+            ));
+            root.spawn((
+                ConsoleHint,
+                Visibility::Hidden,
+                Name::new("ConsoleHint"),
+                Text::new(""),
+                TextFont {
+                    font: FontSource::from(ui_font.default.clone()),
+                    font_size: FontSize::Px(18.0),
+                    ..default()
+                },
+                TextColor(theme.text_secondary),
+                Node {
+                    width: Val::Percent(100.0),
+                    padding: UiRect::horizontal(Val::Px(10.0)),
                     ..default()
                 },
             ));
@@ -183,6 +202,54 @@ pub fn push_command_output_system(
             &theme,
         );
     }
+}
+
+/// 每帧刷新指令提示：指令行显示补全候选与用法，其他情况隐藏。
+///
+/// 位于历史区与输入框之间；根节点锚定屏幕下方，提示出现时只会把历史区
+/// 向上推移，输入框位置保持不动。
+pub fn update_console_hint_system(
+    console: Res<ConsoleState>,
+    editable_query: Query<&EditableText, With<ConsoleInput>>,
+    mut hint_query: Query<(&mut Text, &mut Visibility), With<ConsoleHint>>,
+) {
+    let Ok((mut text, mut visibility)) = hint_query.single_mut() else {
+        return;
+    };
+    let line = if console.open {
+        editable_query
+            .single()
+            .ok()
+            .map(|editable| editable.value().to_string())
+    } else {
+        None
+    };
+    let Some(line) = line else {
+        *visibility = Visibility::Hidden;
+        return;
+    };
+    if !line.trim_start().starts_with('/') {
+        *visibility = Visibility::Hidden;
+        return;
+    }
+    let suggestions = completions(&line);
+    let mut sections: Vec<String> = suggestions
+        .lines
+        .iter()
+        .map(|candidate| candidate.trim_end().to_owned())
+        .collect();
+    if let Some(usage) = suggestions.usage {
+        sections.push(usage.to_owned());
+    }
+    let joined = sections.join("\n");
+    if joined.is_empty() {
+        *visibility = Visibility::Hidden;
+        return;
+    }
+    if text.0 != joined {
+        text.0 = joined;
+    }
+    *visibility = Visibility::Visible;
 }
 
 /// 输入框开合边沿：打开重置所有消息的淡出状态；关闭时已过期隐藏、未过期继续显示。

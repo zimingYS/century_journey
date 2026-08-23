@@ -1,7 +1,7 @@
 //! 解析控制台指令行为类型安全的指令枚举。
 //!
 //! 本模块是纯函数，不依赖 Bevy 类型；指令注册表集中管理字符串分发，
-//! 新增指令只需实现家族解析函数并在注册表追加一行。
+//! 新增指令只需实现家族解析与候选函数并在注册表追加一行。
 
 use crate::game::world::time::{MINUTES_PER_GAME_DAY, MINUTES_PER_GAME_HOUR};
 
@@ -60,27 +60,30 @@ pub enum CommandParseError {
 }
 
 /// 单条指令家族的解析描述，构成指令注册表。
-struct CommandSpec {
+pub(crate) struct CommandSpec {
     /// 指令根名（小写，不含 '/'）。
-    name: &'static str,
+    pub(crate) name: &'static str,
     /// 用法说明；由注册表传给家族函数，是唯一的用法事实来源。
-    usage: &'static str,
+    pub(crate) usage: &'static str,
     /// 家族解析函数：输入为用法说明与剥离根名后的参数片段。
-    parse: fn(&'static str, &[&str]) -> Result<GameCommand, CommandParseError>,
+    pub(crate) parse: fn(&'static str, &[&str]) -> Result<GameCommand, CommandParseError>,
+    /// 家族候选函数：输入为已完成的参数词与正在补全的词前缀，返回候选词。
+    pub(crate) suggest: fn(&[&str], &str) -> Vec<String>,
 }
 
 /// time 指令家族的用法说明。
-const TIME_USAGE: &str = "/time set <分钟|day|noon|night|midnight> | /time scale <倍率>";
+pub(crate) const TIME_USAGE: &str = "/time set <分钟|day|noon|night|midnight> | /time scale <倍率>";
 
-/// 全部已注册指令。新增指令 = 实现家族解析函数 + 在此追加一行。
-const COMMANDS: &[CommandSpec] = &[CommandSpec {
+/// 全部已注册指令。新增指令 = 实现家族解析与候选函数 + 在此追加一行。
+pub(crate) const COMMANDS: &[CommandSpec] = &[CommandSpec {
     name: "time",
     usage: TIME_USAGE,
     parse: parse_time,
+    suggest: suggest_time,
 }];
 
 /// 预设时间名对应的当日分钟数。
-const TIME_PRESETS: &[(&str, u64)] = &[
+pub(crate) const TIME_PRESETS: &[(&str, u64)] = &[
     ("day", 8 * MINUTES_PER_GAME_HOUR),
     ("noon", 12 * MINUTES_PER_GAME_HOUR),
     ("night", 20 * MINUTES_PER_GAME_HOUR),
@@ -150,6 +153,28 @@ fn parse_time(usage: &'static str, args: &[&str]) -> Result<GameCommand, Command
         })
     } else {
         Err(CommandParseError::MissingSubcommand { usage })
+    }
+}
+
+/// time 家族的参数候选：未到子指令时给子指令名，set 之后给预设时间名。
+///
+/// scale 的倍率是自由数字、set 的分钟值不可枚举，均不提供候选。
+fn suggest_time(args: &[&str], prefix: &str) -> Vec<String> {
+    let lowered = prefix.to_ascii_lowercase();
+    let matches_prefix = |candidate: &str| candidate.starts_with(&lowered);
+    match args.first() {
+        None => ["set", "scale"]
+            .into_iter()
+            .filter(|candidate| matches_prefix(candidate))
+            .map(String::from)
+            .collect(),
+        Some(sub) if sub.eq_ignore_ascii_case("set") => TIME_PRESETS
+            .iter()
+            .map(|(name, _)| *name)
+            .filter(|candidate| matches_prefix(candidate))
+            .map(String::from)
+            .collect(),
+        _ => Vec::new(),
     }
 }
 
