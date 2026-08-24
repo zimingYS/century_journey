@@ -14,6 +14,8 @@ pub enum UiControlKind {
     Button,
     IconButton,
     Tab,
+    /// 固定宽度的文字动作按钮，与步进图标按钮同宽以便设置行右列对齐。
+    Toggle,
 }
 
 /// 通用控件当前的选中和禁用状态。
@@ -62,7 +64,9 @@ pub fn spawn_text_button<M: Bundle>(
                     font: FontSource::from(ui_font.default.clone()),
                     font_size: FontSize::Px(match kind {
                         UiControlKind::IconButton => theme.title_font_size,
-                        UiControlKind::Button | UiControlKind::Tab => theme.body_font_size,
+                        UiControlKind::Button | UiControlKind::Tab | UiControlKind::Toggle => {
+                            theme.body_font_size
+                        }
                     }),
                     ..default()
                 },
@@ -209,10 +213,13 @@ pub fn themed_control_interaction_system(
 }
 
 fn control_node(kind: UiControlKind, theme: &UiTheme) -> Node {
+    // Tab 宽度用 Auto：横向页签栏中按内容自适应避免溢出；
+    // 纵向列表里依赖交叉轴默认 stretch 依旧占满整行。
+    // IconButton 与 Toggle 固定同宽：设置页步进行与开关行的数值列由此纵向对齐。
     let (width, height) = match kind {
-        UiControlKind::IconButton => (Val::Px(40.0), Val::Px(40.0)),
+        UiControlKind::IconButton | UiControlKind::Toggle => (Val::Px(56.0), Val::Px(40.0)),
         UiControlKind::Button => (Val::Auto, Val::Px(40.0)),
-        UiControlKind::Tab => (Val::Percent(100.0), Val::Px(theme.tab_height)),
+        UiControlKind::Tab => (Val::Auto, Val::Px(theme.tab_height)),
     };
     Node {
         width,

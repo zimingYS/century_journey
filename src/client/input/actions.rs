@@ -4,6 +4,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
+use crate::app::settings::{KeyAction, Keybinds};
 use crate::client::camera::FpsCamera;
 use crate::game::player::control::action::{PlayerAction, PlayerActionState};
 use crate::game::player::control::command::{PlayerCommand, PlayerCommandBuffer};
@@ -39,6 +40,7 @@ pub(super) struct PlayerActionInput<'w, 's> {
     mouse: Res<'w, ButtonInput<MouseButton>>,
     mouse_wheel: MessageReader<'w, 's, MouseWheel>,
     context: Res<'w, InputContextState>,
+    keybinds: Res<'w, Keybinds>,
     state: ResMut<'w, ClientActionState>,
     clock: Option<Res<'w, WorldSimulationClock>>,
     command_buffer: Option<ResMut<'w, PlayerCommandBuffer>>,
@@ -59,52 +61,72 @@ pub(super) fn collect_player_actions_system(
     let mut actions = Vec::with_capacity(16);
     if input.context.active().allows_gameplay() {
         push_pressed(
+            &input.keybinds,
             &input.keyboard,
-            KeyCode::KeyW,
+            &input.mouse,
+            KeyAction::MoveForward,
             PlayerAction::MoveForward,
             &mut actions,
         );
 
         push_pressed(
+            &input.keybinds,
             &input.keyboard,
-            KeyCode::KeyS,
+            &input.mouse,
+            KeyAction::MoveBackward,
             PlayerAction::MoveBackward,
             &mut actions,
         );
 
         push_pressed(
+            &input.keybinds,
             &input.keyboard,
-            KeyCode::KeyA,
+            &input.mouse,
+            KeyAction::MoveLeft,
             PlayerAction::MoveLeft,
             &mut actions,
         );
 
         push_pressed(
+            &input.keybinds,
             &input.keyboard,
-            KeyCode::KeyD,
+            &input.mouse,
+            KeyAction::MoveRight,
             PlayerAction::MoveRight,
             &mut actions,
         );
 
-        if input.keyboard.pressed(KeyCode::ShiftLeft) || input.keyboard.pressed(KeyCode::ShiftRight)
-        {
-            actions.push(PlayerAction::Sprint);
-        }
-
-        if input.keyboard.pressed(KeyCode::ControlLeft)
-            || input.keyboard.pressed(KeyCode::ControlRight)
-        {
-            actions.push(PlayerAction::Squat);
-        }
+        push_pressed(
+            &input.keybinds,
+            &input.keyboard,
+            &input.mouse,
+            KeyAction::Sprint,
+            PlayerAction::Sprint,
+            &mut actions,
+        );
 
         push_pressed(
+            &input.keybinds,
             &input.keyboard,
-            KeyCode::Space,
+            &input.mouse,
+            KeyAction::Squat,
+            PlayerAction::Squat,
+            &mut actions,
+        );
+
+        push_pressed(
+            &input.keybinds,
+            &input.keyboard,
+            &input.mouse,
+            KeyAction::Jump,
             PlayerAction::Jump,
             &mut actions,
         );
 
-        if input.keyboard.just_pressed(KeyCode::Space) {
+        if input
+            .keybinds
+            .is_just_pressed(KeyAction::Jump, &input.keyboard, &input.mouse)
+        {
             let now = input.time.elapsed_secs();
             if *last_jump >= 0.0 && now - *last_jump < DOUBLE_TAP_SECONDS {
                 input.flight_requests.write(ToggleFlightRequest);
@@ -114,18 +136,28 @@ pub(super) fn collect_player_actions_system(
             }
         }
 
-        if input.mouse.pressed(MouseButton::Left) {
+        if input
+            .keybinds
+            .is_held(KeyAction::BreakOrAttack, &input.keyboard, &input.mouse)
+        {
             actions.extend([PlayerAction::BreakBlock, PlayerAction::Attack]);
         }
 
-        if input.mouse.pressed(MouseButton::Right) {
+        if input
+            .keybinds
+            .is_held(KeyAction::PlaceOrUse, &input.keyboard, &input.mouse)
+        {
             actions.extend([PlayerAction::PlaceBlock, PlayerAction::Use]);
         }
 
-        if input.keyboard.just_pressed(KeyCode::KeyQ) {
+        if input
+            .keybinds
+            .is_just_pressed(KeyAction::DropItem, &input.keyboard, &input.mouse)
+        {
             actions.push(PlayerAction::DropItem);
         }
 
+        // 固定调试快捷键：F9 元数据检查与 Ctrl+F5 手动存档不参与重映射。
         if input.keyboard.just_pressed(KeyCode::F9) {
             input
                 .save_debug_commands
@@ -137,12 +169,18 @@ pub(super) fn collect_player_actions_system(
                 || input.keyboard.pressed(KeyCode::ControlRight);
             if control_pressed {
                 input.save_debug_commands.write(SaveDebugCommand::SaveWorld);
-            } else {
-                actions.push(PlayerAction::TogglePerspective);
             }
         }
 
-        let hotbar_keys = [
+        if input.keybinds.is_just_pressed(
+            KeyAction::TogglePerspective,
+            &input.keyboard,
+            &input.mouse,
+        ) {
+            actions.push(PlayerAction::TogglePerspective);
+        }
+
+        let hotbar_actions = [
             PlayerAction::Hotbar1,
             PlayerAction::Hotbar2,
             PlayerAction::Hotbar3,
@@ -153,20 +191,23 @@ pub(super) fn collect_player_actions_system(
             PlayerAction::Hotbar8,
             PlayerAction::Hotbar9,
         ];
-        let key_codes = [
-            KeyCode::Digit1,
-            KeyCode::Digit2,
-            KeyCode::Digit3,
-            KeyCode::Digit4,
-            KeyCode::Digit5,
-            KeyCode::Digit6,
-            KeyCode::Digit7,
-            KeyCode::Digit8,
-            KeyCode::Digit9,
+        let hotbar_binds = [
+            KeyAction::Hotbar1,
+            KeyAction::Hotbar2,
+            KeyAction::Hotbar3,
+            KeyAction::Hotbar4,
+            KeyAction::Hotbar5,
+            KeyAction::Hotbar6,
+            KeyAction::Hotbar7,
+            KeyAction::Hotbar8,
+            KeyAction::Hotbar9,
         ];
 
-        for (key, action) in key_codes.into_iter().zip(hotbar_keys) {
-            if input.keyboard.just_pressed(key) {
+        for (bind, action) in hotbar_binds.into_iter().zip(hotbar_actions) {
+            if input
+                .keybinds
+                .is_just_pressed(bind, &input.keyboard, &input.mouse)
+            {
                 actions.push(action);
             }
         }
@@ -210,12 +251,14 @@ pub(super) fn collect_player_actions_system(
 }
 
 fn push_pressed(
+    keybinds: &Keybinds,
     keyboard: &ButtonInput<KeyCode>,
-    key: KeyCode,
+    mouse: &ButtonInput<MouseButton>,
+    bind: KeyAction,
     action: PlayerAction,
     actions: &mut Vec<PlayerAction>,
 ) {
-    if keyboard.pressed(key) {
+    if keybinds.is_held(bind, keyboard, mouse) {
         actions.push(action);
     }
 }

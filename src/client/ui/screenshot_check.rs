@@ -10,7 +10,9 @@ use crate::app::flow::{MenuPage, PendingWorld};
 use crate::client::camera::{CameraPerspective, FpsCamera};
 use crate::client::ui::components::SurvivalInventoryRoot;
 use crate::client::ui::navigation::{UiNavigation, UiScreen};
-use crate::client::ui::screens::menu::{PauseSettingsButton, ResumeButton, SaveQuitButton};
+use crate::client::ui::screens::menu::{
+    KeybindsUiState, PauseSettingsButton, ResumeButton, SaveQuitButton, SettingsTab,
+};
 use crate::content::block::registry::BlockRegistry;
 use crate::game::crafting::grid::ActiveCrafting;
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
@@ -32,6 +34,8 @@ const SECONDS_BEFORE_CAPTURE: f32 = 4.0;
 enum ScreenshotTarget {
     MainMenu,
     Settings,
+    SettingsKeybinds,
+    SettingsClose,
     Pause,
     Inventory,
     Workbench,
@@ -76,6 +80,8 @@ pub fn configure_ui_screenshot_check(app: &mut App) {
     {
         "main-menu" => ScreenshotTarget::MainMenu,
         "settings" => ScreenshotTarget::Settings,
+        "settings-keybinds" => ScreenshotTarget::SettingsKeybinds,
+        "settings-close" => ScreenshotTarget::SettingsClose,
         "pause" => ScreenshotTarget::Pause,
         "workbench" => ScreenshotTarget::Workbench,
         "second-person" => ScreenshotTarget::SecondPerson,
@@ -143,6 +149,7 @@ fn ui_screenshot_check_system(
     mut containers: ResMut<WorldContainers>,
     mut camera: Query<&mut FpsCamera, With<Camera3d>>,
     mut clock: ResMut<WorldSimulationClock>,
+    mut keybinds_ui: ResMut<KeybindsUiState>,
     mut flow: ScreenshotFlow,
     block_registry: Option<Res<BlockRegistry>>,
     pause_controls: Query<
@@ -182,17 +189,32 @@ fn ui_screenshot_check_system(
     if state == &AppState::MainMenu
         && matches!(
             config.target,
-            ScreenshotTarget::MainMenu | ScreenshotTarget::Settings
+            ScreenshotTarget::MainMenu
+                | ScreenshotTarget::Settings
+                | ScreenshotTarget::SettingsKeybinds
+                | ScreenshotTarget::SettingsClose
         )
     {
-        *flow.menu_page = if config.target == ScreenshotTarget::Settings {
-            MenuPage::Settings
-        } else {
+        // MainMenu 目标停在世界页；Settings 系列先打开设置页。
+        *flow.menu_page = if config.target == ScreenshotTarget::MainMenu {
             MenuPage::Worlds
+        } else {
+            MenuPage::Settings
         };
+        // SettingsKeybinds 额外把页签切到键位页，验证兄弟页切换后的布局。
+        if config.target == ScreenshotTarget::SettingsKeybinds {
+            keybinds_ui.tab = SettingsTab::Keybinds;
+        }
         if !config.prepared {
             config.prepared = true;
             return;
+        }
+        // 诊断流程：设置页保持一段时间后模拟 CloseSettings，验证可见性系统能否收回面板。
+        if config.target == ScreenshotTarget::SettingsClose {
+            config.in_game_frames += 1;
+            if config.in_game_frames >= 30 {
+                *flow.menu_page = MenuPage::Worlds;
+            }
         }
     } else if state == &AppState::MainMenu && !config.world_requested {
         let screenshot_world = config.world_id.clone();
@@ -287,13 +309,19 @@ fn ui_screenshot_check_system(
                 flow.navigation
                     .write(UiNavigation::Open(UiScreen::PauseMenu));
             }
-            ScreenshotTarget::MainMenu | ScreenshotTarget::Settings => {}
+            ScreenshotTarget::MainMenu
+            | ScreenshotTarget::Settings
+            | ScreenshotTarget::SettingsKeybinds
+            | ScreenshotTarget::SettingsClose => {}
         }
         config.prepared = true;
         return;
     }
     let ready = match config.target {
-        ScreenshotTarget::MainMenu | ScreenshotTarget::Settings => state == &AppState::MainMenu,
+        ScreenshotTarget::MainMenu
+        | ScreenshotTarget::Settings
+        | ScreenshotTarget::SettingsKeybinds
+        | ScreenshotTarget::SettingsClose => state == &AppState::MainMenu,
         ScreenshotTarget::Pause => state == &AppState::Paused,
         ScreenshotTarget::Inventory => {
             state == &AppState::InGame

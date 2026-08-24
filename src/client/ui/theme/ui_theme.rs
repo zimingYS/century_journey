@@ -17,6 +17,8 @@ pub struct UiTheme {
     pub border_hover: Color,
     pub border_selected: Color,
     pub accent: Color,
+    /// 警告与冲突提示的前景色。
+    pub warning: Color,
     pub control_hover: Color,
     pub control_pressed: Color,
     pub tooltip_bg: Color,
@@ -89,6 +91,7 @@ impl Default for UiTheme {
             border_hover: Color::srgba(0.90, 0.90, 0.30, 1.0),
             border_selected: Color::srgba(1.0, 1.0, 1.0, 1.0),
             accent: Color::srgba(0.35, 0.55, 0.95, 1.0),
+            warning: Color::srgba(0.95, 0.62, 0.25, 1.0),
             control_hover: Color::srgba(0.28, 0.30, 0.36, 1.0),
             control_pressed: Color::srgba(0.22, 0.42, 0.72, 1.0),
             tooltip_bg: Color::srgba(0.035, 0.04, 0.05, 0.98),

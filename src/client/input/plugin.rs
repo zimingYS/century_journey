@@ -10,6 +10,7 @@ use crate::client::input::context::{
 use crate::client::input::cursor::sync_cursor_state_system;
 use crate::client::input::interface::{InterfaceCommand, handle_interface_input_system};
 use crate::client::input::pointer::{UiInteractionLifecycleEvent, ui_interaction_lifecycle_system};
+use crate::client::input::rebind::{RebindCapture, capture_rebind_input_system};
 use crate::shared::states::InputContextState;
 
 /// 组装界面输入、玩法动作采集和光标同步系统。
@@ -20,6 +21,7 @@ impl Plugin for ClientInputPlugin {
         app.init_resource::<InputContextState>()
             .init_resource::<InputBlocked>()
             .init_resource::<ClientActionState>()
+            .init_resource::<RebindCapture>()
             .add_message::<InterfaceCommand>()
             .add_message::<UiInteractionLifecycleEvent>()
             .configure_sets(
@@ -49,6 +51,12 @@ impl Plugin for ClientInputPlugin {
                 (refresh_input_context_system, sync_cursor_state_system)
                     .chain()
                     .in_set(InputSet::SyncPresentation),
+            )
+            .add_systems(
+                PreUpdate,
+                capture_rebind_input_system
+                    .in_set(InputSet::Interface)
+                    .before(handle_interface_input_system),
             )
             .add_systems(
                 PreUpdate,

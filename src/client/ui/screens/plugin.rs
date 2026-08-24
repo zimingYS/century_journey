@@ -36,6 +36,11 @@ impl Plugin for UiScreensPlugin {
                 menu::sync_world_name_draft_system,
                 menu::sync_setting_values_system,
                 menu::menu_button_system,
+                menu::keybind_ui_system,
+                menu::reset_keybind_listening_system,
+                menu::sync_keybinds_search_system,
+                menu::sync_settings_tabs_system,
+                menu::populate_keybind_list_system,
                 death::sync_death_screen_system,
                 death::respawn_button_system,
             )

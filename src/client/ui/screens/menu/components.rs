@@ -5,6 +5,7 @@
 use bevy::prelude::*;
 
 use crate::app::flow::SettingAction;
+use crate::app::settings::KeyAction;
 
 /// 标记主菜单中的世界列表容器。
 #[derive(Component)]
@@ -107,4 +108,65 @@ pub(crate) enum SettingValue {
     UiScale,
     Fullscreen,
     Vsync,
+}
+
+/// 标记设置页顶部的页签按钮，并记录其目标页。
+#[derive(Component, Clone, Copy)]
+pub(crate) struct SettingsTabButton {
+    pub(super) tab: SettingsTab,
+}
+
+/// 设置页内的通用设置内容容器。
+#[derive(Component)]
+pub(crate) struct SettingsGeneralPage;
+
+/// 设置页内的键位列表内容容器。
+#[derive(Component)]
+pub(crate) struct SettingsKeybindsPage;
+
+/// 标记键位搜索输入框。
+#[derive(Component)]
+pub(crate) struct KeybindSearchInput;
+
+/// 标记键位列表的动态行容器。
+#[derive(Component)]
+pub(crate) struct KeybindList;
+
+/// 标记一行键位条目，用于重建列表时整体清理。
+#[derive(Component)]
+pub(crate) struct KeybindRow;
+
+/// 标记触发重新绑定的键位按钮，并保存其动作。
+#[derive(Component, Clone, Copy)]
+pub(crate) struct KeybindKeyButton {
+    pub(super) action: KeyAction,
+}
+
+/// 键位过滤开关的种类。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum KeybindFilter {
+    /// 仅显示有冲突的条目。
+    Conflicts,
+    /// 仅显示未绑定的条目。
+    Unbound,
+}
+
+/// 标记键位过滤开关按钮。
+#[derive(Component, Clone, Copy)]
+pub(crate) struct KeybindFilterButton {
+    pub(super) filter: KeybindFilter,
+}
+
+/// 标记恢复全部默认键位的按钮。
+#[derive(Component, Default)]
+pub(crate) struct KeybindResetButton;
+
+/// 设置页的页签。
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) enum SettingsTab {
+    /// 通用设置页。
+    #[default]
+    General,
+    /// 键位设置页。
+    Keybinds,
 }
