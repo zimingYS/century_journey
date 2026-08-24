@@ -52,13 +52,17 @@ fn perform_save(
         Ok(()) => {
             mark_save_succeeded(save_manager, player_position, time);
             log::info!(
-                "玩家数据保存成功：{}，累计保存 {} 次",
+                "[存档系统] 玩家数据保存成功：{}，累计 {} 次",
                 path.display(),
                 save_manager.total_saves
             );
         }
         Err(error) => {
-            log::error!("玩家数据保存失败：{}，错误：{}", path.display(), error);
+            log::error!(
+                "[存档系统] 玩家数据保存失败：{}，错误：{}",
+                path.display(),
+                error
+            );
         }
     }
 }
@@ -81,7 +85,7 @@ pub fn save_player_now(
     mark_save_succeeded(save_manager, player_position, time);
 
     log::info!(
-        "玩家数据立即保存成功：{}，累计保存 {} 次",
+        "[存档系统] 玩家数据已即时保存：{}，累计 {} 次",
         path.display(),
         save_manager.total_saves
     );

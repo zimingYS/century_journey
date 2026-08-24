@@ -98,10 +98,16 @@ pub fn load_player_on_enter_system(
     save_manager.set_dirty(SaveDirtySource::Position);
     inventory.set_changed();
 
+    // 存档内为英文枚举串，日志面向玩家侧统一显示中文模式名。
+    let mode_name = if save_data.gamemode.eq_ignore_ascii_case("creative") {
+        "创造"
+    } else {
+        "生存"
+    };
     log::info!(
         "[存档系统] 玩家已生成，位置：{:?}，游戏模式：{}",
         save_data.position,
-        save_data.gamemode
+        mode_name
     );
 }
 /// 使用当前世界的存档整体替换库存，避免光标和最近物品等会话状态跨世界残留。

@@ -23,7 +23,7 @@ impl Plugin for BiomeContentPlugin {
 fn load_biomes_system(mut registry: ResMut<BiomeRegistry>, compilation: Res<ContentCompilation>) {
     let definitions = compilation.content.biomes.clone();
     match registry.replace_definitions(definitions) {
-        Ok(()) => log::info!("[Biome] loaded {} definitions", registry.len()),
-        Err(error) => log::error!("[Biome] failed to build registry: {error}"),
+        Ok(()) => log::info!("[群系] 已加载 {} 个群系定义", registry.len()),
+        Err(error) => log::error!("[群系] 注册表构建失败: {error}"),
     }
 }

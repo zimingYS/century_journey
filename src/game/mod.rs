@@ -8,6 +8,7 @@ pub mod command;
 pub mod crafting;
 pub mod gameplay;
 pub mod inventory;
+pub mod notification;
 pub mod player;
 pub mod plugin_group;
 pub mod save;

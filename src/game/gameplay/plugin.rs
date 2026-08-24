@@ -1,9 +1,7 @@
-//! 组装通用玩法资源和固定步命令系统。
+//! 组装通用玩法资源和固定步系统。
 
-use super::gamemode::{PlayerGameMode, ToggleGameModeRequest, toggle_gamemode_system};
+use super::gamemode::PlayerGameMode;
 use crate::game::gameplay::rules::GameRules;
-use crate::game::simulation::SimulationSet;
-use crate::shared::states::AppState;
 use bevy::prelude::*;
 
 /// Game 层通用玩法插件。
@@ -12,13 +10,6 @@ pub struct GameplayPlugin;
 impl Plugin for GameplayPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PlayerGameMode>()
-            .init_resource::<GameRules>()
-            .add_message::<ToggleGameModeRequest>()
-            .add_systems(
-                FixedUpdate,
-                toggle_gamemode_system
-                    .in_set(SimulationSet::Commands)
-                    .run_if(in_state(AppState::InGame)),
-            );
+            .init_resource::<GameRules>();
     }
 }

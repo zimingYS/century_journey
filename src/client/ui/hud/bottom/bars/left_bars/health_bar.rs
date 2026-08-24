@@ -24,7 +24,7 @@ pub struct HealthBarVisual {
 /// 生成生命值 HUD。
 pub fn spawn_health_bar(mut commands: Commands, bars_hud: Query<Entity, With<LeftBarsHud>>) {
     let Ok(bars_hud_entity) = bars_hud.single() else {
-        log::error!("LEFT BARS HUD NOT FOUND - cannot spawn health bar");
+        log::error!("[HUD] 生命条挂载失败：左侧状态条节点未生成");
         return;
     };
 

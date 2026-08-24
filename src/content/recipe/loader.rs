@@ -15,7 +15,7 @@ pub fn load_recipe_definitions(asset: &AssetManager) -> Vec<(Identifier, RecipeD
     for (asset_path, recipe) in pairs {
         // 去掉统一前缀，提取命名空间与相对路径，与原逻辑等价
         let Some(relative) = asset_path.strip_prefix("definitions/recipes/") else {
-            log::warn!("[Recipe] 跳过无效路径的配方: {}", asset_path);
+            log::warn!("[配方] 跳过无效路径的配方: {}", asset_path);
             continue;
         };
 
@@ -24,17 +24,15 @@ pub fn load_recipe_definitions(asset: &AssetManager) -> Vec<(Identifier, RecipeD
 
         // 分割出命名空间 + 资源路径，对应原 path_to_identifier 的解析规则
         let Some((namespace, path)) = relative.split_once('/') else {
-            log::warn!("[Recipe] 配方路径缺少命名空间: {}", asset_path);
+            log::warn!("[配方] 配方路径缺少命名空间: {}", asset_path);
             continue;
         };
 
-        let identifier = Identifier::new(namespace, path.to_string());
-        log::info!("[Recipe] 加载 {}", identifier);
-        recipes.push((identifier, recipe));
+        recipes.push((Identifier::new(namespace, path.to_string()), recipe));
     }
 
     if recipes.is_empty() {
-        log::info!("[Recipe] 未加载到任何配方定义");
+        log::info!("[配方] 未加载到任何配方定义");
     }
 
     recipes

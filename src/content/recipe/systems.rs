@@ -16,5 +16,5 @@ pub(super) fn load_recipes_system(
         registry.register(id, recipe);
     }
 
-    log::info!("[Recipe] 已加载 {} 个配方", registry.all_recipes().count());
+    log::info!("[配方] 已加载 {} 个配方", registry.all_recipes().count());
 }

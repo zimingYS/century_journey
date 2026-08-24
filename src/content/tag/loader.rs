@@ -51,7 +51,7 @@ pub fn load_tag_actions(asset: &AssetManager) -> Vec<(TagId, TagAction)> {
         let path_str = path_parts.join("/");
 
         let tag_id = TagId::new(namespace, path_str);
-        log::info!("[标签] 加载: {} ({:?})", tag_id.to_full(), action);
+        log::debug!("[标签] 加载: {} ({:?})", tag_id.to_full(), action);
         actions.push((tag_id, action));
     }
 

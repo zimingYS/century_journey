@@ -72,7 +72,7 @@ pub(in crate::game) fn save_to_optional_stack_with_registry(
         match (remap.get(&saved_runtime_id), current_runtime_id) {
             (Some(mapped), Some(current)) if *mapped == current => {
                 if saved_runtime_id != current {
-                    log::info!(
+                    log::debug!(
                         "[存档系统] 物品 {} 动态 ID 已从 {} 重映射为 {}",
                         slot.item,
                         saved_runtime_id,

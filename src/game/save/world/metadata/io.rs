@@ -267,19 +267,28 @@ fn decompress(data: &[u8]) -> prelude::Result<Vec<u8>, SaveError> {
 }
 
 /// 根据存档标识映射把区块方块编号重映射到当前运行时编号。
+///
+/// 未知 ID 的体素替换为空气；按出现次数汇总告警，避免大面积未知时刷屏。
 pub fn remap_chunk_block_ids(
     chunk_data: &mut crate::game::world::chunk::ChunkData,
     saved_id_map: &[(u16, String)],
     current_registry: &BlockRegistry,
 ) {
     let remap = current_registry.build_id_remap_table(saved_id_map);
+    let mut unknown_counts: std::collections::BTreeMap<u16, usize> = Default::default();
     for voxel in chunk_data.voxels.iter_mut() {
         if let Some(&new_id) = remap.get(voxel) {
             *voxel = new_id;
         } else {
-            log::warn!("未知的方块 ID {}，替换为空气", voxel);
+            *unknown_counts.entry(*voxel).or_default() += 1;
             *voxel = 0;
         }
+    }
+    for (unknown_id, count) in unknown_counts {
+        log::warn!(
+            "[存档系统] 未知的方块 ID {} 出现 {count} 次，已替换为空气",
+            unknown_id
+        );
     }
 }
 

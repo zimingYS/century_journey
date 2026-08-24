@@ -2,6 +2,7 @@
 
 pub mod components;
 pub mod console;
+pub mod debug_overlay;
 pub mod hud;
 pub mod interaction;
 pub mod navigation;
@@ -11,6 +12,7 @@ pub mod screens;
 pub mod screenshot_check;
 pub mod state;
 pub mod theme;
+pub mod toast;
 pub mod widgets;
 
 pub use plugin::UIPlugin;

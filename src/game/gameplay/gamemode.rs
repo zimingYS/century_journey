@@ -1,4 +1,4 @@
-//! 定义权威游戏模式状态及其切换命令。
+//! 定义权威游戏模式状态。
 
 use bevy::prelude::*;
 
@@ -36,25 +36,5 @@ impl PlayerGameMode {
     /// 当前是否为生存模式。
     pub fn is_survival(&self) -> bool {
         matches!(self.mode, GameMode::Survival)
-    }
-}
-
-/// 请求在生存与创造模式之间切换一次。
-///
-/// Client 负责把开发快捷键转换成该消息，Game 只在固定步修改权威状态。
-#[derive(Message, Debug, Clone, Copy)]
-pub struct ToggleGameModeRequest;
-
-/// 在固定步中顺序消费游戏模式切换请求。
-pub fn toggle_gamemode_system(
-    mut requests: MessageReader<ToggleGameModeRequest>,
-    mut gamemode: ResMut<PlayerGameMode>,
-) {
-    for _ in requests.read() {
-        gamemode.mode = match gamemode.mode {
-            GameMode::Creative => GameMode::Survival,
-            GameMode::Survival => GameMode::Creative,
-        };
-        info!("游戏模式已改变为：{:?}", gamemode.mode);
     }
 }

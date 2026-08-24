@@ -46,16 +46,16 @@ fn compile_content_system(world: &mut World) {
     };
     if compilation.is_valid() {
         info!(
-            "[Content] compiled {} files into deterministic registries",
+            "[内容] 已编译 {} 个内容文件",
             compilation.report.checked_files
         );
     } else {
         error!(
-            "[Content] compilation failed with {} error(s)",
+            "[内容] 编译失败，共 {} 个错误",
             compilation.report.errors.len()
         );
         for diagnostic in &compilation.report.errors {
-            error!("[Content] {diagnostic}");
+            error!("[内容] {diagnostic}");
         }
     }
     world.insert_resource(compilation);

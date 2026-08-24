@@ -38,7 +38,7 @@ pub fn load_versioned_json_dir<T: DeserializeOwned>(
         .filter_map(|result| match result {
             Ok(value) => Some(value),
             Err(error) => {
-                log::warn!("[Content] {error}");
+                log::warn!("[内容] {error}");
                 None
             }
         })

@@ -2,6 +2,7 @@
 
 use super::constants::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use super::contract::Application;
+use super::logging;
 use crate::app::config::AppConfig;
 use crate::app::runtime::ClientRuntimePluginGroup;
 use crate::game::world::streaming::WorldStreamingConfig;
@@ -10,7 +11,8 @@ use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy::window::{Window, WindowPlugin, WindowPosition, WindowResolution};
 
-const DEFAULT_LOG_FILTER: &str = "info,wgpu_core=warn,wgpu_hal=warn,naga=warn";
+/// wgpu_hal 提到 error：Windows Vulkan 加载器的注册表查询告警是普遍误报，只留真实错误。
+const DEFAULT_LOG_FILTER: &str = "info,wgpu_core=warn,wgpu_hal=error,naga=warn";
 
 fn asset_root_path() -> String {
     if let Some(path) = std::env::var_os("CJ_ASSET_ROOT") {
@@ -83,8 +85,14 @@ impl Application for ClientApplication {
                 })
                 .set(LogPlugin {
                     filter: format!("{DEFAULT_LOG_FILTER},icu_provider=error"),
+                    custom_layer: |_| logging::session_log_layer(),
+                    fmt_layer: |_| logging::console_fmt_layer(),
                     ..default()
                 }),
+        );
+        log::info!(
+            "[应用] Century Journey v{} 客户端启动",
+            env!("CARGO_PKG_VERSION")
         );
         app.insert_resource(world_streaming_config)
             .add_plugins(ClientRuntimePluginGroup);

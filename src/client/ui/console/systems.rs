@@ -9,8 +9,9 @@ use super::components::{
 };
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
+use crate::content::item::registry::ItemRegistry;
 use crate::game::command::components::{CommandOutput, GameCommandSubmitted};
-use crate::game::command::suggest::completions;
+use crate::game::command::suggest::{SuggestContext, completions};
 
 const CONSOLE_VISIBLE_SECONDS: f32 = 5.0;
 /// 单条消息淡出过渡时长（秒）。
@@ -210,6 +211,7 @@ pub fn push_command_output_system(
 /// 向上推移，输入框位置保持不动。
 pub fn update_console_hint_system(
     console: Res<ConsoleState>,
+    item_registry: Res<ItemRegistry>,
     editable_query: Query<&EditableText, With<ConsoleInput>>,
     mut hint_query: Query<(&mut Text, &mut Visibility), With<ConsoleHint>>,
 ) {
@@ -232,7 +234,7 @@ pub fn update_console_hint_system(
         *visibility = Visibility::Hidden;
         return;
     }
-    let suggestions = completions(&line);
+    let suggestions = completions(&line, &SuggestContext::from_registry(&item_registry));
     let mut sections: Vec<String> = suggestions
         .lines
         .iter()

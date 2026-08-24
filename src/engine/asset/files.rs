@@ -59,7 +59,7 @@ impl<'a> AssetFiles<'a> {
         for result in self.read_json_dir_results::<T>(dir_path) {
             match result {
                 Ok(value) => results.push(value),
-                Err(err) => bevy::log::warn!("Failed to load asset: {err}"),
+                Err(err) => bevy::log::warn!("[资产] 加载失败: {err}"),
             }
         }
         results

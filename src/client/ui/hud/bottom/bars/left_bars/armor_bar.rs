@@ -12,7 +12,7 @@ pub struct ArmorBar;
 /// 在左侧生存状态区创建护甲条。
 pub fn spawn_armor_bar(mut commands: Commands, bars_hud: Query<Entity, With<LeftBarsHud>>) {
     let Ok(bars_hud_entity) = bars_hud.single() else {
-        log::error!("LEFT BARS HUD NOT FOUND — cannot spawn armor bar");
+        log::error!("[HUD] 护甲条挂载失败：左侧状态条节点未生成");
         return;
     };
     commands.entity(bars_hud_entity).with_children(|p| {

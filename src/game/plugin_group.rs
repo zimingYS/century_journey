@@ -6,6 +6,7 @@ use crate::game::command::CommandPlugin;
 use crate::game::crafting::CraftingPlugin;
 use crate::game::gameplay::GameplayPlugin;
 use crate::game::inventory::InventoryPlugin;
+use crate::game::notification::NotificationPlugin;
 use crate::game::player::GamePlayerPlugin;
 use crate::game::save::GameSavePlugin;
 use crate::game::simulation::SimulationPlugin;
@@ -27,6 +28,7 @@ impl Plugin for GamePluginGroup {
             GamePlayerPlugin,
             CraftingPlugin,
             GameSavePlugin,
+            NotificationPlugin,
         ));
     }
 }

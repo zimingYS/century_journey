@@ -346,3 +346,14 @@ pub(super) fn finish_fresh_session_system(
         session.fresh_load = false;
     }
 }
+
+/// 进入游戏世界时记录会话开始。
+pub(super) fn log_enter_world_system(session: Res<GameSession>) {
+    let name = session.active_world.as_deref().unwrap_or("未知世界");
+    log::info!("[世界] 已进入世界：{name}");
+}
+
+/// 离开游戏世界（返回主菜单或退出应用）时记录会话结束。
+pub(super) fn log_exit_world_system() {
+    log::info!("[世界] 已退出世界");
+}

@@ -12,7 +12,7 @@ pub struct CenterHud;
 /// 生成中间HUD节点
 pub fn spawn_center_hud_system(mut commands: Commands, hud: Query<Entity, With<HudRoot>>) {
     let Ok(root) = hud.single() else {
-        log::error!("HUD根节点未生成！");
+        log::error!("[HUD] 中央区域挂载失败：HudRoot 未生成");
         return;
     };
 

@@ -32,7 +32,7 @@ pub fn spawn_hotbar_ui_system(
     bottom_hud: Query<Entity, With<BottomHud>>,
 ) {
     let Ok(bottom_hud_entity) = bottom_hud.single() else {
-        log::error!("BOTTOM HUD NOT FOUND — cannot spawn hotbar");
+        log::error!("[HUD] 快捷栏挂载失败：底部区域节点未生成");
         return;
     };
 

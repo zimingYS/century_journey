@@ -22,7 +22,7 @@ pub struct ThirstBarVisual {
 /// 生成口渴值 HUD。
 pub fn spawn_thirst_bar(mut commands: Commands, bars_hud: Query<Entity, With<RightBarsHud>>) {
     let Ok(bars_hud_entity) = bars_hud.single() else {
-        log::error!("BARS HUD NOT FOUND - cannot spawn thirst bar");
+        log::error!("[HUD] 饮水条挂载失败：右侧状态条节点未生成");
         return;
     };
 
