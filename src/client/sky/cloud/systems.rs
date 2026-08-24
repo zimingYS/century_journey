@@ -69,7 +69,7 @@ pub(super) struct CloudSetupParams<'w, 's> {
 pub fn setup_cloud_system(mut commands: Commands, mut params: CloudSetupParams) {
     cleanup_cloud_entities(&mut commands, &mut params.runtime);
     let Some(definition) = params.cloud_registry.primary() else {
-        log::warn!("[Cloud] no cloud definition loaded; skipping cloud setup");
+        log::warn!("[云层] 未加载云层定义，跳过云场构建");
         return;
     };
 
@@ -207,7 +207,7 @@ pub fn setup_cloud_system(mut commands: Commands, mut params: CloudSetupParams) 
     }
 
     log::info!(
-        "[Cloud] spawned {} volume layer(s) and {} patch(es)",
+        "[云层] 已生成 {} 个体积云层与 {} 个近景云片",
         params.runtime.layer_entities.len(),
         params.runtime.patch_entities.len()
     );

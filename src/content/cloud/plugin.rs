@@ -23,5 +23,5 @@ impl Plugin for CloudContentPlugin {
 fn load_clouds_system(mut registry: ResMut<CloudRegistry>, compilation: Res<ContentCompilation>) {
     let definitions = compilation.content.clouds.clone();
     registry.replace_definitions(definitions);
-    log::info!("[Cloud] loaded {} definition(s)", registry.len());
+    log::info!("[云层] 已加载 {} 个云层定义", registry.len());
 }

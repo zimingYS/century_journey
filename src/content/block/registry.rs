@@ -128,7 +128,7 @@ pub fn init_block_registry_system(
     commands.insert_resource(registry);
     next_state.set(AppState::MainMenu);
 
-    info!("[block registry] loaded block definitions and switched to MainMenu");
+    info!("[方块] 已注册方块定义，切换到主菜单");
 }
 
 fn register_blocks(registry: &mut BlockRegistry, mut raw_configs: Vec<BlockProperty>) {

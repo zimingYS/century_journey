@@ -12,12 +12,13 @@ use super::settings_runtime::{
     SettingsPersistenceState, apply_settings_system, load_settings_system, persist_settings_system,
 };
 use super::world_session::{
-    enter_boot_system, finish_fresh_session_system, pause_virtual_time_system,
-    prepare_world_system, request_content_reload_system, resume_virtual_time_system,
-    save_and_quit_system, show_content_errors_system, sync_pause_state_system,
+    enter_boot_system, finish_fresh_session_system, log_enter_world_system, log_exit_world_system,
+    pause_virtual_time_system, prepare_world_system, request_content_reload_system,
+    resume_virtual_time_system, save_and_quit_system, show_content_errors_system,
+    sync_pause_state_system,
 };
 use crate::app::settings::GameSettings;
-use crate::content::lifecycle::ContentReloadSet::Request;
+use crate::content::lifecycle::ContentReloadSet::{Consumers, Request};
 use crate::shared::states::AppState;
 
 /// App 层的菜单、世界会话与设置运行时插件。
@@ -46,6 +47,11 @@ impl Plugin for GameFlowPlugin {
                 OnEnter(AppState::InGame),
                 request_content_reload_system.in_set(Request),
             )
+            .add_systems(
+                OnEnter(AppState::InGame),
+                log_enter_world_system.after(Consumers),
+            )
+            .add_systems(OnExit(AppState::InGame), log_exit_world_system)
             .add_systems(OnEnter(AppState::Paused), pause_virtual_time_system)
             .add_systems(OnExit(AppState::Paused), resume_virtual_time_system)
             .add_systems(

@@ -176,8 +176,12 @@ pub fn bind_player_rig_on_ready(
 
     commands.entity(player).insert(rig_entities);
     commands.entity(scene_root).remove::<PendingPlayerRigBind>();
+    let rig_name = name_query
+        .get(scene_root)
+        .map(|name| name.as_str())
+        .unwrap_or("未命名");
     info!(
-        "[gltf] 玩家 rig 绑定完成: 命名节点={} 手臂mesh={} 身体mesh={}",
+        "[模型] 玩家 rig「{rig_name}」绑定完成: 命名节点={} 手臂mesh={} 身体mesh={}",
         by_name.len(),
         arm_mesh_count,
         body_mesh_count,

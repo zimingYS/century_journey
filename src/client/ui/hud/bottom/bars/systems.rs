@@ -54,7 +54,7 @@ pub fn spawn_bars_hud_system(
     theme: Res<UiTheme>,
 ) {
     let Ok(bottom_entity) = bottom_hud.single() else {
-        log::error!("BOTTOM HUD NOT FOUND - cannot spawn BarsHud");
+        log::error!("[HUD] 状态条挂载失败：底部区域节点未生成");
         return;
     };
 

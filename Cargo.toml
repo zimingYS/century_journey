@@ -10,8 +10,12 @@ readme = "README.md"
 [dependencies]
 bevy = "0.19.0"
 icu_provider = { version = "2.2.0", features = ["logging"] }
-log = { version = "0.4.33", features = ["max_level_debug", "release_max_level_warn"] }
+log = { version = "0.4.33", features = ["max_level_debug", "release_max_level_info"] }
 serde = { version = "1.0.228", features = ["derive"] }
+# 本地时间与日志文件命名
+chrono = "0.4"
+# 自定义日志输出层（写入会话日志文件）
+tracing-subscriber = "0.3"
 # 噪声生成算法
 noise = "0.9.0"
 # 数据存储

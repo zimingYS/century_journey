@@ -10,7 +10,7 @@ pub struct Crosshair;
 /// 在 HUD 中央区域创建固定尺寸准星。
 pub fn spawn_crosshair(mut commands: Commands, hud: Query<Entity, With<CenterHud>>) {
     let Ok(hud_entity) = hud.single() else {
-        log::error!("CENTER HUD NOT FOUND - cannot spawn crosshair");
+        log::error!("[HUD] 准星挂载失败：中央区域节点未生成");
         return;
     };
 

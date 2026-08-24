@@ -10,7 +10,7 @@ pub struct LeftHud;
 /// 生成左边HUD节点
 pub fn spawn_left_hud_system(mut commands: Commands, hud: Query<Entity, With<HudRoot>>) {
     let Ok(root) = hud.single() else {
-        log::error!("HUD根节点未生成！");
+        log::error!("[HUD] 左侧区域挂载失败：HudRoot 未生成");
         return;
     };
 

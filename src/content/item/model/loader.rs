@@ -26,7 +26,7 @@ pub fn load_item_models_system(mut registry: ResMut<ItemModelRegistry>, asset: R
         count += 1;
     }
 
-    info!("[item model registry] loaded {count} item model definitions");
+    info!("[物品模型] 已加载 {} 个物品模型定义", count);
 }
 
 /// 根据模型文件路径推导模型 ID。

@@ -13,7 +13,7 @@ pub struct BottomHud;
 /// 生成底部HUD节点
 pub fn spawn_bottom_hud_system(mut commands: Commands, hud: Query<Entity, With<HudRoot>>) {
     let Ok(root) = hud.single() else {
-        log::error!("HUD根节点未生成！");
+        log::error!("[HUD] 底部区域挂载失败：HudRoot 未生成");
         return;
     };
 

@@ -15,7 +15,7 @@ impl RecipeRegistry {
     /// 把定义注册到运行时索引。
     pub fn register(&mut self, id: Identifier, def: RecipeDefinition) {
         if self.entries.insert(id.clone(), def).is_some() {
-            log::warn!("[Recipe] 重复注册配方：{}", id);
+            log::warn!("[配方] 重复注册配方：{}", id);
         }
     }
 

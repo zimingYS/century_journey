@@ -77,7 +77,7 @@ pub fn auto_save_on_unload_system(
             modified_time,
         ));
     }
-    log::trace!(
+    log::info!(
         "[自动保存] 元数据已保存，{} 个修改区块已进入后台队列",
         save_queue.queue.len()
     );

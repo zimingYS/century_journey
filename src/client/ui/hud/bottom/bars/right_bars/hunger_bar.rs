@@ -24,7 +24,7 @@ pub struct HungerBarVisual {
 /// 生成饥饿值 HUD。
 pub fn spawn_hunger_bar(mut commands: Commands, bars_hud: Query<Entity, With<RightBarsHud>>) {
     let Ok(bars_hud_entity) = bars_hud.single() else {
-        log::error!("BARS HUD NOT FOUND - cannot spawn hunger bar");
+        log::error!("[HUD] 饥饿条挂载失败：右侧状态条节点未生成");
         return;
     };
 

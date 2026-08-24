@@ -7,6 +7,7 @@ mod constants;
 pub mod contract;
 pub mod editor;
 pub mod launcher;
+pub mod logging;
 pub mod mode;
 pub mod server;
 
