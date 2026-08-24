@@ -12,6 +12,7 @@ pub mod screens;
 pub mod screenshot_check;
 pub mod state;
 pub mod theme;
+pub mod toast;
 pub mod widgets;
 
 pub use plugin::UIPlugin;

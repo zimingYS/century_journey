@@ -5,6 +5,7 @@
 use bevy::prelude::*;
 
 use crate::content::block::registry::BlockRegistry;
+use crate::game::notification::{NotificationLevel, PlayerNotification};
 use crate::game::player::identity::Player;
 use crate::game::save;
 use crate::game::save::world::metadata::io;
@@ -34,6 +35,7 @@ pub(super) fn handle_save_debug_commands_system(
     world_generator: Res<crate::game::world::generation::generator::WorldGenerator>,
     mut save_queue: ResMut<SaveQueue>,
     mut save_worker: ResMut<SaveWorker>,
+    mut notifications: MessageWriter<PlayerNotification>,
 ) {
     for command in commands.read().copied() {
         match command {
@@ -44,6 +46,10 @@ pub(super) fn handle_save_debug_commands_system(
                     &mut save_worker,
                 ) {
                     log::error!("[世界] 等待后台区块保存失败: {error}");
+                    notifications.write(PlayerNotification {
+                        text: format!("保存世界失败：{error}"),
+                        level: NotificationLevel::Warning,
+                    });
                     continue;
                 }
                 let spawn_pos = player_query
@@ -60,8 +66,16 @@ pub(super) fn handle_save_debug_commands_system(
                     spawn_pos,
                 ) {
                     log::error!("[世界] 保存世界失败: {error}");
+                    notifications.write(PlayerNotification {
+                        text: format!("保存世界失败：{error}"),
+                        level: NotificationLevel::Warning,
+                    });
                 } else {
                     log::info!("[世界] 世界已保存！");
+                    notifications.write(PlayerNotification {
+                        text: "世界已保存".to_owned(),
+                        level: NotificationLevel::Success,
+                    });
                 }
             }
             SaveDebugCommand::InspectWorldMetadata => {
