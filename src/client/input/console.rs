@@ -5,7 +5,8 @@ use bevy::prelude::*;
 use bevy::text::{EditableText, TextEdit};
 
 use crate::client::ui::console::components::{ConsoleInput, ConsoleLineSubmitted, ConsoleState};
-use crate::game::command::suggest::completions;
+use crate::content::item::registry::ItemRegistry;
+use crate::game::command::suggest::{SuggestContext, completions};
 use crate::shared::states::app_state::AppState;
 
 /// 该系统是控制台输入的单一装配点，参数保持显式以便审查每个可写资源和消息出口。
@@ -15,6 +16,7 @@ pub(super) fn console_keyboard_system(
     app_state: Res<State<AppState>>,
     mut console: ResMut<ConsoleState>,
     mut focus: ResMut<InputFocus>,
+    item_registry: Res<ItemRegistry>,
     input_query: Query<Entity, With<ConsoleInput>>,
     mut input_visibility_query: Query<&mut Visibility, With<ConsoleInput>>,
     mut editable_query: Query<&mut EditableText, With<ConsoleInput>>,
@@ -80,7 +82,8 @@ pub(super) fn console_keyboard_system(
             && !editable.is_composing()
         {
             let line = editable.value().to_string();
-            let candidates = completions(&line).lines;
+            let context = SuggestContext::from_registry(&item_registry);
+            let candidates = completions(&line, &context).lines;
             if let Some(chosen) = console.completion.choose(&line, &candidates) {
                 replace_input_line(&mut editable, &chosen);
             }
