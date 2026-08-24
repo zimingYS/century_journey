@@ -5,7 +5,6 @@ use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 
 use crate::client::camera::FpsCamera;
-use crate::game::gameplay::gamemode::ToggleGameModeRequest;
 use crate::game::player::control::action::{PlayerAction, PlayerActionState};
 use crate::game::player::control::command::{PlayerCommand, PlayerCommandBuffer};
 use crate::game::player::flight::components::ToggleFlightRequest;
@@ -45,7 +44,6 @@ pub(super) struct PlayerActionInput<'w, 's> {
     command_buffer: Option<ResMut<'w, PlayerCommandBuffer>>,
     player_query: Query<'w, 's, &'static Transform, With<LocalPlayer>>,
     camera_query: Query<'w, 's, &'static FpsCamera, With<Camera3d>>,
-    gamemode_requests: MessageWriter<'w, ToggleGameModeRequest>,
     save_debug_commands: MessageWriter<'w, SaveDebugCommand>,
     flight_requests: MessageWriter<'w, ToggleFlightRequest>,
 }
@@ -126,10 +124,6 @@ pub(super) fn collect_player_actions_system(
 
         if input.keyboard.just_pressed(KeyCode::KeyQ) {
             actions.push(PlayerAction::DropItem);
-        }
-
-        if input.keyboard.just_pressed(KeyCode::F4) {
-            input.gamemode_requests.write(ToggleGameModeRequest);
         }
 
         if input.keyboard.just_pressed(KeyCode::F9) {

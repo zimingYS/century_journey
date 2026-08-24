@@ -60,7 +60,7 @@ pub fn spawn_debug_overlay_system(
         });
 }
 
-/// 游戏玩法上下文中按 F3 切换浮层开关；与 F4/F7 的按键门控语义一致。
+/// 游戏玩法上下文中按 F3 切换浮层开关；与 F7 的按键门控语义一致。
 pub fn toggle_debug_overlay_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     context: Res<InputContextState>,
