@@ -9,7 +9,7 @@ use super::contracts::{
     DialogKind, DialogState, FlowCommand, MenuPage, PendingWorld, SaveAndQuitRequest, WorldCatalog,
 };
 use super::settings_runtime::{SettingsPersistenceState, adjust_setting};
-use crate::app::settings::{GameSettings, load_settings, restore_settings_backup};
+use crate::app::settings::{GameSettings, Keybinds, load_settings, restore_settings_backup};
 use crate::content::block::registry::BlockRegistry;
 use crate::content::validation::ContentCompilation;
 use crate::game::save::player::{player_save_path, restore_player_backup};
@@ -31,6 +31,7 @@ pub(super) fn handle_flow_commands_system(
     mut dialog: ResMut<DialogState>,
     mut menu_page: ResMut<MenuPage>,
     mut settings: ResMut<GameSettings>,
+    mut keybinds: ResMut<Keybinds>,
     mut settings_persistence: ResMut<SettingsPersistenceState>,
     compilation: Option<Res<ContentCompilation>>,
     block_registry: Option<Res<BlockRegistry>>,
@@ -154,6 +155,8 @@ pub(super) fn handle_flow_commands_system(
                 app_exit.write(AppExit::Success);
             }
             FlowCommand::AdjustSetting(action) => adjust_setting(&mut settings, *action),
+            FlowCommand::RebindKey(action, binding) => keybinds.set_binding(*action, *binding),
+            FlowCommand::ResetKeybinds => keybinds.reset_all(),
         }
     }
 }

@@ -1,11 +1,8 @@
 /target
 /saves
 /logs
-/config/settings.json
-/config/settings.json.bak
-/config/settings.json.tmp-*
+/config/
 *.log
 .env
 .env.*
 !.env.example
-/config/

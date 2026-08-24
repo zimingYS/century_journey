@@ -5,14 +5,18 @@ use bevy::prelude::*;
 use bevy::text::EditableText;
 
 use super::components::{
-    DialogCancelButton, DialogMessage, DialogRoot, DialogTitle, LoadingDetail, LoadingTitle,
-    SettingValue, SettingsRoot, WorldEntryButton, WorldList, WorldNameInput,
+    DialogCancelButton, DialogMessage, DialogRoot, DialogTitle, KeybindFilterButton,
+    KeybindKeyButton, KeybindList, KeybindRow, LoadingDetail, LoadingTitle, SettingValue,
+    SettingsGeneralPage, SettingsKeybindsPage, SettingsRoot, SettingsTabButton, WorldEntryButton,
+    WorldList, WorldNameInput,
 };
-use super::resources::WorldNameDraft;
+use super::resources::{KeybindsUiState, WorldNameDraft};
 use super::style::body_font;
 use crate::app::flow::{
     DialogKind, DialogState, GameSettings, LoadingStatus, MenuPage, WorldCatalog,
 };
+use crate::app::settings::{KEY_ACTIONS, KeyAction, Keybinds, action_label, binding_display};
+use crate::client::input::RebindCapture;
 use crate::client::ui::navigation::{UiScreen, UiScreenRoot, UiScreenStack};
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
@@ -243,4 +247,192 @@ pub(crate) fn sync_setting_values_system(
             SettingValue::Vsync => if settings.vsync { "开启" } else { "关闭" }.to_string(),
         });
     }
+}
+
+/// 同步设置页页签：页面可见性、页签选中态和过滤开关选中态。
+///
+/// 页面查询必须限定到两个页面容器；无界查询会把相机与整个主菜单
+/// 一并隐藏，导致设置页之外的画面全部消失（黑屏）。
+pub(crate) fn sync_settings_tabs_system(
+    ui_state: Res<KeybindsUiState>,
+    mut general_page: Query<&mut Node, (With<SettingsGeneralPage>, Without<SettingsKeybindsPage>)>,
+    mut keybinds_page: Query<&mut Node, (With<SettingsKeybindsPage>, Without<SettingsGeneralPage>)>,
+    mut tab_query: Query<(&SettingsTabButton, &mut UiControl), Without<KeybindFilterButton>>,
+    mut filter_query: Query<(&KeybindFilterButton, &mut UiControl), Without<SettingsTabButton>>,
+) {
+    if !ui_state.is_changed() {
+        return;
+    }
+    let on_keybinds = ui_state.tab == super::components::SettingsTab::Keybinds;
+    // 两页为兄弟节点并列，用 display 切换而非 Visibility：
+    // Visibility::Hidden 仍参与布局，隐藏页会占据高度，把当前页挤出可视区域。
+    if let Ok(mut node) = general_page.single_mut() {
+        node.display = if on_keybinds {
+            Display::None
+        } else {
+            Display::Flex
+        };
+    }
+    if let Ok(mut node) = keybinds_page.single_mut() {
+        node.display = if on_keybinds {
+            Display::Flex
+        } else {
+            Display::None
+        };
+    }
+    for (button, mut control) in &mut tab_query {
+        control.selected = button.tab == ui_state.tab;
+    }
+    for (button, mut control) in &mut filter_query {
+        control.selected = match button.filter {
+            super::components::KeybindFilter::Conflicts => ui_state.conflicts_only,
+            super::components::KeybindFilter::Unbound => ui_state.unbound_only,
+        };
+    }
+}
+
+/// 把键位搜索框内容同步到界面状态，并触发列表重建。
+pub(crate) fn sync_keybinds_search_system(
+    query: Query<
+        &EditableText,
+        (
+            With<super::components::KeybindSearchInput>,
+            Changed<EditableText>,
+        ),
+    >,
+    mut ui_state: ResMut<KeybindsUiState>,
+) {
+    let Ok(editable) = query.single() else {
+        return;
+    };
+    let text = editable.value().to_string();
+    if text != ui_state.search {
+        ui_state.search = text;
+        ui_state.list_dirty = true;
+    }
+}
+
+/// 在搜索、过滤或绑定变化时重建键位列表。
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+pub(crate) fn populate_keybind_list_system(
+    keybinds: Res<Keybinds>,
+    ui_state: Res<KeybindsUiState>,
+    capture: Res<RebindCapture>,
+    list_query: Query<Entity, With<KeybindList>>,
+    children_query: Query<&Children>,
+    mut commands: Commands,
+    theme: Res<UiTheme>,
+    ui_font: Res<UiFont>,
+) {
+    let needs_rebuild = ui_state.list_dirty || keybinds.is_changed() || capture.is_changed();
+    if !needs_rebuild {
+        return;
+    }
+    let Ok(list) = list_query.single() else {
+        return;
+    };
+    if let Ok(children) = children_query.get(list) {
+        for child in children.iter() {
+            commands.entity(child).despawn();
+        }
+    }
+
+    let visible = KEY_ACTIONS
+        .iter()
+        .filter(|spec| {
+            keybinds.matches_filter(
+                spec.action,
+                &ui_state.search,
+                ui_state.conflicts_only,
+                ui_state.unbound_only,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    commands.entity(list).with_children(|parent| {
+        if visible.is_empty() {
+            parent.spawn((
+                Text::new("没有匹配的键位"),
+                body_font(&ui_font, 14.0),
+                TextColor(theme.text_hint),
+            ));
+            return;
+        }
+        for spec in visible {
+            spawn_keybind_row(
+                parent,
+                spec.action,
+                &keybinds,
+                capture.listening,
+                &theme,
+                &ui_font,
+            );
+        }
+    });
+}
+
+/// 生成一行键位条目：动作名、冲突提示与键位按钮。
+fn spawn_keybind_row(
+    parent: &mut ChildSpawnerCommands,
+    action: KeyAction,
+    keybinds: &Keybinds,
+    listening: Option<KeyAction>,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+) {
+    let partners = keybinds.conflict_partners(action);
+    let listening_here = listening == Some(action);
+    let key_label = if listening_here {
+        "按任意键…".to_string()
+    } else {
+        binding_display(keybinds.binding(action))
+    };
+
+    parent
+        .spawn((
+            KeybindRow,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Px(40.0),
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(10.0),
+                ..default()
+            },
+        ))
+        .with_children(|row| {
+            row.spawn((
+                Text::new(action_label(action)),
+                body_font(ui_font, 14.0),
+                TextColor(theme.text_secondary),
+                Node {
+                    flex_grow: 1.0,
+                    ..default()
+                },
+            ));
+            if !partners.is_empty() {
+                let hint = format!("冲突：{}", partners.join("、"));
+                row.spawn((
+                    Text::new(hint),
+                    body_font(ui_font, 12.0),
+                    TextColor(theme.warning),
+                    Node {
+                        width: Val::Px(220.0),
+                        ..default()
+                    },
+                ));
+            }
+            let entity = spawn_text_button(
+                row,
+                KeybindKeyButton { action },
+                &key_label,
+                UiControlKind::Button,
+                theme,
+                ui_font,
+            );
+            row.commands().entity(entity).insert(UiControl {
+                kind: UiControlKind::Button,
+                selected: listening_here,
+                disabled: false,
+            });
+        });
 }

@@ -4,6 +4,7 @@ use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 
 use crate::app::flow::{DialogState, FlowCommand, MenuPage};
+use crate::app::settings::{KeyAction, Keybinds};
 use crate::client::ui::navigation::UiNavigation;
 use crate::client::ui::state::SearchInputState;
 use crate::game::inventory::events::InventoryCommand;
@@ -36,6 +37,8 @@ pub enum InterfaceCommand {
 #[allow(clippy::too_many_arguments)]
 pub(super) fn handle_interface_input_system(
     keyboard: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    keybinds: Res<Keybinds>,
     app_state: Res<State<AppState>>,
     mut commands: MessageReader<InterfaceCommand>,
     inventory: LocalInventory,
@@ -81,7 +84,7 @@ pub(super) fn handle_interface_input_system(
         }
     } else if keyboard.just_pressed(KeyCode::Enter) && text_active {
         Some(InterfaceCommand::ClearTextFocus)
-    } else if keyboard.just_pressed(KeyCode::KeyE)
+    } else if keybinds.is_just_pressed(KeyAction::ToggleInventory, &keyboard, &mouse)
         && *app_state.get() == AppState::InGame
         && !text_active
         && !context.menu_open()

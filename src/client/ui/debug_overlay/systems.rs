@@ -3,6 +3,7 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
+use crate::app::settings::{KeyAction, Keybinds};
 use crate::client::camera::FpsCamera;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
@@ -60,13 +61,17 @@ pub fn spawn_debug_overlay_system(
         });
 }
 
-/// 游戏玩法上下文中按 F3 切换浮层开关；与 F7 的按键门控语义一致。
+/// 游戏玩法上下文中按调试浮层键切换开关；与骨架调试的按键门控语义一致。
 pub fn toggle_debug_overlay_system(
     keyboard: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    keybinds: Res<Keybinds>,
     context: Res<InputContextState>,
     mut state: ResMut<DebugOverlayState>,
 ) {
-    if context.active().allows_gameplay() && keyboard.just_pressed(KeyCode::F3) {
+    if context.active().allows_gameplay()
+        && keybinds.is_just_pressed(KeyAction::ToggleDebugOverlay, &keyboard, &mouse)
+    {
         state.visible = !state.visible;
     }
 }

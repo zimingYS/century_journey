@@ -6,7 +6,8 @@ use bevy::window::{MonitorSelection, PresentMode, PrimaryWindow, WindowMode};
 
 use super::contracts::{DialogKind, DialogState, SettingAction};
 use crate::app::settings::{
-    GameSettings, load_settings, save_settings, settings_backup_available, settings_file_exists,
+    GameSettings, Keybinds, load_keybinds, load_settings, save_keybinds, save_settings,
+    settings_backup_available, settings_file_exists,
 };
 use crate::client::ui::theme::scale::UiScaleSettings;
 use crate::game::world::streaming::WorldStreamingConfig;
@@ -16,6 +17,47 @@ use crate::game::world::streaming::WorldStreamingConfig;
 pub(super) struct SettingsPersistenceState {
     pub(super) last_saved: GameSettings,
     pub(super) blocked: bool,
+}
+
+/// 记录最近成功写盘的键位表，避免每帧重复保存。
+#[derive(Resource, Debug, Default)]
+pub(super) struct KeybindsPersistenceState {
+    pub(super) last_saved: Keybinds,
+}
+
+/// 启动时加载键位；文件缺失时写入默认表便于玩家手编，解析失败保留默认并告警。
+pub(super) fn load_keybinds_system(
+    mut keybinds: ResMut<Keybinds>,
+    mut persistence_state: ResMut<KeybindsPersistenceState>,
+) {
+    if !crate::app::settings::keybinds_path().exists() {
+        if let Err(error) = save_keybinds(&keybinds) {
+            log::warn!("[键位] 写入默认键位配置失败: {error}");
+        }
+        persistence_state.last_saved = keybinds.clone();
+        return;
+    }
+    match load_keybinds() {
+        Ok(loaded) => {
+            *keybinds = loaded.clone();
+            persistence_state.last_saved = loaded;
+        }
+        Err(error) => log::warn!("[键位] {error}，本次会话使用默认键位"),
+    }
+}
+
+/// 键位变更后自动写盘；失败仅告警不阻断，下次变更会重试。
+pub(super) fn persist_keybinds_system(
+    keybinds: Res<Keybinds>,
+    mut persistence_state: ResMut<KeybindsPersistenceState>,
+) {
+    if *keybinds == persistence_state.last_saved {
+        return;
+    }
+    match save_keybinds(&keybinds) {
+        Ok(()) => persistence_state.last_saved = keybinds.clone(),
+        Err(error) => log::warn!("[键位] 键位保存失败: {error}"),
+    }
 }
 
 /// 应用一次设置调整，并把结果限制在运行时支持范围内。

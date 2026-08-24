@@ -2,6 +2,8 @@
 
 use bevy::prelude::*;
 
+use crate::app::settings::{BindingKey, KeyAction};
+
 /// 当前单机游戏会话的应用级状态。
 #[derive(Resource, Debug, Default)]
 pub struct GameSession {
@@ -158,6 +160,10 @@ pub enum FlowCommand {
     QuitApplication,
     /// 调整一项应用设置。
     AdjustSetting(SettingAction),
+    /// 修改一个键位绑定；None 表示解除绑定。
+    RebindKey(KeyAction, Option<BindingKey>),
+    /// 恢复全部键位为默认布局。
+    ResetKeybinds,
 }
 
 /// 延迟到 Update 流程执行的保存退出请求。
