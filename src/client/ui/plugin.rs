@@ -10,6 +10,7 @@ use super::widgets::UiWidgetsPlugin;
 use super::widgets::slot::{CategoryClickedEvent, SearchInputState};
 use super::{hud::plugin::HudPlugin, resources};
 use crate::client::ui::console::plugin::ConsolePlugin;
+use crate::client::ui::debug_overlay::plugin::DebugOverlayPlugin;
 use bevy::prelude::*;
 
 /// Client 层界面的聚合插件。
@@ -34,6 +35,7 @@ impl Plugin for UIPlugin {
                 UiInteractionPlugin,
                 UiScreensPlugin,
                 ConsolePlugin,
+                DebugOverlayPlugin,
             ));
     }
 }

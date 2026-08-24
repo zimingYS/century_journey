@@ -2,6 +2,7 @@
 
 pub mod components;
 pub mod console;
+pub mod debug_overlay;
 pub mod hud;
 pub mod interaction;
 pub mod navigation;
