@@ -5,6 +5,7 @@
 use bevy::prelude::*;
 
 use crate::content::block::registry::BlockRegistry;
+use crate::engine::localization::Localization;
 use crate::game::notification::{NotificationLevel, PlayerNotification};
 use crate::game::player::identity::Player;
 use crate::game::save;
@@ -35,6 +36,7 @@ pub(super) fn handle_save_debug_commands_system(
     world_generator: Res<crate::game::world::generation::generator::WorldGenerator>,
     mut save_queue: ResMut<SaveQueue>,
     mut save_worker: ResMut<SaveWorker>,
+    localization: Res<Localization>,
     mut notifications: MessageWriter<PlayerNotification>,
 ) {
     for command in commands.read().copied() {
@@ -47,7 +49,8 @@ pub(super) fn handle_save_debug_commands_system(
                 ) {
                     log::error!("[世界] 等待后台区块保存失败: {error}");
                     notifications.write(PlayerNotification {
-                        text: format!("保存世界失败：{error}"),
+                        text: localization
+                            .format("notice.save-failed", &[("error", &error.to_string())]),
                         level: NotificationLevel::Warning,
                     });
                     continue;
@@ -67,13 +70,14 @@ pub(super) fn handle_save_debug_commands_system(
                 ) {
                     log::error!("[世界] 保存世界失败: {error}");
                     notifications.write(PlayerNotification {
-                        text: format!("保存世界失败：{error}"),
+                        text: localization
+                            .format("notice.save-failed", &[("error", &error.to_string())]),
                         level: NotificationLevel::Warning,
                     });
                 } else {
                     log::info!("[世界] 世界已保存！");
                     notifications.write(PlayerNotification {
-                        text: "世界已保存".to_owned(),
+                        text: localization.get("notice.world-saved").to_owned(),
                         level: NotificationLevel::Success,
                     });
                 }

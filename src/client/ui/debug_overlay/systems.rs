@@ -7,6 +7,7 @@ use crate::app::settings::{KeyAction, Keybinds};
 use crate::client::camera::FpsCamera;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
+use crate::engine::localization::Localization;
 use crate::game::gameplay::rules::GameRules;
 use crate::game::player::identity::LocalPlayer;
 use crate::game::world::chunk::ChunkState;
@@ -119,6 +120,7 @@ pub fn update_debug_overlay_text_system(
     time: Res<Time>,
     mut state: ResMut<DebugOverlayState>,
     sources: DebugOverlaySources,
+    localization: Res<Localization>,
     mut text_query: Query<&mut Text, With<DebugOverlayText>>,
 ) {
     let delta = time.delta_secs();
@@ -136,7 +138,7 @@ pub fn update_debug_overlay_text_system(
         return;
     };
     let data = collect_overlay_data(&state, &sources);
-    text.0 = info::build_lines(&data);
+    text.0 = info::build_lines(&data, &localization);
 }
 
 /// 指数滑动平均；首次采样直接采用当前值。

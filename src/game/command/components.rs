@@ -12,6 +12,6 @@ pub struct GameCommandSubmitted {
 /// 指令执行结果回显，由客户端控制台 UI 消费展示。
 #[derive(Message, Debug, Clone)]
 pub struct CommandOutput {
-    /// 面向玩家的中文反馈文本。
+    /// 面向玩家的反馈文本，已按当前语言完成本地化。
     pub text: String,
 }

@@ -19,12 +19,25 @@ use crate::engine::localization::Localization;
 pub struct LocalizedText {
     /// 点号分隔的翻译键。
     pub key: String,
+    /// 键缺失时的兜底文本；数据驱动的动态键（如创造分类）使用。
+    pub fallback: Option<String>,
 }
 
 impl LocalizedText {
     /// 用翻译键创建标记。
     pub fn new(key: impl Into<String>) -> Self {
-        Self { key: key.into() }
+        Self {
+            key: key.into(),
+            fallback: None,
+        }
+    }
+
+    /// 用翻译键与兜底文本创建标记；查不到键时显示兜底而非键名。
+    pub fn with_fallback(key: impl Into<String>, fallback: impl Into<String>) -> Self {
+        Self {
+            key: key.into(),
+            fallback: Some(fallback.into()),
+        }
     }
 }
 
@@ -46,13 +59,17 @@ pub fn refresh_localized_text_system(
         return;
     }
     for (entity, tag, children) in &markers {
-        if let Ok(mut text) = texts.get_mut(entity) {
-            *text = Text::new(localization.get(&tag.key));
+        let text = match tag.fallback.as_deref() {
+            Some(fallback) => localization.get_or(&tag.key, fallback),
+            None => localization.get(&tag.key),
+        };
+        if let Ok(mut t) = texts.get_mut(entity) {
+            *t = Text::new(text);
         }
         if let Some(children) = children {
             for child in children {
-                if let Ok(mut text) = texts.get_mut(*child) {
-                    *text = Text::new(localization.get(&tag.key));
+                if let Ok(mut t) = texts.get_mut(*child) {
+                    *t = Text::new(text);
                 }
             }
         }
@@ -76,3 +93,7 @@ pub fn spawn_localized_button<M: Bundle>(
         .insert(LocalizedText::new(key));
     entity
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/client/ui/localization.rs"]
+mod tests;

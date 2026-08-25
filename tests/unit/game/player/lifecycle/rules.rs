@@ -20,6 +20,11 @@ fn damage_death_drop_and_respawn_form_a_state_machine() {
         .init_resource::<PlayerGameMode>()
         .init_resource::<DeathRules>()
         .init_resource::<LastDeathInfo>()
+        // death_system 用本地化资源渲染死亡原因日志，注入空资源即可回退到键名。
+        .insert_resource(crate::engine::localization::Localization::new(
+            Vec::new(),
+            std::collections::BTreeMap::new(),
+        ))
         .add_message::<DamageEvent>()
         .add_message::<DeathEvent>()
         .add_message::<RespawnRequest>()

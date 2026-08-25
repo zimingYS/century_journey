@@ -26,14 +26,19 @@ pub(crate) fn spawn_menu_screens_system(
     ui_font: Res<UiFont>,
     localization: Res<Localization>,
 ) {
-    spawn_loading_screen(&mut commands, &theme, &ui_font);
+    spawn_loading_screen(&mut commands, &theme, &ui_font, &localization);
     spawn_main_menu(&mut commands, &theme, &ui_font, &localization);
     spawn_pause_menu(&mut commands, &theme, &ui_font, &localization);
     spawn_settings_screens(&mut commands, &theme, &ui_font, &localization);
 }
 
-/// 加载屏文案由应用流程的 `LoadingStatus` 动态写入，暂不参与本地化。
-fn spawn_loading_screen(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
+/// 加载屏初始文案与 `LoadingStatus` 默认值保持一致；后续由应用流程动态写入。
+fn spawn_loading_screen(
+    commands: &mut Commands,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+    localization: &Localization,
+) {
     commands
         .spawn((
             UiScreenRoot::new(UiScreen::Loading),
@@ -60,13 +65,13 @@ fn spawn_loading_screen(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFo
             .with_children(|panel| {
                 panel.spawn((
                     LoadingTitle,
-                    Text::new("正在启动"),
+                    Text::new(localization.get("loading.title-boot")),
                     title_font(ui_font, 28.0),
                     TextColor(theme.text_primary),
                 ));
                 panel.spawn((
                     LoadingDetail,
-                    Text::new("正在加载内容资源..."),
+                    Text::new(localization.get("loading.detail-content")),
                     body_font(ui_font, 15.0),
                     TextColor(theme.text_secondary),
                 ));

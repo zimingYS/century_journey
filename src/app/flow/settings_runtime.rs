@@ -152,18 +152,19 @@ pub(super) fn load_settings_system(
     mut settings: ResMut<GameSettings>,
     mut persistence_state: ResMut<SettingsPersistenceState>,
     mut dialog: ResMut<DialogState>,
+    localization: Res<Localization>,
 ) {
     if !settings_file_exists() {
         if settings_backup_available() {
             persistence_state.blocked = true;
             dialog.kind = Some(DialogKind::ConfirmRecoverSettings);
-            dialog.title = "发现设置备份".into();
-            dialog.message = "主设置文件缺失，是否恢复最近一次有效备份？".into();
+            dialog.title = localization.get("dialog.settings-backup-found").to_owned();
+            dialog.message = localization.get("dialog.settings-missing").to_owned();
             return;
         }
         if let Err(error) = save_settings(&settings) {
             persistence_state.blocked = true;
-            dialog.error("设置保存失败", error);
+            dialog.error(localization.get("dialog.settings-save-failed"), error);
         }
         persistence_state.last_saved = settings.clone();
         return;
@@ -177,12 +178,15 @@ pub(super) fn load_settings_system(
         Err(error) if settings_backup_available() => {
             persistence_state.blocked = true;
             dialog.kind = Some(DialogKind::ConfirmRecoverSettings);
-            dialog.title = "设置文件损坏".into();
-            dialog.message = format!("当前设置无法读取：{error}\n是否恢复最近一次有效备份？");
+            dialog.title = localization.get("dialog.settings-corrupt").to_owned();
+            dialog.message = localization.format(
+                "dialog.settings-unreadable",
+                &[("error", &error.to_string())],
+            );
         }
         Err(error) => {
             persistence_state.blocked = true;
-            dialog.error("设置加载失败", error);
+            dialog.error(localization.get("dialog.settings-load-failed"), error);
         }
     }
 }
@@ -192,6 +196,7 @@ pub(super) fn persist_settings_system(
     settings: Res<GameSettings>,
     mut persistence_state: ResMut<SettingsPersistenceState>,
     mut dialog: ResMut<DialogState>,
+    localization: Res<Localization>,
 ) {
     if persistence_state.blocked || *settings == persistence_state.last_saved {
         return;
@@ -200,7 +205,7 @@ pub(super) fn persist_settings_system(
         Ok(()) => persistence_state.last_saved = settings.clone(),
         Err(error) => {
             persistence_state.blocked = true;
-            dialog.error("设置保存失败", error);
+            dialog.error(localization.get("dialog.settings-save-failed"), error);
         }
     }
 }

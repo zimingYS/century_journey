@@ -35,8 +35,8 @@ pub struct LanguageInfo {
 /// 本地化查询资源：持有全部已加载语言的翻译表与当前激活语言。
 ///
 /// 查询回退链固定为「激活语言 -> 回退语言 -> 键本身」；切换语言只改变
-/// 激活项，不重新读取文件。资源在 `PreStartup` 阶段注入，保证任何
-/// `Startup` 阶段的界面构建都能取到译文。
+/// 激活项，不重新读取文件。资源在 LocalizationPlugin 构建期注入
+/// （早于全部调度阶段），保证任何界面构建都能取到译文。
 #[derive(Resource, Debug, Clone)]
 pub struct Localization {
     /// 已加载语言，按标识排序保证设置界面的遍历顺序稳定。
@@ -107,6 +107,29 @@ impl Localization {
             return text.as_str();
         }
         key
+    }
+
+    /// 按回退链查询译文；两级都缺失时返回调用方提供的兜底值。
+    ///
+    /// 供内容数据（如 JSON `display_name`）驱动的文案使用：键缺失时退回
+    /// 内容自带的文本而不是键名，避免界面直接暴露内部键。
+    pub fn get_or<'a>(&'a self, key: &'a str, fallback: &'a str) -> &'a str {
+        let fallback_language = LanguageId::new(FALLBACK_LANGUAGE);
+        if let Some(text) = self
+            .tables
+            .get(&self.active)
+            .and_then(|table| table.get(key))
+        {
+            return text.as_str();
+        }
+        if let Some(text) = self
+            .tables
+            .get(&fallback_language)
+            .and_then(|table| table.get(key))
+        {
+            return text.as_str();
+        }
+        fallback
     }
 
     /// 查询译文并完成 `{name}` 占位符插值；未知占位符原样保留。

@@ -74,13 +74,16 @@ pub fn spawn_empty_slot(
 }
 
 /// 生成带短占位标记的空槽位，用于装备栏和饰品栏。
+///
+/// 占位文字以本地化键传入，实体带 [`LocalizedText`] 标记以便语言切换后刷新。
 pub fn spawn_empty_slot_with_placeholder(
     parent: &mut ChildSpawnerCommands,
     kind: SlotKind,
     index: usize,
-    placeholder: &str,
+    placeholder_key: &str,
     theme: &UiTheme,
     ui_font: &UiFont,
+    localization: &crate::engine::localization::Localization,
 ) {
     parent
         .spawn((
@@ -132,7 +135,8 @@ pub fn spawn_empty_slot_with_placeholder(
             ));
             slot.spawn((
                 SlotPlaceholder,
-                Text::new(placeholder.to_string()),
+                crate::client::ui::localization::LocalizedText::new(placeholder_key),
+                Text::new(localization.get(placeholder_key)),
                 TextFont {
                     font: FontSource::from(ui_font.default.clone()),
                     font_size: FontSize::Px(theme.small_font_size),

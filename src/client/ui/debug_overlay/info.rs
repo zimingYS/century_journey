@@ -1,42 +1,44 @@
 //! 调试浮层的纯文本组织逻辑：罗盘方位判定、季节标签与行文本组装。
 //!
 //! 本模块不读取 ECS 资源，数据由调用方采集后传入，便于单元测试。
+//! 方位与季节返回本地化键，由 [`build_lines`] 查表得到最终译文。
 
+use crate::engine::localization::Localization;
 use crate::game::world::time::Season;
 use bevy::math::{IVec3, Vec3};
 
-/// 依据前向向量判定八向罗盘方位。
+/// 依据前向向量判定八向罗盘方位，返回 `debug.direction.*` 本地化键。
 ///
 /// 方向约定与主流体素游戏一致：北为 -Z、东为 +X，每 45 度一个扇区。
 pub fn compass_direction(forward: Vec3) -> &'static str {
     // 北 = -Z（角度 0），东 = +X（角度 90 度），角度顺时针展开。
     let angle = forward.x.atan2(-forward.z).to_degrees().rem_euclid(360.0) as i32;
     match angle {
-        0..=22 | 337.. => "北",
-        23..=67 => "东北",
-        68..=112 => "东",
-        113..=157 => "东南",
-        158..=202 => "南",
-        203..=247 => "西南",
-        248..=292 => "西",
-        _ => "西北",
+        0..=22 | 337.. => "debug.direction.north",
+        23..=67 => "debug.direction.north-east",
+        68..=112 => "debug.direction.east",
+        113..=157 => "debug.direction.south-east",
+        158..=202 => "debug.direction.south",
+        203..=247 => "debug.direction.south-west",
+        248..=292 => "debug.direction.west",
+        _ => "debug.direction.north-west",
     }
 }
 
-/// 返回季节的中文单字标签。
+/// 返回季节的本地化键（`debug.season.*`）。
 pub fn season_label(season: Season) -> &'static str {
     match season {
-        Season::Spring => "春",
-        Season::Summer => "夏",
-        Season::Autumn => "秋",
-        Season::Winter => "冬",
+        Season::Spring => "debug.season.spring",
+        Season::Summer => "debug.season.summer",
+        Season::Autumn => "debug.season.autumn",
+        Season::Winter => "debug.season.winter",
     }
 }
 
 /// 玩家朝向信息：罗盘方位与两个欧拉角（角度制）。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FacingInfo {
-    /// 八向罗盘方位中文名。
+    /// 八向罗盘方位的本地化键。
     pub direction: &'static str,
     /// 偏航角（绕 Y 轴，度）。
     pub yaw_deg: f32,
@@ -62,7 +64,7 @@ pub struct ClockInfo {
     pub hour: u8,
     /// 当前分钟（0..60）。
     pub minute: u8,
-    /// 季节中文标签。
+    /// 季节本地化键。
     pub season: &'static str,
     /// 当前时间流速倍率。
     pub time_scale: f32,
@@ -102,58 +104,93 @@ pub struct DebugOverlayData {
     pub simulation_tick: Option<u64>,
 }
 
-/// 把采集数据组装为浮层的多行文本（以换行分隔）。
-pub fn build_lines(data: &DebugOverlayData) -> String {
-    let mut lines = vec!["Century Journey 调试（F3 隐藏）".to_owned()];
-    lines.push(format!("FPS {:.0}（{:.1} ms/帧）", data.fps, data.frame_ms));
+/// 把采集数据组装为浮层的多行文本（以换行分隔），文案查本地化表。
+pub fn build_lines(data: &DebugOverlayData, localization: &Localization) -> String {
+    let mut lines = vec![localization.get("debug.title").to_owned()];
+    lines.push(localization.format(
+        "debug.fps",
+        &[
+            ("fps", &format!("{:.0}", data.fps)),
+            ("ms", &format!("{:.1}", data.frame_ms)),
+        ],
+    ));
 
     match data.position {
-        Some(position) => lines.push(format!(
-            "坐标：({:.1}, {:.1}, {:.1})",
-            position.x, position.y, position.z
+        Some(position) => lines.push(localization.format(
+            "debug.position",
+            &[
+                ("x", &format!("{:.1}", position.x)),
+                ("y", &format!("{:.1}", position.y)),
+                ("z", &format!("{:.1}", position.z)),
+            ],
         )),
-        None => lines.push("坐标：暂无玩家实体".to_owned()),
+        None => lines.push(localization.get("debug.position-none").to_owned()),
     }
     match (data.chunk, data.facing) {
         (Some(chunk), facing) => {
-            lines.push(format!(
-                "区块：({}, {}, {}) 局部 ({}, {}, {})",
-                chunk.chunk.x,
-                chunk.chunk.y,
-                chunk.chunk.z,
-                chunk.local.x,
-                chunk.local.y,
-                chunk.local.z
+            lines.push(localization.format(
+                "debug.chunk",
+                &[
+                    ("x", &chunk.chunk.x.to_string()),
+                    ("y", &chunk.chunk.y.to_string()),
+                    ("z", &chunk.chunk.z.to_string()),
+                    ("lx", &chunk.local.x.to_string()),
+                    ("ly", &chunk.local.y.to_string()),
+                    ("lz", &chunk.local.z.to_string()),
+                ],
             ));
             if let Some(facing) = facing {
-                lines.push(format!(
-                    "朝向：{}（偏航 {:+.1}°，俯仰 {:+.1}°）",
-                    facing.direction, facing.yaw_deg, facing.pitch_deg
+                lines.push(localization.format(
+                    "debug.facing",
+                    &[
+                        ("direction", localization.get(facing.direction)),
+                        ("yaw", &format!("{:+.1}", facing.yaw_deg)),
+                        ("pitch", &format!("{:+.1}", facing.pitch_deg)),
+                    ],
                 ));
             }
         }
-        (None, _) => lines.push("区块：暂无玩家实体".to_owned()),
+        (None, _) => lines.push(localization.get("debug.chunk-none").to_owned()),
     }
     match data.clock {
-        Some(clock) => lines.push(format!(
-            "时间：第 {} 日 {:02}:{:02}（{}，倍率 {}）",
-            clock.game_day, clock.hour, clock.minute, clock.season, clock.time_scale
+        Some(clock) => lines.push(localization.format(
+            "debug.time",
+            &[
+                ("day", &clock.game_day.to_string()),
+                ("hour", &format!("{:02}", clock.hour)),
+                ("minute", &format!("{:02}", clock.minute)),
+                ("season", localization.get(clock.season)),
+                ("scale", &format_number(clock.time_scale)),
+            ],
         )),
-        None => lines.push("时间：世界时钟未就绪".to_owned()),
+        None => lines.push(localization.get("debug.time-none").to_owned()),
     }
     if let Some(seed) = data.seed {
-        lines.push(format!("种子：{seed}"));
+        lines.push(localization.format("debug.seed", &[("seed", &seed.to_string())]));
     }
     if let Some(counts) = data.chunk_counts {
-        lines.push(format!(
-            "区块计数：已加载 {}，预期 {}，已渲染 {}",
-            counts.loaded, counts.expected, counts.rendered
+        lines.push(localization.format(
+            "debug.chunk-count",
+            &[
+                ("loaded", &counts.loaded.to_string()),
+                ("expected", &counts.expected.to_string()),
+                ("rendered", &counts.rendered.to_string()),
+            ],
         ));
     }
     if let Some(tick) = data.simulation_tick {
-        lines.push(format!("模拟刻：{tick}"));
+        lines.push(localization.format("debug.tick", &[("tick", &tick.to_string())]));
     }
     lines.join("\n")
+}
+
+/// 时间倍率展示：整数值去掉小数点，避免「2.0 倍」的冗余。
+fn format_number(value: f32) -> String {
+    if (value - value.round()).abs() < f32::EPSILON {
+        format!("{}", value.round() as i64)
+    } else {
+        format!("{value}")
+    }
 }
 
 #[cfg(test)]

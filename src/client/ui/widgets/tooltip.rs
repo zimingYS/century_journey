@@ -7,7 +7,9 @@ use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::SlotVisual;
 use crate::content::item::ItemRegistry;
+use crate::content::item::definition::tool::{ToolTier, ToolType};
 use crate::content::item::definition::{ItemCategory, ItemDefinition};
+use crate::engine::localization::Localization;
 
 const TOOLTIP_WIDTH: f32 = 292.0;
 const CURSOR_OFFSET: f32 = 16.0;
@@ -83,6 +85,7 @@ pub(crate) fn item_tooltip_system(
     mut cursor_events: MessageReader<CursorMoved>,
     ui_scale: Res<UiScale>,
     item_registry: Option<Res<ItemRegistry>>,
+    localization: Res<Localization>,
     slot_query: Query<(&Interaction, &SlotVisual)>,
     mut tooltip_query: Query<(&mut Node, &mut Visibility), With<ItemTooltip>>,
     mut title_query: Query<&mut Text, (With<ItemTooltipTitle>, Without<ItemTooltipBody>)>,
@@ -109,12 +112,25 @@ pub(crate) fn item_tooltip_system(
     let (title, body) = item_registry
         .as_deref()
         .and_then(|registry| registry.get(&item))
-        .map(tooltip_text)
+        .map(|definition| tooltip_text(definition, &localization))
         .unwrap_or_else(|| {
-            (
-                item.display_name().to_string(),
-                format!("类别  未分类\n标识  {item}"),
-            )
+            let name_key = format!(
+                "item.{}.{}",
+                item.identifier().namespace(),
+                item.identifier().path()
+            );
+            let title = localization
+                .get_or(&name_key, item.identifier().path())
+                .to_owned();
+            let body = format!(
+                "{}\n{}",
+                localization.format(
+                    "tooltip.category",
+                    &[("name", localization.get("tooltip.category-none"))]
+                ),
+                localization.format("tooltip.identifier", &[("item", &item.to_string())]),
+            );
+            (title, body)
         });
     if let Ok(mut text) = title_query.single_mut() {
         *text = Text::new(title);
@@ -142,36 +158,82 @@ pub(crate) fn item_tooltip_system(
     *visibility = Visibility::Visible;
 }
 
-fn tooltip_text(definition: &ItemDefinition) -> (String, String) {
+fn tooltip_text(definition: &ItemDefinition, localization: &Localization) -> (String, String) {
+    let name_key = definition.name_key();
+    let title = localization
+        .get_or(&name_key, &definition.display_name)
+        .to_owned();
     let mut lines = vec![
-        format!("类别  {}", category_name(definition.category)),
-        format!("最大堆叠  {}", definition.max_stack),
+        localization.format(
+            "tooltip.category",
+            &[("name", category_name(definition.category, localization))],
+        ),
+        localization.format(
+            "tooltip.max-stack",
+            &[("count", &definition.max_stack.to_string())],
+        ),
     ];
     if definition.is_placeable() {
-        lines.push("属性  可放置".to_string());
+        lines.push(localization.get("tooltip.placeable").to_owned());
     }
     if let Some(tool) = definition.tool_data() {
-        lines.push(format!("工具类型  {:?}", tool.tool_type));
-        lines.push(format!("工具等级  {:?}", tool.tier));
-        lines.push(format!("效率  {:.1}x", tool.efficiency));
-        lines.push(format!("耐久上限  {}", tool.max_durability));
+        lines.push(localization.format(
+            "tooltip.tool-type",
+            &[("type", tool_type_name(tool.tool_type, localization))],
+        ));
+        lines.push(localization.format(
+            "tooltip.tool-tier",
+            &[("tier", tool_tier_name(tool.tier, localization))],
+        ));
+        lines.push(localization.format(
+            "tooltip.efficiency",
+            &[("value", &format!("{:.1}", tool.efficiency))],
+        ));
+        lines.push(localization.format(
+            "tooltip.durability",
+            &[("count", &tool.max_durability.to_string())],
+        ));
     }
     if !definition.tags.is_empty() {
-        lines.push(format!("标签  {}", definition.tags.join("、")));
+        lines.push(localization.format("tooltip.tags", &[("tags", &definition.tags.join("、"))]));
     }
-    (definition.display_name.clone(), lines.join("\n"))
+    (title, lines.join("\n"))
 }
 
-fn category_name(category: ItemCategory) -> &'static str {
-    match category {
-        ItemCategory::Block => "方块",
-        ItemCategory::Material => "材料",
-        ItemCategory::Tool => "工具",
-        ItemCategory::Weapon => "武器",
-        ItemCategory::Armor => "护甲",
-        ItemCategory::Accessory => "饰品",
-        ItemCategory::Consumable => "消耗品",
-    }
+/// 查询物品类别名称的本地化译文。
+fn category_name(category: ItemCategory, localization: &Localization) -> &str {
+    let key = match category {
+        ItemCategory::Block => "tooltip.categories.block",
+        ItemCategory::Material => "tooltip.categories.material",
+        ItemCategory::Tool => "tooltip.categories.tool",
+        ItemCategory::Weapon => "tooltip.categories.weapon",
+        ItemCategory::Armor => "tooltip.categories.armor",
+        ItemCategory::Accessory => "tooltip.categories.accessory",
+        ItemCategory::Consumable => "tooltip.categories.consumable",
+    };
+    localization.get(key)
+}
+
+/// 查询工具类型名称的本地化译文。
+fn tool_type_name(tool_type: ToolType, localization: &Localization) -> &str {
+    let key = match tool_type {
+        ToolType::Pickaxe => "tooltip.tool-types.pickaxe",
+        ToolType::Axe => "tooltip.tool-types.axe",
+        ToolType::Shovel => "tooltip.tool-types.shovel",
+        ToolType::Hoe => "tooltip.tool-types.hoe",
+    };
+    localization.get(key)
+}
+
+/// 查询工具等级名称的本地化译文。
+fn tool_tier_name(tier: ToolTier, localization: &Localization) -> &str {
+    let key = match tier {
+        ToolTier::Wood => "tooltip.tier.wood",
+        ToolTier::Stone => "tooltip.tier.stone",
+        ToolTier::Iron => "tooltip.tier.iron",
+        ToolTier::Diamond => "tooltip.tier.diamond",
+    };
+    localization.get(key)
 }
 
 #[cfg(test)]

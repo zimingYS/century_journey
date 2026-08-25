@@ -156,12 +156,14 @@ fn locale_key_mismatch_is_part_of_global_content_validation() {
     let compilation = compile_content(&resolver);
 
     assert!(!compilation.is_valid());
+    // 键集合很大时逐条报告按字母序截断，具体键名随内容演进变化，
+    // 因此断言「存在缺失键报告」而非某个特定键。
     assert!(
         compilation
             .report
             .errors
             .iter()
-            .any(|error| { error.contains("locales/en-US:locale.keys: missing key common.on") })
+            .any(|error| { error.starts_with("locales/en-US:locale.keys: missing key ") })
     );
     assert!(
         compilation
@@ -174,6 +176,50 @@ fn locale_key_mismatch_is_part_of_global_content_validation() {
     assert!(compilation.report.errors.iter().any(|error| {
         error.contains("locales/en-US:locale.keys: ... and") && error.contains("more missing keys")
     }));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn missing_item_name_key_is_reported() {
+    let root = std::env::temp_dir().join(format!(
+        "century_journey_content_item_name_{}",
+        std::process::id()
+    ));
+    let override_file = root.join("definitions/items/test_ns/test_item.json");
+    std::fs::create_dir_all(override_file.parent().unwrap()).unwrap();
+    // 新命名空间的物品在回退语言中没有对应名称键，应被内容校验拦截。
+    std::fs::write(
+        &override_file,
+        r#"{
+            "format_version": 1,
+            "identifier": "test_ns:test_item",
+            "display_name": "测试物品",
+            "category": "material",
+            "max_stack": 16,
+            "tags": [],
+            "icon": {
+                "type": "texture",
+                "value": "century_journey:apple"
+            }
+        }"#,
+    )
+    .unwrap();
+    let resolver = AssetResolver::with_content_overrides(
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets"),
+        [root.clone()],
+    );
+
+    let compilation = compile_content(&resolver);
+
+    assert!(
+        compilation.report.errors.iter().any(|error| {
+            error.contains(
+                "definitions/items/test_ns/test_item:name: missing locale key item.test_ns.test_item",
+            )
+        }),
+        "应报告缺失的物品名称本地化键：{}",
+        compilation.report.errors.join("\n")
+    );
     std::fs::remove_dir_all(root).unwrap();
 }
 

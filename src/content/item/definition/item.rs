@@ -85,6 +85,17 @@ impl ItemDefinition {
         }
     }
 
+    /// 返回该物品名称的本地化键（`item.<命名空间>.<路径>`）。
+    ///
+    /// 键由标识符推导，语言文件缺失该键时调用方应回退到 `display_name`。
+    pub fn name_key(&self) -> String {
+        format!(
+            "item.{}.{}",
+            self.identifier.namespace(),
+            self.identifier.path()
+        )
+    }
+
     /// 是否为工具
     pub fn is_tool(&self) -> bool {
         self.tool.is_some()

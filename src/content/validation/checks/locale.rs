@@ -13,10 +13,12 @@ const MAX_REPORTED_KEYS: usize = 20;
 ///
 /// 键集合不一致会造成部分界面在切换语言后回退到中文或显示键名，
 /// 因此在离线检查阶段就按错误处理。
+///
+/// 返回回退语言的键集合，供物品名称键存在性等后续校验复用。
 pub(in crate::content::validation) fn validate_locales(
     files: &AssetFiles<'_>,
     report: &mut ContentCheckReport,
-) {
+) -> Option<BTreeSet<String>> {
     let locale_files = files.resolved_files("locales", "toml");
     report.checked_files += locale_files.len();
 
@@ -59,7 +61,7 @@ pub(in crate::content::validation) fn validate_locales(
         report.errors.push(format!(
             "locales:locale.language: missing fallback language {FALLBACK_LANGUAGE}"
         ));
-        return;
+        return None;
     };
 
     for (id, keys) in &languages {
@@ -71,6 +73,7 @@ pub(in crate::content::validation) fn validate_locales(
         let extra: Vec<_> = keys.difference(&fallback_keys).collect();
         report_key_diff(report, id, "extra", &extra);
     }
+    Some(fallback_keys)
 }
 
 /// 逐条报告键差异，超过上限后汇总剩余数量，避免单个残缺文件淹没报告。

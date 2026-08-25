@@ -17,7 +17,7 @@ mod vegetation;
 pub(super) use biome::validate_biomes;
 pub(super) use block::validate_blocks;
 pub(super) use cloud::validate_clouds;
-pub(super) use item::validate_items;
+pub(super) use item::{validate_item_name_keys, validate_items};
 pub(super) use locale::validate_locales;
 pub(super) use loot::validate_loot;
 pub(super) use ore::validate_ore_veins;

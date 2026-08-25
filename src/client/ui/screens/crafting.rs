@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 use crate::client::renderer::item::GuiItemIconCache;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
+use crate::client::ui::localization::LocalizedText;
 use crate::client::ui::navigation::{UiNavigation, UiScreen, UiScreenRoot};
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
@@ -13,6 +14,7 @@ use crate::client::ui::widgets::slot::{
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
+use crate::engine::localization::Localization;
 use crate::game::crafting::events::CraftingStationOpened;
 use crate::game::crafting::grid::{
     ActiveCrafting, CraftingGrid, PlayerCrafting, WorkbenchCrafting,
@@ -51,6 +53,7 @@ pub fn spawn_crafting_system(
     mut commands: Commands,
     theme: Res<UiTheme>,
     ui_font: Res<UiFont>,
+    localization: Res<Localization>,
 ) {
     let Ok(root) = roots.single() else { return };
     if !panels.is_empty() {
@@ -60,18 +63,24 @@ pub fn spawn_crafting_system(
         spawn_crafting_panel(
             root,
             ContainerKind::PlayerCrafting,
-            "随身合成",
+            "crafting.player",
             PlayerCrafting::WIDTH,
             PlayerCrafting::HEIGHT,
             true,
             &theme,
             &ui_font,
+            &localization,
         );
     });
-    spawn_workbench_overlay(&mut commands, &theme, &ui_font);
+    spawn_workbench_overlay(&mut commands, &theme, &ui_font, &localization);
 }
 
-fn spawn_workbench_overlay(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
+fn spawn_workbench_overlay(
+    commands: &mut Commands,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+    localization: &Localization,
+) {
     commands
         .spawn((
             WorkbenchOverlay,
@@ -113,21 +122,28 @@ fn spawn_workbench_overlay(commands: &mut Commands, theme: &UiTheme, ui_font: &U
                     spawn_crafting_panel(
                         root,
                         ContainerKind::Workbench,
-                        "工作台",
+                        "crafting.workbench",
                         WorkbenchCrafting::WIDTH,
                         WorkbenchCrafting::HEIGHT,
                         false,
                         theme,
                         ui_font,
+                        localization,
                     );
-                    spawn_player_storage(root, theme, ui_font);
+                    spawn_player_storage(root, theme, ui_font, localization);
                 });
         });
 }
 
-fn spawn_player_storage(parent: &mut ChildSpawnerCommands, theme: &UiTheme, ui_font: &UiFont) {
+fn spawn_player_storage(
+    parent: &mut ChildSpawnerCommands,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+    localization: &Localization,
+) {
     parent.spawn((
-        Text::new("物品栏"),
+        LocalizedText::new("crafting.inventory"),
+        Text::new(localization.get("crafting.inventory")),
         TextFont {
             font: FontSource::from(ui_font.default.clone()),
             font_size: FontSize::Px(theme.body_font_size),
@@ -179,12 +195,13 @@ fn spawn_player_storage(parent: &mut ChildSpawnerCommands, theme: &UiTheme, ui_f
 fn spawn_crafting_panel(
     parent: &mut ChildSpawnerCommands,
     kind: ContainerKind,
-    title: &str,
+    title_key: &str,
     columns: usize,
     rows: usize,
     visible: bool,
     theme: &UiTheme,
     ui_font: &UiFont,
+    localization: &Localization,
 ) {
     let grid_height = rows as f32 * CRAFTING_SLOT_SIZE + rows.saturating_sub(1) as f32 * 4.0;
     parent
@@ -211,7 +228,8 @@ fn spawn_crafting_panel(
         ))
         .with_children(|panel| {
             panel.spawn((
-                Text::new(title),
+                LocalizedText::new(title_key),
+                Text::new(localization.get(title_key)),
                 TextFont {
                     font: FontSource::from(ui_font.default.clone()),
                     font_size: FontSize::Px(theme.body_font_size),

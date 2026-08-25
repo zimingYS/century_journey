@@ -10,6 +10,7 @@ use crate::content::block::registry::BlockRegistry;
 use crate::content::item::ItemRegistry;
 use crate::content::lifecycle::ContentReloadRequested;
 use crate::content::validation::ContentCompilation;
+use crate::engine::localization::Localization;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::state::LocalInventory;
 use crate::game::player::identity::Player;
@@ -57,9 +58,10 @@ pub(super) fn resume_virtual_time_system(mut time: ResMut<Time<Virtual>>) {
 pub(super) fn enter_boot_system(
     mut next_state: ResMut<NextState<AppState>>,
     mut loading: ResMut<LoadingStatus>,
+    localization: Res<Localization>,
 ) {
-    loading.title = "正在启动".into();
-    loading.detail = "正在加载方块、纹理和基础资源...".into();
+    loading.title = localization.get("loading.title-boot").to_owned();
+    loading.detail = localization.get("loading.detail-boot").to_owned();
     next_state.set(AppState::Loading);
 }
 
@@ -67,16 +69,19 @@ pub(super) fn enter_boot_system(
 pub(super) fn show_content_errors_system(
     compilation: Option<Res<ContentCompilation>>,
     mut dialog: ResMut<DialogState>,
+    localization: Res<Localization>,
 ) {
     let Some(compilation) = compilation.filter(|compilation| !compilation.is_valid()) else {
         return;
     };
     dialog.error(
-        "内容编译失败",
-        format!(
-            "发现 {} 个内容错误，已阻止进入游戏。\n{}",
-            compilation.report.errors.len(),
-            compilation.error_summary(12)
+        localization.get("dialog.content-compile-failed"),
+        localization.format(
+            "dialog.content-errors",
+            &[
+                ("count", &compilation.report.errors.len().to_string()),
+                ("summary", &compilation.error_summary(12)),
+            ],
         ),
     );
 }
@@ -115,6 +120,7 @@ pub(super) struct PrepareWorldParams<'w, 's> {
     session: ResMut<'w, GameSession>,
     loading: ResMut<'w, LoadingStatus>,
     dialog: ResMut<'w, DialogState>,
+    localization: Res<'w, Localization>,
     next_state: ResMut<'w, NextState<AppState>>,
 }
 
@@ -123,13 +129,17 @@ pub(super) struct PrepareWorldParams<'w, 's> {
 /// 玩家或世界主存档损坏且存在备份时，本系统先返回主菜单等待确认，避免在恢复
 /// 决策完成前清理当前运行时状态。
 pub(super) fn prepare_world_system(pending: Res<PendingWorld>, mut params: PrepareWorldParams) {
+    let localization = params.localization.clone();
     let Some(world_id) = pending.0.as_deref() else {
-        params.dialog.error("加载失败", "没有待加载的世界");
+        params.dialog.error(
+            localization.get("dialog.load-failed"),
+            localization.get("dialog.no-pending-world"),
+        );
         params.next_state.set(AppState::MainMenu);
         return;
     };
-    params.loading.title = "正在加载世界".into();
-    params.loading.detail = format!("正在读取 {world_id}...");
+    params.loading.title = localization.get("loading.title-world").to_owned();
+    params.loading.detail = localization.format("loading.detail-reading", &[("world", world_id)]);
     match io::load_level(world_id) {
         Ok(level_data) => {
             let player_path = player_save_path(world_id);
@@ -139,13 +149,20 @@ pub(super) fn prepare_world_system(pending: Res<PendingWorld>, mut params: Prepa
                         params.dialog.kind = Some(DialogKind::ConfirmRecoverPlayer {
                             world_id: world_id.to_string(),
                         });
-                        params.dialog.title = "玩家存档损坏".into();
-                        params.dialog.message =
-                            format!("玩家数据无法读取：{error}\n是否恢复最近一次有效备份？");
+                        params.dialog.title =
+                            localization.get("dialog.player-save-corrupt").to_owned();
+                        params.dialog.message = localization.format(
+                            "dialog.player-read-failed",
+                            &[("error", &error.to_string())],
+                        );
                     } else {
-                        params
-                            .dialog
-                            .error("玩家存档损坏", format!("{world_id}: {error}"));
+                        params.dialog.error(
+                            localization.get("dialog.player-save-corrupt"),
+                            localization.format(
+                                "dialog.player-save-error",
+                                &[("world", world_id), ("error", &error.to_string())],
+                            ),
+                        );
                     }
                     params.next_state.set(AppState::MainMenu);
                     return;
@@ -154,8 +171,8 @@ pub(super) fn prepare_world_system(pending: Res<PendingWorld>, mut params: Prepa
                 params.dialog.kind = Some(DialogKind::ConfirmRecoverPlayer {
                     world_id: world_id.to_string(),
                 });
-                params.dialog.title = "发现玩家存档备份".into();
-                params.dialog.message = "主存档缺失，是否恢复最近一次有效备份？".into();
+                params.dialog.title = localization.get("dialog.player-backup-found").to_owned();
+                params.dialog.message = localization.get("dialog.player-missing").to_owned();
                 params.next_state.set(AppState::MainMenu);
                 return;
             }
@@ -169,9 +186,11 @@ pub(super) fn prepare_world_system(pending: Res<PendingWorld>, mut params: Prepa
                     &mut params.save_queue,
                     &mut params.save_worker,
                 ) {
-                    params
-                        .dialog
-                        .error("世界切换失败", format!("旧世界存档尚未完成：{error}"));
+                    params.dialog.error(
+                        localization.get("dialog.world-switch-failed"),
+                        localization
+                            .format("dialog.old-save-pending", &[("error", &error.to_string())]),
+                    );
                     params.next_state.set(AppState::MainMenu);
                     return;
                 }
@@ -214,7 +233,7 @@ pub(super) fn prepare_world_system(pending: Res<PendingWorld>, mut params: Prepa
             );
             params.session.fresh_load = true;
             params.session.active_world = Some(world_id.to_string());
-            params.loading.detail = "正在生成出生区域...".into();
+            params.loading.detail = localization.get("loading.detail-spawn").to_owned();
             params.next_state.set(AppState::InGame);
         }
         Err(error) => {
@@ -222,15 +241,19 @@ pub(super) fn prepare_world_system(pending: Res<PendingWorld>, mut params: Prepa
                 params.dialog.kind = Some(DialogKind::ConfirmRecoverWorld {
                     world_id: world_id.to_string(),
                 });
-                params.dialog.title = "世界存档损坏".into();
-                params.dialog.message =
-                    format!("世界元数据无法读取：{error}\n是否恢复最近一次有效备份？");
+                params.dialog.title = localization.get("dialog.world-save-corrupt").to_owned();
+                params.dialog.message = localization
+                    .format("dialog.world-read-failed", &[("error", &error.to_string())]);
                 params.next_state.set(AppState::MainMenu);
                 return;
             }
-            params
-                .dialog
-                .error("世界加载失败", format!("{world_id}: {error}"));
+            params.dialog.error(
+                localization.get("dialog.world-load-failed"),
+                localization.format(
+                    "dialog.world-load-error",
+                    &[("world", world_id), ("error", &error.to_string())],
+                ),
+            );
             params.next_state.set(AppState::MainMenu);
         }
     }
@@ -270,6 +293,7 @@ pub(super) struct SaveQuitParams<'w, 's> {
     chunk_query: Query<'w, 's, Entity, With<ChunkComponents>>,
     hud_query: Query<'w, 's, Entity, With<HudRoot>>,
     dialog: ResMut<'w, DialogState>,
+    localization: Res<'w, Localization>,
     session: ResMut<'w, GameSession>,
     context: ResMut<'w, InputContextState>,
     next_state: ResMut<'w, NextState<AppState>>,
@@ -284,8 +308,12 @@ pub(super) fn save_and_quit_system(
         return;
     }
     request.0 = false;
+    let localization = params.localization.clone();
     let Some(registry) = params.block_registry.as_deref() else {
-        params.dialog.error("保存失败", "方块注册表不可用");
+        params.dialog.error(
+            localization.get("dialog.save-failed"),
+            localization.get("dialog.registry-unavailable"),
+        );
         return;
     };
     let spawn = params
@@ -298,7 +326,9 @@ pub(super) fn save_and_quit_system(
         &mut params.save_queue,
         &mut params.save_worker,
     ) {
-        params.dialog.error("保存失败", error.to_string());
+        params
+            .dialog
+            .error(localization.get("dialog.save-failed"), error.to_string());
         return;
     }
     if let Err(error) = save_entire_world(
@@ -310,7 +340,9 @@ pub(super) fn save_and_quit_system(
         &params.simulation_clock,
         spawn,
     ) {
-        params.dialog.error("保存失败", error.to_string());
+        params
+            .dialog
+            .error(localization.get("dialog.save-failed"), error.to_string());
         return;
     }
     if let Err(error) = save_player_now(
@@ -322,7 +354,9 @@ pub(super) fn save_and_quit_system(
         &mut params.save_manager,
         &params.time,
     ) {
-        params.dialog.error("保存失败", error);
+        params
+            .dialog
+            .error(localization.get("dialog.save-failed"), error);
         return;
     }
     for entity in &params.chunk_query {

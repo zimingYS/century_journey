@@ -119,6 +119,14 @@ fn native_name_of_resolves_registered_languages_only() {
 }
 
 #[test]
+fn get_or_returns_translations_and_falls_back_to_the_given_text() {
+    let localization = localization_with_two_languages();
+    // 命中回退链时返回译文，键完全缺失时返回调用方提供的兜底文案。
+    assert_eq!(localization.get_or("menu.play", "兜底"), "进入世界");
+    assert_eq!(localization.get_or("menu.absent", "兜底"), "兜底");
+}
+
+#[test]
 fn keys_of_lists_entries_and_is_empty_for_unknown_languages() {
     let localization = localization_with_two_languages();
     let keys: Vec<_> = localization.keys_of(&LanguageId::new("en-US")).collect();

@@ -22,17 +22,18 @@ pub struct LocalizationPlugin;
 
 impl Plugin for LocalizationPlugin {
     fn build(&self, app: &mut App) {
-        // PreStartup 先于全部 Startup 运行，保证界面构建时语言已就绪。
-        app.add_systems(PreStartup, load_localization_system);
+        // Bevy 的初始状态 OnEnter（如 Boot）先于 PreStartup 触发，
+        // 因此在插件构建期同步加载语言，保证任何调度阶段都能查询译文。
+        app.insert_resource(load_localization());
     }
 }
 
-/// 从语言目录加载全部语言并注册查询资源。
+/// 从语言目录加载全部语言并构建查询资源。
 ///
-/// 加载失败时注册空资源并告警：查询退化为返回键本身，
+/// 加载失败时返回空资源并告警：查询退化为返回键本身，
 /// 界面构建不被阻断，漏翻条目在屏幕上直接可见。
-fn load_localization_system(mut commands: Commands) {
-    let localization = match load_locales_from_dir(Path::new(LOCALES_DIR)) {
+fn load_localization() -> Localization {
+    match load_locales_from_dir(Path::new(LOCALES_DIR)) {
         Ok(files) if files.is_empty() => {
             log::warn!("[本地化] 语言目录 {LOCALES_DIR} 为空，界面文本将显示为键名");
             build_localization(Vec::new())
@@ -42,6 +43,5 @@ fn load_localization_system(mut commands: Commands) {
             log::warn!("[本地化] {error}，界面文本将显示为键名");
             build_localization(Vec::new())
         }
-    };
-    commands.insert_resource(localization);
+    }
 }

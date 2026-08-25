@@ -8,6 +8,7 @@ use crate::client::ui::components::{
     SurvivalEquipmentPanel, SurvivalHealthText, SurvivalHotbarPanel, SurvivalHungerText,
     SurvivalInventoryOverlay, SurvivalInventoryRoot, SurvivalItemGrid,
 };
+use crate::client::ui::localization::LocalizedText;
 use crate::client::ui::navigation::{UiScreenAudience, UiScreenRoot};
 use crate::client::ui::resources::frame_assets::UiFrameKind;
 use crate::client::ui::resources::ui_font::UiFont;
@@ -15,6 +16,7 @@ use crate::client::ui::screens::crafting::CraftingHost;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::common::{UiControlKind, spawn_text_button};
 use crate::client::ui::widgets::slot::{SlotKind, spawn_empty_slot_with_placeholder};
+use crate::engine::localization::Localization;
 use crate::game::inventory::state::{AccessorySlotDefinitions, EquipmentSlot};
 
 const SURVIVAL_PANEL_WIDTH: f32 = 708.0;
@@ -34,6 +36,7 @@ pub fn spawn_survival_inventory_system(
     theme: Res<UiTheme>,
     ui_font: Res<UiFont>,
     accessory_definitions: Res<AccessorySlotDefinitions>,
+    localization: Res<Localization>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -91,18 +94,35 @@ pub fn spawn_survival_inventory_system(
                         ..default()
                     })
                     .with_children(|top| {
-                        build_equipment_panel(top, &theme, &ui_font);
-                        build_preview_panel(top, preview_image.clone(), &theme, &ui_font);
-                        build_accessory_panel(top, &accessory_definitions, &theme, &ui_font);
+                        build_equipment_panel(top, &theme, &ui_font, &localization);
+                        build_preview_panel(
+                            top,
+                            preview_image.clone(),
+                            &theme,
+                            &ui_font,
+                            &localization,
+                        );
+                        build_accessory_panel(
+                            top,
+                            &accessory_definitions,
+                            &theme,
+                            &ui_font,
+                            &localization,
+                        );
                     });
 
-                    build_backpack_panel(root, &theme, &ui_font);
+                    build_backpack_panel(root, &theme, &ui_font, &localization);
                     build_survival_hotbar_panel(root, &theme);
                 });
         });
 }
 
-fn build_equipment_panel(parent: &mut ChildSpawnerCommands, theme: &UiTheme, ui_font: &UiFont) {
+fn build_equipment_panel(
+    parent: &mut ChildSpawnerCommands,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+    localization: &Localization,
+) {
     let side_theme = slot_theme(theme, SIDE_SLOT_SIZE);
     parent
         .spawn((
@@ -120,7 +140,7 @@ fn build_equipment_panel(parent: &mut ChildSpawnerCommands, theme: &UiTheme, ui_
             BorderColor::all(Color::srgba(0.1, 0.76, 0.7, 0.8)),
         ))
         .with_children(|panel| {
-            spawn_heading(panel, "装备", theme, ui_font);
+            spawn_heading(panel, "survival.equipment", theme, ui_font, localization);
             for (index, equipment_slot) in EquipmentSlot::ALL.into_iter().enumerate() {
                 panel
                     .spawn(Node {
@@ -136,9 +156,10 @@ fn build_equipment_panel(parent: &mut ChildSpawnerCommands, theme: &UiTheme, ui_
                             row,
                             SlotKind::SurvivalEquipment,
                             index,
-                            equipment_slot.placeholder(),
+                            equipment_slot.placeholder_key(),
                             &side_theme,
                             ui_font,
+                            localization,
                         );
                     });
             }
@@ -150,6 +171,7 @@ fn build_accessory_panel(
     definitions: &AccessorySlotDefinitions,
     theme: &UiTheme,
     ui_font: &UiFont,
+    localization: &Localization,
 ) {
     let side_theme = slot_theme(theme, SIDE_SLOT_SIZE);
     parent
@@ -168,7 +190,7 @@ fn build_accessory_panel(
             BorderColor::all(Color::srgba(0.92, 0.7, 0.08, 0.9)),
         ))
         .with_children(|panel| {
-            spawn_heading(panel, "物品栏", theme, ui_font);
+            spawn_heading(panel, "survival.accessories", theme, ui_font, localization);
             for (index, definition) in definitions.slots.iter().enumerate() {
                 panel
                     .spawn(Node {
@@ -184,9 +206,10 @@ fn build_accessory_panel(
                             row,
                             SlotKind::SurvivalAccessory,
                             index,
-                            &definition.placeholder,
+                            &definition.placeholder_key,
                             &side_theme,
                             ui_font,
+                            localization,
                         );
                     });
             }
@@ -198,6 +221,7 @@ fn build_preview_panel(
     preview_image: Handle<Image>,
     theme: &UiTheme,
     ui_font: &UiFont,
+    localization: &Localization,
 ) {
     parent
         .spawn((
@@ -255,21 +279,24 @@ fn build_preview_panel(
                 .with_children(|stats| {
                     spawn_stat_text::<SurvivalHealthText>(
                         stats,
-                        "生命 --",
+                        "survival.health-placeholder",
                         Color::srgb(0.96, 0.25, 0.24),
                         ui_font,
+                        localization,
                     );
                     spawn_stat_text::<SurvivalDefenseText>(
                         stats,
-                        "防御 --",
+                        "survival.defense-placeholder",
                         Color::srgb(0.55, 0.7, 0.82),
                         ui_font,
+                        localization,
                     );
                     spawn_stat_text::<SurvivalHungerText>(
                         stats,
-                        "饥饿 --",
+                        "survival.hunger-placeholder",
                         Color::srgb(0.88, 0.55, 0.25),
                         ui_font,
+                        localization,
                     );
                 });
 
@@ -289,13 +316,30 @@ fn build_preview_panel(
                     BorderColor::all(theme.border_default),
                 ))
                 .with_children(|actions| {
-                    spawn_action_button::<CompactBackpackButton>(actions, "收拢", theme, ui_font);
-                    spawn_action_button::<SortBackpackButton>(actions, "整理", theme, ui_font);
+                    spawn_action_button::<CompactBackpackButton>(
+                        actions,
+                        "survival.compact",
+                        theme,
+                        ui_font,
+                        localization,
+                    );
+                    spawn_action_button::<SortBackpackButton>(
+                        actions,
+                        "survival.sort",
+                        theme,
+                        ui_font,
+                        localization,
+                    );
                 });
         });
 }
 
-fn build_backpack_panel(root: &mut ChildSpawnerCommands, theme: &UiTheme, ui_font: &UiFont) {
+fn build_backpack_panel(
+    root: &mut ChildSpawnerCommands,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+    localization: &Localization,
+) {
     let grid_width = MAIN_SLOT_SIZE * 9.0 + theme.slot_gap * 8.0 + 12.0;
     root.spawn((
         Node {
@@ -316,7 +360,9 @@ fn build_backpack_panel(root: &mut ChildSpawnerCommands, theme: &UiTheme, ui_fon
                 align_items: AlignItems::Center,
                 ..default()
             })
-            .with_children(|title| spawn_label(title, "背包", theme, ui_font));
+            .with_children(|title| {
+                spawn_label(title, "survival.backpack", theme, ui_font, localization)
+            });
         section.spawn((
             SurvivalItemGrid,
             Name::new("SurvivalGrid"),
@@ -360,12 +406,14 @@ fn build_survival_hotbar_panel(root: &mut ChildSpawnerCommands, theme: &UiTheme)
 
 fn spawn_heading(
     parent: &mut ChildSpawnerCommands,
-    value: &str,
+    key: &str,
     theme: &UiTheme,
     ui_font: &UiFont,
+    localization: &Localization,
 ) {
     parent.spawn((
-        Text::new(value.to_string()),
+        LocalizedText::new(key),
+        Text::new(localization.get(key)),
         TextFont {
             font: FontSource::from(ui_font.default.clone()),
             font_size: FontSize::Px(17.0),
@@ -379,9 +427,16 @@ fn spawn_heading(
     ));
 }
 
-fn spawn_label(parent: &mut ChildSpawnerCommands, value: &str, theme: &UiTheme, ui_font: &UiFont) {
+fn spawn_label(
+    parent: &mut ChildSpawnerCommands,
+    key: &str,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+    localization: &Localization,
+) {
     parent.spawn((
-        Text::new(value.to_string()),
+        LocalizedText::new(key),
+        Text::new(localization.get(key)),
         TextFont {
             font: FontSource::from(ui_font.default.clone()),
             font_size: FontSize::Px(theme.body_font_size),
@@ -391,15 +446,17 @@ fn spawn_label(parent: &mut ChildSpawnerCommands, value: &str, theme: &UiTheme, 
     ));
 }
 
+/// 生成状态条初始文本；实际数值由同步系统每帧重写，不使用本地化标记。
 fn spawn_stat_text<M: Component + Default>(
     parent: &mut ChildSpawnerCommands,
-    value: &str,
+    key: &str,
     color: Color,
     ui_font: &UiFont,
+    localization: &Localization,
 ) {
     parent.spawn((
         M::default(),
-        Text::new(value.to_string()),
+        Text::new(localization.get(key)),
         TextFont {
             font: FontSource::from(ui_font.default.clone()),
             font_size: FontSize::Px(14.0),
@@ -411,26 +468,31 @@ fn spawn_stat_text<M: Component + Default>(
 
 fn spawn_action_button<M: Component + Default>(
     parent: &mut ChildSpawnerCommands,
-    label: &str,
+    label_key: &str,
     theme: &UiTheme,
     ui_font: &UiFont,
+    localization: &Localization,
 ) {
     let entity = spawn_text_button(
         parent,
         M::default(),
-        label,
+        localization.get(label_key),
         UiControlKind::Button,
         theme,
         ui_font,
     );
-    parent.commands().entity(entity).insert(Node {
-        width: Val::Px(72.0),
-        height: Val::Px(29.0),
-        justify_content: JustifyContent::Center,
-        align_items: AlignItems::Center,
-        border: UiRect::all(Val::Px(1.0)),
-        ..default()
-    });
+    parent
+        .commands()
+        .entity(entity)
+        .insert(LocalizedText::new(label_key))
+        .insert(Node {
+            width: Val::Px(72.0),
+            height: Val::Px(29.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            border: UiRect::all(Val::Px(1.0)),
+            ..default()
+        });
 }
 
 /// 根据槽位尺寸返回生存背包使用的局部视觉主题。

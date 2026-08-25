@@ -8,7 +8,7 @@ use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 
 use crate::app::flow::{MenuPage, PendingWorld};
 use crate::client::camera::{CameraPerspective, FpsCamera};
-use crate::client::ui::components::SurvivalInventoryRoot;
+use crate::client::ui::components::{CreativeInventoryRoot, SurvivalInventoryRoot};
 use crate::client::ui::navigation::{UiNavigation, UiScreen};
 use crate::client::ui::screens::menu::{
     KeybindsUiState, PauseSettingsButton, ResumeButton, SaveQuitButton, SettingsTab,
@@ -170,6 +170,7 @@ fn ui_screenshot_check_system(
         )>,
     >,
     survival_inventory: Query<(&ComputedNode, &InheritedVisibility), With<SurvivalInventoryRoot>>,
+    creative_inventory: Query<(&ComputedNode, &InheritedVisibility), With<CreativeInventoryRoot>>,
 ) {
     let Some(mut config) = config else {
         return;
@@ -349,10 +350,18 @@ fn ui_screenshot_check_system(
         | ScreenshotTarget::SettingsClose => state == &AppState::MainMenu,
         ScreenshotTarget::Pause => state == &AppState::Paused,
         ScreenshotTarget::Inventory => {
-            state == &AppState::InGame
-                && survival_inventory.single().is_ok_and(|(node, inherited)| {
+            // 创造模式打开的是创造背包，就绪检查需跟随模式选择对应根节点。
+            let is_root_visible = |root: Result<(&ComputedNode, &InheritedVisibility), _>| {
+                root.is_ok_and(|(node, inherited)| {
                     node.size().min_element() > 0.0 && inherited.get()
                 })
+            };
+            let inventory_ready = if config.mode == GameMode::Creative {
+                is_root_visible(creative_inventory.single())
+            } else {
+                is_root_visible(survival_inventory.single())
+            };
+            state == &AppState::InGame && inventory_ready
         }
         ScreenshotTarget::Workbench => state == &AppState::InGame,
         ScreenshotTarget::SecondPerson

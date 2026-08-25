@@ -1,6 +1,8 @@
 //! 构建死亡界面，并把重生和返回操作转换为领域请求。
 
+use crate::client::ui::localization::LocalizedText;
 use crate::client::ui::resources::ui_font::UiFont;
+use crate::engine::localization::Localization;
 use crate::game::player::identity::Player;
 use crate::game::player::lifecycle::components::{PlayerLifeState, PlayerLifecycle};
 use crate::game::player::lifecycle::events::RespawnRequest;
@@ -24,7 +26,11 @@ pub struct DeathDropText;
 pub struct RespawnButton;
 
 /// 创建默认隐藏的死亡屏幕。
-pub fn spawn_death_screen_system(mut commands: Commands, ui_font: Res<UiFont>) {
+pub fn spawn_death_screen_system(
+    mut commands: Commands,
+    ui_font: Res<UiFont>,
+    localization: Res<Localization>,
+) {
     commands
         .spawn((
             DeathScreenRoot,
@@ -47,7 +53,8 @@ pub fn spawn_death_screen_system(mut commands: Commands, ui_font: Res<UiFont>) {
         ))
         .with_children(|root| {
             root.spawn((
-                Text::new("你死了"),
+                LocalizedText::new("death.title"),
+                Text::new(localization.get("death.title")),
                 TextFont {
                     font: FontSource::from(ui_font.default.clone()),
                     font_size: FontSize::Px(52.0),
@@ -57,7 +64,7 @@ pub fn spawn_death_screen_system(mut commands: Commands, ui_font: Res<UiFont>) {
             ));
             root.spawn((
                 DeathReasonText,
-                Text::new("死因：未知"),
+                Text::new(""),
                 TextFont {
                     font: FontSource::from(ui_font.default.clone()),
                     font_size: FontSize::Px(22.0),
@@ -92,7 +99,8 @@ pub fn spawn_death_screen_system(mut commands: Commands, ui_font: Res<UiFont>) {
             ))
             .with_children(|button| {
                 button.spawn((
-                    Text::new("重生"),
+                    LocalizedText::new("death.respawn"),
+                    Text::new(localization.get("death.respawn")),
                     TextFont {
                         font: FontSource::from(ui_font.default.clone()),
                         font_size: FontSize::Px(22.0),
@@ -108,6 +116,7 @@ pub fn spawn_death_screen_system(mut commands: Commands, ui_font: Res<UiFont>) {
 pub fn sync_death_screen_system(
     player_query: Query<&PlayerLifecycle, With<Player>>,
     last_death: Res<LastDeathInfo>,
+    localization: Res<Localization>,
     mut root_query: Query<&mut Visibility, (With<DeathScreenRoot>, Without<RespawnButton>)>,
     mut button_query: Query<&mut Visibility, (With<RespawnButton>, Without<DeathScreenRoot>)>,
     mut reason_query: Query<&mut Text, (With<DeathReasonText>, Without<DeathDropText>)>,
@@ -134,18 +143,20 @@ pub fn sync_death_screen_system(
     }
     for mut text in &mut reason_query {
         *text = Text::new(if state == PlayerLifeState::Respawning {
-            "正在重生...".to_string()
+            localization.get("death.respawning").to_owned()
         } else {
-            format!(
-                "死因：{}",
-                last_death
-                    .source
-                    .map_or("未知", |source| source.display_name())
-            )
+            let cause = last_death.source.map_or_else(
+                || localization.get("death.unknown"),
+                |source| localization.get(source.cause_key()),
+            );
+            localization.format("death.reason", &[("cause", cause)])
         });
     }
     for mut text in &mut drop_query {
-        *text = Text::new(format!("死亡掉落：{} 组物品", last_death.dropped_stacks));
+        *text = Text::new(localization.format(
+            "death.drops",
+            &[("count", &last_death.dropped_stacks.to_string())],
+        ));
     }
 }
 

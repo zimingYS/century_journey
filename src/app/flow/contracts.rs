@@ -47,10 +47,11 @@ pub struct LoadingStatus {
 }
 
 impl Default for LoadingStatus {
+    /// 默认为空：界面展示前应用流程（`enter_boot_system` 等）必定写入本地化文案。
     fn default() -> Self {
         Self {
-            title: "正在启动".into(),
-            detail: "正在加载内容资源...".into(),
+            title: String::new(),
+            detail: String::new(),
         }
     }
 }
