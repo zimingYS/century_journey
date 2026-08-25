@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 
 use crate::engine::asset::AssetPlugin;
+use crate::engine::localization::LocalizationPlugin;
 use crate::engine::task::TaskPlugin;
 
 /// Engine 层插件聚合入口。
@@ -12,6 +13,6 @@ pub struct EnginePluginGroup;
 
 impl Plugin for EnginePluginGroup {
     fn build(&self, app: &mut App) {
-        app.add_plugins((AssetPlugin, TaskPlugin));
+        app.add_plugins((AssetPlugin, LocalizationPlugin, TaskPlugin));
     }
 }

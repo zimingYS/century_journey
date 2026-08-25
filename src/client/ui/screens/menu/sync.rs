@@ -15,12 +15,15 @@ use super::style::body_font;
 use crate::app::flow::{
     DialogKind, DialogState, GameSettings, LoadingStatus, MenuPage, WorldCatalog,
 };
-use crate::app::settings::{KEY_ACTIONS, KeyAction, Keybinds, action_label, binding_display};
+use crate::app::settings::{
+    KEY_ACTIONS, KeyAction, Keybinds, action_label_localized, binding_display_localized,
+};
 use crate::client::input::RebindCapture;
 use crate::client::ui::navigation::{UiScreen, UiScreenRoot, UiScreenStack};
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::common::{UiControl, UiControlKind, spawn_text_button};
+use crate::engine::localization::Localization;
 use crate::shared::states::{AppState, InputContextState};
 
 /// 在应用状态变化时重建顶层 UI 栈与输入上下文。
@@ -161,16 +164,17 @@ pub(crate) fn sync_dialog_text_system(
     }
 }
 
-/// 在世界目录变化时重建世界列表，并保留当前选中条目的视觉状态。
+/// 在世界目录或语言变化时重建世界列表，并保留当前选中条目的视觉状态。
 pub(crate) fn populate_world_list_system(
     catalog: Res<WorldCatalog>,
+    localization: Res<Localization>,
     list_query: Query<Entity, With<WorldList>>,
     children_query: Query<&Children>,
     mut commands: Commands,
     theme: Res<UiTheme>,
     ui_font: Res<UiFont>,
 ) {
-    if !catalog.is_changed() {
+    if !catalog.is_changed() && !localization.is_changed() {
         return;
     }
     let Ok(list) = list_query.single() else {
@@ -185,7 +189,7 @@ pub(crate) fn populate_world_list_system(
     commands.entity(list).with_children(|parent| {
         if catalog.worlds.is_empty() {
             parent.spawn((
-                Text::new("还没有世界"),
+                Text::new(localization.get("menu.world-empty")),
                 body_font(&ui_font, 15.0),
                 TextColor(theme.text_hint),
             ));
@@ -193,7 +197,10 @@ pub(crate) fn populate_world_list_system(
         }
 
         for world in &catalog.worlds {
-            let label = format!("{}    种子 {}", world.id, world.seed);
+            let label = localization.format(
+                "menu.world-entry",
+                &[("id", world.id.as_str()), ("seed", &world.seed.to_string())],
+            );
             let entity = spawn_text_button(
                 parent,
                 WorldEntryButton {
@@ -224,12 +231,13 @@ pub(crate) fn sync_world_name_draft_system(
     draft.0 = editable.value().to_string();
 }
 
-/// 在设置资源变化后刷新所有设置值文本。
+/// 在设置资源或语言变化后刷新所有设置值文本。
 pub(crate) fn sync_setting_values_system(
     settings: Res<GameSettings>,
+    localization: Res<Localization>,
     mut query: Query<(&SettingValue, &mut Text)>,
 ) {
-    if !settings.is_changed() {
+    if !settings.is_changed() && !localization.is_changed() {
         return;
     }
     for (value, mut text) in &mut query {
@@ -238,13 +246,27 @@ pub(crate) fn sync_setting_values_system(
             SettingValue::MasterVolume => format!("{:.0}%", settings.master_volume * 100.0),
             SettingValue::MouseSensitivity => format!("{:.1}x", settings.mouse_sensitivity),
             SettingValue::UiScale => format!("{:.1}x", settings.ui_scale),
+            SettingValue::Language => {
+                // 语言值始终用该语言自身书写的名称展示（业界惯例）。
+                // 展示激活语言而非设置值：设置语言无效时运行时保持既有
+                // 激活语言，界面实际使用的正是后者。
+                localization
+                    .native_name_of(localization.active())
+                    .unwrap_or(localization.active().as_str())
+                    .to_string()
+            }
             SettingValue::Fullscreen => if settings.fullscreen {
-                "开启"
+                localization.get("common.on")
             } else {
-                "关闭"
+                localization.get("common.off")
             }
             .to_string(),
-            SettingValue::Vsync => if settings.vsync { "开启" } else { "关闭" }.to_string(),
+            SettingValue::Vsync => if settings.vsync {
+                localization.get("common.on")
+            } else {
+                localization.get("common.off")
+            }
+            .to_string(),
         });
     }
 }
@@ -312,19 +334,23 @@ pub(crate) fn sync_keybinds_search_system(
     }
 }
 
-/// 在搜索、过滤或绑定变化时重建键位列表。
-#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+/// 在搜索、过滤、绑定或语言变化时重建键位列表。
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn populate_keybind_list_system(
     keybinds: Res<Keybinds>,
     ui_state: Res<KeybindsUiState>,
     capture: Res<RebindCapture>,
+    localization: Res<Localization>,
     list_query: Query<Entity, With<KeybindList>>,
     children_query: Query<&Children>,
     mut commands: Commands,
     theme: Res<UiTheme>,
     ui_font: Res<UiFont>,
 ) {
-    let needs_rebuild = ui_state.list_dirty || keybinds.is_changed() || capture.is_changed();
+    let needs_rebuild = ui_state.list_dirty
+        || keybinds.is_changed()
+        || capture.is_changed()
+        || localization.is_changed();
     if !needs_rebuild {
         return;
     }
@@ -340,8 +366,12 @@ pub(crate) fn populate_keybind_list_system(
     let visible = KEY_ACTIONS
         .iter()
         .filter(|spec| {
+            let label = action_label_localized(spec.action, &localization);
+            let key_label = binding_display_localized(keybinds.binding(spec.action), &localization);
             keybinds.matches_filter(
                 spec.action,
+                &label,
+                &key_label,
                 &ui_state.search,
                 ui_state.conflicts_only,
                 ui_state.unbound_only,
@@ -352,7 +382,7 @@ pub(crate) fn populate_keybind_list_system(
     commands.entity(list).with_children(|parent| {
         if visible.is_empty() {
             parent.spawn((
-                Text::new("没有匹配的键位"),
+                Text::new(localization.get("settings.keybinds.list-empty")),
                 body_font(&ui_font, 14.0),
                 TextColor(theme.text_hint),
             ));
@@ -366,12 +396,14 @@ pub(crate) fn populate_keybind_list_system(
                 capture.listening,
                 &theme,
                 &ui_font,
+                &localization,
             );
         }
     });
 }
 
 /// 生成一行键位条目：动作名、冲突提示与键位按钮。
+#[allow(clippy::too_many_arguments)]
 fn spawn_keybind_row(
     parent: &mut ChildSpawnerCommands,
     action: KeyAction,
@@ -379,13 +411,14 @@ fn spawn_keybind_row(
     listening: Option<KeyAction>,
     theme: &UiTheme,
     ui_font: &UiFont,
+    localization: &Localization,
 ) {
     let partners = keybinds.conflict_partners(action);
     let listening_here = listening == Some(action);
     let key_label = if listening_here {
-        "按任意键…".to_string()
+        localization.get("settings.keybinds.listening").to_string()
     } else {
-        binding_display(keybinds.binding(action))
+        binding_display_localized(keybinds.binding(action), localization)
     };
 
     parent
@@ -401,7 +434,7 @@ fn spawn_keybind_row(
         ))
         .with_children(|row| {
             row.spawn((
-                Text::new(action_label(action)),
+                Text::new(action_label_localized(action, localization)),
                 body_font(ui_font, 14.0),
                 TextColor(theme.text_secondary),
                 Node {
@@ -410,7 +443,12 @@ fn spawn_keybind_row(
                 },
             ));
             if !partners.is_empty() {
-                let hint = format!("冲突：{}", partners.join("、"));
+                let names = partners
+                    .iter()
+                    .map(|partner| action_label_localized(*partner, localization))
+                    .collect::<Vec<_>>()
+                    .join("、");
+                let hint = localization.format("settings.keybinds.conflict", &[("keys", &names)]);
                 row.spawn((
                     Text::new(hint),
                     body_font(ui_font, 12.0),

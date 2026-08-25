@@ -133,3 +133,61 @@ fn later_content_source_overrides_the_same_relative_path() {
 
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn locale_key_mismatch_is_part_of_global_content_validation() {
+    let root = std::env::temp_dir().join(format!(
+        "century_journey_content_locale_{}",
+        std::process::id()
+    ));
+    let override_file = root.join("locales/en-US.toml");
+    std::fs::create_dir_all(override_file.parent().unwrap()).unwrap();
+    // 覆盖 en-US：缺少大量 zh-CN 键，多出 menu.extra；键差异按排序逐条报告并截断。
+    std::fs::write(
+        &override_file,
+        "language = \"en-US\"\nnative-name = \"English\"\n\n[menu]\nextra = \"Extra\"\n",
+    )
+    .unwrap();
+    let resolver = AssetResolver::with_content_overrides(
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets"),
+        [root.clone()],
+    );
+
+    let compilation = compile_content(&resolver);
+
+    assert!(!compilation.is_valid());
+    assert!(
+        compilation
+            .report
+            .errors
+            .iter()
+            .any(|error| { error.contains("locales/en-US:locale.keys: missing key common.on") })
+    );
+    assert!(
+        compilation
+            .report
+            .errors
+            .iter()
+            .any(|error| { error.contains("locales/en-US:locale.keys: extra key menu.extra") })
+    );
+    // 键差异超过逐条报告上限时应汇总剩余数量。
+    assert!(compilation.report.errors.iter().any(|error| {
+        error.contains("locales/en-US:locale.keys: ... and") && error.contains("more missing keys")
+    }));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn missing_fallback_locale_is_reported() {
+    let root = std::env::temp_dir().join(format!(
+        "century_journey_content_locale_fallback_{}",
+        std::process::id()
+    ));
+    let resolver = AssetResolver::new(&root);
+
+    let compilation = compile_content(&resolver);
+
+    assert!(compilation.report.errors.iter().any(|error| {
+        error.contains("locales:locale.language: missing fallback language zh-CN")
+    }));
+}

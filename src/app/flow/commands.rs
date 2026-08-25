@@ -12,6 +12,7 @@ use super::settings_runtime::{SettingsPersistenceState, adjust_setting};
 use crate::app::settings::{GameSettings, Keybinds, load_settings, restore_settings_backup};
 use crate::content::block::registry::BlockRegistry;
 use crate::content::validation::ContentCompilation;
+use crate::engine::localization::Localization;
 use crate::game::save::player::{player_save_path, restore_player_backup};
 use crate::game::save::world::chunk::region::RegionManager;
 use crate::game::save::world::metadata::io;
@@ -39,6 +40,7 @@ pub(super) fn handle_flow_commands_system(
     mut next_state: ResMut<NextState<AppState>>,
     mut context: ResMut<InputContextState>,
     mut app_exit: MessageWriter<AppExit>,
+    localization: Res<Localization>,
 ) {
     for command in reader.read() {
         match command {
@@ -154,7 +156,9 @@ pub(super) fn handle_flow_commands_system(
             FlowCommand::QuitApplication => {
                 app_exit.write(AppExit::Success);
             }
-            FlowCommand::AdjustSetting(action) => adjust_setting(&mut settings, *action),
+            FlowCommand::AdjustSetting(action) => {
+                adjust_setting(&mut settings, *action, &localization)
+            }
             FlowCommand::RebindKey(action, binding) => keybinds.set_binding(*action, *binding),
             FlowCommand::ResetKeybinds => keybinds.reset_all(),
         }

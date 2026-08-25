@@ -106,6 +106,7 @@ pub(crate) enum SettingValue {
     MasterVolume,
     MouseSensitivity,
     UiScale,
+    Language,
     Fullscreen,
     Vsync,
 }

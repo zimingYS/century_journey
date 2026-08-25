@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
 
-use super::keybinds::{BindingKey, KEY_ACTIONS, KeyAction, Keybinds, spec_of};
+use super::keybinds::{BindingKey, KEY_ACTIONS, Keybinds};
+use crate::engine::localization::Localization;
 use crate::engine::persistence;
 
 /// 返回键位配置文件路径。
@@ -221,42 +222,79 @@ fn parse_key_code(name: &str) -> Option<KeyCode> {
     })
 }
 
-/// 返回绑定面向玩家的中文显示名；未绑定返回“未绑定”。
-pub fn binding_display(binding: Option<BindingKey>) -> String {
+/// 生成绑定的本地化显示文本；未绑定显示「未绑定」。
+///
+/// 鼠标键与符号键走 `keybind.key.*` 翻译；字母、数字等功能键名
+/// （`KeyW`、`7`、`Shift` 等）本身即可直接显示，回退链会原样返回。
+pub fn binding_display_localized(
+    binding: Option<BindingKey>,
+    localization: &Localization,
+) -> String {
     match binding {
-        None => "未绑定".to_string(),
-        Some(BindingKey::Mouse(MouseButton::Left)) => "鼠标左键".to_string(),
-        Some(BindingKey::Mouse(MouseButton::Right)) => "鼠标右键".to_string(),
-        Some(BindingKey::Mouse(MouseButton::Middle)) => "鼠标中键".to_string(),
-        Some(BindingKey::Mouse(MouseButton::Back)) => "鼠标后退键".to_string(),
-        Some(BindingKey::Mouse(MouseButton::Forward)) => "鼠标前进键".to_string(),
-        Some(BindingKey::Mouse(MouseButton::Other(code))) => format!("鼠标扩展键 {code}"),
-        Some(BindingKey::Key(KeyCode::Space)) => "空格".to_string(),
-        Some(BindingKey::Key(KeyCode::Enter)) | Some(BindingKey::Key(KeyCode::NumpadEnter)) => {
-            "回车".to_string()
+        None => localization.get("keybind.key.unbound").to_string(),
+        Some(BindingKey::Mouse(MouseButton::Other(code))) => {
+            localization.format("keybind.key.mouse-other", &[("code", &code.to_string())])
         }
-        Some(BindingKey::Key(KeyCode::Escape)) => "Esc".to_string(),
-        Some(BindingKey::Key(KeyCode::Tab)) => "Tab".to_string(),
-        Some(BindingKey::Key(KeyCode::Backspace)) => "退格".to_string(),
-        Some(BindingKey::Key(KeyCode::CapsLock)) => "大写锁定".to_string(),
-        Some(BindingKey::Key(KeyCode::ShiftLeft)) => "Shift".to_string(),
-        Some(BindingKey::Key(KeyCode::ControlLeft)) => "Ctrl".to_string(),
-        Some(BindingKey::Key(KeyCode::AltLeft)) => "Alt".to_string(),
-        Some(BindingKey::Key(KeyCode::ArrowUp)) => "↑".to_string(),
-        Some(BindingKey::Key(KeyCode::ArrowDown)) => "↓".to_string(),
-        Some(BindingKey::Key(KeyCode::ArrowLeft)) => "←".to_string(),
-        Some(BindingKey::Key(KeyCode::ArrowRight)) => "→".to_string(),
-        Some(BindingKey::Key(KeyCode::Comma)) => "逗号".to_string(),
-        Some(BindingKey::Key(KeyCode::Period)) => "句号".to_string(),
-        Some(BindingKey::Key(KeyCode::Semicolon)) => "分号".to_string(),
-        Some(BindingKey::Key(KeyCode::Quote)) => "引号".to_string(),
-        Some(BindingKey::Key(KeyCode::Slash)) => "斜杠".to_string(),
-        Some(BindingKey::Key(KeyCode::Backslash)) => "反斜杠".to_string(),
-        Some(BindingKey::Key(KeyCode::Minus)) => "减号".to_string(),
-        Some(BindingKey::Key(KeyCode::Equal)) => "等号".to_string(),
-        Some(BindingKey::Key(KeyCode::Backquote)) => "反引号".to_string(),
-        Some(BindingKey::Key(KeyCode::BracketLeft)) => "左方括号".to_string(),
-        Some(BindingKey::Key(KeyCode::BracketRight)) => "右方括号".to_string(),
+        Some(BindingKey::Mouse(MouseButton::Left)) => {
+            localization.get("keybind.key.mouse-left").to_string()
+        }
+        Some(BindingKey::Mouse(MouseButton::Right)) => {
+            localization.get("keybind.key.mouse-right").to_string()
+        }
+        Some(BindingKey::Mouse(MouseButton::Middle)) => {
+            localization.get("keybind.key.mouse-middle").to_string()
+        }
+        Some(BindingKey::Mouse(MouseButton::Back)) => {
+            localization.get("keybind.key.mouse-back").to_string()
+        }
+        Some(BindingKey::Mouse(MouseButton::Forward)) => {
+            localization.get("keybind.key.mouse-forward").to_string()
+        }
+        Some(BindingKey::Key(KeyCode::Space)) => localization.get("keybind.key.space").to_string(),
+        Some(BindingKey::Key(KeyCode::Enter)) | Some(BindingKey::Key(KeyCode::NumpadEnter)) => {
+            localization.get("keybind.key.enter").to_string()
+        }
+        Some(BindingKey::Key(KeyCode::Backspace)) => {
+            localization.get("keybind.key.backspace").to_string()
+        }
+        Some(BindingKey::Key(KeyCode::CapsLock)) => {
+            localization.get("keybind.key.caps-lock").to_string()
+        }
+        Some(BindingKey::Key(KeyCode::Comma)) => localization.get("keybind.key.comma").to_string(),
+        Some(BindingKey::Key(KeyCode::Period)) => {
+            localization.get("keybind.key.period").to_string()
+        }
+        Some(BindingKey::Key(KeyCode::Semicolon)) => {
+            localization.get("keybind.key.semicolon").to_string()
+        }
+        Some(BindingKey::Key(KeyCode::Quote)) => localization.get("keybind.key.quote").to_string(),
+        Some(BindingKey::Key(KeyCode::Slash)) => localization.get("keybind.key.slash").to_string(),
+        Some(BindingKey::Key(KeyCode::Backslash)) => {
+            localization.get("keybind.key.backslash").to_string()
+        }
+        Some(BindingKey::Key(KeyCode::Minus)) => localization.get("keybind.key.minus").to_string(),
+        Some(BindingKey::Key(KeyCode::Equal)) => localization.get("keybind.key.equal").to_string(),
+        Some(BindingKey::Key(KeyCode::Backquote)) => {
+            localization.get("keybind.key.backquote").to_string()
+        }
+        Some(BindingKey::Key(KeyCode::BracketLeft)) => {
+            localization.get("keybind.key.bracket-left").to_string()
+        }
+        Some(BindingKey::Key(KeyCode::BracketRight)) => {
+            localization.get("keybind.key.bracket-right").to_string()
+        }
+        Some(BindingKey::Key(KeyCode::ArrowUp)) => {
+            localization.get("keybind.key.arrow-up").to_string()
+        }
+        Some(BindingKey::Key(KeyCode::ArrowDown)) => {
+            localization.get("keybind.key.arrow-down").to_string()
+        }
+        Some(BindingKey::Key(KeyCode::ArrowLeft)) => {
+            localization.get("keybind.key.arrow-left").to_string()
+        }
+        Some(BindingKey::Key(KeyCode::ArrowRight)) => {
+            localization.get("keybind.key.arrow-right").to_string()
+        }
         Some(BindingKey::Key(code)) => {
             let name = format!("{code:?}");
             name.strip_prefix("Digit")
@@ -264,12 +302,6 @@ pub fn binding_display(binding: Option<BindingKey>) -> String {
                 .unwrap_or(name)
         }
     }
-}
-
-/// 生成动作在键位界面中的完整行标签（分类 / 动作）。
-pub fn action_label(action: KeyAction) -> String {
-    let spec = spec_of(action);
-    format!("{} / {}", spec.category, spec.display)
 }
 
 #[cfg(test)]

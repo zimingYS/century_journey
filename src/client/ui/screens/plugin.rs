@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 use super::{crafting, creative_inventory, death, menu, survival_inventory};
-use crate::client::ui::{interaction, navigation, resources, widgets};
+use crate::client::ui::{interaction, localization, navigation, resources, widgets};
 
 /// 组装所有完整屏幕及其数据投影系统。
 pub struct UiScreensPlugin;
@@ -35,6 +35,7 @@ impl Plugin for UiScreensPlugin {
                 menu::populate_world_list_system,
                 menu::sync_world_name_draft_system,
                 menu::sync_setting_values_system,
+                localization::refresh_localized_text_system,
                 menu::menu_button_system,
                 menu::keybind_ui_system,
                 menu::reset_keybind_listening_system,

@@ -11,24 +11,28 @@ use super::components::{
 };
 use super::settings::spawn_settings_screens;
 use super::style::{body_font, overlay_node, title_font};
+use crate::client::ui::localization::{localized_text, spawn_localized_button};
 use crate::client::ui::navigation::{UiScreen, UiScreenRoot};
 use crate::client::ui::resources::frame_assets::UiFrameKind;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
-use crate::client::ui::widgets::common::{UiControlKind, UiScrollArea, spawn_text_button};
+use crate::client::ui::widgets::common::{UiControlKind, UiScrollArea};
+use crate::engine::localization::Localization;
 
 /// 在启动阶段一次性创建菜单相关界面；后续系统只切换可见性并同步文本。
 pub(crate) fn spawn_menu_screens_system(
     mut commands: Commands,
     theme: Res<UiTheme>,
     ui_font: Res<UiFont>,
+    localization: Res<Localization>,
 ) {
     spawn_loading_screen(&mut commands, &theme, &ui_font);
-    spawn_main_menu(&mut commands, &theme, &ui_font);
-    spawn_pause_menu(&mut commands, &theme, &ui_font);
-    spawn_settings_screens(&mut commands, &theme, &ui_font);
+    spawn_main_menu(&mut commands, &theme, &ui_font, &localization);
+    spawn_pause_menu(&mut commands, &theme, &ui_font, &localization);
+    spawn_settings_screens(&mut commands, &theme, &ui_font, &localization);
 }
 
+/// 加载屏文案由应用流程的 `LoadingStatus` 动态写入，暂不参与本地化。
 fn spawn_loading_screen(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
     commands
         .spawn((
@@ -70,7 +74,12 @@ fn spawn_loading_screen(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFo
         });
 }
 
-fn spawn_main_menu(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
+fn spawn_main_menu(
+    commands: &mut Commands,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+    localization: &Localization,
+) {
     commands
         .spawn((
             UiScreenRoot::new(UiScreen::MainMenu),
@@ -96,12 +105,12 @@ fn spawn_main_menu(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
             ))
             .with_children(|panel| {
                 panel.spawn((
-                    Text::new("CENTURY JOURNEY"),
+                    localized_text("menu.title", localization),
                     title_font(ui_font, 34.0),
                     TextColor(theme.text_primary),
                 ));
                 panel.spawn((
-                    Text::new("世界"),
+                    localized_text("menu.worlds", localization),
                     title_font(ui_font, 20.0),
                     TextColor(theme.text_secondary),
                 ));
@@ -141,7 +150,7 @@ fn spawn_main_menu(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
                         },))
                             .with_children(|actions| {
                                 actions.spawn((
-                                    Text::new("新世界名称"),
+                                    localized_text("menu.world-name-label", localization),
                                     body_font(ui_font, 14.0),
                                     TextColor(theme.text_secondary),
                                 ));
@@ -164,49 +173,54 @@ fn spawn_main_menu(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
                                     BackgroundColor(theme.search_bg),
                                     BorderColor::all(theme.search_border),
                                 ));
-                                spawn_text_button(
+                                spawn_localized_button(
                                     actions,
                                     CreateButton,
-                                    "创建世界",
+                                    "menu.create-world",
                                     UiControlKind::Button,
                                     theme,
                                     ui_font,
+                                    localization,
                                 );
-                                spawn_text_button(
+                                spawn_localized_button(
                                     actions,
                                     PlayButton,
-                                    "进入世界",
+                                    "menu.play-world",
                                     UiControlKind::Button,
                                     theme,
                                     ui_font,
+                                    localization,
                                 );
-                                spawn_text_button(
+                                spawn_localized_button(
                                     actions,
                                     DeleteButton,
-                                    "删除世界",
+                                    "menu.delete-world",
                                     UiControlKind::Button,
                                     theme,
                                     ui_font,
+                                    localization,
                                 );
                                 actions.spawn(Node {
                                     flex_grow: 1.0,
                                     ..default()
                                 });
-                                spawn_text_button(
+                                spawn_localized_button(
                                     actions,
                                     MainSettingsButton,
-                                    "设置",
+                                    "menu.settings",
                                     UiControlKind::Button,
                                     theme,
                                     ui_font,
+                                    localization,
                                 );
-                                spawn_text_button(
+                                spawn_localized_button(
                                     actions,
                                     QuitButton,
-                                    "退出游戏",
+                                    "menu.quit",
                                     UiControlKind::Button,
                                     theme,
                                     ui_font,
+                                    localization,
                                 );
                             });
                     });
@@ -214,7 +228,12 @@ fn spawn_main_menu(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
         });
 }
 
-fn spawn_pause_menu(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
+fn spawn_pause_menu(
+    commands: &mut Commands,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+    localization: &Localization,
+) {
     commands
         .spawn((
             UiScreenRoot::new(UiScreen::PauseMenu),
@@ -237,33 +256,36 @@ fn spawn_pause_menu(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) 
             ))
             .with_children(|panel| {
                 panel.spawn((
-                    Text::new("游戏已暂停"),
+                    localized_text("pause.title", localization),
                     title_font(ui_font, 28.0),
                     TextColor(theme.text_primary),
                 ));
-                spawn_text_button(
+                spawn_localized_button(
                     panel,
                     ResumeButton,
-                    "继续游戏",
+                    "pause.resume",
                     UiControlKind::Button,
                     theme,
                     ui_font,
+                    localization,
                 );
-                spawn_text_button(
+                spawn_localized_button(
                     panel,
                     PauseSettingsButton,
-                    "设置",
+                    "pause.settings",
                     UiControlKind::Button,
                     theme,
                     ui_font,
+                    localization,
                 );
-                spawn_text_button(
+                spawn_localized_button(
                     panel,
                     SaveQuitButton,
-                    "保存并退出",
+                    "pause.save-quit",
                     UiControlKind::Button,
                     theme,
                     ui_font,
+                    localization,
                 );
             });
         });
