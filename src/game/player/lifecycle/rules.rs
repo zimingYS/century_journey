@@ -66,6 +66,7 @@ pub fn death_system(
     gamemode: Res<PlayerGameMode>,
     rules: Res<DeathRules>,
     mut last_death: ResMut<LastDeathInfo>,
+    localization: Res<crate::engine::localization::Localization>,
     mut commands: Commands,
 ) {
     for event in reader.read() {
@@ -106,7 +107,7 @@ pub fn death_system(
         };
         log::info!(
             "[生存] 玩家死亡，原因={}，掉落 {} 组物品",
-            event.source.display_name(),
+            localization.get(event.source.cause_key()),
             drops.len()
         );
     }

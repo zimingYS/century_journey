@@ -9,11 +9,13 @@ use crate::client::ui::components::{
     CreativeInventoryRoot, CreativeItemGrid, CreativeRecentPanel, CreativeSearchBox,
     CreativeSearchPlaceholder, CreativeTitleIcon,
 };
+use crate::client::ui::localization::LocalizedText;
 use crate::client::ui::navigation::{UiScreenAudience, UiScreenRoot};
 use crate::client::ui::resources::frame_assets::UiFrameKind;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::CreativeSearchInput;
+use crate::engine::localization::Localization;
 
 /// 创造物品栏位于 HUD 之上，避免被底部快捷栏盖住。
 const CREATIVE_OVERLAY_Z: i32 = 1000;
@@ -33,6 +35,7 @@ pub fn spawn_creative_inventory_system(
     mut commands: Commands,
     ui_font: Res<UiFont>,
     theme: Res<UiTheme>,
+    localization: Res<Localization>,
 ) {
     commands
         .spawn((
@@ -74,14 +77,19 @@ pub fn spawn_creative_inventory_system(
                     BorderColor::all(Color::srgba(0.52, 0.43, 0.32, 1.0)),
                 ))
                 .with_children(|root| {
-                    build_header(root, &ui_font, &theme);
+                    build_header(root, &ui_font, &theme, &localization);
                     build_inventory_frame(root, &ui_font, &theme);
                 });
         });
 }
 
 /// 构造标题栏、搜索框与关闭按钮。
-fn build_header(root: &mut ChildSpawnerCommands, ui_font: &UiFont, theme: &UiTheme) {
+fn build_header(
+    root: &mut ChildSpawnerCommands,
+    ui_font: &UiFont,
+    theme: &UiTheme,
+    localization: &Localization,
+) {
     root.spawn((
         Node {
             width: Val::Percent(100.0),
@@ -130,7 +138,8 @@ fn build_header(root: &mut ChildSpawnerCommands, ui_font: &UiFont, theme: &UiThe
                         ));
                     });
                 title.spawn((
-                    Text::new("创造模式"),
+                    LocalizedText::new("creative.title"),
+                    Text::new(localization.get("creative.title")),
                     TextFont {
                         font: FontSource::from(ui_font.default.clone()),
                         font_size: FontSize::Px(28.0),
@@ -147,14 +156,19 @@ fn build_header(root: &mut ChildSpawnerCommands, ui_font: &UiFont, theme: &UiThe
                 ..default()
             },))
             .with_children(|right| {
-                build_search_box(right, ui_font, theme);
+                build_search_box(right, ui_font, theme, localization);
                 build_close_button(right, ui_font);
             });
     });
 }
 
 /// 构造搜索框。占位文字是单独节点，不会污染真实搜索文本。
-fn build_search_box(parent: &mut ChildSpawnerCommands, ui_font: &UiFont, theme: &UiTheme) {
+fn build_search_box(
+    parent: &mut ChildSpawnerCommands,
+    ui_font: &UiFont,
+    theme: &UiTheme,
+    localization: &Localization,
+) {
     parent
         .spawn((
             CreativeSearchBox,
@@ -185,7 +199,8 @@ fn build_search_box(parent: &mut ChildSpawnerCommands, ui_font: &UiFont, theme: 
             ));
             search.spawn((
                 CreativeSearchPlaceholder,
-                Text::new("搜索物品..."),
+                LocalizedText::new("creative.search-placeholder"),
+                Text::new(localization.get("creative.search-placeholder")),
                 TextFont {
                     font: FontSource::from(ui_font.default.clone()),
                     font_size: FontSize::Px(theme.search_font_size + 3.0),

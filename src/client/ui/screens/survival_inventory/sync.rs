@@ -17,6 +17,7 @@ use crate::client::ui::widgets::slot::{
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
+use crate::engine::localization::Localization;
 use crate::game::gameplay::gamemode::PlayerGameMode;
 use crate::game::inventory::container::InventoryContainer;
 use crate::game::inventory::container::hotbar::HOTBAR_SIZE;
@@ -318,6 +319,7 @@ pub fn init_survival_hotbar_system(
 #[allow(clippy::type_complexity)]
 pub fn survival_stats_visual_sync_system(
     player_query: Query<(&Health, &Hunger, Option<&Defense>), With<LocalPlayer>>,
+    localization: Res<Localization>,
     mut text_query: Query<(
         &mut Text,
         Option<&SurvivalHealthText>,
@@ -330,11 +332,29 @@ pub fn survival_stats_visual_sync_system(
     };
     for (mut text, health_marker, defense_marker, hunger_marker) in &mut text_query {
         if health_marker.is_some() {
-            *text = Text::new(format!("生命 {:.0}/{:.0}", health.current, health.max));
+            *text = Text::new(localization.format(
+                "survival.health",
+                &[
+                    ("current", &format!("{:.0}", health.current)),
+                    ("max", &format!("{:.0}", health.max)),
+                ],
+            ));
         } else if defense_marker.is_some() {
-            *text = Text::new(format!("防御 {:.0}", defense.map_or(0.0, |value| value.0)));
+            *text = Text::new(localization.format(
+                "survival.defense",
+                &[(
+                    "value",
+                    &format!("{:.0}", defense.map_or(0.0, |value| value.0)),
+                )],
+            ));
         } else if hunger_marker.is_some() {
-            *text = Text::new(format!("饥饿 {:.0}/{:.0}", hunger.current, hunger.max));
+            *text = Text::new(localization.format(
+                "survival.hunger",
+                &[
+                    ("current", &format!("{:.0}", hunger.current)),
+                    ("max", &format!("{:.0}", hunger.max)),
+                ],
+            ));
         }
     }
 }

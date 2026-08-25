@@ -34,11 +34,6 @@ impl ItemId {
         &self.0
     }
 
-    /// 返回适合界面展示的无命名空间名称。
-    pub fn display_name(&self) -> &str {
-        self.0.path()
-    }
-
     /// 从方块标识构造对应的物品标识。
     pub fn block(id: impl AsRef<str>) -> Self {
         Self::parse(id.as_ref()).unwrap_or_else(|e| panic!("非法方块标识符: {e}"))

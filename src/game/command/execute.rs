@@ -4,6 +4,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use crate::content::item::registry::ItemRegistry;
+use crate::engine::localization::Localization;
 use crate::game::command::components::{CommandOutput, GameCommandSubmitted};
 use crate::game::command::parse::{COMMANDS, GameCommand, parse_command};
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
@@ -45,6 +46,8 @@ pub struct CommandExecutionContext<'w, 's> {
     generator: Res<'w, WorldGenerator>,
     /// 物品注册表，/give 的物品存在性校验。
     registry: Res<'w, ItemRegistry>,
+    /// 本地化资源，指令反馈文案查表。
+    localization: Res<'w, Localization>,
     /// 本地玩家实体状态，/tp 与 /give 的修改目标。
     player: LocalPlayerQuery<'w, 's>,
 }
@@ -60,44 +63,64 @@ pub fn execute_game_command_system(
     for submitted in commands.read() {
         match parse_command(&submitted.raw) {
             Ok(GameCommand::Help { topic }) => {
-                write_help_output(&topic, &mut output);
+                write_help_output(&topic, &context.localization, &mut output);
             }
             Ok(GameCommand::Seed) => {
                 output.write(CommandOutput {
-                    text: format!("世界种子：{}", context.generator.seed),
+                    text: context.localization.format(
+                        "command.feedback.seed",
+                        &[("seed", &context.generator.seed.to_string())],
+                    ),
                 });
             }
             Ok(GameCommand::TimeSet { minute_of_day }) => {
                 context.clock.set_time_of_day(minute_of_day);
                 let snapshot = context.clock.snapshot();
                 output.write(CommandOutput {
-                    text: format!("时间已设置为 {:02}:{:02}", snapshot.hour, snapshot.minute),
+                    text: context.localization.format(
+                        "command.feedback.time-set",
+                        &[
+                            ("hour", &format!("{:02}", snapshot.hour)),
+                            ("minute", &format!("{:02}", snapshot.minute)),
+                        ],
+                    ),
                 });
             }
             Ok(GameCommand::TimeScale { scale }) => {
                 context.rules.time_scale = scale;
                 let text = if scale == 0.0 {
-                    "时间已暂停".to_owned()
+                    context
+                        .localization
+                        .get("command.feedback.time-paused")
+                        .to_owned()
                 } else {
-                    format!("时间流速已设置为 {scale} 倍")
+                    context.localization.format(
+                        "command.feedback.time-scale",
+                        &[("scale", &format!("{scale}"))],
+                    )
                 };
                 output.write(CommandOutput { text });
             }
             Ok(GameCommand::GameModeSet { mode }) => {
                 context.gamemode.mode = mode;
                 let label = match mode {
-                    GameMode::Survival => "生存",
-                    GameMode::Creative => "创造",
+                    GameMode::Survival => context.localization.get("gamemode.survival"),
+                    GameMode::Creative => context.localization.get("gamemode.creative"),
                 };
                 output.write(CommandOutput {
-                    text: format!("游戏模式已切换为 {label}模式"),
+                    text: context
+                        .localization
+                        .format("command.feedback.gamemode", &[("mode", label)]),
                 });
             }
             Ok(GameCommand::Teleport { x, y, z }) => {
                 let Ok((mut transform, mut velocity, mut gravity, _)) = context.player.single_mut()
                 else {
                     output.write(CommandOutput {
-                        text: "未找到本地玩家".to_owned(),
+                        text: context
+                            .localization
+                            .get("command.feedback.no-player")
+                            .to_owned(),
                     });
                     continue;
                 };
@@ -106,19 +129,32 @@ pub fn execute_game_command_system(
                 *velocity = PlayerVelocity::default();
                 *gravity = PlayerGravity::default();
                 output.write(CommandOutput {
-                    text: format!("已传送到 ({x:.1}, {y:.1}, {z:.1})"),
+                    text: context.localization.format(
+                        "command.feedback.teleported",
+                        &[
+                            ("x", &format!("{x:.1}")),
+                            ("y", &format!("{y:.1}")),
+                            ("z", &format!("{z:.1}")),
+                        ],
+                    ),
                 });
             }
             Ok(GameCommand::Give { item, count }) => {
                 if !context.registry.contains(&item) {
                     output.write(CommandOutput {
-                        text: format!("未知物品 {item}"),
+                        text: context.localization.format(
+                            "command.feedback.unknown-item",
+                            &[("item", &item.to_string())],
+                        ),
                     });
                     continue;
                 }
                 let Ok((_, _, _, inventory)) = context.player.single_mut() else {
                     output.write(CommandOutput {
-                        text: "未找到本地玩家".to_owned(),
+                        text: context
+                            .localization
+                            .get("command.feedback.no-player")
+                            .to_owned(),
                     });
                     continue;
                 };
@@ -128,17 +164,26 @@ pub fn execute_game_command_system(
                 let text =
                     match insert_into_player(&mut inventory.hotbar, &mut inventory.survival, stack)
                     {
-                        InventoryInsertResult::AllInserted => format!("已给予 {count} × {item}"),
-                        InventoryInsertResult::Partial(remaining) => {
-                            format!("背包空间不足，已给予 {} × {item}", count - remaining.count)
-                        }
-                        InventoryInsertResult::Full(_) => format!("背包已满，未能给予 {item}"),
+                        InventoryInsertResult::AllInserted => context.localization.format(
+                            "command.feedback.give-inserted",
+                            &[("count", &count.to_string()), ("item", &item.to_string())],
+                        ),
+                        InventoryInsertResult::Partial(remaining) => context.localization.format(
+                            "command.feedback.give-partial",
+                            &[
+                                ("count", &(count - remaining.count).to_string()),
+                                ("item", &item.to_string()),
+                            ],
+                        ),
+                        InventoryInsertResult::Full(_) => context
+                            .localization
+                            .format("command.feedback.give-full", &[("item", &item.to_string())]),
                     };
                 output.write(CommandOutput { text });
             }
             Err(error) => {
                 output.write(CommandOutput {
-                    text: error.to_feedback(),
+                    text: error.to_feedback(&context.localization),
                 });
             }
         }
@@ -146,15 +191,19 @@ pub fn execute_game_command_system(
 }
 
 /// 输出帮助反馈：无主题时逐行列出全部指令用法，有主题时输出单条用法。
-fn write_help_output(topic: &Option<String>, output: &mut MessageWriter<CommandOutput>) {
+fn write_help_output(
+    topic: &Option<String>,
+    localization: &Localization,
+    output: &mut MessageWriter<CommandOutput>,
+) {
     match topic {
         None => {
             output.write(CommandOutput {
-                text: "可用指令（/help <指令> 查看用法）：".to_owned(),
+                text: localization.get("command.feedback.help-header").to_owned(),
             });
             for spec in COMMANDS {
                 output.write(CommandOutput {
-                    text: spec.usage.to_owned(),
+                    text: localization.get(spec.usage).to_owned(),
                 });
             }
         }
@@ -162,7 +211,7 @@ fn write_help_output(topic: &Option<String>, output: &mut MessageWriter<CommandO
         Some(name) => {
             if let Some(spec) = COMMANDS.iter().find(|spec| spec.name == name) {
                 output.write(CommandOutput {
-                    text: spec.usage.to_owned(),
+                    text: localization.get(spec.usage).to_owned(),
                 });
             }
         }

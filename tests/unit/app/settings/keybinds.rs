@@ -105,16 +105,37 @@ fn 同键绑定产生双向冲突提示() {
     let mut keybinds = Keybinds::default();
     keybinds.set_binding(KeyAction::DropItem, Some(BindingKey::Key(KeyCode::KeyW)));
     let partners = keybinds.conflict_partners(KeyAction::DropItem);
-    assert_eq!(partners, vec!["前进"]);
+    assert_eq!(partners, vec![KeyAction::MoveForward]);
     assert!(keybinds.has_conflict(KeyAction::MoveForward));
 }
 
 #[test]
 fn 搜索匹配动作名或键名() {
     let keybinds = Keybinds::default();
-    assert!(keybinds.matches_filter(KeyAction::MoveForward, "前进", false, false));
-    assert!(keybinds.matches_filter(KeyAction::MoveForward, "keyw", false, false));
-    assert!(!keybinds.matches_filter(KeyAction::MoveForward, "跳跃", false, false));
+    assert!(keybinds.matches_filter(
+        KeyAction::MoveForward,
+        "移动 / 前进",
+        "KeyW",
+        "前进",
+        false,
+        false
+    ));
+    assert!(keybinds.matches_filter(
+        KeyAction::MoveForward,
+        "移动 / 前进",
+        "KeyW",
+        "keyw",
+        false,
+        false
+    ));
+    assert!(!keybinds.matches_filter(
+        KeyAction::MoveForward,
+        "移动 / 前进",
+        "KeyW",
+        "跳跃",
+        false,
+        false
+    ));
 }
 
 #[test]
@@ -123,12 +144,12 @@ fn 过滤开关筛出冲突与未绑定条目() {
     keybinds.set_binding(KeyAction::Hotbar1, Some(BindingKey::Key(KeyCode::KeyW)));
     keybinds.set_binding(KeyAction::Hotbar2, None);
 
-    assert!(keybinds.matches_filter(KeyAction::Hotbar1, "", true, false));
-    assert!(!keybinds.matches_filter(KeyAction::Jump, "", true, false));
-    assert!(keybinds.matches_filter(KeyAction::Hotbar2, "", false, true));
-    assert!(!keybinds.matches_filter(KeyAction::Jump, "", false, true));
+    assert!(keybinds.matches_filter(KeyAction::Hotbar1, "", "KeyW", "", true, false));
+    assert!(!keybinds.matches_filter(KeyAction::Jump, "", "Space", "", true, false));
+    assert!(keybinds.matches_filter(KeyAction::Hotbar2, "", "", "", false, true));
+    assert!(!keybinds.matches_filter(KeyAction::Jump, "", "Space", "", false, true));
     // 未绑定条目没有键名，搜索词一律不匹配。
-    assert!(!keybinds.matches_filter(KeyAction::Hotbar2, "none", false, true));
+    assert!(!keybinds.matches_filter(KeyAction::Hotbar2, "", "", "none", false, true));
 }
 
 #[test]

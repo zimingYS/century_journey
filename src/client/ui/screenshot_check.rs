@@ -8,12 +8,13 @@ use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 
 use crate::app::flow::{MenuPage, PendingWorld};
 use crate::client::camera::{CameraPerspective, FpsCamera};
-use crate::client::ui::components::SurvivalInventoryRoot;
+use crate::client::ui::components::{CreativeInventoryRoot, SurvivalInventoryRoot};
 use crate::client::ui::navigation::{UiNavigation, UiScreen};
 use crate::client::ui::screens::menu::{
     KeybindsUiState, PauseSettingsButton, ResumeButton, SaveQuitButton, SettingsTab,
 };
 use crate::content::block::registry::BlockRegistry;
+use crate::engine::localization::{LanguageId, Localization};
 use crate::game::crafting::grid::ActiveCrafting;
 use crate::game::gameplay::gamemode::{GameMode, PlayerGameMode};
 use crate::game::inventory::container::world::WorldContainers;
@@ -49,6 +50,8 @@ struct UiScreenshotCheck {
     output: PathBuf,
     mode: GameMode,
     target: ScreenshotTarget,
+    /// 截图语言覆盖：压制设置中的语言，供双语视觉回归验证。
+    language_override: Option<LanguageId>,
     world_id: String,
     anchor_player: bool,
     world_requested: bool,
@@ -100,10 +103,15 @@ pub fn configure_ui_screenshot_check(app: &mut App) {
         .filter(|value| !value.trim().is_empty());
     let anchor_player = requested_world.is_none();
     let world_id = requested_world.unwrap_or_else(|| "__ui_screenshot".to_string());
+    let language_override = std::env::var("CJ_UI_SCREENSHOT_LANGUAGE")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .map(LanguageId::new);
     app.insert_resource(UiScreenshotCheck {
         output: PathBuf::from(output),
         mode,
         target,
+        language_override,
         world_id,
         anchor_player,
         world_requested: false,
@@ -135,6 +143,7 @@ fn ui_screenshot_check_system(
     real_time: Res<Time<Real>>,
     app_state: Res<State<AppState>>,
     config: Option<ResMut<UiScreenshotCheck>>,
+    mut localization: ResMut<Localization>,
     mut gamemode: ResMut<PlayerGameMode>,
     mut player_query: Query<
         (
@@ -161,10 +170,27 @@ fn ui_screenshot_check_system(
         )>,
     >,
     survival_inventory: Query<(&ComputedNode, &InheritedVisibility), With<SurvivalInventoryRoot>>,
+    creative_inventory: Query<(&ComputedNode, &InheritedVisibility), With<CreativeInventoryRoot>>,
 ) {
     let Some(mut config) = config else {
         return;
     };
+    // 语言覆盖需要持续压制而非一次性写入：启动期 apply_settings_system
+    // 会把设置文件中的语言写回资源，覆盖必须在每次被改写后重新生效。
+    if let Some(override_id) = config.language_override.clone()
+        && localization.active() != &override_id
+    {
+        if localization.set_active(&override_id) {
+            log::info!("[截图] 界面语言已切换为 {}", override_id.as_str());
+        } else {
+            log::warn!(
+                "[截图] 截图语言 {} 未注册，继续使用 {}",
+                override_id.as_str(),
+                localization.active().as_str()
+            );
+            config.language_override = None;
+        }
+    }
     if config.requested {
         // 截图已请求：给渲染世界留出完成截图写盘的时间后再退出。
         if std::env::var("CJ_UI_SCREENSHOT_EXIT").as_deref() == Ok("1") {
@@ -324,10 +350,18 @@ fn ui_screenshot_check_system(
         | ScreenshotTarget::SettingsClose => state == &AppState::MainMenu,
         ScreenshotTarget::Pause => state == &AppState::Paused,
         ScreenshotTarget::Inventory => {
-            state == &AppState::InGame
-                && survival_inventory.single().is_ok_and(|(node, inherited)| {
+            // 创造模式打开的是创造背包，就绪检查需跟随模式选择对应根节点。
+            let is_root_visible = |root: Result<(&ComputedNode, &InheritedVisibility), _>| {
+                root.is_ok_and(|(node, inherited)| {
                     node.size().min_element() > 0.0 && inherited.get()
                 })
+            };
+            let inventory_ready = if config.mode == GameMode::Creative {
+                is_root_visible(creative_inventory.single())
+            } else {
+                is_root_visible(survival_inventory.single())
+            };
+            state == &AppState::InGame && inventory_ready
         }
         ScreenshotTarget::Workbench => state == &AppState::InGame,
         ScreenshotTarget::SecondPerson

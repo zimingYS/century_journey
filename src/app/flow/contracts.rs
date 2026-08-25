@@ -47,10 +47,11 @@ pub struct LoadingStatus {
 }
 
 impl Default for LoadingStatus {
+    /// 默认为空：界面展示前应用流程（`enter_boot_system` 等）必定写入本地化文案。
     fn default() -> Self {
         Self {
-            title: "正在启动".into(),
-            detail: "正在加载内容资源...".into(),
+            title: String::new(),
+            detail: String::new(),
         }
     }
 }
@@ -123,8 +124,10 @@ pub enum SettingAction {
     MasterVolume(f32),
     /// 按给定增量调整鼠标灵敏度。
     MouseSensitivity(f32),
-    /// 按给定增量调整 UI 缩放。
+    /// 按给定步数调整 UI 缩放。
     UiScale(f32),
+    /// 按给定步数循环切换界面语言。
+    CycleLanguage(i32),
     /// 切换无边框全屏。
     ToggleFullscreen,
     /// 切换垂直同步。

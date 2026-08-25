@@ -331,26 +331,67 @@ fn rejects_give_with_invalid_item_or_count() {
     );
 }
 
+/// 构造仅含指令文案键的本地化资源，供反馈文本测试查表。
+fn command_localization() -> Localization {
+    let mut zh_table = std::collections::BTreeMap::new();
+    zh_table.insert(
+        "command.error.empty".to_string(),
+        "输入指令为空".to_string(),
+    );
+    zh_table.insert(
+        "command.error.unknown".to_string(),
+        "未知指令 /{name}，可用指令：{available}".to_string(),
+    );
+    zh_table.insert(
+        "command.error.missing-subcommand".to_string(),
+        "缺少子指令，用法：{usage}".to_string(),
+    );
+    zh_table.insert(
+        "command.error.invalid-time".to_string(),
+        "无法识别的时间值“{value}”，支持 0..{max} 的分钟数或 day/noon/night/midnight".to_string(),
+    );
+    zh_table.insert(
+        "command.usage.time".to_string(),
+        "/time set <分钟|day|noon|night|midnight> | /time scale <倍率>".to_string(),
+    );
+    let mut tables = std::collections::BTreeMap::new();
+    tables.insert(
+        crate::engine::localization::LanguageId::new("zh-CN"),
+        zh_table,
+    );
+    Localization::new(
+        vec![crate::engine::localization::LanguageInfo {
+            id: crate::engine::localization::LanguageId::new("zh-CN"),
+            native_name: "简体中文".to_string(),
+        }],
+        tables,
+    )
+}
+
 #[test]
 fn feedback_texts_are_player_readable() {
-    assert_eq!(CommandParseError::Empty.to_feedback(), "输入指令为空");
+    let localization = command_localization();
+    assert_eq!(
+        CommandParseError::Empty.to_feedback(&localization),
+        "输入指令为空"
+    );
     let feedback = CommandParseError::UnknownCommand {
         name: "give".to_owned(),
         available: vec!["time"],
     }
-    .to_feedback();
+    .to_feedback(&localization);
     assert!(feedback.contains("/give"));
     assert!(feedback.contains("/time"));
     assert!(
         CommandParseError::MissingSubcommand { usage: TIME_USAGE }
-            .to_feedback()
+            .to_feedback(&localization)
             .contains("/time")
     );
     assert!(
         CommandParseError::InvalidTimeValue {
             value: "abc".to_owned()
         }
-        .to_feedback()
+        .to_feedback(&localization)
         .contains("abc")
     );
 }

@@ -6,8 +6,10 @@ use crate::shared::tag::identifier::TagId;
 /// 创造模式物品栏的分类
 #[derive(Debug, Clone)]
 pub struct CreativeCategory {
-    /// 显示名称
-    pub display_name: String,
+    /// 分类名的本地化键（`creative.category.*`）。
+    pub label_key: String,
+    /// 键缺失时的兜底名；数据驱动的未知标签用标签路径派生名。
+    pub label_fallback: String,
     /// 图标
     pub icon: String,
     /// 对应的标签ID
@@ -18,9 +20,16 @@ pub struct CreativeCategory {
 
 impl CreativeCategory {
     /// 从标签注册表获得标签构建
-    pub fn from_tag(tag_id: TagId, display_name: String, icon: String, items: Vec<ItemId>) -> Self {
+    pub fn from_tag(
+        tag_id: TagId,
+        label_key: String,
+        label_fallback: String,
+        icon: String,
+        items: Vec<ItemId>,
+    ) -> Self {
         Self {
-            display_name,
+            label_key,
+            label_fallback,
             icon,
             tag_id: Some(tag_id),
             items,
@@ -29,9 +38,10 @@ impl CreativeCategory {
 
     /// 虚拟分类
     /// 用于类似“全部”、“收藏”等虚拟标签的分类
-    pub fn virtual_category(display_name: &str, icon: &str) -> Self {
+    pub fn virtual_category(label_key: &str, label_fallback: &str, icon: &str) -> Self {
         Self {
-            display_name: display_name.to_string(),
+            label_key: label_key.to_string(),
+            label_fallback: label_fallback.to_string(),
             icon: icon.to_string(),
             tag_id: None,
             items: Vec::new(),

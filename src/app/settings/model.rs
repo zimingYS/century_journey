@@ -19,6 +19,13 @@ pub struct GameSettings {
     pub fullscreen: bool,
     /// 是否启用垂直同步。
     pub vsync: bool,
+    /// 界面语言标识，对应 `assets/locales/` 中的语言文件名。
+    pub language: String,
+}
+
+/// 默认界面语言。
+fn default_language() -> String {
+    "zh-CN".to_string()
 }
 
 impl Default for GameSettings {
@@ -30,6 +37,7 @@ impl Default for GameSettings {
             ui_scale: 1.0,
             fullscreen: false,
             vsync: true,
+            language: default_language(),
         }
     }
 }

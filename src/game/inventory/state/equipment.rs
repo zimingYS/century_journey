@@ -33,29 +33,16 @@ impl EquipmentSlot {
         Self::Backpack,
     ];
 
-    /// 返回面向玩家的完整槽位名称。
-    pub const fn label(self) -> &'static str {
+    /// 返回空槽位占位文字的本地化键（`equipment.placeholder.*`）。
+    pub const fn placeholder_key(self) -> &'static str {
         match self {
-            Self::Helmet => "头盔",
-            Self::Chestplate => "胸甲",
-            Self::Leggings => "护腿",
-            Self::Boots => "靴子",
-            Self::Cape => "披风",
-            Self::Offhand => "副手",
-            Self::Backpack => "背包",
-        }
-    }
-
-    /// 返回空槽位中使用的紧凑占位文字。
-    pub const fn placeholder(self) -> &'static str {
-        match self {
-            Self::Helmet => "头",
-            Self::Chestplate => "胸",
-            Self::Leggings => "腿",
-            Self::Boots => "靴",
-            Self::Cape => "披",
-            Self::Offhand => "副",
-            Self::Backpack => "包",
+            Self::Helmet => "equipment.placeholder.helmet",
+            Self::Chestplate => "equipment.placeholder.chestplate",
+            Self::Leggings => "equipment.placeholder.leggings",
+            Self::Boots => "equipment.placeholder.boots",
+            Self::Cape => "equipment.placeholder.cape",
+            Self::Offhand => "equipment.placeholder.offhand",
+            Self::Backpack => "equipment.placeholder.backpack",
         }
     }
 }
@@ -65,23 +52,16 @@ impl EquipmentSlot {
 pub struct AccessorySlotDefinition {
     /// 存档和内容引用使用的稳定槽位 ID。
     pub id: String,
-    /// 面向玩家的槽位名称。
-    pub display_name: String,
-    /// 空槽位中使用的紧凑占位文字。
-    pub placeholder: String,
+    /// 空槽位占位文字的本地化键（`accessory.placeholder.*`）。
+    pub placeholder_key: String,
 }
 
 impl AccessorySlotDefinition {
-    /// 创建一项饰品槽定义。
-    pub fn new(
-        id: impl Into<String>,
-        display_name: impl Into<String>,
-        placeholder: impl Into<String>,
-    ) -> Self {
+    /// 创建一项饰品槽定义；占位文字以本地化键表示。
+    pub fn new(id: impl Into<String>, placeholder_key: impl Into<String>) -> Self {
         Self {
             id: id.into(),
-            display_name: display_name.into(),
-            placeholder: placeholder.into(),
+            placeholder_key: placeholder_key.into(),
         }
     }
 }
@@ -97,12 +77,12 @@ impl Default for AccessorySlotDefinitions {
     fn default() -> Self {
         Self {
             slots: vec![
-                AccessorySlotDefinition::new("ring_1", "戒指 I", "I"),
-                AccessorySlotDefinition::new("ring_2", "戒指 II", "II"),
-                AccessorySlotDefinition::new("necklace", "项链", "项"),
-                AccessorySlotDefinition::new("charm", "护符", "符"),
-                AccessorySlotDefinition::new("belt", "腰带", "带"),
-                AccessorySlotDefinition::new("wings", "翅膀", "翼"),
+                AccessorySlotDefinition::new("ring_1", "accessory.placeholder.ring-1"),
+                AccessorySlotDefinition::new("ring_2", "accessory.placeholder.ring-2"),
+                AccessorySlotDefinition::new("necklace", "accessory.placeholder.necklace"),
+                AccessorySlotDefinition::new("charm", "accessory.placeholder.charm"),
+                AccessorySlotDefinition::new("belt", "accessory.placeholder.belt"),
+                AccessorySlotDefinition::new("wings", "accessory.placeholder.wings"),
             ],
         }
     }

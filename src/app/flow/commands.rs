@@ -12,6 +12,7 @@ use super::settings_runtime::{SettingsPersistenceState, adjust_setting};
 use crate::app::settings::{GameSettings, Keybinds, load_settings, restore_settings_backup};
 use crate::content::block::registry::BlockRegistry;
 use crate::content::validation::ContentCompilation;
+use crate::engine::localization::Localization;
 use crate::game::save::player::{player_save_path, restore_player_backup};
 use crate::game::save::world::chunk::region::RegionManager;
 use crate::game::save::world::metadata::io;
@@ -39,6 +40,7 @@ pub(super) fn handle_flow_commands_system(
     mut next_state: ResMut<NextState<AppState>>,
     mut context: ResMut<InputContextState>,
     mut app_exit: MessageWriter<AppExit>,
+    localization: Res<Localization>,
 ) {
     for command in reader.read() {
         match command {
@@ -46,7 +48,10 @@ pub(super) fn handle_flow_commands_system(
             FlowCommand::SelectWorld(id) => catalog.selected = Some(id.clone()),
             FlowCommand::CreateWorld(name) => {
                 let Some(registry) = block_registry.as_deref() else {
-                    dialog.error("创建失败", "方块注册表尚未加载完成");
+                    dialog.error(
+                        localization.get("dialog.create-failed"),
+                        localization.get("dialog.registry-not-ready"),
+                    );
                     continue;
                 };
                 let id = unique_world_id(&sanitize_world_name(name), &catalog);
@@ -66,7 +71,9 @@ pub(super) fn handle_flow_commands_system(
                         refresh_world_catalog(&mut catalog);
                         catalog.selected = Some(id);
                     }
-                    Err(error) => dialog.error("创建失败", error.to_string()),
+                    Err(error) => {
+                        dialog.error(localization.get("dialog.create-failed"), error.to_string())
+                    }
                 }
             }
             FlowCommand::PlaySelected => {
@@ -75,8 +82,11 @@ pub(super) fn handle_flow_commands_system(
                     .filter(|compilation| !compilation.is_valid())
                 {
                     dialog.error(
-                        "无法进入世界",
-                        format!("内容编译失败：\n{}", compilation.error_summary(12)),
+                        localization.get("dialog.enter-world-failed"),
+                        localization.format(
+                            "dialog.content-invalid",
+                            &[("summary", &compilation.error_summary(12))],
+                        ),
                     );
                     continue;
                 }
@@ -84,7 +94,10 @@ pub(super) fn handle_flow_commands_system(
                     pending.0 = Some(selected);
                     next_state.set(AppState::WorldLoading);
                 } else {
-                    dialog.error("无法进入世界", "请先创建或选择一个世界");
+                    dialog.error(
+                        localization.get("dialog.enter-world-failed"),
+                        localization.get("dialog.no-world-selected"),
+                    );
                 }
             }
             FlowCommand::RequestDeleteSelected => {
@@ -92,14 +105,18 @@ pub(super) fn handle_flow_commands_system(
                     dialog.kind = Some(DialogKind::ConfirmDelete {
                         world_id: world_id.clone(),
                     });
-                    dialog.title = "删除世界".into();
-                    dialog.message = format!("确定永久删除世界“{world_id}”吗？此操作无法撤销。");
+                    dialog.title = localization.get("dialog.delete-world").to_owned();
+                    dialog.message =
+                        localization.format("dialog.delete-world-confirm", &[("world", &world_id)]);
                 }
             }
             FlowCommand::ConfirmDialog => {
                 if let Some(DialogKind::ConfirmRecoverWorld { world_id }) = dialog.kind.clone() {
                     if let Err(error) = io::restore_level_backup(&world_id) {
-                        dialog.error("世界恢复失败", error.to_string());
+                        dialog.error(
+                            localization.get("dialog.world-recover-failed"),
+                            error.to_string(),
+                        );
                         continue;
                     }
                     pending.0 = Some(world_id);
@@ -107,7 +124,7 @@ pub(super) fn handle_flow_commands_system(
                 }
                 if let Some(DialogKind::ConfirmRecoverPlayer { world_id }) = dialog.kind.clone() {
                     if let Err(error) = restore_player_backup(&player_save_path(&world_id)) {
-                        dialog.error("玩家存档恢复失败", error);
+                        dialog.error(localization.get("dialog.player-recover-failed"), error);
                         continue;
                     }
                     pending.0 = Some(world_id);
@@ -122,7 +139,7 @@ pub(super) fn handle_flow_commands_system(
                             settings_persistence.blocked = false;
                         }
                         Err(error) => {
-                            dialog.error("设置恢复失败", error);
+                            dialog.error(localization.get("dialog.settings-recover-failed"), error);
                             continue;
                         }
                     }
@@ -136,7 +153,8 @@ pub(super) fn handle_flow_commands_system(
                             refresh_world_catalog(&mut catalog);
                         }
                         Err(error) => {
-                            dialog.error("删除失败", error.to_string());
+                            dialog
+                                .error(localization.get("dialog.delete-failed"), error.to_string());
                             continue;
                         }
                     }
@@ -154,7 +172,9 @@ pub(super) fn handle_flow_commands_system(
             FlowCommand::QuitApplication => {
                 app_exit.write(AppExit::Success);
             }
-            FlowCommand::AdjustSetting(action) => adjust_setting(&mut settings, *action),
+            FlowCommand::AdjustSetting(action) => {
+                adjust_setting(&mut settings, *action, &localization)
+            }
             FlowCommand::RebindKey(action, binding) => keybinds.set_binding(*action, *binding),
             FlowCommand::ResetKeybinds => keybinds.reset_all(),
         }

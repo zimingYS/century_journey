@@ -3,6 +3,7 @@
 //! 本模块是纯函数，不依赖 Bevy 类型；指令注册表集中管理字符串分发，
 //! 新增指令只需实现家族解析与候选函数并在注册表追加一行。
 
+use crate::engine::localization::Localization;
 use crate::game::gameplay::gamemode::GameMode;
 use crate::game::world::time::{MINUTES_PER_GAME_DAY, MINUTES_PER_GAME_HOUR};
 use crate::shared::item_id::ItemId;
@@ -70,14 +71,14 @@ pub enum CommandParseError {
         /// 注册表中全部可用指令名。
         available: Vec<&'static str>,
     },
-    /// 缺少子指令；usage 为该指令的用法说明。
+    /// 缺少子指令；usage 为该指令用法说明的本地化键。
     MissingSubcommand {
-        /// 用法说明文本。
+        /// 用法说明的本地化键。
         usage: &'static str,
     },
-    /// 缺少必要参数；usage 为该指令的用法说明。
+    /// 缺少必要参数；usage 为该指令用法说明的本地化键。
     MissingArgument {
-        /// 用法说明文本。
+        /// 用法说明的本地化键。
         usage: &'static str,
     },
     /// 时间值无法解析为整数分钟或预设名。
@@ -133,26 +134,26 @@ pub enum CommandParseError {
 pub(crate) struct CommandSpec {
     /// 指令根名（小写，不含 '/'）。
     pub(crate) name: &'static str,
-    /// 用法说明；由注册表传给家族函数，是唯一的用法事实来源。
+    /// 用法说明的本地化键；由注册表传给家族函数，是唯一的用法事实来源。
     pub(crate) usage: &'static str,
-    /// 家族解析函数：输入为用法说明与剥离根名后的参数片段。
+    /// 家族解析函数：输入为用法键与剥离根名后的参数片段。
     pub(crate) parse: fn(&'static str, &[&str]) -> Result<GameCommand, CommandParseError>,
     /// 家族候选函数：输入为已完成的参数词、正在补全的词前缀与候选上下文。
     pub(crate) suggest: fn(&[&str], &str, &SuggestContext) -> Vec<String>,
 }
 
-/// gamemode 指令家族的用法说明。
-pub(crate) const GAMEMODE_USAGE: &str = "/gamemode <survival|creative>";
-/// give 指令家族的用法说明。
-pub(crate) const GIVE_USAGE: &str = "/give <物品ID> [数量]";
-/// help 指令家族的用法说明。
-pub(crate) const HELP_USAGE: &str = "/help [指令名]";
-/// seed 指令家族的用法说明。
-pub(crate) const SEED_USAGE: &str = "/seed";
-/// time 指令家族的用法说明。
-pub(crate) const TIME_USAGE: &str = "/time set <分钟|day|noon|night|midnight> | /time scale <倍率>";
-/// tp 指令家族的用法说明。
-pub(crate) const TP_USAGE: &str = "/tp <x> <y> <z>";
+/// gamemode 指令家族的用法键。
+pub(crate) const GAMEMODE_USAGE: &str = "command.usage.gamemode";
+/// give 指令家族的用法键。
+pub(crate) const GIVE_USAGE: &str = "command.usage.give";
+/// help 指令家族的用法键。
+pub(crate) const HELP_USAGE: &str = "command.usage.help";
+/// seed 指令家族的用法键。
+pub(crate) const SEED_USAGE: &str = "command.usage.seed";
+/// time 指令家族的用法键。
+pub(crate) const TIME_USAGE: &str = "command.usage.time";
+/// tp 指令家族的用法键。
+pub(crate) const TP_USAGE: &str = "command.usage.tp";
 
 /// 全部已注册指令。新增指令 = 实现家族解析与候选函数 + 在此追加一行。
 pub(crate) const COMMANDS: &[CommandSpec] = &[
@@ -220,43 +221,55 @@ pub fn parse_command(line: &str) -> Result<GameCommand, CommandParseError> {
 }
 
 impl CommandParseError {
-    /// 生成面向玩家的中文提示文本。
-    pub fn to_feedback(&self) -> String {
+    /// 生成面向玩家的提示文本；文案来自本地化表。
+    pub fn to_feedback(&self, localization: &Localization) -> String {
         match self {
-            Self::Empty => "输入指令为空".to_owned(),
-            Self::UnknownCommand { name, available } => format!(
-                "未知指令 /{name}，可用指令：{}",
-                format_available(available)
+            Self::Empty => localization.get("command.error.empty").to_owned(),
+            Self::UnknownCommand { name, available } => localization.format(
+                "command.error.unknown",
+                &[("name", name), ("available", &format_available(available))],
             ),
-            Self::MissingSubcommand { usage } => format!("缺少子指令，用法：{usage}"),
-            Self::MissingArgument { usage } => format!("缺少参数，用法：{usage}"),
-            Self::InvalidTimeValue { value } => format!(
-                "无法识别的时间值“{value}”，支持 0..{MINUTES_PER_GAME_DAY} 的分钟数或 day/noon/night/midnight"
+            Self::MissingSubcommand { usage } => localization.format(
+                "command.error.missing-subcommand",
+                &[("usage", localization.get(usage))],
+            ),
+            Self::MissingArgument { usage } => localization.format(
+                "command.error.missing-argument",
+                &[("usage", localization.get(usage))],
+            ),
+            Self::InvalidTimeValue { value } => localization.format(
+                "command.error.invalid-time",
+                &[("value", value), ("max", &MINUTES_PER_GAME_DAY.to_string())],
             ),
             Self::InvalidScaleValue { value } => {
-                format!("无法识别的倍率“{value}”，需要一个数字")
+                localization.format("command.error.invalid-scale", &[("value", value)])
             }
-            Self::ScaleOutOfRange { value } => {
-                format!("倍率 {value} 超出范围，支持 0.0..=100.0")
-            }
+            Self::ScaleOutOfRange { value } => localization.format(
+                "command.error.scale-out-of-range",
+                &[("value", &value.to_string())],
+            ),
             Self::InvalidItemValue { value } => {
-                format!("无法识别的物品“{value}”，使用物品短名或 命名空间:名称")
+                localization.format("command.error.invalid-item", &[("value", value)])
             }
             Self::InvalidCountValue { value } => {
-                format!("无法识别的数量“{value}”，需要一个整数")
+                localization.format("command.error.invalid-count", &[("value", value)])
             }
-            Self::CountOutOfRange { value } => {
-                format!("数量 {value} 超出范围，支持 1..={MAX_GIVE_COUNT}")
-            }
+            Self::CountOutOfRange { value } => localization.format(
+                "command.error.count-out-of-range",
+                &[
+                    ("value", &value.to_string()),
+                    ("max", &MAX_GIVE_COUNT.to_string()),
+                ],
+            ),
             Self::InvalidCoordinate { value } => {
-                format!("无法识别的坐标“{value}”，需要一个数字")
+                localization.format("command.error.invalid-coordinate", &[("value", value)])
             }
             Self::InvalidGameMode { value } => {
-                format!("无法识别的模式“{value}”，可用：survival / creative")
+                localization.format("command.error.invalid-gamemode", &[("value", value)])
             }
-            Self::InvalidHelpTopic { name, available } => format!(
-                "未知指令 /{name}，可用指令：{}",
-                format_available(available)
+            Self::InvalidHelpTopic { name, available } => localization.format(
+                "command.error.invalid-help-topic",
+                &[("name", name), ("available", &format_available(available))],
             ),
         }
     }

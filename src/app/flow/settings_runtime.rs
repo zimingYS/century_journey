@@ -10,6 +10,8 @@ use crate::app::settings::{
     settings_backup_available, settings_file_exists,
 };
 use crate::client::ui::theme::scale::UiScaleSettings;
+use crate::engine::localization::LanguageId;
+use crate::engine::localization::Localization;
 use crate::game::world::streaming::WorldStreamingConfig;
 
 /// 记录最近成功写盘的设置，避免每帧重复保存。
@@ -61,7 +63,11 @@ pub(super) fn persist_keybinds_system(
 }
 
 /// 应用一次设置调整，并把结果限制在运行时支持范围内。
-pub(super) fn adjust_setting(settings: &mut GameSettings, action: SettingAction) {
+pub(super) fn adjust_setting(
+    settings: &mut GameSettings,
+    action: SettingAction,
+    localization: &Localization,
+) {
     match action {
         SettingAction::RenderDistance(delta) => {
             settings.render_distance =
@@ -76,9 +82,27 @@ pub(super) fn adjust_setting(settings: &mut GameSettings, action: SettingAction)
         SettingAction::UiScale(delta) => {
             settings.ui_scale = (settings.ui_scale + delta).clamp(0.6, 1.6);
         }
+        SettingAction::CycleLanguage(delta) => {
+            settings.language = cycle_language(&settings.language, delta, localization);
+        }
         SettingAction::ToggleFullscreen => settings.fullscreen = !settings.fullscreen,
         SettingAction::ToggleVsync => settings.vsync = !settings.vsync,
     }
+}
+
+/// 按注册顺序循环切换语言；当前值不在注册表中时回到首个语言。
+fn cycle_language(current: &str, delta: i32, localization: &Localization) -> String {
+    let languages = localization.languages();
+    if languages.is_empty() {
+        return current.to_string();
+    }
+    let index = languages
+        .iter()
+        .position(|info| info.id.as_str() == current)
+        .map(|index| index as i32)
+        .unwrap_or(0);
+    let next = (index + delta).rem_euclid(languages.len() as i32) as usize;
+    languages[next].id.as_str().to_string()
 }
 
 /// 将设置资源同步到各层已经存在的运行时资源。
@@ -87,6 +111,7 @@ pub(super) fn apply_settings_system(
     mut ui_scale: ResMut<UiScaleSettings>,
     mut streaming: ResMut<WorldStreamingConfig>,
     mut global_volume: ResMut<GlobalVolume>,
+    mut localization: ResMut<Localization>,
     mut window_query: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     if !settings.is_changed() {
@@ -100,6 +125,14 @@ pub(super) fn apply_settings_system(
         streaming.data_vertical_radius_below as u32,
     );
     global_volume.volume = Volume::Linear(settings.master_volume);
+    let requested = LanguageId::new(settings.language.clone());
+    if localization.active() != &requested && !localization.set_active(&requested) {
+        log::warn!(
+            "[本地化] 设置中的语言 {} 不可用，界面继续使用 {}",
+            settings.language,
+            localization.active().as_str()
+        );
+    }
     if let Ok(mut window) = window_query.single_mut() {
         window.mode = if settings.fullscreen {
             WindowMode::BorderlessFullscreen(MonitorSelection::Current)
@@ -119,18 +152,19 @@ pub(super) fn load_settings_system(
     mut settings: ResMut<GameSettings>,
     mut persistence_state: ResMut<SettingsPersistenceState>,
     mut dialog: ResMut<DialogState>,
+    localization: Res<Localization>,
 ) {
     if !settings_file_exists() {
         if settings_backup_available() {
             persistence_state.blocked = true;
             dialog.kind = Some(DialogKind::ConfirmRecoverSettings);
-            dialog.title = "发现设置备份".into();
-            dialog.message = "主设置文件缺失，是否恢复最近一次有效备份？".into();
+            dialog.title = localization.get("dialog.settings-backup-found").to_owned();
+            dialog.message = localization.get("dialog.settings-missing").to_owned();
             return;
         }
         if let Err(error) = save_settings(&settings) {
             persistence_state.blocked = true;
-            dialog.error("设置保存失败", error);
+            dialog.error(localization.get("dialog.settings-save-failed"), error);
         }
         persistence_state.last_saved = settings.clone();
         return;
@@ -144,12 +178,15 @@ pub(super) fn load_settings_system(
         Err(error) if settings_backup_available() => {
             persistence_state.blocked = true;
             dialog.kind = Some(DialogKind::ConfirmRecoverSettings);
-            dialog.title = "设置文件损坏".into();
-            dialog.message = format!("当前设置无法读取：{error}\n是否恢复最近一次有效备份？");
+            dialog.title = localization.get("dialog.settings-corrupt").to_owned();
+            dialog.message = localization.format(
+                "dialog.settings-unreadable",
+                &[("error", &error.to_string())],
+            );
         }
         Err(error) => {
             persistence_state.blocked = true;
-            dialog.error("设置加载失败", error);
+            dialog.error(localization.get("dialog.settings-load-failed"), error);
         }
     }
 }
@@ -159,6 +196,7 @@ pub(super) fn persist_settings_system(
     settings: Res<GameSettings>,
     mut persistence_state: ResMut<SettingsPersistenceState>,
     mut dialog: ResMut<DialogState>,
+    localization: Res<Localization>,
 ) {
     if persistence_state.blocked || *settings == persistence_state.last_saved {
         return;
@@ -167,7 +205,7 @@ pub(super) fn persist_settings_system(
         Ok(()) => persistence_state.last_saved = settings.clone(),
         Err(error) => {
             persistence_state.blocked = true;
-            dialog.error("设置保存失败", error);
+            dialog.error(localization.get("dialog.settings-save-failed"), error);
         }
     }
 }

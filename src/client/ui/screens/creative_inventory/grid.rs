@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use crate::client::renderer::item::GuiItemIconCache;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::components::{CreativeItemGrid, CreativeRecentPanel};
+use crate::client::ui::localization::LocalizedText;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
@@ -13,6 +14,7 @@ use crate::client::ui::widgets::slot::{
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
+use crate::engine::localization::Localization;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::LocalInventory;
 use crate::shared::item_id::ItemId;
@@ -140,6 +142,7 @@ pub fn populate_recent_panel_system(
     existing_slots: Query<(Entity, &InventorySlot)>,
     ui_font: Res<UiFont>,
     theme: Res<UiTheme>,
+    localization: Res<Localization>,
     item_registry: Option<Res<ItemRegistry>>,
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
     mut commands: Commands,
@@ -210,7 +213,8 @@ pub fn populate_recent_panel_system(
 
     commands.entity(panel_entity).with_children(|panel| {
         panel.spawn((
-            Text::new("最近使用"),
+            LocalizedText::new("creative.recent"),
+            Text::new(localization.get("creative.recent")),
             TextFont {
                 font: FontSource::from(ui_font.default.clone()),
                 font_size: FontSize::Px(theme.body_font_size + 6.0),
@@ -279,7 +283,8 @@ pub fn populate_recent_panel_system(
                     ))
                     .with_children(|slot| {
                         slot.spawn((
-                            Text::new("箱"),
+                            LocalizedText::new("creative.chest"),
+                            Text::new(localization.get("creative.chest")),
                             TextFont {
                                 font: FontSource::from(ui_font.default.clone()),
                                 font_size: FontSize::Px(30.0),

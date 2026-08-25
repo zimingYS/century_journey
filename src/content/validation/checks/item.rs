@@ -6,7 +6,7 @@ use crate::content::item::definition::presentation::HeldRenderDefinition;
 use crate::content::item::texture::icon::IconDefinition;
 use crate::engine::asset::AssetResolver;
 use crate::shared::identifier::Identifier;
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 /// 校验物品标识符、工具属性与表现资源引用。
 pub(in crate::content::validation) fn validate_items(
@@ -85,6 +85,41 @@ pub(in crate::content::validation) fn validate_items(
                 )),
             },
             IconDefinition::Block(_) => {}
+        }
+    }
+}
+
+/// 校验物品名称的本地化键在回退语言中存在。
+///
+/// 界面按 `item.<命名空间>.<路径>` 查询物品名；键缺失时会退回 JSON 的
+/// `display_name`，导致中英文界面混排，因此在离线检查阶段拦截。
+/// 方块会桥接为同名物品参与校验，`air` 不注册为物品故跳过。
+pub(in crate::content::validation) fn validate_item_name_keys(
+    items: &[(String, ItemDefinition)],
+    block_ids: &HashSet<String>,
+    fallback_keys: &BTreeSet<String>,
+    report: &mut ContentCheckReport,
+) {
+    let item_keys = items
+        .iter()
+        .map(|(path, item)| (path.clone(), item.name_key()));
+    let block_keys = block_ids
+        .iter()
+        .filter(|id| id.as_str() != "century_journey:air")
+        .map(|id| {
+            let (namespace, path) = id
+                .split_once(':')
+                .unwrap_or(("century_journey", id.as_str()));
+            (
+                format!("definitions/blocks/{namespace}/{path}.json"),
+                format!("item.{namespace}.{path}"),
+            )
+        });
+    for (path, key) in item_keys.chain(block_keys) {
+        if !fallback_keys.contains(&key) {
+            report
+                .errors
+                .push(format!("{path}:name: missing locale key {key}"));
         }
     }
 }

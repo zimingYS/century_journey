@@ -13,6 +13,7 @@ use crate::content::block::registry::BlockRegistry;
 use crate::content::item::ItemRegistry;
 use crate::content::item::definition::ItemCategory;
 use crate::content::tag::runtime::RuntimeTagRegistry;
+use crate::engine::localization::Localization;
 use crate::game::inventory::container::creative::CreativeCategory;
 use crate::game::inventory::state::LocalInventoryMut;
 use crate::shared::item_id::ItemId;
@@ -28,6 +29,7 @@ pub fn build_creative_categories_system(
     ui_font: Res<UiFont>,
     theme: Res<UiTheme>,
     cat_theme: Res<CategoryTheme>,
+    localization: Res<Localization>,
     mut commands: Commands,
     item_registry: Option<Res<ItemRegistry>>,
 ) {
@@ -41,13 +43,34 @@ pub fn build_creative_categories_system(
 
     // 这些标签来自数据层；显示顺序固定，避免 HashMap 顺序导致 UI 抖动。
     let mut categories = vec![
-        CreativeCategory::virtual_category("全部", "■"),
-        category_from_tag("solid", "固体", "▣", &tag_reg, &block_reg),
-        category_from_tag("tree_plantable", "作物", "♧", &tag_reg, &block_reg),
-        category_from_tag("natural", "自然", "♣", &tag_reg, &block_reg),
+        CreativeCategory::virtual_category("creative.category.all", "All", "■"),
+        category_from_tag(
+            "solid",
+            "creative.category.solid",
+            "Solid",
+            "▣",
+            &tag_reg,
+            &block_reg,
+        ),
+        category_from_tag(
+            "tree_plantable",
+            "creative.category.crop",
+            "Crop",
+            "♧",
+            &tag_reg,
+            &block_reg,
+        ),
+        category_from_tag(
+            "natural",
+            "creative.category.natural",
+            "Natural",
+            "♣",
+            &tag_reg,
+            &block_reg,
+        ),
     ];
 
-    let mut tools = CreativeCategory::virtual_category("工具", "⚒");
+    let mut tools = CreativeCategory::virtual_category("creative.category.tools", "Tools", "⚒");
     if let Some(item_reg) = item_registry.as_ref() {
         let mut tool_items = item_reg.items_by_category(&ItemCategory::Tool).to_vec();
         // 注册顺序由内容编译决定，不一定稳定；按 identifier 排序保持槽位一致。
@@ -57,11 +80,31 @@ pub fn build_creative_categories_system(
     categories.push(tools);
 
     // 预留与参考图一致的分类入口，后续有对应数据时只需要填充 items。
-    categories.push(CreativeCategory::virtual_category("装饰", "▤"));
-    categories.push(CreativeCategory::virtual_category("红石", "◆"));
-    categories.push(CreativeCategory::virtual_category("运输", "≡"));
-    categories.push(CreativeCategory::virtual_category("杂项", "◒"));
-    categories.push(CreativeCategory::virtual_category("收藏", "☆"));
+    categories.push(CreativeCategory::virtual_category(
+        "creative.category.decor",
+        "Decor",
+        "▤",
+    ));
+    categories.push(CreativeCategory::virtual_category(
+        "creative.category.redstone",
+        "Redstone",
+        "◆",
+    ));
+    categories.push(CreativeCategory::virtual_category(
+        "creative.category.transport",
+        "Transport",
+        "≡",
+    ));
+    categories.push(CreativeCategory::virtual_category(
+        "creative.category.misc",
+        "Misc",
+        "◒",
+    ));
+    categories.push(CreativeCategory::virtual_category(
+        "creative.category.favorites",
+        "Favorites",
+        "☆",
+    ));
 
     // 追加未显式列出的数据标签，保证新增标签不会被 UI 吞掉。
     let known = [
@@ -69,14 +112,18 @@ pub fn build_creative_categories_system(
         "century_journey:tree_plantable",
         "century_journey:natural",
     ];
-    for tag in tag_reg.all_tags() {
+    // 标签来自 HashMap 迭代，顺序不稳定；排序保证分类标签顺序可复现。
+    let mut extra_tags: Vec<&TagId> = tag_reg
+        .all_tags()
+        .filter(|tag| !known.contains(&tag.to_full().as_str()))
+        .collect();
+    extra_tags.sort_by_key(|tag| tag.to_full());
+    for tag in extra_tags {
         let tag_full = tag.to_full();
-        if known.contains(&tag_full.as_str()) {
-            continue;
-        }
         categories.push(CreativeCategory::from_tag(
             tag.clone(),
-            cat_theme.display_name(&tag_full),
+            category_label_key(tag),
+            category_label_fallback(tag),
             cat_theme.icon(&tag_full),
             items_for_tag(tag, &tag_reg, &block_reg),
         ));
@@ -91,21 +138,22 @@ pub fn build_creative_categories_system(
         for (idx, cat) in state.creative.categories.iter().enumerate() {
             spawn_category_tab(
                 panel,
-                &cat.display_name,
-                &cat.icon,
+                cat,
                 idx,
                 idx == state.creative.selected_tab,
                 &ui_font,
                 &theme,
+                &localization,
             );
         }
     });
 }
 
-/// 从指定方块标签生成创造模式分类。
+/// 从指定方块标签生成本地化键形式的创造模式分类。
 fn category_from_tag(
     path: &str,
-    display_name: &str,
+    label_key: &str,
+    label_fallback: &str,
     icon: &str,
     tag_registry: &RuntimeTagRegistry,
     block_registry: &BlockRegistry,
@@ -113,10 +161,40 @@ fn category_from_tag(
     let tag_id = TagId::new("century_journey", path);
     CreativeCategory::from_tag(
         tag_id.clone(),
-        display_name.to_string(),
+        label_key.to_string(),
+        label_fallback.to_string(),
         icon.to_string(),
         items_for_tag(&tag_id, tag_registry, block_registry),
     )
+}
+
+/// 由标签派生分类名的本地化键。
+///
+/// 默认命名空间只取路径；其他命名空间（如 `mineable:axe`）保留
+/// `命名空间-路径` 前缀，避免不同命名空间的同名标签键冲突。
+/// 路径中的下划线归一化为连字符，与语言文件键名惯例一致。
+fn category_label_key(tag: &TagId) -> String {
+    let namespace = tag.namespace();
+    let path = tag.path().replace('_', "-");
+    if namespace == "century_journey" {
+        format!("creative.category.{path}")
+    } else {
+        format!("creative.category.{namespace}-{path}")
+    }
+}
+
+/// 由标签派生键缺失时的兜底名。
+/// 默认命名空间取路径首字母大写；其他命名空间保留 `命名空间/路径` 原样。
+fn category_label_fallback(tag: &TagId) -> String {
+    if tag.namespace() != "century_journey" {
+        return tag.to_full();
+    }
+    let path = tag.path();
+    let mut chars = path.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
+    }
 }
 
 /// 将方块标签里的运行时方块 ID 转换成物品 ID。
@@ -186,7 +264,7 @@ pub fn update_creative_filter_system(
         all.sort_by(|a, b| a.identifier().path().cmp(b.identifier().path()));
         all
     } else if let Some(cat) = state.creative.categories.get(tab) {
-        if cat.tag_id.is_none() && cat.display_name == "收藏" {
+        if cat.label_key == "creative.category.favorites" {
             state.creative.favorites.clone()
         } else {
             cat.items.clone()

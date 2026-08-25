@@ -6,6 +6,7 @@ use crate::client::camera::FpsCamera;
 use crate::client::effect::components::{DamageFlashOverlay, FeedbackNotice, FeedbackNoticeText};
 use crate::client::effect::resources::{DamageFeedback, NoticeFeedback};
 use crate::client::ui::resources::ui_font::UiFont;
+use crate::engine::localization::Localization;
 use crate::game::gameplay::block_action::BlockBreakProgress;
 use crate::game::inventory::events::InventoryFeedbackEvent;
 use crate::game::player::identity::LocalPlayer;
@@ -118,6 +119,7 @@ pub(super) fn receive_damage_feedback_system(
 /// 消费库存反馈事件，显示顶部提示文本。
 pub(super) fn receive_notice_feedback_system(
     mut reader: MessageReader<InventoryFeedbackEvent>,
+    localization: Res<Localization>,
     mut feedback: ResMut<NoticeFeedback>,
     mut text_query: Query<&mut Text, With<FeedbackNoticeText>>,
 ) {
@@ -126,7 +128,7 @@ pub(super) fn receive_notice_feedback_system(
             InventoryFeedbackEvent::Full => {
                 feedback.remaining = NOTICE_SECONDS;
                 for mut text in &mut text_query {
-                    **text = "背包已满".into();
+                    **text = localization.get("notice.inventory-full").into();
                 }
             }
         }

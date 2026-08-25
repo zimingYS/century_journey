@@ -63,18 +63,18 @@ pub enum DamageSource {
 }
 
 impl DamageSource {
-    /// 返回适合死亡提示使用的中文来源名称。
-    pub const fn display_name(self) -> &'static str {
+    /// 返回死亡提示使用的本地化键（`death.cause.*`）。
+    pub const fn cause_key(self) -> &'static str {
         match self {
-            Self::Fall => "从高处坠落",
-            Self::Starvation => "饥饿",
-            Self::Dehydration => "脱水",
-            Self::Drowning => "溺水",
-            Self::Fire => "火焰",
-            Self::Overheating => "过热",
-            Self::Hypothermia => "失温",
-            Self::Entity(_) => "实体攻击",
-            Self::Generic => "环境伤害",
+            Self::Fall => "death.cause.fall",
+            Self::Starvation => "death.cause.starvation",
+            Self::Dehydration => "death.cause.dehydration",
+            Self::Drowning => "death.cause.drowning",
+            Self::Fire => "death.cause.fire",
+            Self::Overheating => "death.cause.overheating",
+            Self::Hypothermia => "death.cause.hypothermia",
+            Self::Entity(_) => "death.cause.entity",
+            Self::Generic => "death.cause.generic",
         }
     }
 }

@@ -212,6 +212,7 @@ pub fn push_command_output_system(
 pub fn update_console_hint_system(
     console: Res<ConsoleState>,
     item_registry: Res<ItemRegistry>,
+    localization: Res<crate::engine::localization::Localization>,
     editable_query: Query<&EditableText, With<ConsoleInput>>,
     mut hint_query: Query<(&mut Text, &mut Visibility), With<ConsoleHint>>,
 ) {
@@ -241,7 +242,7 @@ pub fn update_console_hint_system(
         .map(|candidate| candidate.trim_end().to_owned())
         .collect();
     if let Some(usage) = suggestions.usage {
-        sections.push(usage.to_owned());
+        sections.push(localization.get(usage).to_owned());
     }
     let joined = sections.join("\n");
     if joined.is_empty() {

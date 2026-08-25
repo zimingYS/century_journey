@@ -1,10 +1,13 @@
 //! 键位绑定资源的数据模型、默认表与查询逻辑。
 //!
 //! 本模块只定义绑定契约：动作有哪些、默认键是什么、某键当前是否按住、
-//! 是否与其他动作冲突。磁盘 TOML 编解码见 `keybinds_toml`。
+//! 是否与其他动作冲突。磁盘 TOML 编解码见 `keybinds_toml`，
+//! 界面文本的本地化见 `action_label_localized`。
 
 use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
+
+use crate::engine::localization::Localization;
 
 /// 一条可被玩家重新绑定的离散动作。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -57,9 +60,9 @@ pub struct KeyActionSpec {
     pub action: KeyAction,
     /// TOML 配置中的稳定标识符。
     pub id: &'static str,
-    /// 界面分组名称。
+    /// 界面分组标识，对应本地化键 `keybind.category.<category>`。
     pub category: &'static str,
-    /// 界面显示名称。
+    /// 界面显示名称，对应本地化键 `keybind.action.<id>`。
     pub display: &'static str,
     /// 默认绑定；当前布局的固定起点。
     pub default: Option<BindingKey>,
@@ -70,161 +73,161 @@ pub const KEY_ACTIONS: &[KeyActionSpec] = &[
     KeyActionSpec {
         action: KeyAction::MoveForward,
         id: "move_forward",
-        category: "移动",
+        category: "move",
         display: "前进",
         default: Some(BindingKey::Key(KeyCode::KeyW)),
     },
     KeyActionSpec {
         action: KeyAction::MoveBackward,
         id: "move_backward",
-        category: "移动",
+        category: "move",
         display: "后退",
         default: Some(BindingKey::Key(KeyCode::KeyS)),
     },
     KeyActionSpec {
         action: KeyAction::MoveLeft,
         id: "move_left",
-        category: "移动",
+        category: "move",
         display: "向左移动",
         default: Some(BindingKey::Key(KeyCode::KeyA)),
     },
     KeyActionSpec {
         action: KeyAction::MoveRight,
         id: "move_right",
-        category: "移动",
+        category: "move",
         display: "向右移动",
         default: Some(BindingKey::Key(KeyCode::KeyD)),
     },
     KeyActionSpec {
         action: KeyAction::Jump,
         id: "jump",
-        category: "移动",
+        category: "move",
         display: "跳跃",
         default: Some(BindingKey::Key(KeyCode::Space)),
     },
     KeyActionSpec {
         action: KeyAction::Sprint,
         id: "sprint",
-        category: "移动",
+        category: "move",
         display: "疾跑",
         default: Some(BindingKey::Key(KeyCode::ShiftLeft)),
     },
     KeyActionSpec {
         action: KeyAction::Squat,
         id: "squat",
-        category: "移动",
+        category: "move",
         display: "下蹲",
         default: Some(BindingKey::Key(KeyCode::ControlLeft)),
     },
     KeyActionSpec {
         action: KeyAction::BreakOrAttack,
         id: "break_or_attack",
-        category: "战斗",
+        category: "combat",
         display: "破坏方块 / 攻击",
         default: Some(BindingKey::Mouse(MouseButton::Left)),
     },
     KeyActionSpec {
         action: KeyAction::PlaceOrUse,
         id: "place_or_use",
-        category: "战斗",
+        category: "combat",
         display: "放置方块 / 使用",
         default: Some(BindingKey::Mouse(MouseButton::Right)),
     },
     KeyActionSpec {
         action: KeyAction::DropItem,
         id: "drop_item",
-        category: "物品",
+        category: "item",
         display: "丢弃物品",
         default: Some(BindingKey::Key(KeyCode::KeyQ)),
     },
     KeyActionSpec {
         action: KeyAction::Hotbar1,
         id: "hotbar_1",
-        category: "物品",
+        category: "item",
         display: "快捷栏 1",
         default: Some(BindingKey::Key(KeyCode::Digit1)),
     },
     KeyActionSpec {
         action: KeyAction::Hotbar2,
         id: "hotbar_2",
-        category: "物品",
+        category: "item",
         display: "快捷栏 2",
         default: Some(BindingKey::Key(KeyCode::Digit2)),
     },
     KeyActionSpec {
         action: KeyAction::Hotbar3,
         id: "hotbar_3",
-        category: "物品",
+        category: "item",
         display: "快捷栏 3",
         default: Some(BindingKey::Key(KeyCode::Digit3)),
     },
     KeyActionSpec {
         action: KeyAction::Hotbar4,
         id: "hotbar_4",
-        category: "物品",
+        category: "item",
         display: "快捷栏 4",
         default: Some(BindingKey::Key(KeyCode::Digit4)),
     },
     KeyActionSpec {
         action: KeyAction::Hotbar5,
         id: "hotbar_5",
-        category: "物品",
+        category: "item",
         display: "快捷栏 5",
         default: Some(BindingKey::Key(KeyCode::Digit5)),
     },
     KeyActionSpec {
         action: KeyAction::Hotbar6,
         id: "hotbar_6",
-        category: "物品",
+        category: "item",
         display: "快捷栏 6",
         default: Some(BindingKey::Key(KeyCode::Digit6)),
     },
     KeyActionSpec {
         action: KeyAction::Hotbar7,
         id: "hotbar_7",
-        category: "物品",
+        category: "item",
         display: "快捷栏 7",
         default: Some(BindingKey::Key(KeyCode::Digit7)),
     },
     KeyActionSpec {
         action: KeyAction::Hotbar8,
         id: "hotbar_8",
-        category: "物品",
+        category: "item",
         display: "快捷栏 8",
         default: Some(BindingKey::Key(KeyCode::Digit8)),
     },
     KeyActionSpec {
         action: KeyAction::Hotbar9,
         id: "hotbar_9",
-        category: "物品",
+        category: "item",
         display: "快捷栏 9",
         default: Some(BindingKey::Key(KeyCode::Digit9)),
     },
     KeyActionSpec {
         action: KeyAction::ToggleInventory,
         id: "toggle_inventory",
-        category: "界面",
+        category: "interface",
         display: "打开 / 关闭背包",
         default: Some(BindingKey::Key(KeyCode::KeyE)),
     },
     KeyActionSpec {
         action: KeyAction::TogglePerspective,
         id: "toggle_perspective",
-        category: "视角",
+        category: "view",
         display: "切换观察视角",
         default: Some(BindingKey::Key(KeyCode::F5)),
     },
     KeyActionSpec {
         action: KeyAction::ToggleDebugOverlay,
         id: "toggle_debug_overlay",
-        category: "调试",
+        category: "debug",
         display: "调试浮层",
         default: Some(BindingKey::Key(KeyCode::F3)),
     },
     KeyActionSpec {
         action: KeyAction::ToggleSkeletonDebug,
         id: "toggle_skeleton_debug",
-        category: "调试",
+        category: "debug",
         display: "玩家骨架调试",
         default: Some(BindingKey::Key(KeyCode::F7)),
     },
@@ -296,15 +299,17 @@ impl Keybinds {
         }
     }
 
-    /// 返回与指定动作绑定到同一输入的其他动作显示名，用于冲突提示。
-    pub fn conflict_partners(&self, action: KeyAction) -> Vec<&'static str> {
+    /// 返回与指定动作绑定到同一输入的其他动作，用于冲突提示。
+    ///
+    /// 返回动作而非文本：冲突提示需要按当前语言渲染动作名。
+    pub fn conflict_partners(&self, action: KeyAction) -> Vec<KeyAction> {
         let Some(binding) = self.binding(action) else {
             return Vec::new();
         };
         KEY_ACTIONS
             .iter()
             .filter(|spec| spec.action != action && self.binding(spec.action) == Some(binding))
-            .map(|spec| spec.display)
+            .map(|spec| spec.action)
             .collect()
     }
 
@@ -315,11 +320,13 @@ impl Keybinds {
 
     /// 判断动作是否通过键位界面的过滤条件。
     ///
-    /// 搜索词匹配动作显示名或键名（忽略大小写）；两个开关可分别只看
-    /// 冲突或未绑定的条目。
+    /// 搜索词匹配调用方传入的本地化动作标签或键名显示（忽略大小写）；
+    /// 两个开关可分别只看冲突或未绑定的条目。
     pub fn matches_filter(
         &self,
         action: KeyAction,
+        display: &str,
+        key_display: &str,
         search: &str,
         conflicts_only: bool,
         unbound_only: bool,
@@ -335,16 +342,10 @@ impl Keybinds {
             return true;
         }
         let query = query.to_lowercase();
-        let spec = spec_of(action);
-        if spec.display.to_lowercase().contains(&query) {
+        if display.to_lowercase().contains(&query) {
             return true;
         }
-        match self.binding(action) {
-            Some(binding) => super::keybinds_toml::binding_key_name(binding)
-                .to_lowercase()
-                .contains(&query),
-            None => false,
-        }
+        key_display.to_lowercase().contains(&query)
     }
 }
 
@@ -354,6 +355,18 @@ pub fn spec_of(action: KeyAction) -> &'static KeyActionSpec {
         .iter()
         .find(|spec| spec.action == action)
         .expect("键位注册表必须覆盖全部动作")
+}
+
+/// 生成动作在键位界面的本地化行标签（分类 / 动作）。
+///
+/// 分隔符「 / 」是中性符号，不参与翻译。
+pub fn action_label_localized(action: KeyAction, localization: &Localization) -> String {
+    let spec = spec_of(action);
+    format!(
+        "{} / {}",
+        localization.get(&format!("keybind.category.{}", spec.category)),
+        localization.get(&format!("keybind.action.{}", spec.id))
+    )
 }
 
 /// 规范化绑定：左右 Shift/Ctrl/Alt 统一记为左侧代表键，查询时按组匹配。

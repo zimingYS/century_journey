@@ -24,8 +24,9 @@ mod paths;
 use crate::content::ore_vein::definition::OreVeinDefinition;
 use crate::content::validation::checks::validate_ore_veins;
 use checks::{
-    validate_biomes, validate_blocks, validate_clouds, validate_items, validate_loot,
-    validate_recipes, validate_tags, validate_textures, validate_tree_species,
+    validate_biomes, validate_blocks, validate_clouds, validate_item_name_keys, validate_items,
+    validate_locales, validate_loot, validate_recipes, validate_tags, validate_textures,
+    validate_tree_species,
 };
 use loading::{load, unique_ids};
 use paths::{block_loot_id, inline_tag_id, recipe_id, tag_identity, tag_runtime_id};
@@ -172,6 +173,10 @@ pub fn compile_content(resolver: &AssetResolver) -> ContentCompilation {
     validate_loot(&loot, &block_ids, &item_ids, &mut report);
     validate_tags(&tags, &block_ids, &item_ids, &biomes, &mut report);
     validate_textures(resolver, &files, &mut report);
+    let fallback_keys = validate_locales(&files, &mut report);
+    if let Some(fallback_keys) = fallback_keys {
+        validate_item_name_keys(&items, &block_ids, &fallback_keys, &mut report);
+    }
     validate_tree_species(&tree_species, &blocks, &block_ids, &mut report);
     validate_clouds(&clouds, &mut report);
     validate_ore_veins(&ore_veins, &block_ids, &mut report);

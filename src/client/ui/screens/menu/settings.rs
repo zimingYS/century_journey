@@ -11,20 +11,32 @@ use super::components::{
 };
 use super::style::{body_font, overlay_node, title_font};
 use crate::app::flow::SettingAction;
+use crate::client::ui::localization::{localized_text, spawn_localized_button};
 use crate::client::ui::resources::frame_assets::UiFrameKind;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::common::{
     UiControl, UiControlKind, spawn_scroll_area, spawn_text_button,
 };
+use crate::engine::localization::Localization;
 
 /// 创建设置页和流程对话框；两者由应用流程资源控制可见性。
-pub(super) fn spawn_settings_screens(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
-    spawn_settings(commands, theme, ui_font);
-    spawn_dialog(commands, theme, ui_font);
+pub(super) fn spawn_settings_screens(
+    commands: &mut Commands,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+    localization: &Localization,
+) {
+    spawn_settings(commands, theme, ui_font, localization);
+    spawn_dialog(commands, theme, ui_font, localization);
 }
 
-fn spawn_settings(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
+fn spawn_settings(
+    commands: &mut Commands,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+    localization: &Localization,
+) {
     commands
         .spawn((
             SettingsRoot,
@@ -50,27 +62,33 @@ fn spawn_settings(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
             ))
             .with_children(|panel| {
                 panel.spawn((
-                    Text::new("设置"),
+                    localized_text("settings.title", localization),
                     title_font(ui_font, 28.0),
                     TextColor(theme.text_primary),
                 ));
-                spawn_settings_tab_bar(panel, theme, ui_font);
-                spawn_general_page(panel, theme, ui_font);
-                spawn_keybinds_page(panel, theme, ui_font);
-                spawn_text_button(
+                spawn_settings_tab_bar(panel, theme, ui_font, localization);
+                spawn_general_page(panel, theme, ui_font, localization);
+                spawn_keybinds_page(panel, theme, ui_font, localization);
+                spawn_localized_button(
                     panel,
                     SettingsBackButton,
-                    "返回",
+                    "settings.back",
                     UiControlKind::Button,
                     theme,
                     ui_font,
+                    localization,
                 );
             });
         });
 }
 
 /// 创建“通用 / 键位”页签行；选中态由同步系统按 `KeybindsUiState` 刷新。
-fn spawn_settings_tab_bar(parent: &mut ChildSpawnerCommands, theme: &UiTheme, ui_font: &UiFont) {
+fn spawn_settings_tab_bar(
+    parent: &mut ChildSpawnerCommands,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+    localization: &Localization,
+) {
     parent
         .spawn(Node {
             width: Val::Percent(100.0),
@@ -78,24 +96,30 @@ fn spawn_settings_tab_bar(parent: &mut ChildSpawnerCommands, theme: &UiTheme, ui
             ..default()
         })
         .with_children(|bar| {
-            for (tab, label) in [
-                (SettingsTab::General, "通用"),
-                (SettingsTab::Keybinds, "键位"),
+            for (tab, key) in [
+                (SettingsTab::General, "settings.tab-general"),
+                (SettingsTab::Keybinds, "settings.tab-keybinds"),
             ] {
-                spawn_text_button(
+                spawn_localized_button(
                     bar,
                     SettingsTabButton { tab },
-                    label,
+                    key,
                     UiControlKind::Tab,
                     theme,
                     ui_font,
+                    localization,
                 );
             }
         });
 }
 
-/// 通用设置页：现有六项设置值。
-fn spawn_general_page(panel: &mut ChildSpawnerCommands, theme: &UiTheme, ui_font: &UiFont) {
+/// 通用设置页：渲染、音频、控制、界面与语言设置值。
+fn spawn_general_page(
+    panel: &mut ChildSpawnerCommands,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+    localization: &Localization,
+) {
     panel
         .spawn((
             SettingsGeneralPage,
@@ -107,63 +131,75 @@ fn spawn_general_page(panel: &mut ChildSpawnerCommands, theme: &UiTheme, ui_font
             },
         ))
         .with_children(|page| {
+            let ctx = SettingRowContext {
+                theme,
+                ui_font,
+                localization,
+            };
             spawn_setting_row(
                 page,
-                "画面 / 渲染距离",
+                "settings.row.render-distance",
                 SettingValue::RenderDistance,
                 SettingAction::RenderDistance(-1),
                 SettingAction::RenderDistance(1),
-                theme,
-                ui_font,
+                &ctx,
             );
             spawn_setting_row(
                 page,
-                "音频 / 主音量",
+                "settings.row.master-volume",
                 SettingValue::MasterVolume,
                 SettingAction::MasterVolume(-0.1),
                 SettingAction::MasterVolume(0.1),
-                theme,
-                ui_font,
+                &ctx,
             );
             spawn_setting_row(
                 page,
-                "控制 / 鼠标灵敏度",
+                "settings.row.mouse-sensitivity",
                 SettingValue::MouseSensitivity,
                 SettingAction::MouseSensitivity(-0.1),
                 SettingAction::MouseSensitivity(0.1),
-                theme,
-                ui_font,
+                &ctx,
             );
             spawn_setting_row(
                 page,
-                "界面 / UI 缩放",
+                "settings.row.ui-scale",
                 SettingValue::UiScale,
                 SettingAction::UiScale(-0.1),
                 SettingAction::UiScale(0.1),
-                theme,
-                ui_font,
+                &ctx,
+            );
+            spawn_setting_row(
+                page,
+                "settings.row.language",
+                SettingValue::Language,
+                SettingAction::CycleLanguage(-1),
+                SettingAction::CycleLanguage(1),
+                &ctx,
             );
             spawn_toggle_row(
                 page,
-                "画面 / 全屏",
+                "settings.row.fullscreen",
                 SettingValue::Fullscreen,
                 SettingAction::ToggleFullscreen,
-                theme,
-                ui_font,
+                &ctx,
             );
             spawn_toggle_row(
                 page,
-                "画面 / 垂直同步",
+                "settings.row.vsync",
                 SettingValue::Vsync,
                 SettingAction::ToggleVsync,
-                theme,
-                ui_font,
+                &ctx,
             );
         });
 }
 
 /// 键位设置页：搜索、过滤开关、重置按钮与可滚动的键位列表。
-fn spawn_keybinds_page(panel: &mut ChildSpawnerCommands, theme: &UiTheme, ui_font: &UiFont) {
+fn spawn_keybinds_page(
+    panel: &mut ChildSpawnerCommands,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+    localization: &Localization,
+) {
     panel
         .spawn((
             SettingsKeybindsPage,
@@ -179,14 +215,12 @@ fn spawn_keybinds_page(panel: &mut ChildSpawnerCommands, theme: &UiTheme, ui_fon
         ))
         .with_children(|page| {
             page.spawn((
-                Text::new("点击键位后按下新按键：Esc 取消，Backspace 解除绑定"),
+                localized_text("settings.keybinds.rebind-hint", localization),
                 body_font(ui_font, 12.0),
                 TextColor(theme.text_hint),
             ));
             page.spawn((
-                Text::new(
-                    "滚轮切换快捷栏、鼠标视角与 Ctrl+F5 存档等调试组合为固定输入，不参与重映射",
-                ),
+                localized_text("settings.keybinds.fixed-hint", localization),
                 body_font(ui_font, 12.0),
                 TextColor(theme.text_hint),
             ));
@@ -219,15 +253,16 @@ fn spawn_keybinds_page(panel: &mut ChildSpawnerCommands, theme: &UiTheme, ui_fon
                     BackgroundColor(theme.search_bg),
                     BorderColor::all(theme.search_border),
                 ));
-                let conflict_button = spawn_text_button(
+                let conflict_button = spawn_localized_button(
                     toolbar,
                     KeybindFilterButton {
                         filter: KeybindFilter::Conflicts,
                     },
-                    "仅冲突",
+                    "settings.keybinds.filter-conflicts",
                     UiControlKind::Button,
                     theme,
                     ui_font,
+                    localization,
                 );
                 toolbar
                     .commands()
@@ -237,28 +272,30 @@ fn spawn_keybinds_page(panel: &mut ChildSpawnerCommands, theme: &UiTheme, ui_fon
                         selected: false,
                         disabled: false,
                     });
-                let unbound_button = spawn_text_button(
+                let unbound_button = spawn_localized_button(
                     toolbar,
                     KeybindFilterButton {
                         filter: KeybindFilter::Unbound,
                     },
-                    "仅未绑定",
+                    "settings.keybinds.filter-unbound",
                     UiControlKind::Button,
                     theme,
                     ui_font,
+                    localization,
                 );
                 toolbar.commands().entity(unbound_button).insert(UiControl {
                     kind: UiControlKind::Button,
                     selected: false,
                     disabled: false,
                 });
-                spawn_text_button(
+                spawn_localized_button(
                     toolbar,
                     KeybindResetButton,
-                    "重置默认",
+                    "settings.keybinds.reset-defaults",
                     UiControlKind::Button,
                     theme,
                     ui_font,
+                    localization,
                 );
             });
 
@@ -275,15 +312,22 @@ fn spawn_keybinds_page(panel: &mut ChildSpawnerCommands, theme: &UiTheme, ui_fon
         });
 }
 
+/// 设置行构建的公共依赖：主题、字体与本地化查询总是成组传递。
+struct SettingRowContext<'a> {
+    theme: &'a UiTheme,
+    ui_font: &'a UiFont,
+    localization: &'a Localization,
+}
+
 fn spawn_setting_row(
     parent: &mut ChildSpawnerCommands,
-    label: &str,
+    label_key: &str,
     value: SettingValue,
     decrease: SettingAction,
     increase: SettingAction,
-    theme: &UiTheme,
-    ui_font: &UiFont,
+    ctx: &SettingRowContext<'_>,
 ) {
+    let (theme, ui_font, localization) = (ctx.theme, ctx.ui_font, ctx.localization);
     parent
         .spawn(Node {
             width: Val::Percent(100.0),
@@ -294,7 +338,7 @@ fn spawn_setting_row(
         })
         .with_children(|row| {
             row.spawn((
-                Text::new(label.to_string()),
+                localized_text(label_key, localization),
                 body_font(ui_font, 14.0),
                 TextColor(theme.text_secondary),
                 Node {
@@ -334,12 +378,12 @@ fn spawn_setting_row(
 
 fn spawn_toggle_row(
     parent: &mut ChildSpawnerCommands,
-    label: &str,
+    label_key: &str,
     value: SettingValue,
     action: SettingAction,
-    theme: &UiTheme,
-    ui_font: &UiFont,
+    ctx: &SettingRowContext<'_>,
 ) {
+    let (theme, ui_font, localization) = (ctx.theme, ctx.ui_font, ctx.localization);
     parent
         .spawn(Node {
             width: Val::Percent(100.0),
@@ -350,7 +394,7 @@ fn spawn_toggle_row(
         })
         .with_children(|row| {
             row.spawn((
-                Text::new(label.to_string()),
+                localized_text(label_key, localization),
                 body_font(ui_font, 14.0),
                 TextColor(theme.text_secondary),
                 Node {
@@ -375,18 +419,24 @@ fn spawn_toggle_row(
                     ..default()
                 },
             ));
-            spawn_text_button(
+            spawn_localized_button(
                 row,
                 SettingButton(action),
-                "切换",
+                "settings.toggle",
                 UiControlKind::Toggle,
                 theme,
                 ui_font,
+                localization,
             );
         });
 }
 
-fn spawn_dialog(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
+fn spawn_dialog(
+    commands: &mut Commands,
+    theme: &UiTheme,
+    ui_font: &UiFont,
+    localization: &Localization,
+) {
     commands
         .spawn((
             DialogRoot,
@@ -411,7 +461,7 @@ fn spawn_dialog(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
             .with_children(|panel| {
                 panel.spawn((
                     DialogTitle,
-                    Text::new("提示"),
+                    Text::new(""),
                     title_font(ui_font, 24.0),
                     TextColor(theme.text_primary),
                 ));
@@ -428,21 +478,23 @@ fn spawn_dialog(commands: &mut Commands, theme: &UiTheme, ui_font: &UiFont) {
                         ..default()
                     })
                     .with_children(|actions| {
-                        spawn_text_button(
+                        spawn_localized_button(
                             actions,
                             DialogCancelButton,
-                            "取消",
+                            "settings.cancel",
                             UiControlKind::Button,
                             theme,
                             ui_font,
+                            localization,
                         );
-                        spawn_text_button(
+                        spawn_localized_button(
                             actions,
                             DialogConfirmButton,
-                            "确认",
+                            "settings.confirm",
                             UiControlKind::Button,
                             theme,
                             ui_font,
+                            localization,
                         );
                     });
             });

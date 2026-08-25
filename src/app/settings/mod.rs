@@ -8,10 +8,12 @@ mod keybinds_toml;
 mod model;
 mod persistence;
 
-pub use keybinds::{BindingKey, KEY_ACTIONS, KeyAction, KeyActionSpec, Keybinds, spec_of};
+pub use keybinds::{
+    BindingKey, KEY_ACTIONS, KeyAction, KeyActionSpec, Keybinds, action_label_localized, spec_of,
+};
 pub use keybinds_toml::{
-    action_label, binding_display, binding_key_name, keybinds_path, load_keybinds,
-    load_keybinds_from, parse_binding_key, parse_keybinds_toml, save_keybinds, save_keybinds_to,
+    binding_display_localized, binding_key_name, keybinds_path, load_keybinds, load_keybinds_from,
+    parse_binding_key, parse_keybinds_toml, save_keybinds, save_keybinds_to,
 };
 pub use model::GameSettings;
 pub use persistence::{

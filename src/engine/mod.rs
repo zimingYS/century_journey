@@ -5,6 +5,7 @@
 
 pub mod asset;
 pub mod document;
+pub mod localization;
 pub mod persistence;
 pub mod plugin_group;
 pub mod task;

@@ -21,6 +21,7 @@ fn named_settings_round_trip_keeps_every_setting() {
         ui_scale: 1.25,
         fullscreen: true,
         vsync: false,
+        language: "en-US".to_string(),
     };
 
     save_settings_to(&path, &expected).unwrap();

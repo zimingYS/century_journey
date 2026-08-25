@@ -1,30 +1,39 @@
 //! 构建并更新界面使用的标签页切换控件。
 
+use crate::client::ui::localization::LocalizedText;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::common::{UiControl, UiControlKind};
 use crate::client::ui::widgets::slot::CategoryTab;
+use crate::engine::localization::Localization;
+use crate::game::inventory::container::creative::CreativeCategory;
 use bevy::prelude::*;
 
 const CREATIVE_TAB_HEIGHT: f32 = 46.0;
 const CREATIVE_TAB_FONT_SIZE: f32 = 16.0;
 
 /// 生成创造物品栏左侧分类按钮。
+///
+/// 分类名来自本地化键；数据驱动标签可能没有对应键，此时显示兜底名。
 pub fn spawn_category_tab(
     parent: &mut ChildSpawnerCommands,
-    display_name: &str,
-    icon: &str,
+    category: &CreativeCategory,
     category_index: usize,
     is_active: bool,
     ui_font: &UiFont,
     theme: &UiTheme,
+    localization: &Localization,
 ) {
     let text_color = if is_active {
         theme.text_primary
     } else {
         theme.tab_inactive_text
     };
-    let icon_label = if icon.is_empty() { "□" } else { icon };
+    let icon_label = if category.icon.is_empty() {
+        "□"
+    } else {
+        category.icon.as_str()
+    };
 
     parent
         .spawn((
@@ -73,7 +82,14 @@ pub fn spawn_category_tab(
                 },
             ));
             btn.spawn((
-                Text::new(display_name.to_string()),
+                LocalizedText::with_fallback(
+                    category.label_key.as_str(),
+                    category.label_fallback.as_str(),
+                ),
+                Text::new(localization.get_or(
+                    category.label_key.as_str(),
+                    category.label_fallback.as_str(),
+                )),
                 TextFont {
                     font: FontSource::from(ui_font.default.clone()),
                     font_size: FontSize::Px(CREATIVE_TAB_FONT_SIZE),
