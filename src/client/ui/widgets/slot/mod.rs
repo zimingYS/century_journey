@@ -16,7 +16,7 @@ pub use components::{
 };
 pub use durability::sync_slot_durability_system;
 pub use hotbar::sync_hotbar_panel_visuals;
-pub use icon::sync_slot_icon;
+pub use icon::{resolve_item_image_node, sync_slot_icon};
 pub use spawn::{
     spawn_display_only_slot, spawn_empty_slot, spawn_empty_slot_with_placeholder,
     spawn_slot_with_item,

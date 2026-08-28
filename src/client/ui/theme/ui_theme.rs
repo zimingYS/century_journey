@@ -32,6 +32,8 @@ pub struct UiTheme {
 
     // ── 槽位 ──
     pub slot_size: f32,
+    /// 槽位显示高度；为 0 时与 `slot_size` 一致，用于宽高不同的贴图皮肤。
+    pub slot_height: f32,
     pub slot_border: f32,
     pub slot_gap: f32,
 
@@ -103,6 +105,7 @@ impl Default for UiTheme {
             spacing_lg: 18.0,
 
             slot_size: 64.0,
+            slot_height: 0.0,
             slot_border: 2.0,
             slot_gap: 4.0,
 

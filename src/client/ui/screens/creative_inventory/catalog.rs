@@ -4,18 +4,21 @@ use std::collections::HashSet;
 
 use bevy::prelude::*;
 
-use crate::client::ui::components::CreativeCategoryPanel;
+use super::interaction::CreativeTabPage;
+use crate::client::ui::components::{CreativeCategoryPanel, CreativeTabPagerText};
+use crate::client::ui::resources::creative_assets::CreativeUiAssets;
 use crate::client::ui::resources::ui_font::UiFont;
+use crate::client::ui::screens::setup::CREATIVE_TABS_PER_PAGE;
 use crate::client::ui::theme::category_theme::CategoryTheme;
 use crate::client::ui::theme::ui_theme::UiTheme;
-use crate::client::ui::widgets::tab::spawn_category_tab;
+use crate::client::ui::widgets::tab::{spawn_category_separator, spawn_category_tab};
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::ItemRegistry;
 use crate::content::item::definition::ItemCategory;
 use crate::content::tag::runtime::RuntimeTagRegistry;
 use crate::engine::localization::Localization;
 use crate::game::inventory::container::creative::CreativeCategory;
-use crate::game::inventory::state::LocalInventoryMut;
+use crate::game::inventory::state::{LocalInventory, LocalInventoryMut};
 use crate::shared::item_id::ItemId;
 use crate::shared::tag::identifier::TagId;
 /// 构造创造模式分类数据，并按截图风格固定分类顺序。
@@ -25,12 +28,7 @@ pub fn build_creative_categories_system(
     tag_registry: Option<Res<RuntimeTagRegistry>>,
     block_registry: Option<Res<BlockRegistry>>,
     mut state: LocalInventoryMut,
-    category_panel: Query<Entity, With<CreativeCategoryPanel>>,
-    ui_font: Res<UiFont>,
-    theme: Res<UiTheme>,
     cat_theme: Res<CategoryTheme>,
-    localization: Res<Localization>,
-    mut commands: Commands,
     item_registry: Option<Res<ItemRegistry>>,
 ) {
     let Some(tag_reg) = tag_registry else { return };
@@ -130,21 +128,102 @@ pub fn build_creative_categories_system(
     }
 
     state.creative.categories = categories;
+}
 
-    let Ok(panel_entity) = category_panel.single() else {
+/// 分类总页数；不足一页时按一页计。
+pub(super) fn tab_page_count(category_count: usize) -> usize {
+    category_count.div_ceil(CREATIVE_TABS_PER_PAGE).max(1)
+}
+
+/// 同步分类页码文本「当前页 / 总页数」。
+pub fn sync_creative_tab_pager_text_system(
+    state: LocalInventory,
+    pager: Res<CreativeTabPage>,
+    mut text_query: Query<&mut Text, With<CreativeTabPagerText>>,
+) {
+    let category_count = state.creative.categories.len();
+    if category_count == 0 {
+        return;
+    }
+    let pages = tab_page_count(category_count);
+    let current = pager.page.min(pages - 1) + 1;
+    let label = format!("{current} / {pages}");
+    let Ok(mut text) = text_query.single_mut() else {
         return;
     };
+    if text.0 != label {
+        text.0 = label;
+    }
+}
+
+/// 按当前分页重建左侧分类标签列表。
+///
+/// 分类数据或页码变化时整体重建：标签数量少且携带选中纹理，
+/// 重建比逐个切换可见性更简单可靠。
+#[allow(clippy::too_many_arguments)]
+pub fn render_creative_tabs_system(
+    state: LocalInventory,
+    pager: Res<CreativeTabPage>,
+    panel_query: Query<Entity, With<CreativeCategoryPanel>>,
+    children_query: Query<&Children>,
+    ui_font: Res<UiFont>,
+    theme: Res<UiTheme>,
+    localization: Res<Localization>,
+    creative_assets: Res<CreativeUiAssets>,
+    mut commands: Commands,
+    mut rendered: Local<Option<(usize, usize, usize)>>,
+) {
+    let category_count = state.creative.categories.len();
+    if category_count == 0 {
+        return;
+    }
+
+    let page = pager.page.min(tab_page_count(category_count) - 1);
+    let selected_tab = state.creative.selected_tab;
+    if *rendered == Some((page, category_count, selected_tab)) {
+        return;
+    }
+    *rendered = Some((page, category_count, selected_tab));
+
+    let Ok(panel_entity) = panel_query.single() else {
+        return;
+    };
+
+    if let Ok(children) = children_query.get(panel_entity) {
+        for child in children.iter() {
+            commands.entity(child).despawn();
+        }
+    }
+
     commands.entity(panel_entity).with_children(|panel| {
-        for (idx, cat) in state.creative.categories.iter().enumerate() {
+        for (display_index, (idx, cat)) in state
+            .creative
+            .categories
+            .iter()
+            .enumerate()
+            .skip(page * CREATIVE_TABS_PER_PAGE)
+            .take(CREATIVE_TABS_PER_PAGE)
+            .enumerate()
+        {
+            let page_start = page * CREATIVE_TABS_PER_PAGE;
+            let page_count = category_count
+                .saturating_sub(page_start)
+                .min(CREATIVE_TABS_PER_PAGE);
+
             spawn_category_tab(
                 panel,
                 cat,
                 idx,
-                idx == state.creative.selected_tab,
+                idx == selected_tab,
                 &ui_font,
                 &theme,
                 &localization,
+                &creative_assets,
             );
+
+            if display_index + 1 < page_count {
+                spawn_category_separator(panel);
+            }
         }
     });
 }

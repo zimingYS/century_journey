@@ -14,6 +14,16 @@ use crate::content::item::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
 use crate::game::inventory::slot::SlotKind;
 use crate::shared::item_id::ItemId;
+
+/// 计算槽位显示高度；主题未显式设置时退回正方形。
+fn slot_display_height(theme: &UiTheme) -> f32 {
+    if theme.slot_height > 0.0 {
+        theme.slot_height
+    } else {
+        theme.slot_size
+    }
+}
+
 /// 生成空槽位。
 pub fn spawn_empty_slot(
     parent: &mut ChildSpawnerCommands,
@@ -33,7 +43,7 @@ pub fn spawn_empty_slot(
             Pickable::default(),
             Node {
                 width: Val::Px(theme.slot_size),
-                height: Val::Px(theme.slot_size),
+                height: Val::Px(slot_display_height(theme)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 border: UiRect::all(Val::Px(theme.slot_border)),
@@ -96,7 +106,7 @@ pub fn spawn_empty_slot_with_placeholder(
             Pickable::default(),
             Node {
                 width: Val::Px(theme.slot_size),
-                height: Val::Px(theme.slot_size),
+                height: Val::Px(slot_display_height(theme)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 border: UiRect::all(Val::Px(theme.slot_border)),
@@ -148,7 +158,7 @@ pub fn spawn_empty_slot_with_placeholder(
         });
 }
 
-/// 生成带物品图标的槽位。
+/// 生成带物品图标的槽位，返回槽位实体供调用方附加皮肤等额外组件。
 /// 创建带初始物品的槽位时复用完整渲染缓存，避免函数内部访问全局资源。
 #[allow(clippy::too_many_arguments)]
 pub fn spawn_slot_with_item(
@@ -163,7 +173,7 @@ pub fn spawn_slot_with_item(
     ui_font: &UiFont,
     item_registry: Option<&ItemRegistry>,
     item_texture_registry: Option<&ItemTextureRegistry>,
-) {
+) -> Entity {
     parent
         .spawn((
             InventorySlot { kind, index },
@@ -175,7 +185,7 @@ pub fn spawn_slot_with_item(
             Pickable::default(),
             Node {
                 width: Val::Px(theme.slot_size),
-                height: Val::Px(theme.slot_size),
+                height: Val::Px(slot_display_height(theme)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 border: UiRect::all(Val::Px(theme.slot_border)),
@@ -212,7 +222,8 @@ pub fn spawn_slot_with_item(
                 Visibility::Hidden,
             ));
             spawn_durability_bar(slot, kind, index);
-        });
+        })
+        .id()
 }
 
 /// 生成仅展示用槽位。
@@ -232,7 +243,7 @@ pub fn spawn_display_only_slot(
             },
             Node {
                 width: Val::Px(theme.slot_size),
-                height: Val::Px(theme.slot_size),
+                height: Val::Px(slot_display_height(theme)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 border: UiRect::all(Val::Px(theme.slot_border)),

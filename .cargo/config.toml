@@ -1,0 +1,4 @@
+# 开发期编译加速：使用 Rust 工具链自带的 lld 链接器，
+# 替代 MSVC 默认 link.exe（Windows 下链接速度提升明显）。
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld"
