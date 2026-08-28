@@ -31,8 +31,10 @@ const CREATIVE_HEADER_HEIGHT: f32 = 83.0;
 const CREATIVE_SIDEBAR_WIDTH: f32 = 224.0;
 /// 右侧最近使用栏宽度：设计稿辅助区约 229px。
 const CREATIVE_RECENT_WIDTH: f32 = 196.0;
-/// 中部网格列数
-const CREATIVE_GRID_COLUMNS: u16 = 9;
+/// 中部网格列数。
+pub(super) const CREATIVE_GRID_COLUMNS: u16 = 9;
+/// 中部网格固定行数：物品不足时以空槽补齐，保持 6x9 布局稳定。
+pub(super) const CREATIVE_GRID_ROWS: u16 = 6;
 /// 网格与最近使用面板的槽位间距（设计稿约 3px）。
 pub(super) const CREATIVE_SLOT_GAP: f32 = 3.0;
 /// 快捷栏槽位间距（设计稿约 2px，槽位间几乎相接）。
@@ -429,9 +431,9 @@ fn build_center_panel(parent: &mut ChildSpawnerCommands) {
                     row_gap: Val::Px(CREATIVE_SLOT_GAP),
                     padding: UiRect::new(
                         Val::Px(32.0),
-                        Val::Px(32.0),
-                        Val::Px(32.0),
                         Val::Px(16.0),
+                        Val::Px(32.0),
+                        Val::Px(32.0),
                     ),
                     overflow: Overflow::scroll_y(),
                     ..default()

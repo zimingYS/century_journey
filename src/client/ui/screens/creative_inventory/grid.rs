@@ -8,7 +8,9 @@ use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::components::{CreativeItemGrid, CreativeRecentGrid};
 use crate::client::ui::resources::creative_assets::CreativeUiAssets;
 use crate::client::ui::resources::ui_font::UiFont;
-use crate::client::ui::screens::setup::CREATIVE_SLOT_GAP;
+use crate::client::ui::screens::setup::{
+    CREATIVE_GRID_COLUMNS, CREATIVE_GRID_ROWS, CREATIVE_SLOT_GAP,
+};
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
     InventorySlot, SlotKind, spawn_slot_with_item, sync_slot_icon,
@@ -39,7 +41,12 @@ pub(super) fn creative_slot_theme(theme: &UiTheme, slot_size: f32) -> UiTheme {
     theme
 }
 
+/// 创造网格固定槽位数：6 行 x 9 列；物品不足时补空槽保持布局稳定，超出时全部生成并滚动。
+const CREATIVE_GRID_SLOT_COUNT: usize =
+    CREATIVE_GRID_ROWS as usize * CREATIVE_GRID_COLUMNS as usize;
+
 /// 创造模式物品网格填充。
+/// 槽位固定补齐到 6 行 x 9 列，空槽点击由交互层按空气物品忽略。
 /// 槽位生成需要显式读取全部模型和图标缓存，但不持有这些资源。
 #[allow(clippy::too_many_arguments)]
 pub fn populate_creative_grid_system(
@@ -88,8 +95,10 @@ pub fn populate_creative_grid_system(
     }
 
     let new_items = &state.creative.visible_items;
+    // 展示槽位数：固定补齐到 6x9，避免物品数量变化导致网格行数跳动。
+    let display_len = new_items.len().max(CREATIVE_GRID_SLOT_COUNT);
 
-    if slot_indices.len() == new_items.len() {
+    if slot_indices.len() == display_len {
         for (entity, idx) in slot_indices {
             let air = &ItemId::air();
             let item = new_items.get(idx).unwrap_or(air);
@@ -118,7 +127,9 @@ pub fn populate_creative_grid_system(
     let creative_theme = creative_slot_theme(theme.as_ref(), CREATIVE_SLOT_SIZE);
 
     commands.entity(grid_entity).with_children(|grid| {
-        for (index, item) in new_items.iter().enumerate() {
+        let air = ItemId::air();
+        for index in 0..display_len {
+            let item = new_items.get(index).unwrap_or(&air);
             let slot = spawn_slot_with_item(
                 grid,
                 SlotKind::CreativeGrid,
