@@ -24,6 +24,33 @@ pub struct CreativeItemGrid;
 #[derive(Component)]
 pub struct CreativeRecentPanel;
 
+/// 右侧最近使用面板内部的换行槽位容器。
+#[derive(Component)]
+pub struct CreativeRecentGrid;
+
+/// 分类标签内的文字节点标记；高亮系统据此切换选中/未选中文字颜色。
+#[derive(Component)]
+pub struct CreativeTabLabel;
+
+/// 分类标签内的物品图标占位节点；图标由后续系统按代表物品填充。
+#[derive(Component, Debug, Clone, Copy)]
+pub struct CreativeTabIcon {
+    /// 图标所属分类的索引。
+    pub category_index: usize,
+}
+
+/// 分类标签列表的上一页按钮。
+#[derive(Component)]
+pub struct CreativeTabPagerLeft;
+
+/// 分类标签列表的下一页按钮。
+#[derive(Component)]
+pub struct CreativeTabPagerRight;
+
+/// 分类标签列表的页码文本。
+#[derive(Component)]
+pub struct CreativeTabPagerText;
+
 /// 创造模式物品栏搜索框容器。
 #[derive(Component)]
 pub struct CreativeSearchBox;

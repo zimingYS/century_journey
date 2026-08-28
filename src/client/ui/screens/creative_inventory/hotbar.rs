@@ -2,10 +2,12 @@
 
 use bevy::prelude::*;
 
-use super::grid::{CREATIVE_SLOT_SIZE, creative_slot_theme};
+use super::grid::{CREATIVE_HOTBAR_SLOT_SIZE, creative_slot_theme};
+use super::skin::attach_creative_slot_skin;
 use crate::client::renderer::item::GuiItemIconCache;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::components::CreativeHotbarPanel;
+use crate::client::ui::resources::creative_assets::CreativeUiAssets;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
@@ -31,6 +33,7 @@ pub fn init_creative_hotbar_system(
     ui_font: Res<UiFont>,
     item_registry: Option<Res<ItemRegistry>>,
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
+    creative_assets: Res<CreativeUiAssets>,
     mut commands: Commands,
 ) {
     let Some(reg) = block_registry.as_ref() else {
@@ -58,14 +61,16 @@ pub fn init_creative_hotbar_system(
         return;
     }
 
-    let creative_theme = creative_slot_theme(theme.as_ref(), CREATIVE_SLOT_SIZE);
+    // 快捷栏保留主题边框宽度：白色选中边框是设计稿的选中态表现。
+    let mut hotbar_theme = creative_slot_theme(theme.as_ref(), CREATIVE_HOTBAR_SLOT_SIZE);
+    hotbar_theme.slot_border = theme.slot_border;
 
     commands.entity(panel_entity).with_children(|bar| {
         for (index, stack) in state.hotbar.stacks.iter().enumerate() {
             let item = stack
                 .as_ref()
                 .map_or_else(ItemId::air, |stack| stack.item.clone());
-            spawn_slot_with_item(
+            let slot = spawn_slot_with_item(
                 bar,
                 SlotKind::Hotbar,
                 index,
@@ -73,11 +78,12 @@ pub fn init_creative_hotbar_system(
                 reg,
                 render_assets,
                 &gui_item_icons,
-                &creative_theme,
+                &hotbar_theme,
                 &ui_font,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
             );
+            attach_creative_slot_skin(bar, slot, &creative_assets, true);
         }
     });
 }

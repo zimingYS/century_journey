@@ -36,6 +36,27 @@ pub(super) fn spawn_icon_child(
     }
 }
 
+/// 解析任意物品在 GUI 中应显示的图片节点。
+///
+/// 供槽位以外的界面元素（分类图标、标题图标）复用同一套降级链：
+/// 3D 烘焙图标优先，缺失时回退到方块图集的 2D 图标。
+#[allow(clippy::too_many_arguments)]
+pub fn resolve_item_image_node(
+    item: &ItemId,
+    block_registry: &BlockRegistry,
+    render_assets: &BlockRenderAssets,
+    gui_item_icons: &GuiItemIconCache,
+    item_registry: Option<&ItemRegistry>,
+    item_texture_registry: Option<&ItemTextureRegistry>,
+) -> Option<ImageNode> {
+    if let Some(image) = item_texture_registry.and_then(|item_textures| {
+        ItemRenderer::gui_icon_image(item, item_registry, item_textures, gui_item_icons)
+    }) {
+        return Some(plain_image_node(image));
+    }
+    block_atlas_fallback_image(item, block_registry, render_assets, item_registry)
+}
+
 /// 原地同步槽位图标和数量文本。
 /// 单个槽位图标可走模型、图标或方块图集三条降级路径，依赖保持显式。
 #[allow(clippy::too_many_arguments)]

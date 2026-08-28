@@ -2,11 +2,13 @@
 
 use bevy::prelude::*;
 
+use super::skin::attach_creative_slot_skin;
 use crate::client::renderer::item::GuiItemIconCache;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
-use crate::client::ui::components::{CreativeItemGrid, CreativeRecentPanel};
-use crate::client::ui::localization::LocalizedText;
+use crate::client::ui::components::{CreativeItemGrid, CreativeRecentGrid};
+use crate::client::ui::resources::creative_assets::CreativeUiAssets;
 use crate::client::ui::resources::ui_font::UiFont;
+use crate::client::ui::screens::setup::CREATIVE_SLOT_GAP;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
     InventorySlot, SlotKind, spawn_slot_with_item, sync_slot_icon,
@@ -14,22 +16,26 @@ use crate::client::ui::widgets::slot::{
 use crate::content::block::registry::BlockRegistry;
 use crate::content::item::ItemRegistry;
 use crate::content::item::texture::registry::ItemTextureRegistry;
-use crate::engine::localization::Localization;
 use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::LocalInventory;
 use crate::shared::item_id::ItemId;
 
-/// 右侧最近使用面板固定显示的槽位数量。
+/// 右侧最近使用面板固定显示的槽位数量：设计稿为 2 列 x 6 行。
 const RECENT_SLOT_COUNT: usize = 12;
-/// 创造物品网格槽位的固定像素尺寸。
-pub(super) const CREATIVE_SLOT_SIZE: f32 = 74.0;
-const CREATIVE_RECENT_SLOT_SIZE: f32 = 58.0;
-const CREATIVE_SLOT_GAP: f32 = 6.0;
+/// 创造物品网格槽位的固定像素尺寸（设计稿 91px，面板 0.752 倍等比）。
+pub(super) const CREATIVE_SLOT_SIZE: f32 = 68.0;
+/// 快捷栏槽位尺寸（设计稿 97px 略大于网格槽位）。
+pub(super) const CREATIVE_HOTBAR_SLOT_SIZE: f32 = 73.0;
+const CREATIVE_RECENT_SLOT_SIZE: f32 = 68.0;
+
 /// 为创造物品栏生成局部槽位主题，避免影响 HUD 和生存背包。
+///
+/// 槽位边框宽度清零：边框由物品框纹理自带，叠加主题边框会破坏设计稿观感。
 pub(super) fn creative_slot_theme(theme: &UiTheme, slot_size: f32) -> UiTheme {
     let mut theme = theme.clone();
     theme.slot_size = slot_size;
     theme.slot_gap = CREATIVE_SLOT_GAP;
+    theme.slot_border = 0.0;
     theme
 }
 
@@ -48,6 +54,7 @@ pub fn populate_creative_grid_system(
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
     theme: Res<UiTheme>,
     ui_font: Res<UiFont>,
+    creative_assets: Res<CreativeUiAssets>,
     mut commands: Commands,
     mut last_items: Local<Option<(Vec<ItemId>, u64)>>,
 ) {
@@ -112,7 +119,7 @@ pub fn populate_creative_grid_system(
 
     commands.entity(grid_entity).with_children(|grid| {
         for (index, item) in new_items.iter().enumerate() {
-            spawn_slot_with_item(
+            let slot = spawn_slot_with_item(
                 grid,
                 SlotKind::CreativeGrid,
                 index,
@@ -125,26 +132,27 @@ pub fn populate_creative_grid_system(
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
             );
+            attach_creative_slot_skin(grid, slot, &creative_assets, false);
         }
     });
 }
 
 /// 最近使用面板填充：固定补齐 12 个槽位，保持右侧栏稳定。
-/// 最近物品面板复用完整槽位渲染依赖，并通过本地快照避免重复重建。
+/// 标题和底部箱子按钮由 setup 布局一次性构建，这里只填充槽位容器。
 #[allow(clippy::too_many_arguments)]
 pub fn populate_recent_panel_system(
     state: LocalInventory,
     block_registry: Option<Res<BlockRegistry>>,
     block_render_assets: Option<Res<BlockRenderAssets>>,
     gui_item_icons: Res<GuiItemIconCache>,
-    recent_query: Query<Entity, With<CreativeRecentPanel>>,
+    recent_query: Query<Entity, With<CreativeRecentGrid>>,
     children_query: Query<&Children>,
     existing_slots: Query<(Entity, &InventorySlot)>,
     ui_font: Res<UiFont>,
     theme: Res<UiTheme>,
-    localization: Res<Localization>,
     item_registry: Option<Res<ItemRegistry>>,
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
+    creative_assets: Res<CreativeUiAssets>,
     mut commands: Commands,
     mut last_items: Local<Option<(Vec<ItemStack>, u64)>>,
 ) {
@@ -154,7 +162,7 @@ pub fn populate_recent_panel_system(
     let Some(render_assets) = block_render_assets.as_ref() else {
         return;
     };
-    let Ok(panel_entity) = recent_query.single() else {
+    let Ok(grid_entity) = recent_query.single() else {
         return;
     };
 
@@ -167,7 +175,7 @@ pub fn populate_recent_panel_system(
     *last_items = Some((state.recent.items.clone(), revision));
 
     let mut slot_entities: Vec<(Entity, usize)> = Vec::new();
-    if let Ok(children) = children_query.get(panel_entity) {
+    if let Ok(children) = children_query.get(grid_entity) {
         for child in children.iter() {
             if let Ok((entity, slot)) = existing_slots.get(child)
                 && slot.kind == SlotKind::Recent
@@ -203,7 +211,7 @@ pub fn populate_recent_panel_system(
         return;
     }
 
-    if let Ok(children) = children_query.get(panel_entity) {
+    if let Ok(children) = children_query.get(grid_entity) {
         for child in children.iter() {
             commands.entity(child).despawn();
         }
@@ -211,25 +219,7 @@ pub fn populate_recent_panel_system(
 
     let recent_theme = creative_slot_theme(theme.as_ref(), CREATIVE_RECENT_SLOT_SIZE);
 
-    commands.entity(panel_entity).with_children(|panel| {
-        panel.spawn((
-            LocalizedText::new("creative.recent"),
-            Text::new(localization.get("creative.recent")),
-            TextFont {
-                font: FontSource::from(ui_font.default.clone()),
-                font_size: FontSize::Px(theme.body_font_size + 6.0),
-                ..default()
-            },
-            TextColor(theme.text_primary),
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Px(34.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-        ));
-
+    commands.entity(grid_entity).with_children(|grid| {
         for index in 0..RECENT_SLOT_COUNT {
             let air = ItemId::air();
             let item = state
@@ -238,8 +228,8 @@ pub fn populate_recent_panel_system(
                 .get(index)
                 .map(|stack| &stack.item)
                 .unwrap_or(&air);
-            spawn_slot_with_item(
-                panel,
+            let slot = spawn_slot_with_item(
+                grid,
                 SlotKind::Recent,
                 index,
                 item,
@@ -251,48 +241,7 @@ pub fn populate_recent_panel_system(
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
             );
+            attach_creative_slot_skin(grid, slot, &creative_assets, false);
         }
-
-        // 底部箱子按钮是视觉占位，后续可接入保存/加载创造热键栏。
-        panel
-            .spawn((
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Px(96.0),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    margin: UiRect::top(Val::Px(12.0)),
-                    border: UiRect::top(Val::Px(1.0)),
-                    ..default()
-                },
-                BorderColor::all(Color::srgba(0.20, 0.20, 0.20, 1.0)),
-            ))
-            .with_children(|footer| {
-                footer
-                    .spawn((
-                        Node {
-                            width: Val::Px(64.0),
-                            height: Val::Px(64.0),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            border: UiRect::all(Val::Px(2.0)),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgba(0.12, 0.11, 0.10, 1.0)),
-                        BorderColor::all(Color::srgba(0.34, 0.31, 0.27, 1.0)),
-                    ))
-                    .with_children(|slot| {
-                        slot.spawn((
-                            LocalizedText::new("creative.chest"),
-                            Text::new(localization.get("creative.chest")),
-                            TextFont {
-                                font: FontSource::from(ui_font.default.clone()),
-                                font_size: FontSize::Px(30.0),
-                                ..default()
-                            },
-                            TextColor(Color::srgba(0.75, 0.46, 0.20, 1.0)),
-                        ));
-                    });
-            });
     });
 }
