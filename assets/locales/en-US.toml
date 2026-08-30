@@ -149,6 +149,7 @@ entity = "Entity attack"
 generic = "Environmental damage"
 
 [survival]
+title = "Backpack"
 equipment = "Equipment"
 accessories = "Items"
 backpack = "Backpack"

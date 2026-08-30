@@ -115,10 +115,12 @@ fn expanded_inventory_layout_migrates_equipment_accessories_and_overflow() {
             .map(|stack| stack.count),
         Some(1)
     );
+    // 36 格容量直接容纳旧 36 槽布局，第 27 格物品留在原位，不再溢出重排。
     assert_eq!(
-        inventory.survival.get_stack(0).map(|stack| stack.count),
+        inventory.survival.get_stack(27).map(|stack| stack.count),
         Some(3)
     );
+    assert_eq!(inventory.survival.get_stack(0), None);
 }
 
 #[test]
@@ -172,6 +174,36 @@ fn named_fields_default_missing_data_accept_alias_and_ignore_unknown_data() {
     assert_eq!(decoded.hunger, 13.0);
     assert_eq!(decoded.position, PlayerSaveData::default().position);
     assert_eq!(decoded.hotbar, PlayerSaveData::default().hotbar);
+}
+
+/// 旧版 27 格背包的当前格式文档必须能无损升级到 36 格。
+#[derive(Serialize)]
+struct LegacyBackpackDocument {
+    backpack: [SaveItemStack; 27],
+}
+
+#[test]
+fn legacy_27_slot_backpack_document_pads_to_current_capacity() {
+    let mut sparse = LegacyBackpackDocument {
+        backpack: std::array::from_fn(|_| SaveItemStack::air()),
+    };
+    sparse.backpack[26] = SaveItemStack {
+        runtime_id: None,
+        item: "century_journey:legacy_tail".into(),
+        count: 4,
+        durability: None,
+    };
+
+    let encoded =
+        document::encode_named(PLAYER_DOCUMENT_MAGIC, PLAYER_DOCUMENT_FORMAT, &sparse).unwrap();
+    let decoded = decode_player_data(&encoded).unwrap();
+
+    let capacity =
+        crate::game::inventory::container::survival::SurvivalInventory::BACKPACK_SIZE;
+    assert_eq!(decoded.backpack.len(), capacity);
+    assert_eq!(decoded.backpack[26].count, 4);
+    assert_eq!(decoded.backpack[27], SaveItemStack::air());
+    assert_eq!(decoded.backpack[35], SaveItemStack::air());
 }
 
 #[test]

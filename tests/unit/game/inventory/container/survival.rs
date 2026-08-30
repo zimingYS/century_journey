@@ -11,7 +11,7 @@ fn equipment_and_dynamic_accessories_keep_stable_indices() {
     inventory.set_stack(SurvivalInventory::equipment_index(0), equipment.clone());
     inventory.set_stack(SurvivalInventory::accessory_index(7), accessory.clone());
 
-    assert_eq!(inventory.slot_count(), 27 + 7 + 8);
+    assert_eq!(inventory.slot_count(), 36 + 7 + 8);
     assert_eq!(
         inventory.get_stack(SurvivalInventory::equipment_index(0)),
         Some(&equipment)

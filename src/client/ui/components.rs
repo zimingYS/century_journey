@@ -89,6 +89,13 @@ pub struct SurvivalItemGrid;
 #[derive(Component)]
 pub struct SurvivalHotbarPanel;
 
+/// 生存背包快捷栏槽位上的金色选中框。
+#[derive(Component)]
+pub struct SurvivalHotbarSelectionFrame {
+    /// 所属快捷栏槽位索引。
+    pub index: usize,
+}
+
 /// 生存背包装备槽区域。
 #[derive(Component)]
 pub struct SurvivalEquipmentPanel;
@@ -96,6 +103,18 @@ pub struct SurvivalEquipmentPanel;
 /// 生存背包饰品槽区域。
 #[derive(Component)]
 pub struct SurvivalAccessoryPanel;
+
+/// 生存背包关闭按钮。
+#[derive(Component)]
+pub struct SurvivalCloseButton;
+
+/// 生存背包标题文字。
+#[derive(Component)]
+pub struct SurvivalTitleText;
+
+/// 生存背包副手/盾牌槽容器。
+#[derive(Component)]
+pub struct SurvivalOffhandSlot;
 
 /// 生存背包玩家模型预览相机。
 #[derive(Component)]

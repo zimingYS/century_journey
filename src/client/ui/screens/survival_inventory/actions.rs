@@ -2,8 +2,23 @@
 
 use bevy::prelude::*;
 
-use crate::client::ui::components::{CompactBackpackButton, SortBackpackButton};
+use crate::client::ui::components::{CompactBackpackButton, SortBackpackButton, SurvivalCloseButton};
+use crate::client::ui::navigation::{UiNavigation, UiScreen};
 use crate::game::inventory::events::InventoryCommand;
+
+/// 点击右上角关闭按钮时关闭生存物品栏。
+pub fn survival_close_button_system(
+    button_query: Query<&Interaction, (Changed<Interaction>, With<SurvivalCloseButton>)>,
+    mut writer: MessageWriter<UiNavigation>,
+) {
+    let pressed = button_query
+        .iter()
+        .any(|interaction| *interaction == Interaction::Pressed);
+    if pressed {
+        writer.write(UiNavigation::Close(UiScreen::Inventory));
+    }
+}
+
 /// 把收拢和整理按钮转换为 Game 层物品栏命令。
 /// 组合过滤器确保本系统只消费两种背包管理按钮。
 #[allow(clippy::type_complexity)]

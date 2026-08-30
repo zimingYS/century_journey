@@ -18,6 +18,7 @@ impl Plugin for UiScreensPlugin {
                     resources::ui_font::load_ui_font_system,
                     resources::frame_assets::create_ui_frame_assets_system,
                     resources::creative_assets::load_creative_ui_assets_system,
+                    resources::survival_assets::load_survival_ui_assets_system,
                     widgets::drag::spawn_cursor_item_icon,
                     widgets::tooltip::spawn_item_tooltip_system,
                     creative_inventory::spawn_creative_inventory_system,
@@ -115,6 +116,7 @@ impl Plugin for UiScreensPlugin {
                     creative_inventory::cleanup_creative_hotbar_system,
                     interaction::slot_hover_system,
                     survival_inventory::backpack_management_button_system,
+                    survival_inventory::survival_close_button_system,
                     widgets::tooltip::item_tooltip_system,
                 )
                     .chain(),

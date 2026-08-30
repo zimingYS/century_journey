@@ -5,12 +5,12 @@ use crate::game::inventory::item::stack::ItemStack;
 use crate::game::inventory::state::EquipmentSlot;
 
 /// 生存模式完整背包
-/// 包含 36 格主背包 + 4 格盔甲 + 6 格饰品。
+/// 包含 36 格主背包 + 7 格装备 + 饰品槽。
 /// 实施 InventoryContainer 接口，未来与 Hotbar、Chest 等同质处理。
 #[derive(Debug, Clone)]
 pub struct SurvivalInventory {
-    /// 主背包 27 格，快捷栏独立存储。
-    pub backpack: [Option<ItemStack>; 27],
+    /// 主背包 36 格（4 行 × 9 列），快捷栏独立存储。
+    pub backpack: [Option<ItemStack>; 36],
     /// 头盔、胸甲、护腿、靴子、披风、副手和背包。
     pub equipment: [Option<ItemStack>; EquipmentSlot::ALL.len()],
     /// 槽位数量由 AccessorySlotDefinitions 决定。
@@ -29,7 +29,7 @@ impl Default for SurvivalInventory {
 
 impl SurvivalInventory {
     /// 背包总槽位数
-    pub const BACKPACK_SIZE: usize = 27;
+    pub const BACKPACK_SIZE: usize = 36;
     /// 固定装备槽总数。
     pub const EQUIPMENT_SIZE: usize = EquipmentSlot::ALL.len();
 

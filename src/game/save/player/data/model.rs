@@ -69,7 +69,7 @@ pub struct PlayerSaveData {
     pub hotbar_active: usize,
     #[serde(with = "serde_arrays")]
     pub hotbar: [SaveItemStack; HOTBAR_SIZE],
-    #[serde(with = "serde_arrays")]
+    #[serde(with = "backpack_compat")]
     pub backpack: [SaveItemStack; SurvivalInventory::BACKPACK_SIZE],
     #[serde(with = "serde_arrays")]
     pub equipment: [SaveItemStack; SurvivalInventory::EQUIPMENT_SIZE],
@@ -112,6 +112,65 @@ pub(crate) fn default_saturation() -> f32 {
 /// 为缺少重生点字段的旧存档提供迁移默认值。
 pub(crate) fn default_respawn_point() -> [f32; 3] {
     [0.0, 70.0, 0.0]
+}
+
+/// 背包字段的序列化适配：写入保持当前 36 格定长，读取兼容历史 27 格。
+///
+/// `serde_arrays` 对长度不一致直接报 `invalid_length`，会把旧档整份判为损坏；
+/// 这里改为按实际长度截断或补空气，保证 27 格旧档能无损升级。
+mod backpack_compat {
+    use super::*;
+
+    /// 按当前 36 格定长原样写出，序列化格式与 `serde_arrays` 完全一致。
+    pub fn serialize<S>(
+        backpack: &[SaveItemStack; SurvivalInventory::BACKPACK_SIZE],
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serde_arrays::serialize(backpack, serializer)
+    }
+
+    /// 读取任意长度的背包序列，超出容量的尾部丢弃，不足的槽位补空气。
+    pub fn deserialize<'de, D>(
+        deserializer: D,
+    ) -> Result<[SaveItemStack; SurvivalInventory::BACKPACK_SIZE], D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct BackpackVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for BackpackVisitor {
+            type Value = [SaveItemStack; SurvivalInventory::BACKPACK_SIZE];
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("backpack item stack sequence")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let mut stacks: Vec<SaveItemStack> =
+                    Vec::with_capacity(SurvivalInventory::BACKPACK_SIZE);
+                // 完整消费序列，只保留当前容量内的前 36 格。
+                while let Some(stack) = seq.next_element::<SaveItemStack>()? {
+                    if stacks.len() < SurvivalInventory::BACKPACK_SIZE {
+                        stacks.push(stack);
+                    }
+                }
+                let mut backpack: [SaveItemStack; SurvivalInventory::BACKPACK_SIZE] =
+                    std::array::from_fn(|_| SaveItemStack::air());
+                for (slot, stack) in backpack.iter_mut().zip(stacks) {
+                    *slot = stack;
+                }
+                Ok(backpack)
+            }
+        }
+
+        deserializer.deserialize_seq(BackpackVisitor)
+    }
 }
 
 // ─── 序列化辅助函数 ──────────────────────────────────

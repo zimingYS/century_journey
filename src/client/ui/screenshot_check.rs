@@ -39,6 +39,8 @@ enum ScreenshotTarget {
     SettingsClose,
     Pause,
     Inventory,
+    /// 诊断目标：先打开物品栏再关闭后截图，用于验证选中框等子元素不残留。
+    InventoryClose,
     Workbench,
     SecondPerson,
     ThirdPerson,
@@ -86,6 +88,7 @@ pub fn configure_ui_screenshot_check(app: &mut App) {
         "settings-keybinds" => ScreenshotTarget::SettingsKeybinds,
         "settings-close" => ScreenshotTarget::SettingsClose,
         "pause" => ScreenshotTarget::Pause,
+        "inventory-close" => ScreenshotTarget::InventoryClose,
         "workbench" => ScreenshotTarget::Workbench,
         "second-person" => ScreenshotTarget::SecondPerson,
         "third-person" => ScreenshotTarget::ThirdPerson,
@@ -281,7 +284,9 @@ fn ui_screenshot_check_system(
         };
         if matches!(
             config.target,
-            ScreenshotTarget::Inventory | ScreenshotTarget::Workbench
+            ScreenshotTarget::Inventory
+                | ScreenshotTarget::InventoryClose
+                | ScreenshotTarget::Workbench
         ) {
             inventory.hotbar.set_stack(
                 0,
@@ -295,7 +300,7 @@ fn ui_screenshot_check_system(
             );
         }
         match config.target {
-            ScreenshotTarget::Inventory => {
+            ScreenshotTarget::Inventory | ScreenshotTarget::InventoryClose => {
                 flow.navigation
                     .write(UiNavigation::Open(UiScreen::Inventory));
             }
@@ -340,8 +345,34 @@ fn ui_screenshot_check_system(
             | ScreenshotTarget::SettingsKeybinds
             | ScreenshotTarget::SettingsClose => {}
         }
+        if config.target == ScreenshotTarget::InventoryClose {
+            // 准备阶段复用了该计数器，此处清零供打开保持期重新计数。
+            config.in_game_frames = 0;
+        }
         config.prepared = true;
         return;
+    }
+    // 诊断流程：物品栏打开保持一段时间后模拟关闭，
+    // 就绪检查等待根节点隐藏后才截图，用于发现关闭后的残留元素。
+    if config.target == ScreenshotTarget::InventoryClose {
+        let root_visible = survival_inventory
+            .single()
+            .map(|(_, inherited)| inherited.get())
+            .unwrap_or(false);
+        if config.in_game_frames < FRAMES_BEFORE_CAPTURE {
+            // 阶段一：等待物品栏根节点可见并保持若干帧。
+            if root_visible {
+                config.in_game_frames += 1;
+            }
+            config.ready_frames = 0;
+            config.ready_seconds = 0.0;
+            return;
+        }
+        if root_visible {
+            // 阶段二：保持期结束，发送关闭命令并等待根节点隐藏。
+            flow.navigation.write(UiNavigation::Close(UiScreen::Inventory));
+            return;
+        }
     }
     let ready = match config.target {
         ScreenshotTarget::MainMenu
@@ -362,6 +393,13 @@ fn ui_screenshot_check_system(
                 is_root_visible(survival_inventory.single())
             };
             state == &AppState::InGame && inventory_ready
+        }
+        ScreenshotTarget::InventoryClose => {
+            // 关闭后生存背包根节点应不可见，画面只保留 HUD 元素。
+            state == &AppState::InGame
+                && survival_inventory
+                    .single()
+                    .is_ok_and(|(_, inherited)| !inherited.get())
         }
         ScreenshotTarget::Workbench => state == &AppState::InGame,
         ScreenshotTarget::SecondPerson
