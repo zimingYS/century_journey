@@ -7,8 +7,8 @@ use bevy::prelude::*;
 
 use super::preview::spawn_player_preview;
 use crate::client::ui::components::{
-    SurvivalEquipmentPanel, SurvivalInventoryOverlay, SurvivalInventoryRoot, SurvivalItemGrid,
-    SurvivalHotbarPanel, SurvivalCloseButton, SurvivalTitleText, SurvivalOffhandSlot,
+    SurvivalCloseButton, SurvivalEquipmentPanel, SurvivalHotbarPanel, SurvivalInventoryOverlay,
+    SurvivalInventoryRoot, SurvivalItemGrid, SurvivalOffhandSlot, SurvivalTitleText,
 };
 use crate::client::ui::localization::LocalizedText;
 use crate::client::ui::navigation::{UiScreenAudience, UiScreenRoot};
@@ -241,10 +241,7 @@ fn spawn_close_button(parent: &mut ChildSpawnerCommands) {
     ));
 }
 
-fn spawn_player_preview_area(
-    parent: &mut ChildSpawnerCommands,
-    preview_image: Handle<Image>,
-) {
+fn spawn_player_preview_area(parent: &mut ChildSpawnerCommands, preview_image: Handle<Image>) {
     parent
         .spawn((
             Name::new("PreviewArea"),
@@ -276,40 +273,42 @@ fn spawn_player_preview_area(
 }
 
 fn spawn_equipment_slots(parent: &mut ChildSpawnerCommands, theme: &UiTheme, ui_font: &UiFont) {
-    parent.spawn((
-        SurvivalEquipmentPanel,
-        Name::new("EquipmentSlots"),
-        Node {
-            position_type: PositionType::Absolute,
-            left: Val::Px(EQUIP_ORIGIN.x),
-            top: Val::Px(EQUIP_ORIGIN.y),
-            width: Val::Px(EQUIP_SLOT_WIDTH),
-            height: Val::Px(
-                EQUIP_SLOT_HEIGHT * EQUIP_SLOT_COUNT as f32
-                    + EQUIP_SLOT_GAP * (EQUIP_SLOT_COUNT - 1) as f32,
-            ),
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(EQUIP_SLOT_GAP),
-            ..default()
-        },
-    ))
-    .with_children(|panel| {
-        // 只展示前 4 个装备槽：头盔、胸甲、护腿、靴子。
-        // 槽位框已绘制在面板底图上，这里只放透明交互槽位（与设计稿一致，无占位文字）。
-        let visible_slots = &EquipmentSlot::ALL[..EQUIP_SLOT_COUNT.min(EquipmentSlot::ALL.len())];
-        for (index, _equipment_slot) in visible_slots.iter().enumerate() {
-            let mut slot_theme = slot_theme(theme, EQUIP_SLOT_WIDTH);
-            slot_theme.slot_height = EQUIP_SLOT_HEIGHT;
+    parent
+        .spawn((
+            SurvivalEquipmentPanel,
+            Name::new("EquipmentSlots"),
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(EQUIP_ORIGIN.x),
+                top: Val::Px(EQUIP_ORIGIN.y),
+                width: Val::Px(EQUIP_SLOT_WIDTH),
+                height: Val::Px(
+                    EQUIP_SLOT_HEIGHT * EQUIP_SLOT_COUNT as f32
+                        + EQUIP_SLOT_GAP * (EQUIP_SLOT_COUNT - 1) as f32,
+                ),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(EQUIP_SLOT_GAP),
+                ..default()
+            },
+        ))
+        .with_children(|panel| {
+            // 只展示前 4 个装备槽：头盔、胸甲、护腿、靴子。
+            // 槽位框已绘制在面板底图上，这里只放透明交互槽位（与设计稿一致，无占位文字）。
+            let visible_slots =
+                &EquipmentSlot::ALL[..EQUIP_SLOT_COUNT.min(EquipmentSlot::ALL.len())];
+            for (index, _equipment_slot) in visible_slots.iter().enumerate() {
+                let mut slot_theme = slot_theme(theme, EQUIP_SLOT_WIDTH);
+                slot_theme.slot_height = EQUIP_SLOT_HEIGHT;
 
-            spawn_empty_slot(
-                panel,
-                SlotKind::SurvivalEquipment,
-                index,
-                &slot_theme,
-                ui_font,
-            );
-        }
-    });
+                spawn_empty_slot(
+                    panel,
+                    SlotKind::SurvivalEquipment,
+                    index,
+                    &slot_theme,
+                    ui_font,
+                );
+            }
+        });
 }
 
 fn spawn_offhand_slot(parent: &mut ChildSpawnerCommands, theme: &UiTheme, ui_font: &UiFont) {
@@ -322,38 +321,35 @@ fn spawn_offhand_slot(parent: &mut ChildSpawnerCommands, theme: &UiTheme, ui_fon
     let mut slot_theme = slot_theme(theme, OFFHAND_SLOT_SIZE);
     slot_theme.slot_height = OFFHAND_SLOT_SIZE;
 
-    parent.spawn((
-        SurvivalOffhandSlot,
-        Name::new("OffhandSlot"),
-        Node {
-            position_type: PositionType::Absolute,
-            left: Val::Px(OFFHAND_ORIGIN.x),
-            top: Val::Px(OFFHAND_ORIGIN.y),
-            width: Val::Px(OFFHAND_SLOT_SIZE),
-            height: Val::Px(OFFHAND_SLOT_SIZE),
-            ..default()
-        },
-    ))
-    .with_children(|slot_container| {
-        // 盾牌轮廓已绘制在底图上，这里只放透明交互槽位，避免文字与图标重叠。
-        spawn_empty_slot(
-            slot_container,
-            SlotKind::SurvivalEquipment,
-            offhand_index,
-            &slot_theme,
-            ui_font,
-        );
-    });
+    parent
+        .spawn((
+            SurvivalOffhandSlot,
+            Name::new("OffhandSlot"),
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(OFFHAND_ORIGIN.x),
+                top: Val::Px(OFFHAND_ORIGIN.y),
+                width: Val::Px(OFFHAND_SLOT_SIZE),
+                height: Val::Px(OFFHAND_SLOT_SIZE),
+                ..default()
+            },
+        ))
+        .with_children(|slot_container| {
+            // 盾牌轮廓已绘制在底图上，这里只放透明交互槽位，避免文字与图标重叠。
+            spawn_empty_slot(
+                slot_container,
+                SlotKind::SurvivalEquipment,
+                offhand_index,
+                &slot_theme,
+                ui_font,
+            );
+        });
 }
 
 /// 生成随身合成区：2×2 输入格 + 1 个输出格。
 ///
 /// 槽位框与箭头已绘制在面板底图上，这里只放置透明交互槽位。
-fn spawn_crafting_slots(
-    parent: &mut ChildSpawnerCommands,
-    theme: &UiTheme,
-    ui_font: &UiFont,
-) {
+fn spawn_crafting_slots(parent: &mut ChildSpawnerCommands, theme: &UiTheme, ui_font: &UiFont) {
     let slot_theme = slot_theme(theme, CRAFT_INPUT_SIZE);
     parent
         .spawn((
@@ -410,8 +406,8 @@ fn spawn_crafting_slots(
 fn spawn_backpack_grid(parent: &mut ChildSpawnerCommands) {
     let grid_w = BACKPACK_SLOT_SIZE * BACKPACK_COLUMNS as f32
         + BACKPACK_COLUMN_GAP * (BACKPACK_COLUMNS - 1) as f32;
-    let grid_h = BACKPACK_SLOT_SIZE * BACKPACK_ROWS as f32
-        + BACKPACK_ROW_GAP * (BACKPACK_ROWS - 1) as f32;
+    let grid_h =
+        BACKPACK_SLOT_SIZE * BACKPACK_ROWS as f32 + BACKPACK_ROW_GAP * (BACKPACK_ROWS - 1) as f32;
 
     parent.spawn((
         SurvivalItemGrid,
@@ -423,7 +419,10 @@ fn spawn_backpack_grid(parent: &mut ChildSpawnerCommands) {
             width: Val::Px(grid_w),
             height: Val::Px(grid_h),
             display: Display::Grid,
-            grid_template_columns: RepeatedGridTrack::px(BACKPACK_COLUMNS as u16, BACKPACK_SLOT_SIZE),
+            grid_template_columns: RepeatedGridTrack::px(
+                BACKPACK_COLUMNS as u16,
+                BACKPACK_SLOT_SIZE,
+            ),
             grid_template_rows: RepeatedGridTrack::px(BACKPACK_ROWS as u16, BACKPACK_SLOT_SIZE),
             column_gap: Val::Px(BACKPACK_COLUMN_GAP),
             row_gap: Val::Px(BACKPACK_ROW_GAP),

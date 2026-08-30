@@ -2,7 +2,9 @@
 
 use bevy::prelude::*;
 
-use crate::client::ui::components::{CompactBackpackButton, SortBackpackButton, SurvivalCloseButton};
+use crate::client::ui::components::{
+    CompactBackpackButton, SortBackpackButton, SurvivalCloseButton,
+};
 use crate::client::ui::navigation::{UiNavigation, UiScreen};
 use crate::game::inventory::events::InventoryCommand;
 

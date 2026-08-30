@@ -370,7 +370,8 @@ fn ui_screenshot_check_system(
         }
         if root_visible {
             // 阶段二：保持期结束，发送关闭命令并等待根节点隐藏。
-            flow.navigation.write(UiNavigation::Close(UiScreen::Inventory));
+            flow.navigation
+                .write(UiNavigation::Close(UiScreen::Inventory));
             return;
         }
     }

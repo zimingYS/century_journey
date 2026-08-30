@@ -46,7 +46,10 @@ fn load_localization() -> Localization {
     let dir = locales_dir();
     match load_locales_from_dir(&dir) {
         Ok(files) if files.is_empty() => {
-            log::warn!("[本地化] 语言目录 {} 为空，界面文本将显示为键名", dir.display());
+            log::warn!(
+                "[本地化] 语言目录 {} 为空，界面文本将显示为键名",
+                dir.display()
+            );
             build_localization(Vec::new())
         }
         Ok(files) => build_localization(files),

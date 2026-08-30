@@ -198,8 +198,7 @@ fn legacy_27_slot_backpack_document_pads_to_current_capacity() {
         document::encode_named(PLAYER_DOCUMENT_MAGIC, PLAYER_DOCUMENT_FORMAT, &sparse).unwrap();
     let decoded = decode_player_data(&encoded).unwrap();
 
-    let capacity =
-        crate::game::inventory::container::survival::SurvivalInventory::BACKPACK_SIZE;
+    let capacity = crate::game::inventory::container::survival::SurvivalInventory::BACKPACK_SIZE;
     assert_eq!(decoded.backpack.len(), capacity);
     assert_eq!(decoded.backpack[26].count, 4);
     assert_eq!(decoded.backpack[27], SaveItemStack::air());
