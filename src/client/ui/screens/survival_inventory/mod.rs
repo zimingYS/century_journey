@@ -5,7 +5,7 @@ mod layout;
 mod preview;
 mod sync;
 
-pub use actions::backpack_management_button_system;
+pub use actions::{backpack_management_button_system, survival_close_button_system};
 pub use layout::spawn_survival_inventory_system;
 pub use sync::{
     init_survival_hotbar_system, populate_survival_grid_system, survival_grid_visual_sync_system,

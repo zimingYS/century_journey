@@ -2,4 +2,5 @@
 
 pub mod creative_assets;
 pub mod frame_assets;
+pub mod survival_assets;
 pub mod ui_font;

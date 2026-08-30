@@ -2,13 +2,17 @@
 
 use bevy::prelude::*;
 
-use super::layout::{MAIN_SLOT_SIZE, slot_theme};
+use super::layout::{
+    BACKPACK_SLOT_SIZE, HOTBAR_SELECTION_HEIGHT, HOTBAR_SELECTION_OFFSET, HOTBAR_SELECTION_WIDTH,
+    HOTBAR_SLOT_HEIGHT, HOTBAR_SLOT_WIDTH, slot_theme,
+};
 use crate::client::renderer::item::GuiItemIconCache;
 use crate::client::renderer::tex_atlas::BlockRenderAssets;
 use crate::client::ui::components::{
-    SurvivalDefenseText, SurvivalHealthText, SurvivalHotbarPanel, SurvivalHungerText,
-    SurvivalItemGrid, SurvivalPlayerPreviewCamera,
+    SurvivalDefenseText, SurvivalHealthText, SurvivalHotbarPanel, SurvivalHotbarSelectionFrame,
+    SurvivalHungerText, SurvivalItemGrid, SurvivalPlayerPreviewCamera,
 };
+use crate::client::ui::resources::survival_assets::SurvivalUiAssets;
 use crate::client::ui::resources::ui_font::UiFont;
 use crate::client::ui::theme::ui_theme::UiTheme;
 use crate::client::ui::widgets::slot::{
@@ -72,7 +76,7 @@ pub fn populate_survival_grid_system(
         return;
     }
 
-    let slot_theme = slot_theme(&theme, MAIN_SLOT_SIZE);
+    let slot_theme = slot_theme(&theme, BACKPACK_SLOT_SIZE);
     commands.entity(grid_entity).with_children(|grid| {
         for index in 0..SurvivalInventory::BACKPACK_SIZE {
             spawn_empty_slot(
@@ -178,6 +182,7 @@ pub fn survival_hotbar_visual_sync_system(
     item_registry: Option<Res<ItemRegistry>>,
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
     mut border_query: Query<(&InventorySlot, &mut BorderColor)>,
+    mut selection_query: Query<(&SurvivalHotbarSelectionFrame, &mut Visibility)>,
     mut last_hotbar: Local<Option<(Vec<(ItemId, u32)>, u64)>>,
     mut last_active: Local<Option<usize>>,
     mut was_opened: Local<bool>,
@@ -252,6 +257,16 @@ pub fn survival_hotbar_visual_sync_system(
                 });
             }
         }
+        // 生存面板快捷栏使用金色选中框图片，HUD 快捷栏继续使用边框。
+        // Inherited 而非 Visible：Visible 会无视父级强制显示，
+        // 导致物品栏关闭后选中框残留在屏幕上；Inherited 跟随面板可见性。
+        for (frame, mut visibility) in &mut selection_query {
+            *visibility = if frame.index == state.hotbar.active_index {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
+        }
     }
 }
 
@@ -269,6 +284,7 @@ pub fn init_survival_hotbar_system(
     mut commands: Commands,
     theme: Res<UiTheme>,
     ui_font: Res<UiFont>,
+    survival_assets: Res<SurvivalUiAssets>,
     item_registry: Option<Res<ItemRegistry>>,
     item_texture_registry: Option<Res<ItemTextureRegistry>>,
 ) {
@@ -291,13 +307,16 @@ pub fn init_survival_hotbar_system(
         return;
     }
 
-    let slot_theme = slot_theme(&theme, MAIN_SLOT_SIZE);
+    let mut hotbar_theme = slot_theme(&theme, HOTBAR_SLOT_WIDTH);
+    hotbar_theme.slot_height = HOTBAR_SLOT_HEIGHT;
+    // with_children 闭包内不能再次借用 commands，先收集槽位实体再补挂选中框。
+    let mut spawned_slots: Vec<(usize, Entity)> = Vec::with_capacity(state.hotbar.stacks.len());
     commands.entity(panel_entity).with_children(|bar| {
         for (index, stack) in state.hotbar.stacks.iter().enumerate() {
             let item = stack
                 .as_ref()
                 .map_or_else(ItemId::air, |stack| stack.item.clone());
-            crate::client::ui::widgets::slot::spawn_slot_with_item(
+            let slot_entity = crate::client::ui::widgets::slot::spawn_slot_with_item(
                 bar,
                 SlotKind::Hotbar,
                 index,
@@ -305,13 +324,35 @@ pub fn init_survival_hotbar_system(
                 registry,
                 render_assets,
                 &gui_item_icons,
-                &slot_theme,
+                &hotbar_theme,
                 &ui_font,
                 item_registry.as_deref(),
                 item_texture_registry.as_deref(),
             );
+            spawned_slots.push((index, slot_entity));
         }
     });
+    // 金色选中框叠加在槽位外沿（素材含 15px 外扩边）。
+    for (index, slot_entity) in spawned_slots {
+        commands.entity(slot_entity).with_children(|slot| {
+            slot.spawn((
+                SurvivalHotbarSelectionFrame { index },
+                ImageNode {
+                    image: survival_assets.hotbar_selection.clone(),
+                    ..default()
+                },
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(HOTBAR_SELECTION_OFFSET.x),
+                    top: Val::Px(HOTBAR_SELECTION_OFFSET.y),
+                    width: Val::Px(HOTBAR_SELECTION_WIDTH),
+                    height: Val::Px(HOTBAR_SELECTION_HEIGHT),
+                    ..default()
+                },
+                Visibility::Hidden,
+            ));
+        });
+    }
 }
 
 /// 把权威生命、饥饿和防御数值投影到界面文本。

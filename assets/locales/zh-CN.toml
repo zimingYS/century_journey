@@ -149,6 +149,7 @@ entity = "实体攻击"
 generic = "环境伤害"
 
 [survival]
+title = "背包"
 equipment = "装备"
 accessories = "物品栏"
 backpack = "背包"

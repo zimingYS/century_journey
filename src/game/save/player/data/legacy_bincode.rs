@@ -262,7 +262,9 @@ impl From<ExpandedInventoryLayout> for PlayerSaveData {
                 .map(Into::into)
                 .unwrap_or_else(SaveItemStack::air)
         });
-        let legacy_backpack_overflow = legacy.backpack[27..]
+        // 背包容量回到 36 后整组可直接容纳，仅在容量缩小时才产生溢出。
+        let overflow_start = SurvivalInventory::BACKPACK_SIZE.min(legacy.backpack.len());
+        let legacy_backpack_overflow = legacy.backpack[overflow_start..]
             .iter()
             .cloned()
             .map(Into::into)
@@ -285,6 +287,14 @@ impl From<ExpandedInventoryLayout> for PlayerSaveData {
     }
 }
 
+/// 把历史 27 格背包扩容为当前 36 格，新增槽位以空气填充。
+fn expand_backpack<T: Into<SaveItemStack>, const N: usize>(
+    legacy: [T; N],
+) -> [SaveItemStack; SurvivalInventory::BACKPACK_SIZE] {
+    let mut stacks = legacy.into_iter().map(Into::into);
+    std::array::from_fn(|_| stacks.next().unwrap_or_else(SaveItemStack::air))
+}
+
 impl From<EquipmentInventoryLayout> for PlayerSaveData {
     fn from(legacy: EquipmentInventoryLayout) -> Self {
         PlayerSaveData {
@@ -296,7 +306,7 @@ impl From<EquipmentInventoryLayout> for PlayerSaveData {
             hunger: legacy.hunger,
             hotbar_active: legacy.hotbar_active,
             hotbar: legacy.hotbar.map(Into::into),
-            backpack: legacy.backpack.map(Into::into),
+            backpack: expand_backpack(legacy.backpack),
             equipment: legacy.equipment.map(Into::into),
             accessories: legacy.accessories.into_iter().map(Into::into).collect(),
             ..Default::default()
@@ -316,7 +326,7 @@ impl From<GameBuildLayout> for PlayerSaveData {
             hunger: legacy.hunger,
             hotbar_active: legacy.hotbar_active,
             hotbar: legacy.hotbar.map(Into::into),
-            backpack: legacy.backpack.map(Into::into),
+            backpack: expand_backpack(legacy.backpack),
             equipment: legacy.equipment.map(Into::into),
             accessories: legacy.accessories.into_iter().map(Into::into).collect(),
             ..Default::default()
@@ -338,7 +348,7 @@ impl From<DurabilityLayout> for PlayerSaveData {
             respawn_point: legacy.respawn_point,
             hotbar_active: legacy.hotbar_active,
             hotbar: legacy.hotbar.map(Into::into),
-            backpack: legacy.backpack.map(Into::into),
+            backpack: expand_backpack(legacy.backpack),
             equipment: legacy.equipment.map(Into::into),
             accessories: legacy.accessories.into_iter().map(Into::into).collect(),
             ..Default::default()
@@ -360,7 +370,7 @@ impl From<RuntimeIdMapLayout> for PlayerSaveData {
             respawn_point: legacy.respawn_point,
             hotbar_active: legacy.hotbar_active,
             hotbar: legacy.hotbar.map(Into::into),
-            backpack: legacy.backpack.map(Into::into),
+            backpack: expand_backpack(legacy.backpack),
             equipment: legacy.equipment.map(Into::into),
             accessories: legacy.accessories.into_iter().map(Into::into).collect(),
             item_id_map: legacy.item_id_map,

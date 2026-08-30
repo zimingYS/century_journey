@@ -13,7 +13,7 @@ pub use loader::{
 };
 pub use store::{FALLBACK_LANGUAGE, LanguageId, LanguageInfo, Localization};
 
-use std::path::Path;
+use std::path::PathBuf;
 
 use bevy::prelude::*;
 
@@ -28,14 +28,28 @@ impl Plugin for LocalizationPlugin {
     }
 }
 
+/// 语言目录的解析规则与 [`crate::engine::asset::resolver::AssetResolver`]
+/// 保持一致：优先使用 `CJ_ASSET_ROOT` 指定的资源根，未设置时回退到
+/// 相对当前工作目录的 `assets/locales`。
+fn locales_dir() -> PathBuf {
+    match std::env::var_os("CJ_ASSET_ROOT") {
+        Some(root) => PathBuf::from(root).join("locales"),
+        None => PathBuf::from(LOCALES_DIR),
+    }
+}
+
 /// 从语言目录加载全部语言并构建查询资源。
 ///
 /// 加载失败时返回空资源并告警：查询退化为返回键本身，
 /// 界面构建不被阻断，漏翻条目在屏幕上直接可见。
 fn load_localization() -> Localization {
-    match load_locales_from_dir(Path::new(LOCALES_DIR)) {
+    let dir = locales_dir();
+    match load_locales_from_dir(&dir) {
         Ok(files) if files.is_empty() => {
-            log::warn!("[本地化] 语言目录 {LOCALES_DIR} 为空，界面文本将显示为键名");
+            log::warn!(
+                "[本地化] 语言目录 {} 为空，界面文本将显示为键名",
+                dir.display()
+            );
             build_localization(Vec::new())
         }
         Ok(files) => build_localization(files),

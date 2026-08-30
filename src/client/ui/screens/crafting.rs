@@ -38,40 +38,24 @@ pub struct CraftingPanel {
     kind: ContainerKind,
 }
 
-/// 承载合成界面的世界容器宿主标记。
-#[derive(Component)]
-pub struct CraftingHost;
-
 /// 工作台合成界面的遮罩根节点。
 #[derive(Component)]
 pub struct WorkbenchOverlay;
 
-/// 创建玩家随身合成和工作台合成界面节点。
+/// 创建工作台合成界面节点。
+///
+/// 玩家随身合成（2×2）槽位由生存物品栏布局直接生成，
+/// 这里只负责工作台打开时的容器界面。
 pub fn spawn_crafting_system(
-    roots: Query<Entity, With<CraftingHost>>,
     panels: Query<(), With<CraftingPanel>>,
     mut commands: Commands,
     theme: Res<UiTheme>,
     ui_font: Res<UiFont>,
     localization: Res<Localization>,
 ) {
-    let Ok(root) = roots.single() else { return };
     if !panels.is_empty() {
         return;
     }
-    commands.entity(root).with_children(|root| {
-        spawn_crafting_panel(
-            root,
-            ContainerKind::PlayerCrafting,
-            "crafting.player",
-            PlayerCrafting::WIDTH,
-            PlayerCrafting::HEIGHT,
-            true,
-            &theme,
-            &ui_font,
-            &localization,
-        );
-    });
     spawn_workbench_overlay(&mut commands, &theme, &ui_font, &localization);
 }
 
