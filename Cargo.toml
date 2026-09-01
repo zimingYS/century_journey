@@ -27,7 +27,7 @@ image = "0.25.10"
 serde_arrays = "0.2.0"
 serde_json = "1.0.150"
 # 键位绑定配置文件格式（保持插入顺序，便于按分类分组手编）
-toml = { version = "0.9", features = ["preserve_order"] }
+toml = { version = "1.1", features = ["preserve_order"] }
 rand = "0.10.1"
 anyhow = "1.0.102"
 
