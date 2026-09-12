@@ -1,0 +1,53 @@
+"area: sim":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "crates/sim/**"
+          - "crates/simulation/**"
+
+"area: render":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "crates/render/**"
+          - "crates/client/render/**"
+          - "src/client/render/**"
+
+"area: game":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "crates/game/**"
+          - "src/game/**"
+
+"area: content":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "assets/content/**"
+          - "crates/content/**"
+          - "src/content/**"
+
+"area: audio":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "assets/audio/**"
+          - "crates/audio/**"
+          - "src/audio/**"
+
+"area: world":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "crates/world/**"
+          - "crates/voxel/**"
+          - "src/world/**"
+          - "src/voxel/**"
+
+design:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/design/**"
+          - "design/**"
+
+community:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "mods/**"
+          - "community/**"
+          - "docs/modding/**"

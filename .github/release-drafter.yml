@@ -1,0 +1,82 @@
+name-template: "v$NEXT_PATCH_VERSION"
+tag-template: "v$NEXT_PATCH_VERSION"
+
+categories:
+  - title: "🚀 新功能"
+    semver-increment: minor
+    when:
+      labels:
+        - "feature"
+
+  - title: "🐛 Bug 修复"
+    semver-increment: patch
+    when:
+      labels:
+        - "bug"
+
+  - title: "⚡ 性能优化"
+    semver-increment: patch
+    when:
+      label: "type: perf"
+
+  - title: "♻️ 重构"
+    semver-increment: patch
+    when:
+      label: "type: refactor"
+
+  - title: "🧹 技术债"
+    semver-increment: patch
+    when:
+      label: "type: tech-debt"
+
+  - title: "🌍 世界与内容"
+    when:
+      labels:
+        - "area: world"
+        - "area: content"
+
+  - title: "🎨 渲染"
+    when:
+      label: "area: render"
+
+  - title: "🎮 游戏逻辑"
+    when:
+      label: "area: game"
+
+  - title: "🔊 音频"
+    when:
+      label: "area: audio"
+
+  - title: "🧠 模拟"
+    when:
+      label: "area: sim"
+
+  - title: "🤝 社区"
+    when:
+      label: "community"
+
+  - title: "📚 文档与设计"
+    when:
+      labels:
+        - "design"
+
+  - title: "🧰 维护"
+    labels:
+      - "dependencies"
+      - "ci"
+
+  - title: "📦 其他"
+    type: changelog
+
+change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
+
+change-title-escapes: '\<*_&'
+
+template: |
+  ## 本次更新
+
+  $CHANGES
+
+  ## Contributors
+
+  $CONTRIBUTORS
