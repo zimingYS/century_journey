@@ -1,0 +1,11 @@
+[package]
+name = "cj-render"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+cj-core = { workspace = true }
+bevy = { workspace = true }
+# 注意：render 不依赖 sim / runtime

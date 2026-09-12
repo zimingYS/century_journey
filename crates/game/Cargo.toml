@@ -1,0 +1,12 @@
+[package]
+name = "cj-game"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+cj-core = { workspace = true }
+cj-runtime = { workspace = true }
+cj-render = { workspace = true }
+bevy = { workspace = true }

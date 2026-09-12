@@ -66,7 +66,7 @@ app → game → runtime → sim / world → content → core
 算子应尽量接近：
 
 ```rust
-fn update(input: &Input, params: &Params, dt: f32) -> Output
+fn update(input: &Input, params: &Params, dt: f32) -> Output{}
 ```
 
 不读全局状态、不读 ECS、不依赖全局时间。

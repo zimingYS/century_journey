@@ -1,6 +1,38 @@
-[package]
-name = "century_journey"
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
+license = "LicenseRef-PolyForm-Noncommercial-1.0.0"
+repository = "https://github.com/zimingYS/century_journey"
 
-[dependencies]
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+    "crates/sim",
+    "crates/world",
+    "crates/runtime",
+    "crates/render",
+    "crates/game",
+    "crates/app",
+]
+
+[workspace.dependencies]
+# ── 内部 crate ──
+cj-core    = { path = "crates/core" }
+cj-sim     = { path = "crates/sim" }
+cj-world   = { path = "crates/world" }
+cj-runtime = { path = "crates/runtime" }
+cj-render  = { path = "crates/render" }
+cj-game    = { path = "crates/game" }
+
+# ── 外部依赖（版本锁定，禁用 "*"）──
+bevy = "0.19.1"
+
+# §7.3 编译时间优化
+[profile.dev]
+opt-level = 1
+incremental = true
+codegen-units = 16
+
+[profile.dev.package."*"]
+opt-level = 3
