@@ -1,0 +1,42 @@
+# 所有文本文件统一按文本处理
+* text=auto
+
+# Rust / 配置 / 脚本等明确使用 LF
+*.rs      text eol=lf
+*.toml    text eol=lf
+*.md      text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.json    text eol=lf
+*.glsl    text eol=lf
+*.wgsl    text eol=lf
+*.ron     text eol=lf
+*.txt     text eol=lf
+*.css     text eol=lf
+*.js      text eol=lf
+*.ts      text eol=lf
+*.tsx     text eol=lf
+*.html    text eol=lf
+*.xml     text eol=lf
+*.properties text eol=lf
+
+# Shell 脚本必须 LF
+*.sh      text eol=lf
+
+# Windows 批处理可以保留 CRLF
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
+
+# 二进制文件不要做换行转换
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.wav     binary
+*.mp3     binary
+*.ogg     binary
+*.zip     binary
+*.7z      binary
+*.dll     binary
+*.exe     binary
