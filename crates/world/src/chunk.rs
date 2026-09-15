@@ -1,10 +1,8 @@
 use cj_core::pos::{BlockPos, ChunkPos, SectionLocalPos};
-use cj_core::spec::{SECTION_COUNT_USIZE, SECTION_MIN_Y, SECTION_SIZE};
+use cj_core::spec::{SECTION_COUNT_USIZE, SECTION_MIN_Y, SECTION_SIZE, SECTION_VOLUME};
 use cj_core::voxel::{BlockId, Voxel};
 use std::collections::HashMap;
 use std::fmt;
-
-pub const SECTION_VOLUME: usize = (SECTION_SIZE * SECTION_SIZE * SECTION_SIZE) as usize;
 
 /// 方块存储单元
 #[derive(PartialEq, Eq)]

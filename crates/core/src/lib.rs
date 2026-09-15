@@ -18,6 +18,7 @@
 //! | [`rng`]    | 确定性位置哈希 |
 //! | [`math`]   | 基础数学工具 |
 
+pub mod block;
 pub mod field_ref;
 pub mod math;
 pub mod pos;

@@ -25,3 +25,6 @@ pub const SECTION_MIN_Y: i32 = WORLD_BOTTOM / SECTION_SIZE;
 
 /// 切片索引上界（不含）
 pub const SECTION_INDEX_LIMIT: i32 = WORLD_TOP / SECTION_SIZE;
+
+/// 切片内存储的方块数量
+pub const SECTION_VOLUME: usize = (SECTION_SIZE * SECTION_SIZE * SECTION_SIZE) as usize;

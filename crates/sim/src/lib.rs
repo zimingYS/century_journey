@@ -12,7 +12,7 @@ pub mod field;
 pub mod geo;
 pub mod hydro;
 pub mod structure;
-
+pub mod worldgen;
 // 模拟算子签名约定：`fn(input, params, dt) -> output`
 //
 // 不读全局状态、不读 ECS、不依赖全局时间。
