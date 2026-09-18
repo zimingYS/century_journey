@@ -14,4 +14,5 @@ cj-core = { workspace = true }
 cj-game = { workspace = true }
 cj-render = { workspace = true }
 cj-runtime = { workspace = true }
+cj-world = { workspace = true }
 bevy = { workspace = true }

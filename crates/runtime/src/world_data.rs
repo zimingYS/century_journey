@@ -1,5 +1,4 @@
-use bevy::log::info;
-use bevy::prelude::{ResMut, Resource};
+use bevy::prelude::Resource;
 use cj_core::pos::{ChunkPos, SectionPos};
 use cj_core::rng::WorldRng;
 use cj_core::spec::{SECTION_COUNT_USIZE, SECTION_VOLUME};
@@ -7,13 +6,6 @@ use cj_core::voxel::{BlockId, Voxel};
 use cj_sim::worldgen::fill_section;
 use cj_world::chunk::{ChunkStore, Section};
 use cj_world::seed::WorldSeed;
-use std::time::Instant;
-
-/// 临时世界种子
-pub const DEFAULT_WORLD_SEED: u64 = 1234;
-
-/// 默认区块加载半径
-pub const INITIAL_LOAD_RADIUS_CHUNKS: i32 = 8;
 
 /// 世界数据
 #[derive(Resource)]
@@ -84,35 +76,6 @@ impl WorldData {
             chunk.insert_section(section_index, section);
         }
     }
-}
-
-impl Default for WorldData {
-    fn default() -> Self {
-        let world_seed = WorldSeed::from_seed(DEFAULT_WORLD_SEED);
-        WorldData::new(world_seed)
-    }
-}
-
-/// 统计存储中所有方块的非空气总数
-fn count_non_air(chunks: &ChunkStore) -> u64 {
-    chunks
-        .iter()
-        .map(|(_, chunk)| u64::from(chunk.non_air_count()))
-        .sum()
-}
-
-pub fn generate_initial_world(mut world_data: ResMut<WorldData>) {
-    info!("开始生成世界：半径 {INITIAL_LOAD_RADIUS_CHUNKS} chunk");
-
-    let start = Instant::now();
-    world_data.generate_initial_area(INITIAL_LOAD_RADIUS_CHUNKS);
-    let elapsed = start.elapsed();
-
-    // 统计放在计时之外，避免污染耗时结果
-    let chunk_count = world_data.chunks().len();
-    let non_air = count_non_air(world_data.chunks());
-
-    info!("世界生成完成：chunk = {chunk_count}，非空气格 = {non_air}，耗时 = {elapsed:?}");
 }
 
 #[cfg(test)]
@@ -282,16 +245,6 @@ mod tests {
         assert!(
             chunk.section(bottom_index).is_some(),
             "世界底部的全石头 section 应被分配"
-        );
-    }
-
-    #[test]
-    fn default_world_uses_current_generator_version() {
-        let world = WorldData::default();
-
-        assert!(
-            world.seed().matches_current(),
-            "默认世界必须打上当前生成器版本；此断言若失败，说明 Default 里硬编码了版本号，应改用 WorldSeed::from_seed"
         );
     }
 }
