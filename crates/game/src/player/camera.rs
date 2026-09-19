@@ -89,15 +89,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn pitch_is_clamped() {
+    fn pitch_clamps_to_lower_limit() {
         let mut camera = PlayerCamera::default();
-
         camera.apply_look_delta(Vec2::new(0.0, 100_000.0));
-        assert!(camera.pitch >= -PITCH_LIMIT);
-        assert!(camera.pitch <= PITCH_LIMIT);
+        assert_eq!(camera.pitch, -PITCH_LIMIT);
+    }
 
+    #[test]
+    fn pitch_clamps_to_upper_limit() {
+        let mut camera = PlayerCamera::default();
         camera.apply_look_delta(Vec2::new(0.0, -100_000.0));
-        assert!(camera.pitch >= -PITCH_LIMIT);
-        assert!(camera.pitch <= PITCH_LIMIT);
+        assert_eq!(camera.pitch, PITCH_LIMIT);
     }
 }
