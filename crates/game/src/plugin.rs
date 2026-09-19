@@ -2,13 +2,24 @@
 
 use crate::input::GameInputPlugin;
 use crate::player::GamePlayerPlugin;
+use crate::sets::GameSet;
 use bevy::prelude::*;
 
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(GameInputPlugin)
-            .add_plugins(GamePlayerPlugin);
+        app.configure_sets(
+            Update,
+            (
+                GameSet::Input,
+                GameSet::Interaction,
+                GameSet::Player,
+                GameSet::Domain,
+                GameSet::Ui,
+            )
+                .chain(),
+        )
+        .add_plugins((GameInputPlugin, GamePlayerPlugin));
     }
 }

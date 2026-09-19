@@ -11,7 +11,9 @@ impl Plugin for GamePlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_player_camera).add_systems(
             Update,
-            (apply_look, apply_fly_motion).in_set(GameSet::Player),
+            (apply_look, apply_fly_motion)
+                .chain()
+                .in_set(GameSet::Player),
         );
     }
 }
