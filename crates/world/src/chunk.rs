@@ -1,5 +1,7 @@
 use cj_core::pos::{BlockPos, ChunkPos, SectionLocalPos};
-use cj_core::spec::{SECTION_COUNT_USIZE, SECTION_MIN_Y, SECTION_SIZE, SECTION_VOLUME};
+use cj_core::spec::{
+    SECTION_COUNT_USIZE, SECTION_MIN_Y, SECTION_SIZE, SECTION_VOLUME, WORLD_BOTTOM, WORLD_TOP,
+};
 use cj_core::voxel::{BlockId, Voxel};
 use std::collections::HashMap;
 use std::fmt;
@@ -121,6 +123,10 @@ impl Chunk {
             block_pos,
             self.pos,
         );
+
+        if !(WORLD_BOTTOM..WORLD_TOP).contains(&block_pos.y) {
+            return Voxel::AIR;
+        }
 
         let section_pos = block_pos.section_pos();
         let section_index = section_pos.index();
@@ -727,5 +733,16 @@ mod tests {
 
         assert_eq!(store.get(pos).unwrap().non_air_count(), 1);
         assert!(store.get_mut(ChunkPos { x: 99, z: 99 }).is_none());
+    }
+
+    #[test]
+    fn chunk_get_block_out_of_world_y_is_air() {
+        let chunk = Chunk::new(ChunkPos { x: 0, z: 0 });
+
+        assert_eq!(
+            chunk.get_block(BlockPos::new(0, WORLD_BOTTOM - 1, 0)),
+            Voxel::AIR
+        );
+        assert_eq!(chunk.get_block(BlockPos::new(0, WORLD_TOP, 0)), Voxel::AIR);
     }
 }

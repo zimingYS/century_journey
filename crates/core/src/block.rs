@@ -23,4 +23,10 @@ impl BlockId {
     pub const fn occludes(&self) -> bool {
         !self.is_air()
     }
+
+    /// 判断方块是否为固体
+    #[inline]
+    pub const fn is_solid(&self) -> bool {
+        matches!(self.raw(), 1..=4)
+    }
 }

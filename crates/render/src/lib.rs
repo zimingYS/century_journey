@@ -2,8 +2,8 @@
 //!
 //! 规则：只消费渲染数据，不知道模拟算法（不依赖 sim）。
 
-pub mod camera;
 pub mod input;
+pub mod lighting;
 pub mod meshing;
 pub mod plugin;
 pub mod resources;

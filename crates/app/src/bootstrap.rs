@@ -4,7 +4,7 @@ use crate::settings::{INITIAL_LOAD_RADIUS_CHUNKS, WORLD_SEED};
 use bevy::log::info;
 use bevy::prelude::*;
 use cj_core::pos::{BlockPos, SectionLocalPos, SectionPos};
-use cj_core::spec::{SECTION_COUNT_USIZE, WORLD_BOTTOM, WORLD_TOP};
+use cj_core::spec::SECTION_COUNT_USIZE;
 use cj_core::voxel::BlockId;
 use cj_render::input::SectionSnapshot;
 use cj_render::resources::{RENDER_CHUNK_RADIUS, SectionSnapshots};
@@ -45,10 +45,6 @@ fn generate_initial_world(mut world_data: ResMut<WorldData>) {
 }
 
 fn block_at(world: &WorldData, pos: BlockPos) -> BlockId {
-    if pos.y < WORLD_BOTTOM || pos.y >= WORLD_TOP {
-        return BlockId::AIR;
-    }
-
     match world.chunks().get(pos.chunk_pos()) {
         Some(chunk) => chunk.get_block(pos).block(),
         None => BlockId::AIR,
