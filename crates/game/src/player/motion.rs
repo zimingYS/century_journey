@@ -1,6 +1,25 @@
-use crate::input::intent::PlayerIntent;
+use crate::input::intent::{PlayerIntent, ToggleMovementMode};
 use crate::player::camera::PlayerCamera;
 use bevy::prelude::*;
+
+/// 当前移动模式
+#[derive(Debug, Clone, Copy, Default)]
+pub enum MovementMode {
+    Walk,
+    #[default]
+    Fly,
+}
+
+/// 移动属性组件
+#[derive(Component, Debug, Clone, Copy, Default)]
+pub struct PlayerMotion {
+    /// 移动速度
+    pub velocity: Vec3,
+    /// 是否着地
+    pub grounded: bool,
+    /// 移动模式
+    pub mode: MovementMode,
+}
 
 /// 飞行速度
 const FLY_SPEED: f32 = 20.0;
@@ -34,6 +53,28 @@ pub fn apply_fly_motion(
 
     for (camera, mut transform) in &mut player {
         transform.translation += fly_velocity(camera, &intent) * delta_secs;
+    }
+}
+
+/// 切换移动模式
+pub fn toggle_movement_mode(
+    mut messages: MessageReader<ToggleMovementMode>,
+    mut player: Query<&mut PlayerMotion>,
+) {
+    // 只要收到任意一次切换请求就取反
+    // 一帧内收到多条仅处理一次
+    if messages.read().next().is_none() {
+        return;
+    }
+
+    for mut motion in &mut player {
+        motion.mode = match motion.mode {
+            MovementMode::Walk => MovementMode::Fly,
+            MovementMode::Fly => MovementMode::Walk,
+        };
+        // 切换时清掉竖直速度
+        // 避免切到Walk后被残留的上升速度弹飞
+        motion.velocity.y = 0.0;
     }
 }
 

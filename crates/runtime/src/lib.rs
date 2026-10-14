@@ -5,4 +5,5 @@
 pub mod plugin;
 pub mod world_data;
 
+pub use cj_world::seed::WorldSeed;
 pub use plugin::RuntimePlugin;

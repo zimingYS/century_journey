@@ -1,6 +1,7 @@
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
 
+/// 玩家移动意图
 #[derive(Resource, Debug, Clone, Copy, PartialEq)]
 pub struct PlayerIntent {
     /// 移动量
@@ -25,6 +26,10 @@ impl Default for PlayerIntent {
 #[derive(Message, Debug, Clone, Copy)]
 pub struct ToggleCursorCapture;
 
+/// 切换移动状态
+#[derive(Message, Debug, Clone, Copy)]
+pub struct ToggleMovementMode;
+
 /// 收集本帧玩家输入意图
 pub fn collect_player_intent(
     keys: Res<ButtonInput<KeyCode>>,
@@ -40,11 +45,24 @@ pub fn collect_player_intent(
     intent.look_delta = mouse.delta;
 }
 
+/// 切换鼠标捕获
+/// 以后进行UI联动
 pub fn emit_cursor_toggle(
     keys: Res<ButtonInput<KeyCode>>,
     mut toggle: MessageWriter<ToggleCursorCapture>,
 ) {
     if keys.just_pressed(KeyCode::Escape) {
         toggle.write(ToggleCursorCapture);
+    }
+}
+
+/// 切换移动模式
+/// 现在先使用F
+pub fn emit_movement_mode_toggle(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut toggle: MessageWriter<ToggleMovementMode>,
+) {
+    if keys.just_pressed(KeyCode::KeyF) {
+        toggle.write(ToggleMovementMode);
     }
 }

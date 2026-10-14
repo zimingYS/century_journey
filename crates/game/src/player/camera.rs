@@ -1,16 +1,19 @@
 use crate::input::intent::PlayerIntent;
+use crate::player::motion::PlayerMotion;
 use bevy::prelude::*;
 
-// 玩家相机初始世界坐标位置
+/// 玩家相机初始世界坐标位置
 const INITIAL_POSITION: Vec3 = Vec3::new(60.0, 190.0, 60.0);
-// 初始偏航角(yaw)：控制左右水平旋转，弧度制
+/// 初始偏航角(yaw)：控制左右水平旋转，弧度制
 const INITIAL_YAW: f32 = -0.785;
-// 初始俯仰角(pitch)：控制上下垂直旋转，弧度制
+/// 初始俯仰角(pitch)：控制上下垂直旋转，弧度制
 const INITIAL_PITCH: f32 = -0.5;
-// 鼠标视角灵敏度：鼠标移动像素 × 该值 = 旋转弧度
+/// 鼠标视角灵敏度：鼠标移动像素 × 该值 = 旋转弧度
 const LOOK_SENSITIVITY: f32 = 0.002;
-// 俯仰角最大限制(弧度)，防止视角翻转
+/// 俯仰角最大限制(弧度)，防止视角翻转
 const PITCH_LIMIT: f32 = 1.55;
+/// 眼部相对玩家便宜
+const EYE_OFFSET: f32 = 0.8;
 
 /// 玩家相机
 #[derive(Component, Debug, Clone, Copy)]
@@ -63,14 +66,22 @@ impl PlayerCamera {
 }
 
 /// 创建玩家第一人称相机
-pub fn spawn_player_camera(mut commands: Commands) {
+pub fn spawn_player(mut commands: Commands) {
     let camera = PlayerCamera::default();
 
-    commands.spawn((
-        Camera3d::default(),
-        camera,
-        Transform::from_translation(INITIAL_POSITION).with_rotation(camera.rotation()),
-    ));
+    commands
+        .spawn((
+            camera,
+            PlayerMotion::default(),
+            Visibility::Visible,
+            Transform::from_translation(INITIAL_POSITION).with_rotation(camera.rotation()),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Camera3d::default(),
+                Transform::from_xyz(0.0, EYE_OFFSET, 0.0),
+            ));
+        });
 }
 
 /// 根据玩家输入更新相机视角
