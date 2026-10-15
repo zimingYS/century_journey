@@ -1,6 +1,8 @@
 use crate::input::intent::{PlayerIntent, ToggleMovementMode};
 use crate::player::camera::PlayerCamera;
+use crate::player::collision::move_with_collision;
 use bevy::prelude::*;
+use cj_runtime::world_data::WorldData;
 
 /// 当前移动模式
 #[derive(Debug, Clone, Copy, Default)]
@@ -24,37 +26,13 @@ pub struct PlayerMotion {
 /// 飞行速度
 const FLY_SPEED: f32 = 20.0;
 /// 冲刺速度倍率
-const SPRINT_MULTIPLIER: f32 = 4.0;
-
-/// 根据玩家输入和当前相机朝向计算飞行速度
-fn fly_velocity(camera: &PlayerCamera, intent: &PlayerIntent) -> Vec3 {
-    let mut velocity = camera.forward() * intent.move_axis.z
-        + camera.right() * intent.move_axis.x
-        + Vec3::Y * intent.move_axis.y;
-
-    let speed = if intent.sprint {
-        FLY_SPEED * SPRINT_MULTIPLIER
-    } else {
-        FLY_SPEED
-    };
-
-    velocity *= speed;
-
-    velocity
-}
-
-/// 应用玩家飞行移动
-pub fn apply_fly_motion(
-    intent: Res<PlayerIntent>,
-    time: Res<Time>,
-    mut player: Query<(&PlayerCamera, &mut Transform)>,
-) {
-    let delta_secs = time.delta_secs();
-
-    for (camera, mut transform) in &mut player {
-        transform.translation += fly_velocity(camera, &intent) * delta_secs;
-    }
-}
+const FLY_SPRINT_MULTIPLIER: f32 = 4.0;
+/// 重力加速度
+const GRAVITY: f32 = -30.0;
+/// 行走速度
+const WALK_SPEED: f32 = 5.0;
+/// 冲刺倍率
+const WALK_SPRINT_MULTIPLIER: f32 = 2.0;
 
 /// 切换移动模式
 pub fn toggle_movement_mode(
@@ -78,6 +56,68 @@ pub fn toggle_movement_mode(
     }
 }
 
+/// 计算速度
+pub fn desired_velocity(camera: &PlayerCamera, intent: &PlayerIntent, mode: MovementMode) -> Vec3 {
+    // 水平基准
+    let mut dir = camera.forward() * intent.move_axis.z + camera.right() * intent.move_axis.x;
+    if matches!(mode, MovementMode::Fly) {
+        dir.y += intent.move_axis.y;
+    }
+
+    // 计算对应冲刺速度
+    let (base, sprint_mult) = match mode {
+        MovementMode::Fly => (FLY_SPEED, FLY_SPRINT_MULTIPLIER),
+        MovementMode::Walk => (WALK_SPEED, WALK_SPRINT_MULTIPLIER),
+    };
+    let speed = if intent.sprint {
+        base * sprint_mult
+    } else {
+        base
+    };
+
+    dir * speed
+}
+
+/// 玩家移动应用
+pub fn apply_player_motion(
+    intent: Res<PlayerIntent>,
+    time: Res<Time>,
+    world: Res<WorldData>,
+    mut player: Query<(&PlayerCamera, &mut PlayerMotion, &mut Transform)>,
+) {
+    let dt = time.delta_secs();
+
+    for (camera, mut motion, mut transform) in &mut player {
+        let mode = motion.mode;
+        let desired = desired_velocity(camera, &intent, mode);
+
+        match mode {
+            MovementMode::Walk => {
+                // 竖直：重力累积
+                motion.velocity.y += GRAVITY * dt;
+                // 水平：每帧重算，不累积
+                motion.velocity.x = desired.x;
+                motion.velocity.z = desired.z;
+
+                let (new_pos, grounded) =
+                    move_with_collision(transform.translation, motion.velocity, dt, &world);
+
+                if grounded {
+                    motion.velocity.y = 0.0;
+                }
+                motion.grounded = grounded;
+                transform.translation = new_pos;
+            }
+            MovementMode::Fly => {
+                // Fly: 直接用 desired 当速度，无重力无碰撞
+                motion.velocity = desired;
+                transform.translation += motion.velocity * dt;
+                motion.grounded = false;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -93,11 +133,29 @@ mod tests {
             ..Default::default()
         };
 
-        let velocity = fly_velocity(&camera, &intent);
+        let velocity = desired_velocity(&camera, &intent, MovementMode::Fly);
 
         assert!(
             velocity.y.abs() < f32::EPSILON,
             "forward velocity must remain horizontal"
+        );
+    }
+
+    #[test]
+    fn walk_mode_velocity_has_no_vertical_component() {
+        let mut camera = PlayerCamera::default();
+        camera.set_pitch(-1.55);
+
+        let intent = PlayerIntent {
+            move_axis: Vec3::new(1.0, 1.0, 1.0),
+            ..Default::default()
+        };
+
+        let velocity = desired_velocity(&camera, &intent, MovementMode::Walk);
+
+        assert_eq!(
+            velocity.y, 0.0,
+            "walk mode must not produce vertical velocity"
         );
     }
 }
