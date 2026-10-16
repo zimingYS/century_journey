@@ -26,6 +26,9 @@ const HEIGHT_CLAMP_SPAN: i32 = 40;
 /// 地表土壤层的默认厚度（方块数）
 const SOIL_DEPTH: i32 = 3;
 
+/// 水面以上几格仍算沙滩
+pub const BEACH_RISE: i32 = 3;
+
 /// 地形高度噪声使用的随机种子盐值。
 /// 用于将地形高度生成与其他随机过程的种子空间隔离
 const TERRAIN_HEIGHT_SALT: u64 = 0x1001;
@@ -109,10 +112,10 @@ fn block_at_column(surface_y: i32, y: i32) -> BlockId {
     } else if y > surface_y {
         BlockId::AIR
     } else if y == surface_y {
-        if surface_y < SEA_LEVEL {
-            BlockId::SAND
-        } else {
+        if surface_y > SEA_LEVEL + BEACH_RISE {
             BlockId::GRASS
+        } else {
+            BlockId::SAND
         }
     } else if y >= surface_y - SOIL_DEPTH {
         BlockId::DIRT
@@ -192,4 +195,53 @@ pub fn fill_section(rng: &WorldRng, section: SectionPos, out: &mut [BlockId; SEC
     }
 
     fill_section_per_cell(rng, section, out);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn surface_at_sea_level_is_sand() {
+        assert_eq!(block_at_column(SEA_LEVEL, SEA_LEVEL), BlockId::SAND);
+    }
+
+    #[test]
+    fn surface_within_beach_band_is_sand() {
+        assert_eq!(
+            block_at_column(SEA_LEVEL + BEACH_RISE, SEA_LEVEL + BEACH_RISE),
+            BlockId::SAND
+        );
+    }
+
+    #[test]
+    fn surface_above_beach_band_is_grass() {
+        assert_eq!(
+            block_at_column(SEA_LEVEL + BEACH_RISE + 1, SEA_LEVEL + BEACH_RISE + 1),
+            BlockId::GRASS
+        );
+    }
+
+    #[test]
+    fn surface_below_sea_level_is_sand() {
+        assert_eq!(
+            block_at_column(SEA_LEVEL - 5, SEA_LEVEL - 5),
+            BlockId::SAND,
+            "低于海平面的海床也应为沙"
+        );
+    }
+
+    #[test]
+    fn water_fills_above_underwater_surface_up_to_sea_level() {
+        assert_eq!(
+            block_at_column(SEA_LEVEL - 5, SEA_LEVEL),
+            BlockId::WATER,
+            "水下地表之上到海平面应为水"
+        );
+        assert_eq!(
+            block_at_column(SEA_LEVEL - 5, SEA_LEVEL + 1),
+            BlockId::AIR,
+            "海平面之上应为空气"
+        );
+    }
 }
