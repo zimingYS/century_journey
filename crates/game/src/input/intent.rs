@@ -10,6 +10,8 @@ pub struct PlayerIntent {
     pub(crate) sprint: bool,
     /// 本帧鼠标位移
     pub(crate) look_delta: Vec2,
+    /// 跳跃
+    pub(crate) jump: bool,
 }
 
 impl Default for PlayerIntent {
@@ -18,6 +20,7 @@ impl Default for PlayerIntent {
             move_axis: Vec3::ZERO,
             sprint: false,
             look_delta: Vec2::ZERO,
+            jump: false,
         }
     }
 }
@@ -40,6 +43,7 @@ pub fn collect_player_intent(
     let y = keys.pressed(KeyCode::Space) as i8 - keys.pressed(KeyCode::ControlLeft) as i8;
     let z = keys.pressed(KeyCode::KeyW) as i8 - keys.pressed(KeyCode::KeyS) as i8;
 
+    intent.jump = keys.just_pressed(KeyCode::Space);
     intent.move_axis = Vec3::new(x as f32, y as f32, z as f32);
     intent.sprint = keys.pressed(KeyCode::ShiftLeft);
     intent.look_delta = mouse.delta;

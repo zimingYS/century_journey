@@ -33,6 +33,8 @@ const GRAVITY: f32 = -30.0;
 const WALK_SPEED: f32 = 5.0;
 /// 冲刺倍率
 const WALK_SPRINT_MULTIPLIER: f32 = 2.0;
+/// 跳跃高度
+const JUMP_SPEED: f32 = 10.0;
 
 /// 切换移动模式
 pub fn toggle_movement_mode(
@@ -93,11 +95,15 @@ pub fn apply_player_motion(
 
         match mode {
             MovementMode::Walk => {
-                // 竖直：重力累积
-                motion.velocity.y += GRAVITY * dt;
                 // 水平：每帧重算，不累积
                 motion.velocity.x = desired.x;
                 motion.velocity.z = desired.z;
+
+                // 跳跃
+                if intent.jump && motion.grounded {
+                    motion.velocity.y = JUMP_SPEED;
+                }
+                motion.velocity.y += GRAVITY * dt;
 
                 let (new_pos, grounded) =
                     move_with_collision(transform.translation, motion.velocity, dt, &world);
