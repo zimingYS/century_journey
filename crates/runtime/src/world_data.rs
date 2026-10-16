@@ -1,10 +1,11 @@
 use bevy::prelude::Resource;
-use cj_core::pos::{ChunkPos, SectionPos};
+use cj_core::pos::{BlockPos, ChunkPos, SectionPos};
 use cj_core::rng::WorldRng;
-use cj_core::spec::{SECTION_COUNT_USIZE, SECTION_VOLUME};
+use cj_core::spec::{SECTION_COUNT_USIZE, SECTION_VOLUME, WORLD_BOTTOM, WORLD_TOP};
 use cj_core::voxel::{BlockId, Voxel};
 use cj_sim::worldgen::fill_section;
 use cj_world::chunk::{ChunkStore, Section};
+use cj_world::delta::{BlockChange, PlayerDelta};
 use cj_world::seed::WorldSeed;
 
 /// 世界数据
@@ -14,6 +15,8 @@ pub struct WorldData {
     seed: WorldSeed,
     /// 区块数据存储
     chunks: ChunkStore,
+    /// 玩家
+    player_delta: PlayerDelta,
 }
 
 impl WorldData {
@@ -22,6 +25,7 @@ impl WorldData {
         WorldData {
             seed,
             chunks: ChunkStore::default(),
+            player_delta: Default::default(),
         }
     }
 
@@ -75,6 +79,45 @@ impl WorldData {
             }
             chunk.insert_section(section_index, section);
         }
+    }
+
+    /// 放置方块
+    pub fn place_block(&mut self, pos: BlockPos, voxel: Voxel) -> bool {
+        if !(WORLD_BOTTOM..WORLD_TOP).contains(&pos.y) {
+            return false;
+        }
+
+        self.player_delta.record(pos, BlockChange::placed(voxel));
+
+        true
+    }
+
+    /// 移除方块
+    pub fn remove_block(&mut self, pos: BlockPos) -> bool {
+        if !(WORLD_BOTTOM..WORLD_TOP).contains(&pos.y) {
+            return false;
+        }
+
+        self.player_delta.record(pos, BlockChange::removed());
+
+        true
+    }
+
+    /// 取指定世界坐标的方块
+    pub fn block_at(&self, pos: BlockPos) -> Voxel {
+        // 世界范围之外统一视为空气
+        if !(WORLD_BOTTOM..WORLD_TOP).contains(&pos.y) {
+            return Voxel::AIR;
+        }
+
+        if let Some(change) = self.player_delta.get(pos) {
+            return change.voxel;
+        }
+
+        self.chunks
+            .get(pos.chunk_pos())
+            .map(|chunk| chunk.get_block(pos))
+            .unwrap_or(Voxel::AIR)
     }
 }
 
@@ -245,6 +288,76 @@ mod tests {
         assert!(
             chunk.section(bottom_index).is_some(),
             "世界底部的全石头 section 应被分配"
+        );
+    }
+
+    #[test]
+    fn placed_block_can_be_read_back() {
+        let mut world = WorldData::new(WorldSeed::from_seed(1));
+        let pos = BlockPos::new(0, SEA_LEVEL, 0);
+        let voxel = Voxel::cube(BlockId::STONE);
+
+        assert!(world.place_block(pos, voxel), "放置应成功");
+        assert_eq!(world.block_at(pos), voxel, "放置后方块应能读回");
+    }
+
+    #[test]
+    fn removed_block_reads_as_air() {
+        let mut world = WorldData::new(WorldSeed::from_seed(1));
+        let pos = BlockPos::new(0, SEA_LEVEL, 0);
+
+        assert!(world.remove_block(pos), "移除应成功");
+        assert!(world.block_at(pos).is_air(), "移除后应读回空气");
+    }
+
+    #[test]
+    fn placing_outside_world_bounds_fails() {
+        let mut world = WorldData::new(WorldSeed::from_seed(1));
+
+        let below = BlockPos::new(0, WORLD_BOTTOM - 1, 0);
+        let above = BlockPos::new(0, WORLD_TOP, 0);
+
+        assert!(
+            !world.place_block(below, Voxel::cube(BlockId::STONE)),
+            "世界底部之下应放置失败"
+        );
+        assert!(
+            !world.place_block(above, Voxel::cube(BlockId::STONE)),
+            "世界顶部之上应放置失败"
+        );
+        assert!(world.block_at(below).is_air(), "越界位置应读回空气");
+        assert!(world.block_at(above).is_air(), "越界位置应读回空气");
+    }
+
+    #[test]
+    fn delta_takes_priority_over_generated_terrain() {
+        let mut world = WorldData::new(WorldSeed::from_seed(11));
+        world.generate_initial_area(0);
+
+        let solid_y = (WORLD_BOTTOM..WORLD_TOP).find(|y| {
+            let pos = BlockPos::new(0, *y, 0);
+            world
+                .chunks()
+                .get(pos.chunk_pos())
+                .is_some_and(|chunk| !chunk.get_block(pos).is_air())
+        });
+
+        let pos = BlockPos::new(0, solid_y.expect("生成的区域中应存在实体方块"), 0);
+
+        assert!(!world.block_at(pos).is_air(), "生成的地形应为实体方块");
+        assert!(world.remove_block(pos), "移除应成功");
+        assert!(world.block_at(pos).is_air(), "delta 应优先于生成结果");
+    }
+
+    #[test]
+    fn unloaded_region_reads_as_air() {
+        let world = WorldData::new(WorldSeed::from_seed(1));
+
+        assert!(
+            world
+                .block_at(BlockPos::new(10_000, SEA_LEVEL, 10_000))
+                .is_air(),
+            "未加载区域应读回空气"
         );
     }
 }
