@@ -26,7 +26,7 @@ cj-render  = { path = "crates/render" }
 cj-game    = { path = "crates/game" }
 
 # ── 外部依赖（版本锁定，禁用 "*"）──
-bevy = "0.19.1"
+bevy = "0.20.0"
 
 # §7.3 编译时间优化
 [profile.dev]
