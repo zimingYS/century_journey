@@ -5,9 +5,8 @@ use bevy::log::info;
 use bevy::prelude::*;
 use cj_core::pos::{BlockPos, SectionLocalPos, SectionPos};
 use cj_core::spec::SECTION_COUNT_USIZE;
-use cj_core::voxel::BlockId;
 use cj_render::input::SectionSnapshot;
-use cj_render::resources::{RENDER_CHUNK_RADIUS, SectionSnapshots};
+use cj_render::resources::{DirtySections, RENDER_CHUNK_RADIUS, SectionSnapshots};
 use cj_runtime::world_data::WorldData;
 use cj_world::seed::WorldSeed;
 use std::time::Instant;
@@ -16,10 +15,12 @@ pub struct BootstrapPlugin;
 
 impl Plugin for BootstrapPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(initial_world_data()).add_systems(
-            Startup,
-            (generate_initial_world, build_section_snapshots).chain(),
-        );
+        app.insert_resource(initial_world_data())
+            .add_systems(
+                Startup,
+                (generate_initial_world, build_section_snapshots).chain(),
+            )
+            .add_systems(Update, forward_dirty_sections);
     }
 }
 
@@ -44,13 +45,6 @@ fn generate_initial_world(mut world_data: ResMut<WorldData>) {
     info!("世界生成完成：chunk = {chunk_count}，非空气格 = {non_air}，耗时 = {elapsed:?}");
 }
 
-fn block_at(world: &WorldData, pos: BlockPos) -> BlockId {
-    match world.chunks().get(pos.chunk_pos()) {
-        Some(chunk) => chunk.get_block(pos).block(),
-        None => BlockId::AIR,
-    }
-}
-
 fn build_section_snapshots(world: Res<WorldData>, mut commands: Commands) {
     let start = Instant::now();
     let mut snapshots = Vec::new();
@@ -67,19 +61,7 @@ fn build_section_snapshots(world: Res<WorldData>, mut commands: Commands) {
                 continue;
             }
 
-            let origin = section_pos.block_at(SectionLocalPos { x: 0, y: 0, z: 0 });
-            let mut snapshot = SectionSnapshot::new(section_pos);
-
-            for oy in -1..17i32 {
-                for oz in -1..17i32 {
-                    for ox in -1..17i32 {
-                        let pos = BlockPos::new(origin.x + ox, origin.y + oy, origin.z + oz);
-                        snapshot.set(pos, block_at(&world, pos));
-                    }
-                }
-            }
-
-            snapshots.push(snapshot);
+            snapshots.push(fill_snapshot(&world, section_pos));
         }
     }
 
@@ -92,6 +74,27 @@ fn build_section_snapshots(world: Res<WorldData>, mut commands: Commands) {
     commands.insert_resource(SectionSnapshots::new(snapshots));
 }
 
+fn forward_dirty_sections(mut world: ResMut<WorldData>, mut dirty: ResMut<DirtySections>) {
+    for section_pos in world.take_dirty_sections() {
+        dirty.push(section_pos, fill_snapshot(&world, section_pos));
+    }
+}
+
+fn fill_snapshot(world: &WorldData, section_pos: SectionPos) -> SectionSnapshot {
+    let origin = section_pos.block_at(SectionLocalPos { x: 0, y: 0, z: 0 });
+    let mut snapshot = SectionSnapshot::new(section_pos);
+
+    for oy in -1..17i32 {
+        for oz in -1..17i32 {
+            for ox in -1..17i32 {
+                let pos = BlockPos::new(origin.x + ox, origin.y + oy, origin.z + oz);
+                snapshot.set(pos, world.block_at(pos).block());
+            }
+        }
+    }
+
+    snapshot
+}
 #[cfg(test)]
 mod tests {
     use super::*;
