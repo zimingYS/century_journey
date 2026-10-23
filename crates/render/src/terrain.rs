@@ -1,5 +1,5 @@
 use crate::meshing::{MeshData, build_section_mesh};
-use crate::resources::SectionSnapshots;
+use crate::resources::{DirtySections, SectionMeshes, SectionSnapshots};
 use bevy::asset::RenderAssetUsages;
 use bevy::log::info;
 use bevy::prelude::*;
@@ -23,6 +23,7 @@ pub fn to_bevy_mesh(data: MeshData) -> Mesh {
 pub fn spawn_section_meshes(
     mut commands: Commands,
     snapshots: Option<Res<SectionSnapshots>>,
+    mut section_meshes: ResMut<SectionMeshes>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -36,6 +37,7 @@ pub fn spawn_section_meshes(
         base_color: Color::WHITE,
         ..default()
     });
+    section_meshes.set_material(material.clone());
 
     let mut spawned = 0usize;
     let mut quads = 0usize;
@@ -52,11 +54,14 @@ pub fn spawn_section_meshes(
 
         let origin = section_pos.block_at(SectionLocalPos { x: 0, y: 0, z: 0 });
 
-        commands.spawn((
-            Mesh3d(meshes.add(to_bevy_mesh(data))),
-            MeshMaterial3d(material.clone()),
-            Transform::from_xyz(origin.x as f32, origin.y as f32, origin.z as f32),
-        ));
+        let entity = commands
+            .spawn((
+                Mesh3d(meshes.add(to_bevy_mesh(data))),
+                MeshMaterial3d(material.clone()),
+                Transform::from_xyz(origin.x as f32, origin.y as f32, origin.z as f32),
+            ))
+            .id();
+        section_meshes.insert(section_pos, entity);
 
         spawned += 1;
     }
@@ -65,4 +70,48 @@ pub fn spawn_section_meshes(
         "网格构建完成：section = {spawned}，四边形 = {quads}，耗时 = {:?}",
         start.elapsed()
     );
+}
+
+/// 重构脏区块
+pub fn rebuild_dirty_sections(
+    mut dirty: ResMut<DirtySections>,
+    mut section_meshes: ResMut<SectionMeshes>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    let Some(material) = section_meshes.material().cloned() else {
+        return;
+    };
+
+    for (section_pos, snapshot) in dirty.take() {
+        let data = build_section_mesh(&snapshot, section_pos);
+        let existing = section_meshes.entity(section_pos);
+        if data.is_empty() {
+            if let Some(e) = existing {
+                commands.entity(e).despawn();
+                section_meshes.remove(section_pos);
+            }
+        } else {
+            match existing {
+                Some(e) => {
+                    // 已有实体只替换网格组件
+                    commands
+                        .entity(e)
+                        .insert(Mesh3d(meshes.add(to_bevy_mesh(data))));
+                }
+                None => {
+                    let origin = section_pos.block_at(SectionLocalPos { x: 0, y: 0, z: 0 });
+                    // 没有实体新建实体并登记
+                    let e = commands
+                        .spawn((
+                            Mesh3d(meshes.add(to_bevy_mesh(data))),
+                            MeshMaterial3d(material.clone()),
+                            Transform::from_xyz(origin.x as f32, origin.y as f32, origin.z as f32),
+                        ))
+                        .id();
+                    section_meshes.insert(section_pos, e);
+                }
+            }
+        }
+    }
 }
