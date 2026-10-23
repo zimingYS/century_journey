@@ -15,8 +15,10 @@ pub struct WorldData {
     seed: WorldSeed,
     /// 区块数据存储
     chunks: ChunkStore,
-    /// 玩家
+    /// 玩家全局增量
     player_delta: PlayerDelta,
+    /// 脏区块集合
+    dirty_sections: Vec<SectionPos>,
 }
 
 impl WorldData {
@@ -26,6 +28,7 @@ impl WorldData {
             seed,
             chunks: ChunkStore::default(),
             player_delta: Default::default(),
+            dirty_sections: Vec::new(),
         }
     }
 
@@ -89,6 +92,25 @@ impl WorldData {
 
         self.player_delta.record(pos, BlockChange::placed(voxel));
 
+        let section = pos.section_pos();
+        self.mark_section_dirty(section);
+        for (dx, dy, dz) in [
+            (1, 0, 0),
+            (-1, 0, 0),
+            (0, 1, 0),
+            (0, -1, 0),
+            (0, 0, 1),
+            (0, 0, -1),
+        ] {
+            self.mark_section_dirty(SectionPos {
+                chunk: ChunkPos {
+                    x: section.chunk.x + dx,
+                    z: section.chunk.z + dz,
+                },
+                y: section.y + dy,
+            });
+        }
+
         true
     }
 
@@ -99,6 +121,25 @@ impl WorldData {
         }
 
         self.player_delta.record(pos, BlockChange::removed());
+
+        let section = pos.section_pos();
+        self.mark_section_dirty(section);
+        for (dx, dy, dz) in [
+            (1, 0, 0),
+            (-1, 0, 0),
+            (0, 1, 0),
+            (0, -1, 0),
+            (0, 0, 1),
+            (0, 0, -1),
+        ] {
+            self.mark_section_dirty(SectionPos {
+                chunk: ChunkPos {
+                    x: section.chunk.x + dx,
+                    z: section.chunk.z + dz,
+                },
+                y: section.y + dy,
+            });
+        }
 
         true
     }
@@ -118,6 +159,16 @@ impl WorldData {
             .get(pos.chunk_pos())
             .map(|chunk| chunk.get_block(pos))
             .unwrap_or(Voxel::AIR)
+    }
+
+    /// 取出并清空脏区块数据
+    pub fn take_dirty_sections(&mut self) -> Vec<SectionPos> {
+        std::mem::take(&mut self.dirty_sections)
+    }
+
+    /// 将区块变脏
+    fn mark_section_dirty(&mut self, section: SectionPos) {
+        self.dirty_sections.push(section);
     }
 }
 
@@ -359,5 +410,116 @@ mod tests {
                 .is_air(),
             "未加载区域应读回空气"
         );
+    }
+
+    #[test]
+    fn placing_block_marks_its_section_dirty() {
+        let mut world = WorldData::new(WorldSeed::from_seed(1));
+        let pos = BlockPos::new(0, SEA_LEVEL, 0);
+
+        assert!(world.place_block(pos, Voxel::cube(BlockId::STONE)));
+
+        let dirty = world.take_dirty_sections();
+        assert!(
+            dirty.contains(&pos.section_pos()),
+            "放置方块后，本 section 应被标脏"
+        );
+    }
+
+    #[test]
+    fn placing_block_marks_all_neighbor_sections_dirty() {
+        let mut world = WorldData::new(WorldSeed::from_seed(1));
+        let pos = BlockPos::new(0, SEA_LEVEL, 0);
+
+        assert!(world.place_block(pos, Voxel::cube(BlockId::STONE)));
+
+        let dirty = world.take_dirty_sections();
+        let section = pos.section_pos();
+        assert!(dirty.contains(&section), "本 section 应被标脏");
+
+        for (dx, dy, dz) in [
+            (1, 0, 0),
+            (-1, 0, 0),
+            (0, 1, 0),
+            (0, -1, 0),
+            (0, 0, 1),
+            (0, 0, -1),
+        ] {
+            let neighbor = SectionPos {
+                chunk: ChunkPos {
+                    x: section.chunk.x + dx,
+                    z: section.chunk.z + dz,
+                },
+                y: section.y + dy,
+            };
+            assert!(
+                dirty.contains(&neighbor),
+                "邻居 section {neighbor:?} 也应被标脏"
+            );
+        }
+    }
+
+    #[test]
+    fn taking_dirty_sections_clears_collection() {
+        let mut world = WorldData::new(WorldSeed::from_seed(1));
+        let pos = BlockPos::new(0, SEA_LEVEL, 0);
+
+        assert!(world.place_block(pos, Voxel::cube(BlockId::STONE)));
+        assert!(
+            !world.take_dirty_sections().is_empty(),
+            "第一次取出应包含脏 section"
+        );
+        assert!(
+            world.take_dirty_sections().is_empty(),
+            "取出后脏集合应被清空"
+        );
+    }
+
+    #[test]
+    fn out_of_bounds_placement_does_not_mark_sections_dirty() {
+        let mut world = WorldData::new(WorldSeed::from_seed(1));
+        let below = BlockPos::new(0, WORLD_BOTTOM - 1, 0);
+        let above = BlockPos::new(0, WORLD_TOP, 0);
+        let voxel = Voxel::cube(BlockId::STONE);
+
+        assert!(!world.place_block(below, voxel), "世界底部之下应放置失败");
+        assert!(!world.place_block(above, voxel), "世界顶部应放置失败");
+        assert!(
+            world.take_dirty_sections().is_empty(),
+            "越界放置失败后不应污染脏集合"
+        );
+    }
+
+    #[test]
+    fn removing_block_marks_its_section_and_neighbors_dirty() {
+        let mut world = WorldData::new(WorldSeed::from_seed(1));
+        let pos = BlockPos::new(0, SEA_LEVEL, 0);
+
+        assert!(world.remove_block(pos), "移除应成功");
+
+        let dirty = world.take_dirty_sections();
+        let section = pos.section_pos();
+        assert!(dirty.contains(&section), "移除后本 section 应被标脏");
+
+        for (dx, dy, dz) in [
+            (1, 0, 0),
+            (-1, 0, 0),
+            (0, 1, 0),
+            (0, -1, 0),
+            (0, 0, 1),
+            (0, 0, -1),
+        ] {
+            let neighbor = SectionPos {
+                chunk: ChunkPos {
+                    x: section.chunk.x + dx,
+                    z: section.chunk.z + dz,
+                },
+                y: section.y + dy,
+            };
+            assert!(
+                dirty.contains(&neighbor),
+                "移除方块后邻居 section {neighbor:?} 也应被标脏"
+            );
+        }
     }
 }
