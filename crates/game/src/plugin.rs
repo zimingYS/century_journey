@@ -1,6 +1,7 @@
 //! cj-game 插件
 
 use crate::input::GameInputPlugin;
+use crate::interaction::plugin::GameInteractionPlugin;
 use crate::player::GamePlayerPlugin;
 use crate::sets::GameSet;
 use bevy::prelude::*;
@@ -20,6 +21,6 @@ impl Plugin for GamePlugin {
             )
                 .chain(),
         )
-        .add_plugins((GameInputPlugin, GamePlayerPlugin));
+        .add_plugins((GameInputPlugin, GamePlayerPlugin, GameInteractionPlugin));
     }
 }

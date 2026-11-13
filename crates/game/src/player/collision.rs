@@ -65,7 +65,7 @@ where
 }
 
 /// 世界层的方块实心判断。
-fn world_is_solid(world: &WorldData, pos: BlockPos) -> bool {
+pub fn world_is_solid(world: &WorldData, pos: BlockPos) -> bool {
     if pos.y < WORLD_BOTTOM || pos.y >= WORLD_TOP {
         return true;
     }
