@@ -7,21 +7,20 @@ on:
     paths:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
+      - ".github/workflows/audit.yml"
   pull_request:
     paths:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
+      - ".github/workflows/audit.yml"
   schedule:
-    - interval: weekly
+    # 每周一 04:23 UTC（北京时间 12:23）；Actions 的 schedule 只支持 cron
+    - cron: "23 4 * * 1"
   workflow_dispatch:
 
 permissions:
   contents: read
   issues: write
-
-concurrency:
-  group: audit-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   rustsec:
@@ -32,6 +31,6 @@ jobs:
         uses: actions/checkout@v7
 
       - name: RustSec audit
-        uses: rustsec/audit-check@v2
+        uses: rustsec/audit-check@v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
