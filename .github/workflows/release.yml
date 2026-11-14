@@ -68,7 +68,7 @@ jobs:
         run: tar -czf ${{ matrix.asset }} century_journey README.md LICENSE
 
       - name: Upload to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: ${{ matrix.asset }}
           fail_on_unmatched_files: true
