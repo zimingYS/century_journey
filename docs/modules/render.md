@@ -34,4 +34,4 @@ P0-a/d ✅（朴素网格 + bevy 装配）；4b 增量重建 ✅；**15 测试**
 
 ## 已知遗留
 
-`AmbientLight` 在相机搬去 game 时丢失（搬迁实体要逐一检查所挂组件），P1 补。
+无。（`AmbientLight` 曾在相机搬迁时丢失，已在 `lighting.rs::spawn_light` 以独立实体补回，brightness 150。）
