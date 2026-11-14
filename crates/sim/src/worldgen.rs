@@ -29,13 +29,13 @@ const SOIL_DEPTH: i32 = 3;
 /// 水面以上几格仍算沙滩
 pub const BEACH_RISE: i32 = 3;
 
-/// 地形高度噪声使用的随机种子盐值。
-/// 用于将地形高度生成与其他随机过程的种子空间隔离
-const TERRAIN_HEIGHT_SALT: u64 = 0x1001;
+/// 地形高度噪声的域分离标识。
+/// 将地形高度生成与其他随机过程的哈希通道隔开（确定性过程生成用，非密码学盐）
+const TERRAIN_HEIGHT_DOMAIN: u64 = 0x1001;
 
 // 实现 2D Value Noise
 #[inline]
-fn value_noise_2d(rng: &WorldRng, salt: u64, x: f32, z: f32) -> f32 {
+fn value_noise_2d(rng: &WorldRng, domain: u64, x: f32, z: f32) -> f32 {
     let x0 = x.floor() as i32;
     let z0 = z.floor() as i32;
 
@@ -48,10 +48,10 @@ fn value_noise_2d(rng: &WorldRng, salt: u64, x: f32, z: f32) -> f32 {
     let sx = smoothstep(0.0, 1.0, tx);
     let sz = smoothstep(0.0, 1.0, tz);
 
-    let v00 = rng.unit2(salt, x0, z0);
-    let v10 = rng.unit2(salt, x1, z0);
-    let v01 = rng.unit2(salt, x0, z1);
-    let v11 = rng.unit2(salt, x1, z1);
+    let v00 = rng.unit2(domain, x0, z0);
+    let v10 = rng.unit2(domain, x1, z0);
+    let v01 = rng.unit2(domain, x0, z1);
+    let v11 = rng.unit2(domain, x1, z1);
 
     let x0_value = lerp(v00, v10, sx);
     let x1_value = lerp(v01, v11, sx);
@@ -61,7 +61,7 @@ fn value_noise_2d(rng: &WorldRng, salt: u64, x: f32, z: f32) -> f32 {
 
 /// 实现 2D fBm 噪声
 #[inline]
-fn fbm_2d(rng: &WorldRng, salt: u64, x: f32, z: f32, octaves: u32) -> f32 {
+fn fbm_2d(rng: &WorldRng, domain: u64, x: f32, z: f32, octaves: u32) -> f32 {
     let mut frequency = 1.0;
     let mut amplitude = 1.0;
 
@@ -69,9 +69,9 @@ fn fbm_2d(rng: &WorldRng, salt: u64, x: f32, z: f32, octaves: u32) -> f32 {
     let mut amplitude_sum = 0.0;
 
     for octave in 0..octaves {
-        let octave_salt = salt.wrapping_add(octave as u64);
+        let octave_domain = domain.wrapping_add(octave as u64);
 
-        value += value_noise_2d(rng, octave_salt, x * frequency, z * frequency) * amplitude;
+        value += value_noise_2d(rng, octave_domain, x * frequency, z * frequency) * amplitude;
 
         amplitude_sum += amplitude;
 
@@ -92,7 +92,7 @@ fn fbm_2d(rng: &WorldRng, salt: u64, x: f32, z: f32, octaves: u32) -> f32 {
 fn terrain_height(rng: &WorldRng, x: i32, z: i32) -> i32 {
     let noise = fbm_2d(
         rng,
-        TERRAIN_HEIGHT_SALT,
+        TERRAIN_HEIGHT_DOMAIN,
         x as f32 * NOISE_SCALE,
         z as f32 * NOISE_SCALE,
         OCTAVES,

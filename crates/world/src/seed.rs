@@ -5,7 +5,7 @@ use cj_core::rng::WorldRng;
 /// 当前世界生成器版本（影响地形产物时递增）
 pub const CURRENT_GENERATOR_VERSION: u32 = 1;
 
-/// 世界种子随机数命名空间，隔离世界根种子与子系统 salt
+/// 世界种子随机数命名空间，隔离世界根种子与子系统域标识
 const WORLD_SEED_NAMESPACE: u64 = 0x434A_0000_0000_0001;
 
 /// 世界种子

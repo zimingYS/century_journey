@@ -27,11 +27,11 @@ impl WorldRng {
         self.seed
     }
 
-    /// 逐次混合 salt 与坐标
+    /// 逐次混合 domain 与坐标
     #[inline]
-    fn hash_values(&self, salt: u64, values: &[i32]) -> u64 {
+    fn hash_values(&self, domain: u64, values: &[i32]) -> u64 {
         let mut hash = mix(self.seed);
-        hash = mix(hash ^ salt);
+        hash = mix(hash ^ domain);
         for &value in values {
             hash = mix(hash ^ value as u64);
         }
@@ -40,31 +40,31 @@ impl WorldRng {
 
     /// 二维位置哈希
     #[inline]
-    pub fn hash2(&self, salt: u64, x: i32, z: i32) -> u64 {
-        self.hash_values(salt, &[x, z])
+    pub fn hash2(&self, domain: u64, x: i32, z: i32) -> u64 {
+        self.hash_values(domain, &[x, z])
     }
 
     /// 三维位置哈希
     #[inline]
-    pub fn hash3(&self, salt: u64, x: i32, y: i32, z: i32) -> u64 {
-        self.hash_values(salt, &[x, y, z])
+    pub fn hash3(&self, domain: u64, x: i32, y: i32, z: i32) -> u64 {
+        self.hash_values(domain, &[x, y, z])
     }
 
     /// 二维哈希到 `[0, 1)`
     #[inline]
-    pub fn unit2(&self, salt: u64, x: i32, z: i32) -> f32 {
+    pub fn unit2(&self, domain: u64, x: i32, z: i32) -> f32 {
         const SCALE: f32 = 1.0 / 16_777_216.0; // 2^24
-        let hash = self.hash2(salt, x, z);
+        let hash = self.hash2(domain, x, z);
         let top_24 = (hash >> 40) as u32;
         top_24 as f32 * SCALE
     }
 
     /// 三维哈希到 `[0, 1)`
     #[inline]
-    pub fn unit3(&self, salt: u64, x: i32, y: i32, z: i32) -> f32 {
+    pub fn unit3(&self, domain: u64, x: i32, y: i32, z: i32) -> f32 {
         const SCALE: f32 = 1.0 / 16_777_216.0; // 2^24
 
-        let hash = self.hash3(salt, x, y, z);
+        let hash = self.hash3(domain, x, y, z);
         let top_24 = (hash >> 40) as u32;
 
         top_24 as f32 * SCALE
@@ -72,14 +72,14 @@ impl WorldRng {
 
     /// 三维哈希到 `[0, n)`
     #[inline]
-    pub fn range_u32(&self, salt: u64, x: i32, y: i32, z: i32, n: u32) -> u32 {
+    pub fn range_u32(&self, domain: u64, x: i32, y: i32, z: i32, n: u32) -> u32 {
         debug_assert!(n > 0, "range_u32 requires n > 0");
-        self.hash3(salt, x, y, z) as u32 % n
+        self.hash3(domain, x, y, z) as u32 % n
     }
 
     /// 确定性概率判定
     #[inline]
-    pub fn chance(&self, salt: u64, x: i32, y: i32, z: i32, p: f32) -> bool {
+    pub fn chance(&self, domain: u64, x: i32, y: i32, z: i32, p: f32) -> bool {
         debug_assert!(
             (0.0..=1.0).contains(&p),
             "chance probability must be in [0, 1], got {p}"
@@ -90,15 +90,15 @@ impl WorldRng {
         if p >= 1.0 {
             return true;
         }
-        let hash = self.hash3(salt, x, y, z);
+        let hash = self.hash3(domain, x, y, z);
         let top_24 = (hash >> 40) as u32;
         (top_24 as f32 / 16_777_216.0) < p
     }
 
     /// 从主种子派生子种子
     #[inline]
-    pub fn derive_seed(&self, salt: u64) -> u64 {
-        mix(mix(self.seed) ^ salt)
+    pub fn derive_seed(&self, domain: u64) -> u64 {
+        mix(mix(self.seed) ^ domain)
     }
 }
 
@@ -132,13 +132,13 @@ mod tests {
     }
 
     #[test]
-    fn salt_separates_channels() {
+    fn domain_separates_channels() {
         let rng = WorldRng::new(42);
         let mut seen = std::collections::HashSet::new();
-        for salt in 0..64u64 {
+        for domain in 0..64u64 {
             assert!(
-                seen.insert(rng.hash2(salt, 10, 20)),
-                "salt {salt} collided with an earlier salt"
+                seen.insert(rng.hash2(domain, 10, 20)),
+                "domain {domain} collided with an earlier domain"
             );
         }
     }
@@ -256,16 +256,16 @@ mod tests {
     }
 
     #[test]
-    fn derive_seed_is_deterministic_and_salt_separated() {
+    fn derive_seed_is_deterministic_and_domain_separated() {
         let rng = WorldRng::new(2026);
 
         assert_eq!(rng.derive_seed(1), WorldRng::new(2026).derive_seed(1));
 
         let mut seen = std::collections::HashSet::new();
-        for salt in 0..64u64 {
+        for domain in 0..64u64 {
             assert!(
-                seen.insert(rng.derive_seed(salt)),
-                "derive_seed collision at salt {salt}"
+                seen.insert(rng.derive_seed(domain)),
+                "derive_seed collision at domain {domain}"
             );
         }
 
