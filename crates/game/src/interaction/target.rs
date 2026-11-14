@@ -1,4 +1,4 @@
-use crate::player::collision::world_is_solid;
+use crate::interaction::world_query::world_is_solid;
 use bevy::prelude::*;
 use cj_core::pos::BlockPos;
 use cj_runtime::world_data::WorldData;
@@ -87,4 +87,75 @@ pub fn update_player_target(
     target.block = raycast(origin, direction, REACH_DISTANCE, |pos| {
         world_is_solid(&world, pos)
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 直行命中
+    #[test]
+    fn straight_hit() {
+        // 设置起点、方向和实心方块
+        let origin = Vec3::new(0.5, 0.5, 0.5);
+        let direction = Vec3::new(1.0, 0.0, 0.0);
+        let target = BlockPos::new(3, 0, 0);
+
+        // 执行射线检测
+        let result = raycast(origin, direction, 8.0, |pos| pos == target);
+
+        // 验证命中目标方块
+        assert_eq!(result, Some(target));
+    }
+
+    /// 距离截断
+    #[test]
+    fn distance_limit() {
+        let origin = Vec3::new(0.5, 0.5, 0.5);
+        let direction = Vec3::new(1.0, 0.0, 0.0);
+        let target = BlockPos::new(10, 0, 0);
+
+        let result = raycast(origin, direction, 5.0, |pos| pos == target);
+
+        assert_eq!(result, None);
+    }
+
+    /// 起点格不自选
+    #[test]
+    fn origin_cell_is_not_targeted() {
+        let origin = Vec3::new(0.5, 0.5, 0.5);
+        let direction = Vec3::new(1.0, 0.0, 0.0);
+        let start = BlockPos::new(0, 0, 0);
+
+        let result = raycast(origin, direction, 8.0, |pos| pos == start);
+
+        assert_eq!(result, None);
+    }
+
+    /// 最近优先
+    #[test]
+    fn nearest_hit_first() {
+        let origin = Vec3::new(0.5, 0.5, 0.5);
+        let direction = Vec3::new(1.0, 0.0, 0.0);
+        let nearest = BlockPos::new(2, 0, 0);
+        let farther = BlockPos::new(5, 0, 0);
+
+        let result = raycast(origin, direction, 8.0, |pos| {
+            pos == nearest || pos == farther
+        });
+
+        assert_eq!(result, Some(nearest));
+    }
+
+    /// 零方向
+    #[test]
+    fn zero_direction() {
+        let origin = Vec3::new(0.5, 0.5, 0.5);
+        let direction = Vec3::new(0.0, 0.0, 0.0);
+        let target = BlockPos::new(3, 0, 0);
+
+        let result = raycast(origin, direction, 8.0, |pos| pos == target);
+
+        assert_eq!(result, None);
+    }
 }

@@ -1,8 +1,8 @@
 //! 玩家碰撞检测
 
+use crate::interaction::world_query;
 use bevy::prelude::*;
 use cj_core::pos::BlockPos;
-use cj_core::spec::{WORLD_BOTTOM, WORLD_TOP};
 use cj_runtime::world_data::WorldData;
 
 /// AABB 碰撞轴。
@@ -62,21 +62,6 @@ where
     }
 
     false
-}
-
-/// 世界层的方块实心判断。
-pub fn world_is_solid(world: &WorldData, pos: BlockPos) -> bool {
-    if pos.y < WORLD_BOTTOM || pos.y >= WORLD_TOP {
-        return true;
-    }
-
-    let chunk_pos = pos.chunk_pos();
-
-    let Some(chunk) = world.chunks().get(chunk_pos) else {
-        return false;
-    };
-
-    chunk.get_block(pos).block().is_solid()
 }
 
 /// 沿单个轴移动。
@@ -216,13 +201,15 @@ pub fn move_with_collision(
     world: &WorldData,
 ) -> (Vec3, bool) {
     move_with_collision_query(position, velocity, dt, player_half_extents(), |pos| {
-        world_is_solid(world, pos)
+        world_query::world_is_solid(world, pos)
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::interaction::world_query::world_is_solid;
+    use cj_core::spec::{WORLD_BOTTOM, WORLD_TOP};
     use cj_runtime::WorldSeed;
 
     fn solid_block(target: BlockPos) -> impl Fn(BlockPos) -> bool {
