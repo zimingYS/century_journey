@@ -8,6 +8,14 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
+    # minor/patch 合并成一个 PR，只有 major 单独开（如 bevy 0.19 → 0.20）
+    groups:
+      cargo-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: github-actions
     directory: "/"
@@ -16,3 +24,10 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
+    groups:
+      actions-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

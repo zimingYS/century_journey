@@ -1,0 +1,6 @@
+blank_issues_enabled: true
+
+contact_links:
+  - name: 设计文档
+    url: https://github.com/zimingYS/century_journey/blob/main/docs/ARCHITECTURE.md
+    about: 提 Issue 前可以先看架构与模块文档，了解系统现状
