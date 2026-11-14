@@ -1,0 +1,6 @@
+[advisories]
+ignore = [
+    # RUSTSEC-2026-0192 ttf-parser「无人维护」——bevy 文本渲染的传递依赖，无补丁可升。
+    # 属信息级警告（非漏洞），接受并跟踪上游 bevy/cosmic-text 的替换进展。
+    "RUSTSEC-2026-0192",
+]
