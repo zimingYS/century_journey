@@ -7,5 +7,6 @@ pub mod interaction;
 pub mod player;
 pub mod plugin;
 pub mod sets;
+pub mod tools;
 
 pub use plugin::GamePlugin;
